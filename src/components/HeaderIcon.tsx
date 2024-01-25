@@ -7,6 +7,7 @@ import truck from "../assets/images/truck.svg";
 import creditcard from "../assets/images/credit-card.svg";
 import store from "../assets/images/store.svg";
 import image from "../assets/images/image.svg";
+import { useNavigate } from "react-router-dom";
 
 /**
  * ****************************************************************** Outer Function ****************************************************
@@ -30,6 +31,7 @@ const HeaderIcon: React.FC = (): JSX.Element => {
   const [active, setActive] = useState(true);
   const [size, setSize] = useState<SizeType>("large");
   const [avatarShape, setAvatarShape] = useState<AvatarShapeType>("square");
+  const navigate = useNavigate();
 
   const handleMenuClick: MenuProps["onClick"] = (e) => {};
 
@@ -76,14 +78,16 @@ const HeaderIcon: React.FC = (): JSX.Element => {
     <div className="flex w-full ">
       <div className=" fixed left-0 z-50 w-full top-0 h-18 bg-white pt-3 pb-3  mb-2 border-gray-200 dark:bg-gray-700 dark:border-gray-600">
         <div className="grid max-md:grid-cols-4 max-md:grid-rows-2 max-w-[700px] grid-rows-1 grid-cols-8 font-medium">
-          <div className="flex flex-col items-center">
+          <div className="flex flex-col items-center"  >
             {!logo ? (
-              <Skeleton.Avatar
-                className="pt-2"
-                active={active}
-                size={size}
-                shape={avatarShape}
-              />
+                <div className=" cursor-pointer " onClick={()=>{ navigate('/')}}>
+                    <Skeleton.Avatar
+                      className="pt-2"
+                      active={active}
+                      size={size}
+                      shape={avatarShape}
+                    />
+                </div>
             ) : (
               <img
                 src={logo}
@@ -129,6 +133,7 @@ const HeaderIcon: React.FC = (): JSX.Element => {
                 data-tooltip-target="tooltip-document"
                 type="button"
                 className="fw-icon-btn"
+                onClick={()=>{ navigate('/mycompany') }}
               >
                 <img src={briefcase} />
                 <span className="text-sm text-gray-500 whitespace-nowrap dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500">
