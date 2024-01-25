@@ -11,14 +11,14 @@ import wix from "../assets/images/store-wix.svg";
 import woocommerce from "../assets/images/store-woocommerce.svg";
 
 const images = [
-  {name : 'Bigcommerce', img: bigcommerce},
+  {name : 'Squarespace', img: squarespace},
+  {name : 'Shopify', img: shopify},
+  {name : 'Wix', img: wix},
+  {name : 'BigCommerce', img: bigcommerce},
+  {name : 'Square', img: square},
+  {name : 'WooCommerce', img: woocommerce},
   {name : 'Etsy', img: etsy},
   {name : 'Excel', img: excel},
-  {name : 'Shopify', img: shopify},
-  {name : 'Square', img: square},
-  {name : 'Square space', img: squarespace},
-  {name : 'Wix', img: wix},
-  {name : 'Woocommerce', img: woocommerce},
 ];
 
 
@@ -26,19 +26,19 @@ const Landing: React.FC = (): JSX.Element => {
 
 const displayTurtles = images.map(
   (image) => <div className="flex w-1/3 flex-wrap">
-    <div className=" w-full p-1 md:p-2">
+    <div className=" w-full p-6 m-4  md:p-2  ">
       <img
-        className="block h-[100px] w-[100px] rounded-lg object-cover object-center"
+        className="block h-[100px] w-[100px] border-2  rounded-lg object-cover object-center"
         src={image.img}
       />
-      <p className="text-center text-gray-400">{image.name}</p>
+      <p className="text-center pt-2 font-bold text-gray-400">{image.name}</p>
     </div>
   </div>
   )
 
   return (
-    <div className="flex justify-end items-center w-full h-full">
-      <div className="w-1/2 flex flex-col justify-center items-center h-[600px]">
+    <div className="flex justify-end items-center w-full h-full p-8">
+      <div className="w-1/2 flex flex-col justify-center border-r-2 items-center h-[600px]">
         <Button type="primary" size="large">
           Launch wizard setup
         </Button>
