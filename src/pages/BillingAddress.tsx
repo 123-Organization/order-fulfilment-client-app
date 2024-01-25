@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import {
-  Button,
+  Checkbox,
   Form,
   Input,
   Select
@@ -14,7 +14,7 @@ import uploadYourLogo from "../assets/images/upload-your-logo.svg";
 const { Option } = Select;
 type SizeType = Parameters<typeof Form>[0]['size'];
 
-const MyCompany: React.FC = () => {
+const BillingAddress: React.FC = () => {
   const [componentSize, setComponentSize] = useState<SizeType | 'default'>('default');
 
 
@@ -143,12 +143,15 @@ const MyCompany: React.FC = () => {
      <div className="flex justify-end items-center w-full h-full p-8">
       <div className="w-1/2 flex flex-col justify-center border-r-2 items-center h-[600px]">
         <div className="text-left text-gray-400 pt-4">
-          <p className='text-lg  font-bold' >My Company Info  </p>
+          <p className='text-lg  font-bold' >My Billing Address  </p>
           <p className='pt-5'>You can change this info later within your account.</p>
-          <p>This information will be used as the sender on packing <br /> slips and shiping labels.</p>
-          <p className='text-lg py-4 ' >Optional logo  </p>
-          <img className='py-2'  src={uploadYourLogo} />
-          <p className='py-2'>If provided, will appear on packing slips and <br /> shipping labels. Please upload a PNG or JPG file. <br /> This will be resized and saved as 600*180 pixels. </p>
+          <p>
+            <Checkbox
+              className="py-10 align-text-top  text-gray-400 "
+            >
+              Check if same as company address
+            </Checkbox>
+          </p>
         </div>
       </div>
       <div className="w-1/2">
@@ -163,4 +166,4 @@ const MyCompany: React.FC = () => {
   );
 };
 
-export default MyCompany;
+export default BillingAddress;
