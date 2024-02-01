@@ -14,6 +14,7 @@ import { useNavigate } from "react-router-dom";
  */
 type SizeType = "default" | "small" | "large";
 type AvatarShapeType = "circle" | "square";
+
 const handleButtonClick = (e: React.MouseEvent<HTMLButtonElement>) => {
   message.info("Click on left button.");
   console.log("click left button", e);
@@ -155,6 +156,8 @@ const HeaderIcon: React.FC = (): JSX.Element => {
               <button
                 type="button"
                 className="fw-icon-btn"
+                onClick={()=>{ navigate('/billingaddress') }}
+                
               >
                 <img src={creditcard} />
                 <span className="">
@@ -165,6 +168,7 @@ const HeaderIcon: React.FC = (): JSX.Element => {
               <button
                 type="button"
                 className="fw-icon-btn"
+                onClick={()=>{ navigate('/paymentaddress') }}
               >
                 <img src={store} />
                 <span className="">

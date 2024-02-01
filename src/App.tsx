@@ -5,10 +5,14 @@ import Router from "./routes";
 
 import HeaderIcon from './components/HeaderIcon';
 import BottomIcon from './components/BottomIcon';
+import { useLocation } from 'react-router-dom';
 
 const { Header, Footer, Content } = Layout;
 
 function App() {
+  const location = useLocation();
+  console.log(location.pathname);
+
   const {
     token: { colorBgContainer },
   } = theme.useToken();
@@ -23,9 +27,13 @@ function App() {
           <Router />
         </div>
       </Content>
-      <Footer style={{ textAlign: 'center', backgroundColor: '#fff', }}>
-        {/* <BottomIcon /> */}
-     </Footer>
+      {
+        location.pathname !== '/' &&
+        <Footer style={{ textAlign: 'center', backgroundColor: '#fff', }}>
+          <BottomIcon />
+        </Footer>
+
+      }
     </Layout>
   );
 }
