@@ -1,5 +1,5 @@
 export const routes = {
-  login: "/login",
+  import: "/import",
   billingaddress:"/billingaddress",
   paymentaddress:"/paymentaddress",
   mycompany: "/mycompany",

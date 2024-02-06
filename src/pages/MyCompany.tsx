@@ -33,7 +33,7 @@ const MyCompany: React.FC = () => {
 
   const onChange = (value: string) => {
     console.log(`selected ${value}`);
-    setStates(value.toLowerCase());
+    setStates(value?.toLowerCase());
     
   };
 

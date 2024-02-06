@@ -159,7 +159,7 @@ const PaymentAddress: React.FC = () => {
               className="py-10 align-text-top  text-gray-400 "
               checked
             >
-              Check if same as company address
+              Make Primary Payment Method
             </Checkbox>
           </p>
 </Form>      

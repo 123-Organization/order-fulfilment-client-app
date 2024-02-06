@@ -5,6 +5,7 @@ import { routes } from "../config/routes";
 const Login = lazy(() => import("../pages/Login"));
 const Landing = lazy(() => import("../pages/Landing"));
 const MyCompany = lazy(() => import("../pages/MyCompany"));
+const Import = lazy(() => import("../pages/Import"));
 const BillingAddress = lazy(() => import("../pages/BillingAddress"));
 const PaymentAddress = lazy(() => import("../pages/PaymentAddress"));
 
@@ -31,7 +32,7 @@ const Router: React.FC = (): JSX.Element  => {
           <Route path={routes.paymentaddress} Component={PaymentAddress} />
           <Route path={routes.mycompany} Component={MyCompany} />
           <Route path={routes.billingaddress} Component={BillingAddress} />
-          <Route path={routes.login} Component={Login} />
+          <Route path={routes.import} Component={Import} />
           <Route path="*" Component={initialRoute()} />
         </Routes>
       </Suspense>

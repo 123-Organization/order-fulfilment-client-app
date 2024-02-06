@@ -38,6 +38,13 @@
 }
 
 
+.ant-select-single {
+  height: 36px!important;
+}
+
+.fw-input {
+  padding-top: 0.5rem !important;
+}
 
 .uppy-Dashboard-AddFiles-info{
   display:hidden!important 

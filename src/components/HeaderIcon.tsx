@@ -8,6 +8,7 @@ import creditcard from "../assets/images/credit-card.svg";
 import store from "../assets/images/store.svg";
 import image from "../assets/images/image.svg";
 import { useNavigate } from "react-router-dom";
+import UploadFileModal from "./UploadFileModal";
 
 /**
  * ****************************************************************** Outer Function ****************************************************
@@ -28,6 +29,7 @@ const MODAL_STYLES: CSSProperties = {
  * ****************************************************************** Function Components **********************************************
  */
 const HeaderIcon: React.FC = (): JSX.Element => {
+  const [open, setOpen] = useState(false);
   const [spinLoader, setSpinLoader] = useState(false);
   const [active, setActive] = useState(true);
   const [size, setSize] = useState<SizeType>("large");
@@ -146,10 +148,12 @@ const HeaderIcon: React.FC = (): JSX.Element => {
               <button
                 type="button"
                 className="fw-icon-btn"
+                onClick={() => {
+                  setOpen(true)}}
               >
                 <img src={truck} />
                 <span className=" ">
-                  Ship Perferences
+                  Ship Perferences 
                 </span>
               </button>
 
@@ -178,11 +182,11 @@ const HeaderIcon: React.FC = (): JSX.Element => {
             </>
           ) : (
             <></>
-          )}
+            )}
           {1 && (
             <div
-              onClick={createPrints}
-              className="fw-sky-btn1 absolute max-md:row-1 max-md:col-span-4 max-md:relative"
+            onClick={createPrints}
+            className="fw-sky-btn1 absolute max-md:row-1 max-md:col-span-4 max-md:relative"
             >
               <Spin spinning={spinLoader} size="small">
                 <button
@@ -199,6 +203,7 @@ const HeaderIcon: React.FC = (): JSX.Element => {
             </div>
           )}
         </div>
+<UploadFileModal    openModel={open} setOpen={setOpen}  />
       </div>
     </div>
   )
