@@ -8,7 +8,7 @@ import creditcard from "../assets/images/credit-card.svg";
 import store from "../assets/images/store.svg";
 import image from "../assets/images/image.svg";
 import { useNavigate } from "react-router-dom";
-import UploadFileModal from "./UploadFileModal";
+// import UploadFileModal from "./UploadFileModal";
 
 /**
  * ****************************************************************** Outer Function ****************************************************
@@ -203,7 +203,7 @@ const HeaderIcon: React.FC = (): JSX.Element => {
             </div>
           )}
         </div>
-<UploadFileModal    openModel={open} setOpen={setOpen}  />
+{/* <UploadFileModal    openModel={open} setOpen={setOpen}  /> */}
       </div>
     </div>
   )

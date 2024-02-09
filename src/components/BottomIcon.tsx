@@ -48,9 +48,16 @@ const BottomIcon: React.FC = (): JSX.Element => {
                             </button>
                         </>    
                     }
+                <Button
+                          key="submit"
+                          className="  w-44 mx-8 mt-2  text-gray-500"
+                          size={"large"}
+                          type="default"
+                        >
+                          Back
+                        </Button>
                 </div>
                 <div className="grid h-full max-w-lg grid-cols-1 font-medium basis-1/2">
-                   
                 </div>
                 <div className="grid h-full max-w-lg grid-cols-2/3 font-medium basis-1/2 relative ">
                     <Button onClick={()=>{ navigate('/BillingAddress')}} className="my-2 w-44 absolute right-2" type="primary" size="large" >

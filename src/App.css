@@ -42,6 +42,9 @@
   height: 36px!important;
 }
 
+.country_code_importlist_form .ant-col-14{
+  max-width: 600px!important;
+}
 .fw-input {
   padding-top: 0.5rem !important;
 }

@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from "react";
 import { Route, Routes } from "react-router-dom";
 import { routes } from "../config/routes";
+import ImportList from "../pages/ImportList";
 
 const Login = lazy(() => import("../pages/Login"));
 const Landing = lazy(() => import("../pages/Landing"));
@@ -33,6 +34,7 @@ const Router: React.FC = (): JSX.Element  => {
           <Route path={routes.mycompany} Component={MyCompany} />
           <Route path={routes.billingaddress} Component={BillingAddress} />
           <Route path={routes.import} Component={Import} />
+          <Route path={routes.importlist} Component={ImportList} />
           <Route path="*" Component={initialRoute()} />
         </Routes>
       </Suspense>
