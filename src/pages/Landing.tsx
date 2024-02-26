@@ -34,34 +34,6 @@ export enum StepType {
 }
 
 
-const fields = [
-  {
-    // Visible in table header and when matching columns.
-    label: "Name",
-    // This is the key used for this field when we call onSubmit.
-    key: "name",
-    // Allows for better automatic column matching. Optional.
-    alternateMatches: ["first name", "first"],
-    // Used when editing and validating information.
-    fieldType: {
-      // There are 3 types - "input" / "checkbox" / "select".
-      type: "input",
-    },
-    // Used in the first step to provide an example of what data is expected in this field. Optional.
-    example: "Stephanie",
-    // Can have multiple validations that are visible in Validation Step table.
-    validations: [
-      {
-        // Can be "required" / "unique" / "regex"
-        rule: "required",
-        errorMessage: "Name is required",
-        // There can be "info" / "warning" / "error" levels. Optional. Default "error".
-        level: "error",
-      },
-    ],
-  },
-] as const
-
 const Landing: React.FC = (): JSX.Element => {
 
 const [openExcel, setOpenExcel] = useState(false); 
@@ -213,8 +185,8 @@ const [openExcel, setOpenExcel] = useState(false);
   };
 
   const displayTurtles = images.map(
-    (image) => <div className="flex w-1/3 flex-wrap">
-      <div className=" w-full p-6 m-4  md:p-2  " onClick={()=>importData(image.name)}>
+    (image) => <div className="flex w-1/3 max-sm:w-1/2 max-[400px]:w-full flex-wrap">
+      <div className=" w-full p-6 m-4  md:p-2 flex flex-col items-center " onClick={()=>importData(image.name)}>
         <img
           className="block h-[100px] w-[100px] border-2  rounded-lg object-cover object-center"
           src={image.img}
@@ -225,8 +197,8 @@ const [openExcel, setOpenExcel] = useState(false);
     )
 
   return (
-    <div className="flex justify-end items-center w-full h-full p-8">
-      <div className="w-1/2 flex flex-col justify-center border-r-2 items-center h-[600px]">
+    <div className="flex justify-end max-md:flex-col items-center w-full h-full p-8">
+      <div className="w-1/2 max-md:w-full flex flex-col justify-center max-md:border-b-2 md:border-r-2 items-center h-[600px] max-md:h-[300px]">
         <Button onClick={()=>{ navigate('/mycompany')}} type="primary" size="large" >
           Launch wizard setup
         </Button>
@@ -235,7 +207,7 @@ const [openExcel, setOpenExcel] = useState(false);
           <p>needed in order to import orders from your stores.  </p>
         </div>
       </div>
-      <div className="w-1/2">
+      <div className="w-1/2 max-md:w-full">
         <div className="container mx-auto px-5 py-2 lg:px-32 justify-center items-center">
           <div className="-m-1 mx-4 flex flex-wrap md:-m-2">
             {displayTurtles}

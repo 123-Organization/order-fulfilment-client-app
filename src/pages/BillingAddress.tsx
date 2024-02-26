@@ -37,9 +37,9 @@ const BillingAddress: React.FC = () => {
   wrapperCol={{ span: 14 }}
   layout="horizontal"
   initialValues={{ size: componentSize }}
-  className="w-full "
+  className="w-full flex flex-col items-center"
 >
-      <Form.Item name="country_code" >
+      <Form.Item name="country_code" className='w-full sm:ml-[200px]' >
       <div className="relative">
         
         <Select
@@ -73,7 +73,7 @@ const BillingAddress: React.FC = () => {
       </Form.Item>
       <Form.Item
         name="company_name"
-        className='w-f'
+        className='w-full sm:ml-[200px]'
       >
         <div className="relative">
         
@@ -83,7 +83,7 @@ const BillingAddress: React.FC = () => {
       </Form.Item>
       <Form.Item
         name="first_name"
-        className='w-f'
+        className='w-full sm:ml-[200px]'
       >
         <div className="relative">
         
@@ -93,7 +93,7 @@ const BillingAddress: React.FC = () => {
       </Form.Item>
       <Form.Item
         name="last_name"
-        className='w-f'
+        className='w-full sm:ml-[200px]'
       >
         <div className="relative">
         
@@ -103,7 +103,7 @@ const BillingAddress: React.FC = () => {
       </Form.Item>
       <Form.Item
         name="address_1"
-        className='w-f'
+        className='w-full sm:ml-[200px]'
       >
         <div className="relative">
         
@@ -113,7 +113,7 @@ const BillingAddress: React.FC = () => {
       </Form.Item>
       <Form.Item
         name="address_2"
-        className='w-f'
+        className='w-full sm:ml-[200px]'
       >
         <div className="relative">
         
@@ -123,7 +123,7 @@ const BillingAddress: React.FC = () => {
       </Form.Item>
       <Form.Item
         name="city"
-        className='w-f'
+        className='w-full sm:ml-[200px]'
       >
         <div className="relative">
         
@@ -135,7 +135,7 @@ const BillingAddress: React.FC = () => {
       
       <Form.Item
         name="state"
-        className='w-f'
+        className='w-full sm:ml-[200px]'
       >
         <div className="relative">
           <Select
@@ -151,7 +151,7 @@ const BillingAddress: React.FC = () => {
       
       <Form.Item
         name="zip_postal_code"
-        className='w-f'
+        className='w-full sm:ml-[200px]'
       >
         <div className="relative">
         
@@ -162,7 +162,7 @@ const BillingAddress: React.FC = () => {
 
       <Form.Item
         name="phone"
-        className='w-f'
+        className='w-full sm:ml-[200px]'
       >
         <div className="relative">
         
@@ -174,8 +174,11 @@ const BillingAddress: React.FC = () => {
 </Form>      
 
   return (
-     <div className="flex justify-end items-center w-full h-full p-8">
-      <div className="w-1/2 flex flex-col justify-center border-r-2 items-center h-[600px]">
+     <div className="flex justify-end items-center w-full h-full p-8 max-md:flex-col max-md:mt-12">
+      <div className="
+          w-1/2  flex flex-col justify-center items-center h-[600px] max-md:w-full 
+          md:border-r-2 max-md:border-b-2 max-md:mb-8
+        ">
         <div className="text-left text-gray-400 pt-4">
           <p className='text-lg  font-bold' >My Billing Address  </p>
           <p className='pt-5'>You can change this info later within your account.</p>
@@ -189,8 +192,8 @@ const BillingAddress: React.FC = () => {
           </p>
         </div>
       </div>
-      <div className="w-1/2">
-        <div className="container mx-auto px-5 py-2 lg:px-32 justify-center items-center">
+      <div className="w-1/2 max-md:w-full">
+        <div className="container mx-auto px-5 py-2 lg:px-8 md:px-4 justify-center items-center">
           <div className="-m-1 mx-4 flex flex-wrap md:-m-2">
             {displayTurtles}
           </div>
