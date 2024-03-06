@@ -9,6 +9,8 @@ const MyCompany = lazy(() => import("../pages/MyCompany"));
 const Import = lazy(() => import("../pages/Import"));
 const BillingAddress = lazy(() => import("../pages/BillingAddress"));
 const PaymentAddress = lazy(() => import("../pages/PaymentAddress"));
+const ShippingPreference = lazy(() => import("../pages/ShippingPreference"));
+const Checkout = lazy(() => import("../pages/Checkout"));
 
 const Router: React.FC = (): JSX.Element  => {
   
@@ -30,6 +32,8 @@ const Router: React.FC = (): JSX.Element  => {
         }
       >
         <Routes>
+          <Route path={routes.checkout} Component={Checkout} />
+          <Route path={routes.shippingpreference} Component={ShippingPreference} />
           <Route path={routes.paymentaddress} Component={PaymentAddress} />
           <Route path={routes.mycompany} Component={MyCompany} />
           <Route path={routes.billingaddress} Component={BillingAddress} />

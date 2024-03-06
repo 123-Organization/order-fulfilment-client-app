@@ -3,7 +3,9 @@ export const routes = {
   importlist: "/importlist",
   billingaddress:"/billingaddress",
   paymentaddress:"/paymentaddress",
+  shippingpreference:"/shippingpreference",
   mycompany: "/mycompany",
+  checkout: "/checkout",
   thumbnail: "/thumbnail",
   landingPage: "/",
 };

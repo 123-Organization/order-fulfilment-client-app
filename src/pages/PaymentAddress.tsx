@@ -5,6 +5,7 @@ import {
   Input,
   Select
 } from 'antd';
+import Payment from './Payment';
 
 
 const { Option } = Select;
@@ -178,7 +179,9 @@ const PaymentAddress: React.FC = () => {
             Name and address must be assigned to billing address<br/>
             from the previous step.<br/>
           </p>
-        
+        <p>
+          <Payment />
+        </p>
         </div>
       </div>
       <div className="w-1/2 max-md:w-full">
