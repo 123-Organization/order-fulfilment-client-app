@@ -13,7 +13,9 @@ export default function Payment() {
   useEffect(() => {
     PaymentHttpClient.generateToken()
       .then(({ token }: IBraintreeToken) => {
+        console.log('token',token)
         setClientToken(token);
+        setShowBraintreeDropIn(true)
       })
       .catch((error: Error) => {
         console.log(error);
@@ -40,7 +42,7 @@ export default function Payment() {
 
   return (
     <div className='container-fluid'>
-      <div className='text-center'>
+      {/* <div className='text-center'>
         <h1>Payment</h1>
         {!showBraintreeDropIn && (
           <button
@@ -51,7 +53,7 @@ export default function Payment() {
             Go to Checkout
           </button>
         )}
-      </div>
+      </div> */}
 
       <div className='row justify-content-center'>
         <div className='col-4 text-center'>

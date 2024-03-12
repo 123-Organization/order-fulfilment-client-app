@@ -27,10 +27,10 @@ export default class PaymentHttpClient {
   public static async generateToken(): Promise<IBraintreeToken> {
     // generate token
     const {
-      data: { clientToken: token },
-    } = await HttpClient.get('/payment/generate-token');
+      data: { token },
+    } = await HttpClient.get('/get-client-token');
     const braintreeToken: IBraintreeToken = { token };
-
+    console.log('braintreeToken....',braintreeToken)
     return braintreeToken;
   }
 

@@ -17,9 +17,13 @@ const Braintree = ({ clientToken, show, checkout }: BraintreeProps) => {
 
   useEffect(() => {
     if (show) {
+      console.log('clientToken...',clientToken)
       const config = {
         authorization: clientToken,
         container: '#braintree-drop-in-div',
+        paypal: {
+          flow: 'vault'
+        },
       };
 
       /**

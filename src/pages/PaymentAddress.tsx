@@ -49,16 +49,16 @@ const PaymentAddress: React.FC = () => {
     filterOption={filterOption}
     options={[
       {
-        value: 'jack',
-        label: 'Jack',
+        value: 'Master',
+        label: 'Master',
       },
       {
-        value: 'lucy',
-        label: 'Lucy',
+        value: 'Visa',
+        label: 'Visa',
       },
       {
-        value: 'tom',
-        label: 'Tom',
+        value: 'American Express',
+        label: 'American Express',
       },
     ]}
         >
@@ -180,14 +180,15 @@ const PaymentAddress: React.FC = () => {
             from the previous step.<br/>
           </p>
         <p>
-          <Payment />
+          
         </p>
         </div>
       </div>
       <div className="w-1/2 max-md:w-full">
         <div className="container mx-auto px-5 py-2 lg:px-8 md:px-4 justify-center items-center">
           <div className="-m-1 mx-4 flex items-center flex-wrap md:-m-2">
-            {displayTurtles}
+            {/* {displayTurtles} */}
+            <Payment />
           </div>
         </div>
       </div>
