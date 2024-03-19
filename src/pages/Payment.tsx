@@ -40,8 +40,33 @@ export default function Payment() {
       });
   };
 
+  const addPaymentMethod = (paymentMethodNonce: string) => {
+    // TODO : Based on inputs we have to create payload
+    // Example - Amount based on cart and price per item
+    const payload: ITransactionRequest = {
+      amount: '10',
+      paymentMethodNonce,
+    };
+
+    const nonceFromClient = paymentMethodNonce;
+    const customerId = '86584217823';
+
+    const finalPayload = {nonceFromClient,customerId};
+
+    PaymentHttpClient.addPaymentMethod(paymentMethodNonce)
+      .then((result: ITransactionResponse) => {
+        alert('Payment successfully completed');
+        console.log(result);
+      })
+      .catch((error: Error) => {
+        alert('Payment Failed');
+        console.log(error);
+      });
+  };
+
+  
   return (
-    <div className='container-fluid'>
+    <div className='container-fluid w-full'>
       {/* <div className='text-center'>
         <h1>Payment</h1>
         {!showBraintreeDropIn && (
@@ -61,6 +86,7 @@ export default function Payment() {
             clientToken={clientToken}
             show={showBraintreeDropIn}
             checkout={initiatePayment}
+            addPaymentMethod={addPaymentMethod}
           />
         </div>
       </div>

@@ -8,9 +8,10 @@ type BraintreeProps = {
   clientToken: string;
   show: boolean;
   checkout: (nonce: string) => void;
+  addPaymentMethod: (payload:any) => void;
 };
 
-const Braintree = ({ clientToken, show, checkout }: BraintreeProps) => {
+const Braintree = ({ clientToken, show, checkout,addPaymentMethod }: BraintreeProps) => {
   const [braintreeInstance, setBraintreeInstance] = useState<
     Dropin | undefined
   >();
@@ -58,11 +59,16 @@ const Braintree = ({ clientToken, show, checkout }: BraintreeProps) => {
       if (error) {
         console.error(error);
       } else {
+        const nonceFromClient = payload.nonce;
         const paymentMethodNonce = payload.nonce;
+        const customerId = '86584217823';
+
         console.log('payment method nonce', payload.nonce);
+        const finalPayload = {nonceFromClient,customerId};
         // TODO: use the paymentMethodNonce to
         // call you server and complete the payment here
-        checkout(paymentMethodNonce);
+       addPaymentMethod(finalPayload);
+        // checkout(paymentMethodNonce);
       }
     };
 
@@ -71,7 +77,7 @@ const Braintree = ({ clientToken, show, checkout }: BraintreeProps) => {
 
   return (
     <div
-      className='braintree'
+      className='braintree w-full'
       style={{ display: `${show ? 'block' : 'none'}` }}
     >
       <div id={'braintree-drop-in-div'} />

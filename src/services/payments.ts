@@ -70,4 +70,16 @@ export default class PaymentHttpClient {
 
     return response;
   }
+
+   /**
+   * Add Payment Method
+   * @param payload
+   * @returns
+   */
+    public static async addPaymentMethod(
+      payload: any
+    ) {
+      const response = await HttpClient.post('/add-payment-card', payload);
+      return response;
+    }
 }
