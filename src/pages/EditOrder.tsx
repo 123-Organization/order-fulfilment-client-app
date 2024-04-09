@@ -232,7 +232,7 @@ const displayTurtlesTotal = (
   return (
     <div className="flex max-md:flex-col  justify-end items-start w-full h-full p-8">
       
-      <div className="w-1/3 max-md:w-full md:border-r-2 max-md:border-b-2">
+      <div className="w-1/3 max-md:w-full md:border-r-2 max-md:pb-4 max-md:border-b-2">
         <div className="container mx-auto px-5 py-2 lg:px-8 md:px-4 justify-center items-center">
           <div className="-m-1 mx-4 flex flex-wrap md:-m-2">
           <p className='text-lg text-gray-400 py-4 font-bold'>
@@ -243,10 +243,10 @@ const displayTurtlesTotal = (
         </div>
       </div>
 
-      <div className="w-1/2 max-md:w-full flex flex-col justify-start md:border-r-2 max-md:border-b-2  max-md:mb-8 items-center h-[600px]">
+      <div className="w-1/2 max-md:w-full flex flex-col justify-start md:border-r-2  max-md:border-b-2 max-md:pb-6  items-center h-[800px] max-md:h-auto">
         <div className="text-left w-full px-4 text-gray-400 pt-4">
         <p className='text-lg pb-4 text-gray-400  font-bold' >Cart</p>
-        <label className="h-[220px] inline-flex  justify-between w-full p-5 text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700">
+        <label className="h-[220px] max-md:h-auto inline-flex  justify-between w-full p-5 text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700">
                     <div className="block relative pb-4 w-full">
                       <p className='text-right'>
                           Quantity <br />
@@ -283,7 +283,7 @@ const displayTurtlesTotal = (
                           size={"small"}
                           type="default"
                         >
-                          Edit order
+                          Add / Change Image
                         </Button>
                       </div>
                       <div className=" text-sm  absolute right-2 -bottom-3">
@@ -296,7 +296,7 @@ const displayTurtlesTotal = (
         </div>
       </div>
 
-      <div className="w-1/3 max-md:w-full">
+      <div className="w-1/3 max-md:w-full mt-1">
         <div className="container mx-auto px-5 py-2 lg:px-8 md:px-4 justify-start items-center">
           <div className="-m-1 mx-4 flex flex-wrap md:-m-2">
           <p className='text-lg my-2 pb-4 text-gray-400 text-left font-bold' >Shippings & Totals</p>

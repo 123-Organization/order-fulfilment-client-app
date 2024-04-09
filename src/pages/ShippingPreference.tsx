@@ -101,9 +101,9 @@ className="w-full "
 
  
   return (
-     <div className="flex justify-end items-center w-full h-full p-8">
-      <div className="w-1/2 flex flex-col justify-start border-r-2 items-center h-[600px]">
-        <div className="container mx-auto  py-2 px-32 justify-center items-center w-full text-gray-400 ">
+     <div className="flex max-md:flex-col justify-end items-center  w-full h-full p-8 max-md:py-8 max-md:px-4 max-sm:-ml-[30px]">
+      <div className="w-1/2 flex flex-col justify-start md:border-r-2 items-center md:h-[600px]">
+        <div className="container mx-auto  py-2 md:px-32 justify-center items-center w-full text-gray-400 ">
           <p className='text-lg  font-bold' >Shipping Preferences  </p>
           <p className='pt-5'>
             You can have up to 3 shipping  preferences. In the rare instance a <br />
@@ -114,8 +114,8 @@ className="w-full "
         </div>
        
       </div>
-      <div className="w-1/2 flex justify-start h-screen">
-        <div className="container mx-auto px-5 py-2  justify-start items-center">
+      <div className="w-1/2 flex justify-start h-screen max-md:-ml-[30px]">
+        <div className="container mx-auto md:px-5 py-2  justify-start items-center">
           <div className="mt-4 mx-4 flex flex-wrap md:-m-2 justify-start items-center">
           <Tabs defaultActiveKey="1" items={items} onChange={onChange} />
           </div>

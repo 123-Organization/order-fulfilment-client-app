@@ -18,12 +18,12 @@ function App() {
   } = theme.useToken();
   
   return (
-    <Layout className="layout">
+    <Layout className="layout ">
       <Header style={{ display: 'flex', alignItems: 'center', backgroundColor: '#fff', }}>
         <HeaderIcon />
       </Header>
-      <Content style={{ padding: '50px' }}>
-        <div className="site-layout-content" style={{ background: colorBgContainer, minHeight: '600px' }}>
+      <Content className=' ' style={{ padding: '50px' }}>
+        <div className="site-layout-content sm:min-h-[600px] max-sm:min-h-screen" style={{ background: colorBgContainer }}>
           <Router />
         </div>
       </Content>

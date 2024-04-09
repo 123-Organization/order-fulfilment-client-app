@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { Button } from "antd";
 import { ReactSpreadsheetImport } from "react-spreadsheet-import";
 import type XLSX from "xlsx-ugnis"
@@ -13,6 +13,8 @@ import squarespace from "../assets/images/store-squarespace.svg";
 import wix from "../assets/images/store-wix.svg";
 import woocommerce from "../assets/images/store-woocommerce.svg";
 import { useNavigate } from "react-router-dom";
+import { saveOrder } from "../store/features/orderSlice";
+import { useAppDispatch } from "../store";
 
 const images = [
   {name : 'Squarespace', img: squarespace},
@@ -36,24 +38,26 @@ export enum StepType {
 
 const Landing: React.FC = (): JSX.Element => {
 
-const [openExcel, setOpenExcel] = useState(false); 
+const [openExcel, setOpenExcel] = useState<Boolean>(false); 
+// const [isOpen, setOpenExcel] = useState<Boolean>(true); 
  // Determines if modal is visible.
  const isOpen: boolean = true;
 
  // Called when flow is closed without reaching submit.
- function onClose() {}
+ function onClose() { setOpenExcel(false) }
  // Called after user completes the flow. Provides data array, where data keys matches your field keys.
  function onSubmit(data: any) {
    console.log('import',data);
+  //  data.validData
    alert(data);
  }
 
  const fields = [
    {
      // Visible in table header and when matching columns.
-     label: "Name",
+     label: "Quantity",
      // This is the key used for this field when we call onSubmit.
-     key: "name",
+     key: "product_qty",
      // Allows for better automatic column matching. Optional.
      alternateMatches: ["first name", "first"],
      // Used when editing and validating information.
@@ -76,9 +80,9 @@ const [openExcel, setOpenExcel] = useState(false);
    },
    {
      // Visible in table header and when matching columns.
-     label: "Pitch",
+     label: "SKU",
      // This is the key used for this field when we call onSubmit.
-     key: "pitch",
+     key: "product_sku",
      // Allows for better automatic column matching. Optional.
      // Used when editing and validating information.
      fieldType: {
@@ -100,9 +104,9 @@ const [openExcel, setOpenExcel] = useState(false);
    },
    {
      // Visible in table header and when matching columns.
-     label: "State",
+     label: "Width",
      // This is the key used for this field when we call onSubmit.
-     key: "state",
+     key: "product_image.pixel_width",
      // Allows for better automatic column matching. Optional.
      alternateMatches: ["states"],
      // Used when editing and validating information.
@@ -114,20 +118,20 @@ const [openExcel, setOpenExcel] = useState(false);
      example: "In Progress",
      // Can have multiple validations that are visible in Validation Step table.
      validations: [
-       {
-         // Can be "required" / "unique" / "regex"
-         rule: "required",
-         errorMessage: "Name is required",
-         // There can be "info" / "warning" / "error" levels. Optional. Default "error".
-         level: "error"
-       }
+      //  {
+      //    // Can be "required" / "unique" / "regex"
+      //   //  rule: "required",
+      //   //  errorMessage: "Name is required",
+      //    // There can be "info" / "warning" / "error" levels. Optional. Default "error".
+      //   //  level: "error"
+      //  }
      ]
    },
    {
      // Visible in table header and when matching columns.
-     label: "Status",
+     label: "Height",
      // This is the key used for this field when we call onSubmit.
-     key: "status",
+     key: "product_image['pixel_height']",
      // Allows for better automatic column matching. Optional.
      alternateMatches: ["first name", "first"],
      // Used when editing and validating information.
@@ -139,20 +143,20 @@ const [openExcel, setOpenExcel] = useState(false);
      example: "Identified",
      // Can have multiple validations that are visible in Validation Step table.
      validations: [
-       {
-         // Can be "required" / "unique" / "regex"
-         rule: "required",
-         errorMessage: "Name is required",
-         // There can be "info" / "warning" / "error" levels. Optional. Default "error".
-         level: "error"
-       }
+      //  {
+      //    // Can be "required" / "unique" / "regex"
+      //    rule: "required",
+      //    errorMessage: "Name is required",
+      //    // There can be "info" / "warning" / "error" levels. Optional. Default "error".
+      //    level: "error"
+      //  }
      ]
    },
    {
      // Visible in table header and when matching columns.
-     label: "Tags",
+     label: "Title",
      // This is the key used for this field when we call onSubmit.
-     key: "tags",
+     key: "title",
      // Allows for better automatic column matching. Optional.
      alternateMatches: ["first name", "first"],
      // Used when editing and validating information.
@@ -175,12 +179,16 @@ const [openExcel, setOpenExcel] = useState(false);
    }
  ] as const;
 
-
+  const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const importData =  (imgname:string) => { 
+
     if(imgname==='Excel'){
       setOpenExcel(true) 
+    }
 
+    if(imgname==='WooCommerce'){
+      dispatch(saveOrder('hey' ));
     }
   };
 
@@ -214,7 +222,21 @@ const [openExcel, setOpenExcel] = useState(false);
           </div>
         </div>
       </div>
-      { openExcel && <ReactSpreadsheetImport isOpen={isOpen} onClose={onClose} onSubmit={onSubmit} fields={fields} />}
+      { openExcel && <ReactSpreadsheetImport
+      
+      rowHook={(data, addError) => {
+        // Validation
+        // if (data['product_image.pixel_width'] === "John") {
+        //   addError("name", { message: "No Johns allowed", level: "info" })
+        // }
+        // let product_image:object = {}
+        // product_image.assign(product_image, { pixel_width: "xxx", age: "0" });
+        // let product_image['pixel_width'] = data['product_image.pixel_width'];
+        // Transformation
+        return { ...data, name: "Not John" }
+        // Sorry John
+      }}
+      isOpen={isOpen} onClose={onClose} onSubmit={onSubmit} fields={fields} />}
     </div>
   )
 }

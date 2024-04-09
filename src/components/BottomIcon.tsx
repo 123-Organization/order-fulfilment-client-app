@@ -58,6 +58,10 @@ const BottomIcon: React.FC = (): JSX.Element => {
                         </Button>
                 </div>
                 <div className="grid h-full max-w-lg grid-cols-1 font-medium basis-1/2">
+                    <div className='flex flex-col font-bold text-gray-400 pt-2'>
+                        <span>Order Count : 2</span>
+                        <span>Grant Total : 290.40</span>
+                    </div>
                 </div>
                 <div className="grid h-full max-w-lg grid-cols-2/3 font-medium basis-1/2 relative ">
                     <Button onClick={()=>{ navigate('/BillingAddress')}} className="my-2 w-44 absolute right-2" type="primary" size="large" >
