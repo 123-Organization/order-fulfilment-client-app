@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react'
-import { message, PaginationProps, Spin } from 'antd';
+import { Button, PaginationProps, Spin } from 'antd';
+import { useNavigate } from 'react-router-dom';
 
 const BottomIcon: React.FC = (): JSX.Element => {
     let isLoadingImgDelete = false;
-    
+    const navigate = useNavigate();
     const onChange: PaginationProps['onChange']|any = (filterPageNumber:number) => {
         console.log('Page: ', filterPageNumber);
  
@@ -27,7 +28,7 @@ const BottomIcon: React.FC = (): JSX.Element => {
             <div className="flex fixed bottom-0 left-0  w-full h-16 bg-white  border-b mt-2 border-gray-200 dark:bg-gray-700 dark:border-gray-600">
                 <div className="grid h-full max-w-lg grid-cols-2 font-medium basis-1/2">
                     {
-                        1 &&
+                        false &&
                         <>
                             {
                             1 && 
@@ -47,6 +48,25 @@ const BottomIcon: React.FC = (): JSX.Element => {
                             </button>
                         </>    
                     }
+                <Button
+                          key="submit"
+                          className="  w-44 mx-8 mt-2  text-gray-500"
+                          size={"large"}
+                          type="default"
+                        >
+                          Back
+                        </Button>
+                </div>
+                <div className="grid h-full max-w-lg grid-cols-1 font-medium basis-1/2">
+                    <div className='flex flex-col font-bold text-gray-400 pt-2'>
+                        <span>Order Count : 2</span>
+                        <span>Grant Total : 290.40</span>
+                    </div>
+                </div>
+                <div className="grid h-full max-w-lg grid-cols-2/3 font-medium basis-1/2 relative ">
+                    <Button onClick={()=>{ navigate('/BillingAddress')}} className="my-2 w-44 absolute right-2" type="primary" size="large" >
+                        Next
+                    </Button>
                 </div>
             </div>
         </div>

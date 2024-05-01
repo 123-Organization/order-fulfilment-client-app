@@ -1,16 +1,21 @@
 import React, { Suspense, lazy } from "react";
 import { Route, Routes } from "react-router-dom";
 import { routes } from "../config/routes";
+import ImportList from "../pages/ImportList";
 
 const Login = lazy(() => import("../pages/Login"));
 const Landing = lazy(() => import("../pages/Landing"));
 const MyCompany = lazy(() => import("../pages/MyCompany"));
-
+const EditOrder = lazy(() => import("../pages/EditOrder"));
+const Import = lazy(() => import("../pages/Import"));
+const BillingAddress = lazy(() => import("../pages/BillingAddress"));
+const PaymentAddress = lazy(() => import("../pages/PaymentAddress"));
+const ShippingPreference = lazy(() => import("../pages/ShippingPreference"));
+const Checkout = lazy(() => import("../pages/Checkout"));
 
 const Router: React.FC = (): JSX.Element  => {
   
   const userData = null;
-
   const initialRoute = () => {
     if(userData){ 
       return Login;
@@ -28,8 +33,14 @@ const Router: React.FC = (): JSX.Element  => {
         }
       >
         <Routes>
+          <Route path={routes.checkout} Component={Checkout} />
+          <Route path={routes.shippingpreference} Component={ShippingPreference} />
+          <Route path={routes.paymentaddress} Component={PaymentAddress} />
           <Route path={routes.mycompany} Component={MyCompany} />
-          <Route path={routes.login} Component={Login} />
+          <Route path={routes.editorder} Component={EditOrder} />
+          <Route path={routes.billingaddress} Component={BillingAddress} />
+          <Route path={routes.import} Component={Import} />
+          <Route path={routes.importlist} Component={ImportList} />
           <Route path="*" Component={initialRoute()} />
         </Routes>
       </Suspense>

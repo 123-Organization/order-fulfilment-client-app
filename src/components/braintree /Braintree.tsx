@@ -1,0 +1,93 @@
+import React, { useEffect, useState } from 'react';
+import dropin, { Dropin, PaymentMethodPayload } from 'braintree-web-drop-in';
+import './Braintree.css';
+
+// https://developer.paypal.com/braintree/docs/guides/credit-cards/testing-go-live/node#test-value-6243030000000001
+
+type BraintreeProps = {
+  clientToken: string;
+  show: boolean;
+  checkout: (nonce: string) => void;
+  addPaymentMethod: (payload:any) => void;
+};
+
+const Braintree = ({ clientToken, show, checkout,addPaymentMethod }: BraintreeProps) => {
+  const [braintreeInstance, setBraintreeInstance] = useState<
+    Dropin | undefined
+  >();
+
+  useEffect(() => {
+    if (show) {
+      console.log('clientToken...',clientToken)
+      const config = {
+        authorization: clientToken,
+        container: '#braintree-drop-in-div',
+        paypal: {
+          flow: 'vault'
+        },
+      };
+
+      /**
+       * InitializeBraintree Method Callback
+       * @param error
+       * @param instance
+       */
+      const callback = (error: object | null, instance: Dropin | undefined) => {
+        if (error) console.error(error);
+        else setBraintreeInstance(instance);
+      };
+
+      const initializeBraintree = () => dropin.create(config, callback);
+
+      if (braintreeInstance) {
+        braintreeInstance.teardown().then(() => {
+          initializeBraintree();
+        });
+      } else {
+        initializeBraintree();
+      }
+    }
+  }, [show]);
+
+  const requestPaymentMethod = () => {
+    /**
+     * RequestPaymentMethod Callback
+     * @param error
+     * @param payload
+     */
+    const callback = (error: object | null, payload: PaymentMethodPayload) => {
+      if (error) {
+        console.error(error);
+      } else {
+        const nonceFromClient = payload.nonce;
+        const paymentMethodNonce = payload.nonce;
+        const customerId = '86584217823';
+
+        console.log('payment method nonce', payload.nonce);
+        const finalPayload = {nonceFromClient,customerId};
+        // TODO: use the paymentMethodNonce to
+        // call you server and complete the payment here
+       addPaymentMethod(finalPayload);
+        // checkout(paymentMethodNonce);
+      }
+    };
+
+    braintreeInstance && braintreeInstance.requestPaymentMethod(callback);
+  };
+
+  return (
+    <div
+      className='braintree w-full'
+      style={{ display: `${show ? 'block' : 'none'}` }}
+    >
+      <div id={'braintree-drop-in-div'} />
+      {braintreeInstance && (
+        <button disabled={!braintreeInstance} onClick={requestPaymentMethod}>
+          Pay Now
+        </button>
+      )}
+    </div>
+  );
+};
+
+export default Braintree;

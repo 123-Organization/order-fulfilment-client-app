@@ -13,6 +13,10 @@
   }
 }
 
+.ant-tabs-tab {
+  @apply border-l-2 !important
+}
+
 .App-header {
   background-color: #fff;
   min-height: 100vh;
@@ -38,13 +42,29 @@
 }
 
 
+.ant-select-single {
+  height: 36px!important;
+}
+
+.country_code_importlist_form .ant-col-14{
+  max-width: 600px!important;
+}
+.fw-input {
+  padding-top: 0.5rem !important;
+}
 
 .uppy-Dashboard-AddFiles-info{
   display:hidden!important 
 }
+
+.middle-div{
+  @apply flex items-start justify-start flex-row whitespace-nowrap
+ }
+
 .center-div{
  @apply flex w-screen h-screen items-start justify-start flex-row whitespace-nowrap
 }
+
 .filterSorting :where(
   .ant-select-selection-item,
   .ant-select-focused
@@ -59,7 +79,7 @@
 }
 
 .fw-sky-btn1{
-  @apply text-white max-md:mx-10 max-md:right-0 max-md:px-2 max-md:py-2 right-14 mx-0 font-medium rounded-lg text-sm px-5 py-2.5 h-10 text-center
+  @apply text-white max-md:mx-10 max-md:right-0 max-md:px-2  right-14 mx-0 font-medium rounded-lg text-sm px-5  h-10 text-center
 }
 
 .fw-icon-btn{
@@ -70,7 +90,9 @@
     @apply  text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap group-hover:text-blue-600 dark:group-hover:text-blue-500
   }
 
-
+.pb-500{
+  @apply pb-[55%]
+}
 .ant-tree-node-content-wrapper{
   line-height: 30px !important;
 }
@@ -102,6 +124,14 @@
 
 /*=======================================Max Media Query========================================================= */
 
+@media (max-width: 420px) {
+
+  .ant-layout-header:has(.pb-500) {
+    padding-bottom: 90%!important;
+  }
+
+}
+
 @media (max-width: 640px) {
 
 
@@ -120,6 +150,10 @@
 
   .ant-layout-content {
     padding: 5px!important;
+  }
+
+  .ant-layout-header:has(.pb-500) {
+    padding-bottom: 55%;
   }
 
   .first-flex-div {
@@ -142,6 +176,7 @@
     max-width: 400px;
     height: 100%;
   }
+
 }
 
 @media (max-width: 1536px) {
