@@ -5,21 +5,28 @@ import {
   Select
 } from 'antd';
 
+import { fetchOrder, fetchProductDetails } from "../store/features/orderSlice";
 import uploadYourLogo from "../assets/images/upload-your-logo.svg";
 import { getStates } from "country-state-picker";
 import type { SelectProps } from 'antd';
 import { countryType } from '../types/ICountry';
+import { useAppDispatch, useAppSelector } from "../store";
+import { updateCompanyInfo } from "../store/features/orderSlice";
+import { every,negate } from 'lodash';
 
 const  countryList = require("../json/country.json");
-
-
-const { Option } = Select;
 type SizeType = Parameters<typeof Form>[0]['size'];
 
 const MyCompany: React.FC = () => {
+
   const [componentSize, setComponentSize] = useState<SizeType | 'default'>('default');
   const [stateData, setStateData] = useState<SelectProps['options']>([]);
+  const [form] = Form.useForm();
   
+  const dispatch = useAppDispatch();
+  const orders = useAppSelector((state) => state.order.orders);
+  const product_details = useAppSelector((state) => state.order.product_details?.data?.product_list);
+
   const setStates = (value: string='us') => {
     let states = getStates(value);
     let data:countryType[] = (states || []).map((d:string) => ({
@@ -31,14 +38,32 @@ const MyCompany: React.FC = () => {
     
   }
 
+  
+  
   const onChange = (value: string) => {
     console.log(`selected ${value}`);
     setStates(value?.toLowerCase());
     
   };
 
+  const onValid = () => {
+    let value = form.getFieldsValue()
+    console.log(`onValid `,value);
+    let eveVal = every(value, !!negate(Boolean)); 
+    console.log(`eveVal `,eveVal);
+
+    if(eveVal){
+      // dispatch(updateCompanyInfo(value))
+    }
+
+    return true;
+
+  }
+
   const onSearch = (value: string) => {
     console.log('search:', value);
+    let empty = _.isEmpty(value);
+    console.log('empty:', empty);
     //setStates(value);
   };
   
@@ -47,17 +72,23 @@ const MyCompany: React.FC = () => {
     (option?.label ?? '').toLowerCase().includes(input.toLowerCase());
 
   useEffect(() => {
-    setStates()
+    // if(orders && !orders?.data?.length) {
+      dispatch(updateCompanyInfo(21));
+    // } 
   },[]);
 
+
   const displayTurtles =  <Form
+  form={form} 
   labelCol={{ span: 4 }}
   wrapperCol={{ span: 14 }}
   layout="horizontal"
   initialValues={{ size: componentSize }}
   className="w-full flex flex-col items-center"
+  
 >
-      <Form.Item name="country_code" className='w-full sm:ml-[200px]' >
+      <Form.Item  
+          name="country_code" className='w-full sm:ml-[200px]' >
       <div className="relative">
         
         <Select
@@ -69,7 +100,8 @@ const MyCompany: React.FC = () => {
           onSearch={onSearch}
           filterOption={filterOption}
           options={countryList}
-
+          onBlur={onValid}  
+          
         >
         
         </Select>
@@ -77,70 +109,77 @@ const MyCompany: React.FC = () => {
       </div>
 
       </Form.Item>
-      <Form.Item
+      <Form.Item 
+        rules={[{ required: true, message: 'Please input your  data!' }]}
         name="company_name"
         className='w-full sm:ml-[200px]'
       >
         <div className="relative">
         
-          <Input   className='fw-input' />
+          <Input onBlur={onValid}   className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">My Company Name</label>
         </div>
       </Form.Item>
-      <Form.Item
+      <Form.Item 
+        rules={[{ required: true, message: 'Please input your  data!' }]}
         name="first_name"
         className='w-full sm:ml-[200px]'
       >
         <div className="relative">
         
-          <Input   className='fw-input' />
+          <Input onBlur={onValid}   className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">First Name</label>
         </div>
       </Form.Item>
-      <Form.Item
+      <Form.Item 
+        rules={[{ required: true, message: 'Please input your  data!' }]}
         name="last_name"
         className='w-full sm:ml-[200px]'
       >
         <div className="relative">
         
-          <Input   className='fw-input' />
+          <Input onBlur={onValid}   className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">Last Name</label>
         </div>
       </Form.Item>
-      <Form.Item
+      <Form.Item 
+        rules={[{ required: true, message: 'Please input your  data!' }]}
         name="address_1"
         className='w-full sm:ml-[200px]'
       >
         <div className="relative">
         
-          <Input   className='fw-input' />
+          <Input onBlur={onValid}   className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">Address Line 1</label>
         </div>
       </Form.Item>
-      <Form.Item
+      <Form.Item 
+        rules={[{ required: true, message: 'Please input your  data!' }]}
         name="address_2"
         className='w-full sm:ml-[200px]'
       >
         <div className="relative">
         
-          <Input   className='fw-input' />
+          <Input onBlur={onValid}   className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">Address Line 2</label>
         </div>
       </Form.Item>
-      <Form.Item
+      <Form.Item 
+        rules={[{ required: true, message: 'Please input your  data!' }]}
         name="city"
         className='w-full sm:ml-[200px]'
       >
         <div className="relative">
         
-          <Input   className='fw-input' />
+          <Input onBlur={onValid}   className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">City</label>
         </div>
       </Form.Item>
 
       
-      <Form.Item
-        name="state"
+      <Form.Item 
+        rules={[{ required: true, message: 'Please input your  data!' }]}
+        name="state_code"
         className='w-full sm:ml-[200px]'
       >
         <div className="relative">
@@ -157,24 +196,26 @@ const MyCompany: React.FC = () => {
       </Form.Item>
 
       
-      <Form.Item
+      <Form.Item 
+        rules={[{ required: true, message: 'Please input your  data!' }]}
         name="zip_postal_code"
         className='w-full sm:ml-[200px]'
       >
         <div className="relative">
         
-          <Input   className='fw-input' />
+          <Input onBlur={onValid}   className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">Zip</label>
         </div>
       </Form.Item>
 
-      <Form.Item
+      <Form.Item 
+        rules={[{ required: true, message: 'Please input your  data!' }]}
         name="phone"
         className='w-full sm:ml-[200px]'
       >
         <div className="relative">
         
-          <Input   className='fw-input' />
+          <Input onBlur={onValid}   className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">Phone</label>
         </div>
       </Form.Item>

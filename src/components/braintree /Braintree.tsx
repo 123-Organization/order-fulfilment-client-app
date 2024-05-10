@@ -49,7 +49,7 @@ const Braintree = ({ clientToken, show, checkout,addPaymentMethod }: BraintreePr
     }
   }, [show]);
 
-  const requestPaymentMethod = () => {
+    const requestPaymentMethod = () => {
     /**
      * RequestPaymentMethod Callback
      * @param error

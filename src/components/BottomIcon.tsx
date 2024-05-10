@@ -1,9 +1,13 @@
 import React, { useEffect, useState } from 'react'
 import { Button, PaginationProps, Spin } from 'antd';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const BottomIcon: React.FC = (): JSX.Element => {
+    
     let isLoadingImgDelete = false;
+    const location = useLocation();
+    console.log(location.pathname);
+
     const navigate = useNavigate();
     const onChange: PaginationProps['onChange']|any = (filterPageNumber:number) => {
         console.log('Page: ', filterPageNumber);

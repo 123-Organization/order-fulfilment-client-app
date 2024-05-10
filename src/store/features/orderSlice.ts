@@ -1,6 +1,6 @@
 import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import config  from "../../config/configs";
-//https://github.com/vahid-nejad/redux-toolkit-example/blob/master/src/components/Add.tsx
+// https://github.com/vahid-nejad/redux-toolkit-example/blob/master/src/components/Add.tsx
 const BASE_URL = config.SERVER_BASE_URL;
 
 export interface Order {
@@ -10,10 +10,16 @@ export interface Order {
 
 interface OrderState {
   orders: any;
+  product_details: any;
+  company_info: any;
+  myCompanyInfoFilled: any;
 }
 
 const initialState: OrderState = {
   orders: [],
+  product_details: [],
+  company_info: {},
+  myCompanyInfoFilled:{}
 };
 
 export const fetchOrder = createAsyncThunk(
@@ -25,6 +31,57 @@ export const fetchOrder = createAsyncThunk(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({accountId})
+    });
+    const data = response.json();
+    return data;
+  },
+);
+
+export const fetchProductDetails = createAsyncThunk(
+  "product/details",
+  async (postData: any,thunkAPI) => {
+    console.log('postData...',postData)
+    const response = await fetch(BASE_URL+"get-product-details", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(postData)
+    });
+    const data = response.json();
+    return data;
+  },
+);
+
+export const updateCompanyInfo = createAsyncThunk(
+  "company/update",
+  async (postData: any,thunkAPI) => {
+    console.log('postData...',postData)
+    postData = {
+      "account_key":"81de5dba-0300-4988-a1cb-df97dfa4e372",
+      "billing_info": {
+        "first_name": "Jamess",
+        "last_name": "Theopistos",
+        "company_name": "FINERWORKS",
+        "address_1": "15851 COLTON WL",
+        "address_2": "",
+        "address_3": null,
+        "city": "San Antonio",
+        "state_code": "TX",
+        "province": "",
+        "zip_postal_code": "78247",
+        "country_code": "us",
+        "phone": "2106027088",
+        "email": "james@gmail.com",
+        "address_order_po": "this is test"
+      }
+    };
+    const response = await fetch(BASE_URL+"update-company-information", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(postData)
     });
     const data = response.json();
     return data;
@@ -106,6 +163,14 @@ export const OrderSlice = createSlice({
 
     builder.addCase(saveOrder.fulfilled, (state, action) => {
       state.orders.push(action.payload);
+    });
+
+    builder.addCase(fetchProductDetails.fulfilled, (state, action) => {
+      state.product_details = action.payload;
+    });
+
+    builder.addCase(updateCompanyInfo.fulfilled, (state, action) => {
+      state.company_info = action.payload;
     });
   },
 });
