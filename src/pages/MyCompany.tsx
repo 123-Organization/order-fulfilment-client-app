@@ -5,14 +5,13 @@ import {
   Select
 } from 'antd';
 
-import { fetchOrder, fetchProductDetails } from "../store/features/orderSlice";
+import { updateCompany } from "../store/features/orderSlice";
 import uploadYourLogo from "../assets/images/upload-your-logo.svg";
 import { getStates } from "country-state-picker";
 import type { SelectProps } from 'antd';
 import { countryType } from '../types/ICountry';
 import { useAppDispatch, useAppSelector } from "../store";
 import { updateCompanyInfo } from "../store/features/orderSlice";
-import { every,negate } from 'lodash';
 
 const  countryList = require("../json/country.json");
 type SizeType = Parameters<typeof Form>[0]['size'];
@@ -21,6 +20,8 @@ const MyCompany: React.FC = () => {
 
   const [componentSize, setComponentSize] = useState<SizeType | 'default'>('default');
   const [stateData, setStateData] = useState<SelectProps['options']>([]);
+  const [countryCode, setCountryCode] = useState('us');
+  const [stateCode, setStateCode] = useState('');
   const [form] = Form.useForm();
   
   const dispatch = useAppDispatch();
@@ -41,19 +42,39 @@ const MyCompany: React.FC = () => {
   
   
   const onChange = (value: string) => {
-    console.log(`selected ${value}`);
-    setStates(value?.toLowerCase());
+    let country_code = value?.toLowerCase();
+    console.log(`selected ${country_code}`);
+    setStates(country_code?.toLowerCase());
+    setCountryCode(country_code)
     
   };
 
-  const onValid = () => {
-    let value = form.getFieldsValue()
-    console.log(`onValid `,value);
-    let eveVal = every(value, !!negate(Boolean)); 
-    console.log(`eveVal `,eveVal);
+  const onChangeState = (value: string) => {
+    let state_code = value?.toLowerCase();
+    console.log(`onChangeState ${state_code}`);
+    setStateCode(state_code);
+  };
 
-    if(eveVal){
-      // dispatch(updateCompanyInfo(value))
+  const onValid = () => {
+    form.submit()
+    let value = form.getFieldsValue()
+    value.country_code = countryCode;
+    value.state_code = stateCode;
+    // value.address_order_po="this is test";
+    
+    
+    console.log(`onValid `,value);
+    let eveVal = Object.values(value).every(Boolean)
+    value.email = "james@gmail.com";
+    value.province="";
+    // value.address_3=null;
+    console.log(`eveVal `,eveVal);
+    const isFormValid = () => form.getFieldsError().some((item) => item.errors.length > 0)
+    // https://github.com/ant-design/ant-design/issues/15674
+    console.log('isFormValid',form.getFieldsError(),isFormValid())
+    if(eveVal && !isFormValid()){
+      // dispatch(updateCompanyInfo({billing_info:value}))
+      dispatch(updateCompany({billing_info:value}));
     }
 
     return true;
@@ -110,7 +131,7 @@ const MyCompany: React.FC = () => {
 
       </Form.Item>
       <Form.Item 
-        rules={[{ required: true, message: 'Please input your  data!' }]}
+        rules={[{ required: true, message: 'Please input your Company Name!' }]}
         name="company_name"
         className='w-full sm:ml-[200px]'
       >
@@ -121,7 +142,7 @@ const MyCompany: React.FC = () => {
         </div>
       </Form.Item>
       <Form.Item 
-        rules={[{ required: true, message: 'Please input your  data!' }]}
+        rules={[{ required: true, message: 'Please input your First Name!' }]}
         name="first_name"
         className='w-full sm:ml-[200px]'
       >
@@ -132,7 +153,7 @@ const MyCompany: React.FC = () => {
         </div>
       </Form.Item>
       <Form.Item 
-        rules={[{ required: true, message: 'Please input your  data!' }]}
+        rules={[{ required: true, message: 'Please input your Last Name!' }]}
         name="last_name"
         className='w-full sm:ml-[200px]'
       >
@@ -143,7 +164,7 @@ const MyCompany: React.FC = () => {
         </div>
       </Form.Item>
       <Form.Item 
-        rules={[{ required: true, message: 'Please input your  data!' }]}
+        rules={[{ required: true, message: 'Please input your Address Line 1 !' }]}
         name="address_1"
         className='w-full sm:ml-[200px]'
       >
@@ -154,7 +175,7 @@ const MyCompany: React.FC = () => {
         </div>
       </Form.Item>
       <Form.Item 
-        rules={[{ required: true, message: 'Please input your  data!' }]}
+        rules={[{ required: true, message: 'Please input your Address Line 2' }]}
         name="address_2"
         className='w-full sm:ml-[200px]'
       >
@@ -165,7 +186,7 @@ const MyCompany: React.FC = () => {
         </div>
       </Form.Item>
       <Form.Item 
-        rules={[{ required: true, message: 'Please input your  data!' }]}
+        rules={[{ required: true, message: 'Please input your City!' }]}
         name="city"
         className='w-full sm:ml-[200px]'
       >
@@ -178,7 +199,7 @@ const MyCompany: React.FC = () => {
 
       
       <Form.Item 
-        rules={[{ required: true, message: 'Please input your  data!' }]}
+        // rules={[{ required: true, message: 'Please input your state!' }]}
         name="state_code"
         className='w-full sm:ml-[200px]'
       >
@@ -187,6 +208,7 @@ const MyCompany: React.FC = () => {
             allowClear
             showSearch
             className='fw-input1 '
+            onChange={onChangeState}
             filterOption={filterOption}
             options={stateData}
           >
@@ -197,7 +219,11 @@ const MyCompany: React.FC = () => {
 
       
       <Form.Item 
-        rules={[{ required: true, message: 'Please input your  data!' }]}
+        rules={[{ required: true, message: 'Please input your Zip!' },
+        {
+          pattern: /^[\d]{0,9}$/,
+          message: 'The input should be a number'
+        }]}
         name="zip_postal_code"
         className='w-full sm:ml-[200px]'
       >
@@ -209,7 +235,14 @@ const MyCompany: React.FC = () => {
       </Form.Item>
 
       <Form.Item 
-        rules={[{ required: true, message: 'Please input your  data!' }]}
+        rules={[
+          { required: true, message: 'Please input your phone!'
+       },
+       {
+        pattern: /^[\d]{0,9}$/,
+        message: 'The input should be a number'
+      }
+      ]}
         name="phone"
         className='w-full sm:ml-[200px]'
       >

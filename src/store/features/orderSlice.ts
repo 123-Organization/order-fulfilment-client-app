@@ -56,26 +56,28 @@ export const fetchProductDetails = createAsyncThunk(
 export const updateCompanyInfo = createAsyncThunk(
   "company/update",
   async (postData: any,thunkAPI) => {
-    console.log('postData...',postData)
-    postData = {
+    
+   let accountKey = {
       "account_key":"81de5dba-0300-4988-a1cb-df97dfa4e372",
-      "billing_info": {
-        "first_name": "Jamess",
-        "last_name": "Theopistos",
-        "company_name": "FINERWORKS",
-        "address_1": "15851 COLTON WL",
-        "address_2": "",
-        "address_3": null,
-        "city": "San Antonio",
-        "state_code": "TX",
-        "province": "",
-        "zip_postal_code": "78247",
-        "country_code": "us",
-        "phone": "2106027088",
-        "email": "james@gmail.com",
-        "address_order_po": "this is test"
-      }
+      // "billing_info": {
+      //   "first_name": "Jamess",
+      //   "last_name": "Theopistos",
+      //   "company_name": "FINERWORKS",
+      //   "address_1": "15851 COLTON WL",
+      //   "address_2": "",
+      //   "address_3": null,
+      //   "city": "San Antonio",
+      //   "state_code": "TX",
+      //   "province": "",
+      //   "zip_postal_code": "78247",
+      //   "country_code": "us",
+      //   "phone": "2106027088",
+      //   "email": "james@gmail.com",
+      //   "address_order_po": "this is test"
+      // }
     };
+    postData = {...accountKey,...postData}
+    console.log('postData...',postData)
     const response = await fetch(BASE_URL+"update-company-information", {
       method: "PUT",
       headers: {
@@ -155,6 +157,9 @@ export const OrderSlice = createSlice({
         name: action.payload.name,
       });
     },
+    updateCompany: (state, action: PayloadAction) => {
+      state.myCompanyInfoFilled = action.payload;
+    }
   },
   extraReducers: (builder) => {
     builder.addCase(fetchOrder.fulfilled, (state, action) => {
@@ -176,4 +181,4 @@ export const OrderSlice = createSlice({
 });
 
 export default OrderSlice.reducer;
-export const { addOrder } = OrderSlice.actions;
+export const { addOrder, updateCompany } = OrderSlice.actions;
