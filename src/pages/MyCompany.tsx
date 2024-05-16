@@ -5,21 +5,29 @@ import {
   Select
 } from 'antd';
 
+import { updateCompany } from "../store/features/orderSlice";
 import uploadYourLogo from "../assets/images/upload-your-logo.svg";
 import { getStates } from "country-state-picker";
 import type { SelectProps } from 'antd';
 import { countryType } from '../types/ICountry';
+import { useAppDispatch, useAppSelector } from "../store";
+import { updateCompanyInfo } from "../store/features/orderSlice";
 
 const  countryList = require("../json/country.json");
-
-
-const { Option } = Select;
 type SizeType = Parameters<typeof Form>[0]['size'];
 
 const MyCompany: React.FC = () => {
+
   const [componentSize, setComponentSize] = useState<SizeType | 'default'>('default');
   const [stateData, setStateData] = useState<SelectProps['options']>([]);
+  const [countryCode, setCountryCode] = useState('us');
+  const [stateCode, setStateCode] = useState('');
+  const [form] = Form.useForm();
   
+  const dispatch = useAppDispatch();
+  const orders = useAppSelector((state) => state.order.orders);
+  const product_details = useAppSelector((state) => state.order.product_details?.data?.product_list);
+
   const setStates = (value: string='us') => {
     let states = getStates(value);
     let data:countryType[] = (states || []).map((d:string) => ({
@@ -31,14 +39,52 @@ const MyCompany: React.FC = () => {
     
   }
 
+  
+  
   const onChange = (value: string) => {
-    console.log(`selected ${value}`);
-    setStates(value?.toLowerCase());
+    let country_code = value?.toLowerCase();
+    console.log(`selected ${country_code}`);
+    setStates(country_code?.toLowerCase());
+    setCountryCode(country_code)
     
   };
 
+  const onChangeState = (value: string) => {
+    let state_code = value?.toLowerCase();
+    console.log(`onChangeState ${state_code}`);
+    setStateCode(state_code);
+  };
+
+  const onValid = () => {
+    form.submit()
+    let value = form.getFieldsValue()
+    value.country_code = countryCode;
+    value.state_code = stateCode;
+    // value.address_order_po="this is test";
+    
+    
+    console.log(`onValid `,value);
+    let eveVal = Object.values(value).every(Boolean)
+    value.email = "james@gmail.com";
+    value.province="";
+    // value.address_3=null;
+    console.log(`eveVal `,eveVal);
+    const isFormValid = () => form.getFieldsError().some((item) => item.errors.length > 0)
+    // https://github.com/ant-design/ant-design/issues/15674
+    console.log('isFormValid',form.getFieldsError(),isFormValid())
+    if(eveVal && !isFormValid()){
+      // dispatch(updateCompanyInfo({billing_info:value}))
+      dispatch(updateCompany({billing_info:value}));
+    }
+
+    return true;
+
+  }
+
   const onSearch = (value: string) => {
     console.log('search:', value);
+    let empty = _.isEmpty(value);
+    console.log('empty:', empty);
     //setStates(value);
   };
   
@@ -47,17 +93,23 @@ const MyCompany: React.FC = () => {
     (option?.label ?? '').toLowerCase().includes(input.toLowerCase());
 
   useEffect(() => {
-    setStates()
+    // if(orders && !orders?.data?.length) {
+      dispatch(updateCompanyInfo(21));
+    // } 
   },[]);
 
+
   const displayTurtles =  <Form
+  form={form} 
   labelCol={{ span: 4 }}
   wrapperCol={{ span: 14 }}
   layout="horizontal"
   initialValues={{ size: componentSize }}
   className="w-full flex flex-col items-center"
+  
 >
-      <Form.Item name="country_code" className='w-full sm:ml-[200px]' >
+      <Form.Item  
+          name="country_code" className='w-full sm:ml-[200px]' >
       <div className="relative">
         
         <Select
@@ -69,7 +121,8 @@ const MyCompany: React.FC = () => {
           onSearch={onSearch}
           filterOption={filterOption}
           options={countryList}
-
+          onBlur={onValid}  
+          
         >
         
         </Select>
@@ -77,70 +130,77 @@ const MyCompany: React.FC = () => {
       </div>
 
       </Form.Item>
-      <Form.Item
+      <Form.Item 
+        rules={[{ required: true, message: 'Please input your Company Name!' }]}
         name="company_name"
         className='w-full sm:ml-[200px]'
       >
         <div className="relative">
         
-          <Input   className='fw-input' />
+          <Input onBlur={onValid}   className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">My Company Name</label>
         </div>
       </Form.Item>
-      <Form.Item
+      <Form.Item 
+        rules={[{ required: true, message: 'Please input your First Name!' }]}
         name="first_name"
         className='w-full sm:ml-[200px]'
       >
         <div className="relative">
         
-          <Input   className='fw-input' />
+          <Input onBlur={onValid}   className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">First Name</label>
         </div>
       </Form.Item>
-      <Form.Item
+      <Form.Item 
+        rules={[{ required: true, message: 'Please input your Last Name!' }]}
         name="last_name"
         className='w-full sm:ml-[200px]'
       >
         <div className="relative">
         
-          <Input   className='fw-input' />
+          <Input onBlur={onValid}   className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">Last Name</label>
         </div>
       </Form.Item>
-      <Form.Item
+      <Form.Item 
+        rules={[{ required: true, message: 'Please input your Address Line 1 !' }]}
         name="address_1"
         className='w-full sm:ml-[200px]'
       >
         <div className="relative">
         
-          <Input   className='fw-input' />
+          <Input onBlur={onValid}   className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">Address Line 1</label>
         </div>
       </Form.Item>
-      <Form.Item
+      <Form.Item 
+        rules={[{ required: true, message: 'Please input your Address Line 2' }]}
         name="address_2"
         className='w-full sm:ml-[200px]'
       >
         <div className="relative">
         
-          <Input   className='fw-input' />
+          <Input onBlur={onValid}   className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">Address Line 2</label>
         </div>
       </Form.Item>
-      <Form.Item
+      <Form.Item 
+        rules={[{ required: true, message: 'Please input your City!' }]}
         name="city"
         className='w-full sm:ml-[200px]'
       >
         <div className="relative">
         
-          <Input   className='fw-input' />
+          <Input onBlur={onValid}   className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">City</label>
         </div>
       </Form.Item>
 
       
-      <Form.Item
-        name="state"
+      <Form.Item 
+        // rules={[{ required: true, message: 'Please input your state!' }]}
+        name="state_code"
         className='w-full sm:ml-[200px]'
       >
         <div className="relative">
@@ -148,6 +208,7 @@ const MyCompany: React.FC = () => {
             allowClear
             showSearch
             className='fw-input1 '
+            onChange={onChangeState}
             filterOption={filterOption}
             options={stateData}
           >
@@ -157,24 +218,37 @@ const MyCompany: React.FC = () => {
       </Form.Item>
 
       
-      <Form.Item
+      <Form.Item 
+        rules={[{ required: true, message: 'Please input your Zip!' },
+        {
+          pattern: /^[\d]{0,9}$/,
+          message: 'The input should be a number'
+        }]}
         name="zip_postal_code"
         className='w-full sm:ml-[200px]'
       >
         <div className="relative">
         
-          <Input   className='fw-input' />
+          <Input onBlur={onValid}   className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">Zip</label>
         </div>
       </Form.Item>
 
-      <Form.Item
+      <Form.Item 
+        rules={[
+          { required: true, message: 'Please input your phone!'
+       },
+       {
+        pattern: /^[\d]{0,9}$/,
+        message: 'The input should be a number'
+      }
+      ]}
         name="phone"
         className='w-full sm:ml-[200px]'
       >
         <div className="relative">
         
-          <Input   className='fw-input' />
+          <Input onBlur={onValid}   className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">Phone</label>
         </div>
       </Form.Item>
