@@ -8,6 +8,8 @@ const BottomIcon: React.FC = (): JSX.Element => {
   const [backVisiable, setBackVisiable] = useState<Boolean>(true);
   const [nextVisiable, setNextVisiable] = useState<Boolean>(false);
   const [totalVisiable, setTotalVisiable] = useState<Boolean>(false);
+  const [nextSpinning, setNextSpinning] = useState<Boolean>(false);
+
   const myCompanyInfoFilled = useAppSelector(
     (state) => state.order.myCompanyInfoFilled
   );
@@ -31,10 +33,17 @@ const BottomIcon: React.FC = (): JSX.Element => {
     console.log("Page: ", filterPageNumber);
   };
 
-  const onNextHandler = () => {
+  const onNextHandler = async() => {
     if (location.pathname === "/mycompany") {
       if (myCompanyInfoFilled.billing_info) {
-          dispatch(updateCompanyInfo(myCompanyInfoFilled));
+          setNextSpinning(true)
+          await dispatch(updateCompanyInfo(myCompanyInfoFilled));
+          if(companyInfo?.data?.account_id){
+            navigate('/BillingAddress')
+            setNextSpinning(false)
+            setNextVisiable(false);
+          }
+        
       } else {
         alert("Billing info missing");
       }
@@ -42,10 +51,7 @@ const BottomIcon: React.FC = (): JSX.Element => {
     // alert("next");
     // navigate('/BillingAddress')
   };
-  if(companyInfo.data.account_id){
-    navigate('/BillingAddress')
-  }
-
+  
   const onDeleteHandler = () => {};
 
   const onDownloadHandler = () => {};
@@ -145,7 +151,7 @@ const BottomIcon: React.FC = (): JSX.Element => {
         </div>
         <div className="grid h-full max-w-lg grid-cols-2/3 font-medium basis-1/2 relative ">
           {nextVisiable && (
-            <Spin tip="Updating...">
+            <Spin tip="Updating..." spinning={nextSpinning}>
                 <Button
                 onClick={onNextHandler}
                 className="my-2 w-44 absolute right-2"
