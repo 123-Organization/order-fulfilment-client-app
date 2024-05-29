@@ -12,6 +12,7 @@ import type { SelectProps } from 'antd';
 import { countryType } from '../types/ICountry';
 import { useAppDispatch, useAppSelector } from "../store";
 import { updateCompanyInfo } from "../store/features/orderSlice";
+import convertUsStateAbbrAndName from '../services/state';
 
 const  countryList = require("../json/country.json");
 type SizeType = Parameters<typeof Form>[0]['size'];
@@ -21,6 +22,7 @@ const MyCompany: React.FC = () => {
   const [componentSize, setComponentSize] = useState<SizeType | 'default'>('default');
   const [stateData, setStateData] = useState<SelectProps['options']>([]);
   const [countryCode, setCountryCode] = useState('us');
+  const [stateCodeShort, setStateCodeShort] = useState<String | null>('');
   const [stateCode, setStateCode] = useState('');
   const [form] = Form.useForm();
   
@@ -53,6 +55,7 @@ const MyCompany: React.FC = () => {
     let state_code = value?.toLowerCase();
     console.log(`onChangeState ${state_code}`);
     setStateCode(state_code);
+    countryCode==='us' && setStateCodeShort(convertUsStateAbbrAndName(state_code))
   };
 
   const onValid = () => {
@@ -65,7 +68,7 @@ const MyCompany: React.FC = () => {
     
     console.log(`onValid `,value);
     let eveVal = Object.values(value).every(Boolean)
-    value.email = "james@gmail.com";
+    // value.email = "james@gmail.com";
     value.province="";
     // value.address_3=null;
     console.log(`eveVal `,eveVal);
@@ -73,8 +76,8 @@ const MyCompany: React.FC = () => {
     // https://github.com/ant-design/ant-design/issues/15674
     console.log('isFormValid',form.getFieldsError(),isFormValid())
     if(eveVal && !isFormValid()){
-      // dispatch(updateCompanyInfo({billing_info:value}))
-      dispatch(updateCompany({billing_info:value}));
+      // dispatch(updateCompanyInfo({business_info:value}))
+      dispatch(updateCompany({business_info:value}));
     }
 
     return true;
@@ -94,8 +97,11 @@ const MyCompany: React.FC = () => {
 
   useEffect(() => {
     // if(orders && !orders?.data?.length) {
-      dispatch(updateCompanyInfo(21));
-    // } 
+      // dispatch(updateCompanyInfo(21));
+      // } 
+      onChange(countryCode);
+      // setTimeout(() => {
+      // }, 3000);
   },[]);
 
 
@@ -142,7 +148,10 @@ const MyCompany: React.FC = () => {
         </div>
       </Form.Item>
       <Form.Item 
-        rules={[{ required: true, message: 'Please input your First Name!' }]}
+        rules={[
+          { required: true, message: 'Please input your First Name!' },
+          { pattern: new RegExp(/^[a-zA-Z]+$/i), message: 'Please input only alphabet characters!' }
+        ]}
         name="first_name"
         className='w-full sm:ml-[200px]'
       >
@@ -153,7 +162,10 @@ const MyCompany: React.FC = () => {
         </div>
       </Form.Item>
       <Form.Item 
-        rules={[{ required: true, message: 'Please input your Last Name!' }]}
+        rules={[
+          { required: true, message: 'Please input your Last Name!' },
+          { pattern: new RegExp(/^[a-zA-Z]+$/i), message: 'Please input only alphabet characters!' }
+        ]}
         name="last_name"
         className='w-full sm:ml-[200px]'
       >
@@ -221,7 +233,7 @@ const MyCompany: React.FC = () => {
       <Form.Item 
         rules={[{ required: true, message: 'Please input your Zip!' },
         {
-          pattern: /^[\d]{0,9}$/,
+          pattern: new RegExp(/\d+/g),
           message: 'The input should be a number'
         }]}
         name="zip_postal_code"
@@ -239,7 +251,7 @@ const MyCompany: React.FC = () => {
           { required: true, message: 'Please input your phone!'
        },
        {
-        pattern: /^[\d]{0,9}$/,
+        pattern: new RegExp(/\d+/g),
         message: 'The input should be a number'
       }
       ]}

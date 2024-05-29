@@ -13,13 +13,15 @@ interface OrderState {
   product_details: any;
   company_info: any;
   myCompanyInfoFilled: any;
+  myBillingInfoFilled: any;
 }
 
 const initialState: OrderState = {
   orders: [],
   product_details: [],
   company_info: {},
-  myCompanyInfoFilled:{}
+  myCompanyInfoFilled: {},
+  myBillingInfoFilled:{}
 };
 
 export const fetchOrder = createAsyncThunk(
@@ -59,7 +61,7 @@ export const updateCompanyInfo = createAsyncThunk(
     
    let accountKey = {
       "account_key":"81de5dba-0300-4988-a1cb-df97dfa4e372",
-      // "billing_info": {
+      // "business_info": {
       //   "first_name": "Jamess",
       //   "last_name": "Theopistos",
       //   "company_name": "FINERWORKS",
@@ -159,6 +161,9 @@ export const OrderSlice = createSlice({
     },
     updateCompany: (state, action: PayloadAction) => {
       state.myCompanyInfoFilled = action.payload;
+    },
+    updateBilling: (state, action: PayloadAction) => {
+      state.myBillingInfoFilled = action.payload;
     }
   },
   extraReducers: (builder) => {
@@ -181,4 +186,4 @@ export const OrderSlice = createSlice({
 });
 
 export default OrderSlice.reducer;
-export const { addOrder, updateCompany } = OrderSlice.actions;
+export const { addOrder, updateCompany, updateBilling } = OrderSlice.actions;
