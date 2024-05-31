@@ -257,7 +257,7 @@ const BillingAddress: React.FC = () => {
         className='w-full sm:ml-[200px]'
         rules={[{ required: true, message: 'Please input your Zip!' },
         {
-          pattern: new RegExp(/\d+/g),
+          pattern: new RegExp(/\d{2,}/g),
           message: 'The input should be a number'
         }]}
       >
@@ -273,7 +273,7 @@ const BillingAddress: React.FC = () => {
         className='w-full sm:ml-[200px]'
         rules={[{ required: true, message: 'Please input your Phone!' },
         {
-          pattern: new RegExp(/\d+/g),
+          pattern: new RegExp(/\d{2,}/g),
           message: 'The input should be a number'
         }]}
       >

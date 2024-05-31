@@ -233,7 +233,7 @@ const MyCompany: React.FC = () => {
       <Form.Item 
         rules={[{ required: true, message: 'Please input your Zip!' },
         {
-          pattern: new RegExp(/\d+/g),
+          pattern: new RegExp(/\d{2,}/g),
           message: 'The input should be a number'
         }]}
         name="zip_postal_code"
@@ -251,7 +251,7 @@ const MyCompany: React.FC = () => {
           { required: true, message: 'Please input your phone!'
        },
        {
-        pattern: new RegExp(/\d+/g),
+        pattern: new RegExp(/\d{2,}/g),
         message: 'The input should be a number'
       }
       ]}

@@ -131,7 +131,7 @@ const BottomIcon: React.FC = (): JSX.Element => {
         navigate('/')
       setNextSpinning(false)
       setNextVisiable(false);
-      openNotificationWithIcon( {type:'success', message:'Success',description:'Saved info'})
+      openNotificationWithIcon( {type:'success', message:'Success',description:'Information has been saved'})
     }
     else if(companyInfo?.statusCode===400){
       setNextSpinning(false)
