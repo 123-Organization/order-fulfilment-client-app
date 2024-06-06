@@ -62,7 +62,7 @@ const MyCompany: React.FC = () => {
     form.submit()
     let value = form.getFieldsValue()
     value.country_code = countryCode;
-    value.state_code = stateCode;
+    value.state_code = countryCode==='us'?stateCodeShort:stateCode;
     // value.address_order_po="this is test";
     
     
@@ -137,7 +137,7 @@ const MyCompany: React.FC = () => {
 
       </Form.Item>
       <Form.Item 
-        rules={[{ required: true, message: 'Please input your Company Name!' }]}
+        rules={[{ required: true, message: 'Please enter your Company Name!' }]}
         name="company_name"
         className='w-full sm:ml-[200px]'
       >
@@ -149,8 +149,8 @@ const MyCompany: React.FC = () => {
       </Form.Item>
       <Form.Item 
         rules={[
-          { required: true, message: 'Please input your First Name!' },
-          { pattern: new RegExp(/^[a-zA-Z]+$/i), message: 'Please input only alphabet characters!' }
+          { required: true, message: 'Please enter your First Name!' },
+          { pattern: new RegExp(/^[a-zA-Z]+$/i), message: 'Please enter only alphabet characters!' }
         ]}
         name="first_name"
         className='w-full sm:ml-[200px]'
@@ -163,8 +163,8 @@ const MyCompany: React.FC = () => {
       </Form.Item>
       <Form.Item 
         rules={[
-          { required: true, message: 'Please input your Last Name!' },
-          { pattern: new RegExp(/^[a-zA-Z]+$/i), message: 'Please input only alphabet characters!' }
+          { required: true, message: 'Please enter your Last Name!' },
+          { pattern: new RegExp(/^[a-zA-Z]+$/i), message: 'Please enter only alphabet characters!' }
         ]}
         name="last_name"
         className='w-full sm:ml-[200px]'
@@ -176,7 +176,7 @@ const MyCompany: React.FC = () => {
         </div>
       </Form.Item>
       <Form.Item 
-        rules={[{ required: true, message: 'Please input your Address Line 1 !' }]}
+        rules={[{ required: true, message: 'Please enter your Address Line 1 !' }]}
         name="address_1"
         className='w-full sm:ml-[200px]'
       >
@@ -187,7 +187,7 @@ const MyCompany: React.FC = () => {
         </div>
       </Form.Item>
       <Form.Item 
-        rules={[{ required: true, message: 'Please input your Address Line 2' }]}
+        rules={[{ required: true, message: 'Please enter your Address Line 2' }]}
         name="address_2"
         className='w-full sm:ml-[200px]'
       >
@@ -198,7 +198,7 @@ const MyCompany: React.FC = () => {
         </div>
       </Form.Item>
       <Form.Item 
-        rules={[{ required: true, message: 'Please input your City!' }]}
+        rules={[{ required: true, message: 'Please enter your City!' }]}
         name="city"
         className='w-full sm:ml-[200px]'
       >
@@ -211,7 +211,7 @@ const MyCompany: React.FC = () => {
 
       
       <Form.Item 
-        // rules={[{ required: true, message: 'Please input your state!' }]}
+        // rules={[{ required: true, message: 'Please enter your state!' }]}
         name="state_code"
         className='w-full sm:ml-[200px]'
       >
@@ -231,10 +231,10 @@ const MyCompany: React.FC = () => {
 
       
       <Form.Item 
-        rules={[{ required: true, message: 'Please input your Zip!' },
+        rules={[{ required: true, message: 'Please enter your Zip!' },
         {
-          pattern: new RegExp(/\d+/g),
-          message: 'The input should be a number'
+          pattern: new RegExp(/\d{2,}/g),
+          message: 'The enter should be a number'
         }]}
         name="zip_postal_code"
         className='w-full sm:ml-[200px]'
@@ -248,11 +248,11 @@ const MyCompany: React.FC = () => {
 
       <Form.Item 
         rules={[
-          { required: true, message: 'Please input your phone!'
+          { required: true, message: 'Please enter your phone!'
        },
        {
-        pattern: new RegExp(/\d+/g),
-        message: 'The input should be a number'
+        pattern: new RegExp(/\d{2,}/g),
+        message: 'The enter should be a number'
       }
       ]}
         name="phone"
