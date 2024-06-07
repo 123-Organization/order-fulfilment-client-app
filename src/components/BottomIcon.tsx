@@ -48,6 +48,10 @@ const BottomIcon: React.FC = (): JSX.Element => {
     backVisiable && setBackVisiable(false);
   }
 
+  if (location.pathname === "/importlist") {
+    !totalVisiable  && setTotalVisiable(true);
+  }
+
   const navigate = useNavigate();
   const onChange: PaginationProps["onChange"] | any = (
     filterPageNumber: number

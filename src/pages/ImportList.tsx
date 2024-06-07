@@ -187,14 +187,9 @@ const ImportList: React.FC = () => {
                           <div className="sm:ml-4 flex flex-col w-full sm:justify-between">
                             <div className="w-full text-sm">
                               {
-                                  parse(productData[order?.orders[0]?.order_items[0].product_sku].description_long)
-                   }
+                                parse(productData[order?.orders[0]?.order_items[0].product_sku].description_long)
+                              }
                             </div>
-                            {/* <div className="w-full text-sm">1234 Elm Street</div>
-                            <div className="w-full text-sm">Suite 567</div>
-                            <div className="w-full text-sm">
-                              Cityvile, Statevile 98567
-                            </div> */}
                           </div>
                         }
                       </div>
