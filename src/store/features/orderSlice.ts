@@ -55,6 +55,22 @@ export const fetchProductDetails = createAsyncThunk(
   },
 );
 
+export const fetchShippingOption = createAsyncThunk(
+  "shipping/option",
+  async (postData: any,thunkAPI) => {
+    console.log('postData...',postData)
+    const response = await fetch(BASE_URL+"shipping-options", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(postData)
+    });
+    const data = response.json();
+    return data;
+  },
+);
+
 export const updateCompanyInfo = createAsyncThunk(
   "company/update",
   async (postData: any,thunkAPI) => {
