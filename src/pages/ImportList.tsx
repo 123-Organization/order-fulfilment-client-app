@@ -1,44 +1,28 @@
 import React, { useEffect, useState } from "react";
 import { Button, Checkbox, Form, Input, Select } from "antd";
 import shoppingCart from "../assets/images/shopping-cart-228.svg";
-import { fetchOrder, fetchProductDetails } from "../store/features/orderSlice";
+import { fetchOrder, fetchProductDetails, fetchShippingOption } from "../store/features/orderSlice";
 import { useAppDispatch, useAppSelector } from "../store";
 import parse from 'html-react-parser';
+import SelectShippingOption from "../components/SelectShippingOption";
 
 const { Option } = Select;
 type SizeType = Parameters<typeof Form>[0]["size"];
 
 const ImportList: React.FC = () => {
+  
   const [productData, setProductData] = useState({});
   const [orderPostData, setOrderPostData] = useState([]);
   const orders = useAppSelector((state) => state.order.orders);
   const product_details = useAppSelector((state) => state.order.product_details?.data?.product_list);
   console.log('product_details...',product_details)
-  
   const dispatch = useAppDispatch();
-  const [componentSize, setComponentSize] = useState<SizeType | "default">(
-    "default"
-  );
   console.log('orders',orders)
-  const onChange = (value: string) => {
-    console.log(`selected ${value}`);
-  };
-
-  const onSearch = (value: string) => {
-    console.log("search:", value);
-  };
-
-  // Filter `option.label` match the user type `input`
-  const filterOption = (
-    input: string,
-    option?: { label: string; value: string }
-  ) => (option?.label ?? "").toLowerCase().includes(input.toLowerCase());
-  
-  
+ 
 
   useEffect(() => {
     if(orders && !orders?.data?.length) {
-      dispatch(fetchOrder(21));
+      dispatch(fetchOrder(1556));
     } 
   },[]);
 
@@ -61,6 +45,7 @@ const ImportList: React.FC = () => {
     if(orders && orders?.data?.length && !orderPostData.length) {
 
       let orderPostData1 = orders?.data?.map((order,index) => {
+        dispatch(fetchShippingOption({"order_po":order?.orders[0]?.order_po}))
         return {
           product_sku : order?.orders[0]?.order_items[0].product_sku,
           product_qty : order?.orders[0]?.order_items[0].product_qty,
@@ -71,53 +56,16 @@ const ImportList: React.FC = () => {
       console.log('orderPostData...',orderPostData1)
       setOrderPostData(orderPostData1)
       dispatch(fetchProductDetails(orderPostData1))
+     
     }
   },[orders]);
 
-  const displayTurtles = (
-    <Form
-      labelCol={{ span: 4 }}
-      wrapperCol={{ span: 14 }}
-      layout="horizontal"
-      initialValues={{ size: componentSize }}
-      className="w-full country_code_importlist_form"
-    >
-      <Form.Item name="country_code_importlist">
-        <div className="relative w-full text-gray-500">
-          <Select
-            // allowClear
-            className="w-full  "
-            showSearch
-            placeholder="Order status"
-            optionFilterProp="children"
-            onChange={onChange}
-            onSearch={onSearch}
-            filterOption={filterOption}
-            value={'economy'}
-            options={[
-              {
-                value: "economy",
-                label: "Economy Parcel - $14.95"
-              },
-              {
-                value: "shipped",
-                label: "Shipped Parcel - $18.95"
-              }
-            ]}
-          ></Select>
-          <label htmlFor="floating_outlined" className="fw-label ">
-            Shipping Method
-          </label>
-        </div>
-      </Form.Item>
-
-    </Form>
-  );
+  
 
   return (
     <div className="flex justify-end items-center  h-full p-8">
       <div className="h-auto bg-gray-100 pt-4 w-full">
-        <h1 className="mb-10 text-left pl-9 text-2xl font-bold">Order Items</h1>
+        <h1 className="mb-10 text-left pl-9 text-2xl font-bold">Orders</h1>
         <div className="mx-auto max-w-7xl justify-center px-6 md:flex md:space-x-6 xl:px-0">
           <div className="rounded-lg md:w-full">
         { 
@@ -175,9 +123,7 @@ const ImportList: React.FC = () => {
                       <div className="justify-between pt-6  rounded-lg  sm:flex sm:justify-start">
                         <img
                           src={
-                            index%2===0
-                            ?'https://images.unsplash.com/photo-1587563871167-1ee9c731aefb?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1131&q=80'
-                            :"https://images.unsplash.com/photo-1515955656352-a1fa3ffcd111?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1170&q=80"
+                            productData[order?.orders[0]?.order_items[0].product_sku]?.image_url_1
                           }
                           alt="product-image"
                           className="rounded-lg" width={116} height={26}
@@ -200,12 +146,7 @@ const ImportList: React.FC = () => {
                 <li>
                   <label className="h-[220px] inline-flex  justify-between w-full p-5 text-gray-500 bg-white border-21 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700">
                     <div className="block w-full">
-                      {displayTurtles}
-                      <div className="w-full text-sm pt-11"></div>
-                      <div className="w-full text-sm">Sub Total: $75.00</div>
-                      <div className="w-full text-sm">Discount: ($0.00)</div>
-                      <div className="w-full text-sm">Shipping : $14.95</div>
-                      <div className="w-full text-sm">Sales Tax : $5.25</div>
+                      <SelectShippingOption poNumber={order?.orders[0]?.order_po}/>
                     </div>
                   </label>
                 </li>

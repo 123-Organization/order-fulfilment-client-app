@@ -3,6 +3,7 @@ import {
   Checkbox,
   Form,
   Input,
+  InputNumber,
   Select
 } from 'antd';
 
@@ -171,7 +172,8 @@ const BillingAddress: React.FC = () => {
       <Form.Item
         rules={[
           { required: true, message: 'Please enter your First Name!' },
-          { pattern: new RegExp(/^[a-zA-Z]+$/i), message: 'Please enter only alphabet characters!' }
+          { pattern: new RegExp(/^[a-zA-Z ]+$/i), message: 'Please enter only alphabet characters!' },
+          { pattern: new RegExp(/^[a-zA-Z ]{2,}$/i), message: 'Please enter at least two characters!' }
       ]}
         name="first_name"
         className='w-full sm:ml-[200px]'
@@ -185,7 +187,8 @@ const BillingAddress: React.FC = () => {
       <Form.Item
         rules={[
           { required: true, message: 'Please enter your Last Name!' },
-          { pattern: new RegExp(/^[a-zA-Z]+$/i), message: 'Please enter only alphabet characters!' }
+          { pattern: new RegExp(/^[a-zA-Z ]+$/i), message: 'Please enter only alphabet characters!' },
+          { pattern: new RegExp(/^[a-zA-Z ]{2,}$/i), message: 'Please enter at least two characters!' }
         ]}
         name="last_name"
         className='w-full sm:ml-[200px]'
@@ -263,7 +266,7 @@ const BillingAddress: React.FC = () => {
       >
         <div className="relative">
         
-          <Input  onBlur={onValid}  className='fw-input' />
+          <InputNumber type="number"  onBlur={onValid}  className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">Zip</label>
         </div>
       </Form.Item>
@@ -271,15 +274,17 @@ const BillingAddress: React.FC = () => {
       <Form.Item
         name="phone"
         className='w-full sm:ml-[200px]'
-        rules={[{ required: true, message: 'Please enter your Phone!' },
-        {
-          pattern: new RegExp(/\d{2,}/g),
-          message: 'The enter should be a number'
-        }]}
+        rules={[
+          { required: true, message: 'Please enter your Phone Number!' },
+          {
+            pattern: new RegExp(/\d{4,}/g),
+            message: 'The enter should be a number'
+          }
+        ]}
       >
         <div className="relative">
         
-          <Input onBlur={onValid}   className='fw-input' />
+          <InputNumber type="number"  onBlur={onValid}   className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">Phone</label>
         </div>
       </Form.Item>

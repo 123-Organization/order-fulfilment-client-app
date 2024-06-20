@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   Form,
   Input,
+  InputNumber,
   Select
 } from 'antd';
 
@@ -150,7 +151,8 @@ const MyCompany: React.FC = () => {
       <Form.Item 
         rules={[
           { required: true, message: 'Please enter your First Name!' },
-          { pattern: new RegExp(/^[a-zA-Z]+$/i), message: 'Please enter only alphabet characters!' }
+          { pattern: new RegExp(/^[a-zA-Z ]+$/i), message: 'Please enter only alphabet characters!' },
+          { pattern: new RegExp(/^[a-zA-Z ]{2,}$/i), message: 'Please enter at least two characters!' }
         ]}
         name="first_name"
         className='w-full sm:ml-[200px]'
@@ -164,7 +166,8 @@ const MyCompany: React.FC = () => {
       <Form.Item 
         rules={[
           { required: true, message: 'Please enter your Last Name!' },
-          { pattern: new RegExp(/^[a-zA-Z]+$/i), message: 'Please enter only alphabet characters!' }
+          { pattern: new RegExp(/^[a-zA-Z]+$/i), message: 'Please enter only alphabet characters!' },
+          { pattern: new RegExp(/^[a-zA-Z ]{2,}$/i), message: 'Please enter at least two characters!' }
         ]}
         name="last_name"
         className='w-full sm:ml-[200px]'
@@ -241,7 +244,7 @@ const MyCompany: React.FC = () => {
       >
         <div className="relative">
         
-          <Input onBlur={onValid}   className='fw-input' />
+          <InputNumber type="number"  onBlur={onValid}   className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">Zip</label>
         </div>
       </Form.Item>
@@ -260,7 +263,7 @@ const MyCompany: React.FC = () => {
       >
         <div className="relative">
         
-          <Input onBlur={onValid}   className='fw-input' />
+          <InputNumber type="number"  onBlur={onValid}   className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">Phone</label>
         </div>
       </Form.Item>
