@@ -23,29 +23,37 @@ type SizeType = Parameters<typeof Form>[0]['size'];
 const BillingAddress: React.FC = () => {
 
   const [countryCode, setCountryCode] = useState('us');
+  const [copyCompanyAddress, setCopyCompanyAddress] = useState(false);
+  const [companyAddress, setCompanyAddress] = useState({'last_name':"lst nem"});
   const [componentSize, setComponentSize] = useState<SizeType | 'default'>('default');
   const [stateData, setStateData] = useState<SelectProps['options']>([]);
   const [stateCode, setStateCode] = useState('');
   const [stateCodeShort, setStateCodeShort] = useState<String | null>('');
-  const [form] = Form.useForm();
+  const [form1] = Form.useForm();
   const dispatch = useAppDispatch();
 
-  const myCompanyInfoFilled = useAppSelector(
-    (state) => state.order.myCompanyInfoFilled
+  const businessInfo = useAppSelector(
+    (state) => state.order.myCompanyInfoFilled.business_info
   );
   
   const checkboxClick : CheckboxProps['onChange'] = (e) => {
-    console.log('value......',e.target.checked,myCompanyInfoFilled.business_info)
+    e.preventDefault();
+    console.log('value......',e.target.checked,businessInfo)
     if(e.target.checked){
-      // let billingInfo = myCompanyInfoFilled.business_info
-      form.setFieldsValue(
-        // myCompanyInfoFilled.business_info
-        {'first_name':"werwer"}
-      );
+      // let billingInfo = businessInfo
+      // form1.resetFields();
+      // form1.setFieldsValue(
+      //   // businessInfo
+      //   {'first_name':"werwer"}
+      //   );
+        setCopyCompanyAddress(true)
     } else {
-      // form.resetFields();
+      setCopyCompanyAddress(false);
+      // form1.resetFields();
     }
   }
+
+  
   const onChangeState = (value: string) => {
     let state_code = value?.toLowerCase();
     console.log(`onChangeState ${state_code}`);
@@ -72,29 +80,30 @@ const BillingAddress: React.FC = () => {
   }
 
   const onValid = () => {
-    // form.resetFields();
-    let value = form.getFieldsValue()
+    // form1.resetFields();
+    let value = form1.getFieldsValue()
     value.country_code = countryCode;
     value.state_code = countryCode==='us'?stateCodeShort:stateCode;
     // value.address_order_po="this is test";
+    //https://dev.to/bayusyaits/using-antd-and-react-for-editable-cells-implementation-and-table-2b5m
     
     
     console.log(`onValid `,value);
     let eveVal = Object.values(value).every(Boolean)
     if(!eveVal){
-      form.submit()
+      form1.submit()
 
     }
     // value.email = "james@gmail.com";
     value.province="";
     // value.address_3=null;
     console.log(`eveVal `,eveVal);
-    // const isFormValid = () => form.getFieldsError().some((item) => item.errors.length > 0)
+    // const isFormValid = () => form1.getFieldsError().some((item) => item.errors.length > 0)
     // https://github.com/ant-design/ant-design/issues/15674
-    // console.log('isFormValid',form.getFieldsError(),isFormValid(),valid)
+    // console.log('isFormValid',form1.getFieldsError(),isFormValid(),valid)
     if(eveVal){
-      // let valid = form.validateFields();
-      form.validateFields()
+      // let valid = form1.validateFields();
+      form1.validateFields()
       .then(() => {
         // do whatever you need to
         dispatch(updateBilling({billing_info:value}));
@@ -129,12 +138,13 @@ const BillingAddress: React.FC = () => {
       // }, 3000);
   },[]);
 
+
   const displayTurtles =  <Form
-  form={form} 
+  form={form1} 
   labelCol={{ span: 4 }}
   wrapperCol={{ span: 14 }}
   layout="horizontal"
-  initialValues={{ size: componentSize }}
+  // initialValues={companyAddress}
   className="w-full flex flex-col items-center"
 >
       <Form.Item name="country_code" className='w-full sm:ml-[200px]' >
@@ -164,8 +174,7 @@ const BillingAddress: React.FC = () => {
         className='w-full sm:ml-[200px]'
       >
         <div className="relative">
-        
-          <Input onBlur={onValid}   className='fw-input' />
+          <Input onBlur={onValid} value={copyCompanyAddress ? businessInfo?.company_name:''}  className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">My Company Name</label>
         </div>
       </Form.Item>
@@ -174,13 +183,13 @@ const BillingAddress: React.FC = () => {
           { required: true, message: 'Please enter your First Name!' },
           { pattern: new RegExp(/^[a-zA-Z ]+$/i), message: 'Please enter only alphabet characters!' },
           { pattern: new RegExp(/^[a-zA-Z ]{2,}$/i), message: 'Please enter at least two characters!' }
-      ]}
+        ]}
         name="first_name"
         className='w-full sm:ml-[200px]'
       >
         <div className="relative">
         
-          <Input onBlur={onValid}   className='fw-input' />
+          <Input onBlur={onValid} value={copyCompanyAddress ? businessInfo?.first_name:''}  className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">First Name</label>
         </div>
       </Form.Item>
@@ -195,7 +204,7 @@ const BillingAddress: React.FC = () => {
       >
         <div className="relative">
         
-          <Input onBlur={onValid}   className='fw-input' />
+          <Input onBlur={onValid} value={copyCompanyAddress ? businessInfo?.last_name:''}   className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">Last Name</label>
         </div>
       </Form.Item>
@@ -206,7 +215,7 @@ const BillingAddress: React.FC = () => {
       >
         <div className="relative">
         
-          <Input onBlur={onValid}    className='fw-input' />
+          <Input onBlur={onValid}  value={copyCompanyAddress ? businessInfo?.address_1:''}    className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">Address Line 1</label>
         </div>
       </Form.Item>
@@ -217,7 +226,7 @@ const BillingAddress: React.FC = () => {
       >
         <div className="relative">
         
-          <Input  onBlur={onValid}  className='fw-input' />
+          <Input  onBlur={onValid} value={copyCompanyAddress ? businessInfo?.address_2:''}  className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">Address Line 2</label>
         </div>
       </Form.Item>
@@ -228,7 +237,7 @@ const BillingAddress: React.FC = () => {
       >
         <div className="relative">
         
-          <Input onBlur={onValid}   className='fw-input' />
+          <Input onBlur={onValid} value={copyCompanyAddress ? businessInfo?.city:''}   className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">City</label>
         </div>
       </Form.Item>
@@ -248,6 +257,7 @@ const BillingAddress: React.FC = () => {
             onChange={onChangeState}
             filterOption={filterOption}
             options={stateData}
+            value={copyCompanyAddress ? convertUsStateAbbrAndName(businessInfo?.state_code):''}
           >
           <label htmlFor="floating_outlined" className="fw-label">State</label>
           </Select>
@@ -266,7 +276,7 @@ const BillingAddress: React.FC = () => {
       >
         <div className="relative">
         
-          <InputNumber type="number"  onBlur={onValid}  className='fw-input' />
+          <InputNumber type="number"  onBlur={onValid} value={copyCompanyAddress ? businessInfo?.zip_postal_code:''}  className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">Zip</label>
         </div>
       </Form.Item>
@@ -284,7 +294,7 @@ const BillingAddress: React.FC = () => {
       >
         <div className="relative">
         
-          <InputNumber type="number"  onBlur={onValid}   className='fw-input' />
+          <InputNumber type="number" value={copyCompanyAddress ? businessInfo?.phone:''}  onBlur={onValid}   className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">Phone</label>
         </div>
       </Form.Item>
