@@ -14,11 +14,13 @@ interface OrderState {
   company_info: any;
   myCompanyInfoFilled: any;
   myBillingInfoFilled: any;
+  shippingOptions: any;
 }
 
 const initialState: OrderState = {
   orders: [],
   product_details: [],
+  shippingOptions: [],
   company_info: {},
   myCompanyInfoFilled: {},
   myBillingInfoFilled:{}
@@ -58,6 +60,58 @@ export const fetchProductDetails = createAsyncThunk(
 export const fetchShippingOption = createAsyncThunk(
   "shipping/option",
   async (postData: any,thunkAPI) => {
+    let userAccount = {
+        "orders": [
+            {
+                "order_po": "PO_0001",
+                "order_key": null,
+                "recipient": {
+                    "first_name": "Bob",
+                    "last_name": "Ross",
+                    "company_name": "Happy Little Trees, Inc",
+                    "address_1": "742 Evergreen Terrace",
+                    "address_2": null,
+                    "address_3": null,
+                    "city": "Mountain Scene",
+                    "state_code": "AK",
+                    "province": null,
+                    "zip_postal_code": "88888",
+                    "country_code": "us",
+                    "phone": "555-555-5555",
+                    "email": null,
+                    "address_order_po": "PO_0001"
+                },
+                "order_items": [
+                    {
+                        "product_order_po": "PO_0001",
+                        "product_qty": 1,
+                        "product_sku": "AP1234P1234",
+                        "product_image": null,
+                        "product_title": "The Big Blue Mountain",
+                        "template": null,
+                        "product_guid": "00000000-0000-0000-0000-000000000000",
+                        "custom_data_1": null,
+                        "custom_data_2": null,
+                        "custom_data_3": null
+                    }
+                ],
+                "shipping_code": "SD",
+                "ship_by_date": null,
+                "customs_tax_info": null,
+                "gift_message": null,
+                "test_mode": false,
+                "webhook_order_status_url": null,
+                "document_url": null,
+                "acct_number_ups": null,
+                "acct_number_fedex": null,
+                "custom_data_1": null,
+                "custom_data_2": null,
+                "custom_data_3": null,
+                ...postData
+            }
+        ]
+    };
+    postData = {...userAccount,...{}}
     console.log('postData...',postData)
     const response = await fetch(BASE_URL+"shipping-options", {
       method: "POST",
@@ -185,6 +239,10 @@ export const OrderSlice = createSlice({
   extraReducers: (builder) => {
     builder.addCase(fetchOrder.fulfilled, (state, action) => {
       state.orders = action.payload;
+    });
+
+    builder.addCase(fetchShippingOption.fulfilled, (state, action) => {
+      state.shippingOptions.push({[action.payload.data?.orders[0].order_po] : action.payload.data?.orders[0]});
     });
 
     builder.addCase(saveOrder.fulfilled, (state, action) => {

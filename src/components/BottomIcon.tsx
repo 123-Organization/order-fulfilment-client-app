@@ -13,6 +13,11 @@ interface NotificationAlertProps {
 
 
 const BottomIcon: React.FC = (): JSX.Element => {
+  const orders = useAppSelector((state) => state.order.orders);
+  const product_details = useAppSelector((state) => state.order.product_details);
+
+  console.log('product_details ....',product_details)
+
   const [backVisiable, setBackVisiable] = useState<Boolean>(true);
   const [nextVisiable, setNextVisiable] = useState<Boolean>(false);
   const [totalVisiable, setTotalVisiable] = useState<Boolean>(false);
@@ -50,6 +55,8 @@ const BottomIcon: React.FC = (): JSX.Element => {
 
   if (location.pathname === "/importlist") {
     !totalVisiable  && setTotalVisiable(true);
+  }else {
+    totalVisiable  && setTotalVisiable(false);
   }
 
   const navigate = useNavigate();
@@ -228,8 +235,8 @@ const BottomIcon: React.FC = (): JSX.Element => {
         <div className="grid h-full max-w-lg grid-cols-1 font-medium basis-1/2">
           {totalVisiable && (
             <div className="flex flex-col font-bold text-gray-400 pt-2">
-              <span>Order Count : 2</span>
-              <span>Grant Total : 290.40</span>
+              <span>Order Count : {orders?.data?.length}</span>
+              <span>Grant Total : {product_details?.totalPrice && '$'+product_details?.totalPrice}</span>
             </div>
           )}
         </div>
