@@ -12,7 +12,6 @@ import { getStates } from "country-state-picker";
 import type { SelectProps } from 'antd';
 import { countryType } from '../types/ICountry';
 import { useAppDispatch, useAppSelector } from "../store";
-import { updateCompanyInfo } from "../store/features/orderSlice";
 import convertUsStateAbbrAndName from '../services/state';
 
 const  countryList = require("../json/country.json");
@@ -24,11 +23,13 @@ const MyCompany: React.FC = () => {
   const [stateData, setStateData] = useState<SelectProps['options']>([]);
   const [countryCode, setCountryCode] = useState('us');
   const [stateCodeShort, setStateCodeShort] = useState<String | null>('');
+  const [companyAddress, setCompanyAddress] = useState({ last_name: "" });
   const [stateCode, setStateCode] = useState('');
   const [form] = Form.useForm();
   
   const dispatch = useAppDispatch();
   const orders = useAppSelector((state) => state.order.orders);
+  const businessInfo = useAppSelector((state) => state.order?.company_info?.data?.business_info);
   const product_details = useAppSelector((state) => state.order.product_details?.data?.product_list);
 
   const setStates = (value: string='us') => {
@@ -138,19 +139,28 @@ const MyCompany: React.FC = () => {
 
       </Form.Item>
       <Form.Item 
-        rules={[{ required: true, message: 'Please enter your Company Name!' }]}
+        rules={[{ required: true, message: 'Please enter your company name!' }]}
         name="company_name"
         className='w-full sm:ml-[200px]'
       >
         <div className="relative">
         
-          <Input onBlur={onValid}   className='fw-input' />
+          <Input 
+            onBlur={onValid}
+            value={companyAddress?.company_name ? companyAddress?.company_name : businessInfo?.company_name}
+            onChange={(e) =>
+              setCompanyAddress({
+                ...companyAddress,
+                ...{ company_name: e.target.value }
+              })
+            }
+            className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">My Company Name</label>
         </div>
       </Form.Item>
       <Form.Item 
         rules={[
-          { required: true, message: 'Please enter your First Name!' },
+          { required: true, message: 'Please enter your first name!' },
           { pattern: new RegExp(/^[a-zA-Z ]+$/i), message: 'Please enter only alphabet characters!' },
           { pattern: new RegExp(/^[a-zA-Z ]{2,}$/i), message: 'Please enter at least two characters!' }
         ]}
@@ -159,13 +169,23 @@ const MyCompany: React.FC = () => {
       >
         <div className="relative">
         
-          <Input onBlur={onValid}   className='fw-input' />
+          <Input 
+            onBlur={onValid}  
+            value={companyAddress?.first_name ? companyAddress?.first_name : businessInfo?.first_name}
+            onChange={(e) =>
+                setCompanyAddress({
+                  ...companyAddress,
+                  ...{ first_name: e.target.value }
+                })
+            } 
+            className='fw-input' 
+          />
           <label htmlFor="floating_outlined" className="fw-label">First Name</label>
         </div>
       </Form.Item>
       <Form.Item 
         rules={[
-          { required: true, message: 'Please enter your Last Name!' },
+          { required: true, message: 'Please enter your last name!' },
           { pattern: new RegExp(/^[a-zA-Z]+$/i), message: 'Please enter only alphabet characters!' },
           { pattern: new RegExp(/^[a-zA-Z ]{2,}$/i), message: 'Please enter at least two characters!' }
         ]}
@@ -173,41 +193,78 @@ const MyCompany: React.FC = () => {
         className='w-full sm:ml-[200px]'
       >
         <div className="relative">
-        
-          <Input onBlur={onValid}   className='fw-input' />
+          <Input 
+            onBlur={onValid} 
+            value={companyAddress?.last_name ? companyAddress?.last_name : businessInfo?.last_name}
+            onChange={(e) =>
+                setCompanyAddress({
+                  ...companyAddress,
+                  ...{ last_name: e.target.value }
+                })
+            }
+            className='fw-input' 
+          />
           <label htmlFor="floating_outlined" className="fw-label">Last Name</label>
         </div>
       </Form.Item>
       <Form.Item 
-        rules={[{ required: true, message: 'Please enter your Address Line 1 !' }]}
+        rules={[{ required: true, message: 'Please enter your address line 1 !' }]}
         name="address_1"
         className='w-full sm:ml-[200px]'
       >
         <div className="relative">
-        
-          <Input onBlur={onValid}   className='fw-input' />
+          <Input 
+            onBlur={onValid}
+            value={companyAddress?.address_1 ? companyAddress?.address_1 : businessInfo?.address_1}
+            onChange={(e) =>
+                setCompanyAddress({
+                  ...companyAddress,
+                  ...{ address_1: e.target.value }
+                })
+            }
+            className='fw-input' 
+          />
           <label htmlFor="floating_outlined" className="fw-label">Address Line 1</label>
         </div>
       </Form.Item>
       <Form.Item 
-        rules={[{ required: true, message: 'Please enter your Address Line 2' }]}
+        rules={[{ required: true, message: 'Please enter your address line 2' }]}
         name="address_2"
         className='w-full sm:ml-[200px]'
       >
         <div className="relative">
         
-          <Input onBlur={onValid}   className='fw-input' />
+          <Input 
+            onBlur={onValid}
+            value={companyAddress?.address_2 ? companyAddress?.address_2 : businessInfo?.address_2}
+            onChange={(e) =>
+                setCompanyAddress({
+                  ...companyAddress,
+                  ...{ address_2: e.target.value }
+                })
+            }
+            className='fw-input' 
+          />
           <label htmlFor="floating_outlined" className="fw-label">Address Line 2</label>
         </div>
       </Form.Item>
       <Form.Item 
-        rules={[{ required: true, message: 'Please enter your City!' }]}
+        rules={[{ required: true, message: 'Please enter your city!' }]}
         name="city"
         className='w-full sm:ml-[200px]'
       >
         <div className="relative">
-        
-          <Input onBlur={onValid}   className='fw-input' />
+          <Input 
+              onBlur={onValid}
+              className='fw-input'
+              value={companyAddress?.city ? companyAddress?.city : businessInfo?.city}
+              onChange={(e) =>
+                  setCompanyAddress({
+                    ...companyAddress,
+                    ...{ city: e.target.value }
+                  })
+              } 
+          />
           <label htmlFor="floating_outlined" className="fw-label">City</label>
         </div>
       </Form.Item>
@@ -234,28 +291,39 @@ const MyCompany: React.FC = () => {
 
       
       <Form.Item 
-        rules={[{ required: true, message: 'Please enter your Zip!' },
+        rules={[{ required: true, message: 'Please enter your zip!' },
         {
-          pattern: new RegExp(/\d{2,}/g),
-          message: 'The enter should be a number'
+          pattern: new RegExp(/^[0-9]{2,7}$/),
+          message: 'Please enter a valid zip !'
         }]}
         name="zip_postal_code"
         className='w-full sm:ml-[200px]'
       >
         <div className="relative">
         
-          <InputNumber type="number"  onBlur={onValid}   className='fw-input' />
+          <InputNumber 
+            type="number"  
+            onBlur={onValid}
+            value={companyAddress?.zip_postal_code ? companyAddress?.zip_postal_code : businessInfo?.zip_postal_code}
+            onChange={(e) =>
+                  setCompanyAddress({
+                    ...companyAddress,
+                    ...{ zip_postal_code: e.target.value }
+                  })
+            }   
+            className='fw-input' 
+          />
           <label htmlFor="floating_outlined" className="fw-label">Zip</label>
         </div>
       </Form.Item>
 
       <Form.Item 
         rules={[
-          { required: true, message: 'Please enter your phone!'
+          { required: true, message: 'Please enter your phone number!'
        },
        {
-        pattern: new RegExp(/\d{2,}/g),
-        message: 'The enter should be a number'
+        pattern: new RegExp(/^[0-9]{2,14}$/),
+        message: 'Please enter a valid phone number!'
       }
       ]}
         name="phone"
@@ -263,7 +331,18 @@ const MyCompany: React.FC = () => {
       >
         <div className="relative">
         
-          <InputNumber type="number"  onBlur={onValid}   className='fw-input' />
+          <InputNumber 
+              type="number"  
+              onBlur={onValid} 
+              value={companyAddress?.phone ? companyAddress?.phone : businessInfo?.phone}
+              onChange={(e) =>
+                    setCompanyAddress({
+                      ...companyAddress,
+                      ...{ phone: e.target.value }
+                    })
+              }
+              className='fw-input' 
+          />
           <label htmlFor="floating_outlined" className="fw-label">Phone</label>
         </div>
       </Form.Item>
