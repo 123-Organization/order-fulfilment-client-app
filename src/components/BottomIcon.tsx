@@ -49,8 +49,10 @@ const BottomIcon: React.FC = (): JSX.Element => {
   const location = useLocation();
   console.log(location.pathname);
   
-  if (location.pathname === "/mycompany" || location.pathname === "/billingaddress") {
+  if (location.pathname === "/mycompany" ) {
     backVisiable && setBackVisiable(false);
+  } else {
+    !backVisiable && setBackVisiable(true);
   }
 
   if (location.pathname === "/importlist") {
@@ -140,7 +142,7 @@ const BottomIcon: React.FC = (): JSX.Element => {
   }, [myBillingInfoFilled]);
 
   useEffect(() => {
-    if(companyInfo?.data?.account_id){
+    if(companyInfo?.data?.account_id && nextVisiable){
       if (location.pathname === "/mycompany") 
         navigate('/billingaddress')
       if (location.pathname === "/billingaddress")   
