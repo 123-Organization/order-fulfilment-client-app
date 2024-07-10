@@ -15,6 +15,8 @@ interface OrderState {
   myCompanyInfoFilled: any;
   myBillingInfoFilled: any;
   shippingOptions: any;
+  createCustomerInfo: any;
+  
 }
 
 const initialState: OrderState = {
@@ -23,7 +25,8 @@ const initialState: OrderState = {
   shippingOptions: [],
   company_info: {},
   myCompanyInfoFilled: {},
-  myBillingInfoFilled:{}
+  myBillingInfoFilled:{},
+  createCustomerInfo: {}
 };
 
 export const fetchOrder = createAsyncThunk(
@@ -46,6 +49,22 @@ export const fetchProductDetails = createAsyncThunk(
   async (postData: any,thunkAPI) => {
     console.log('postData...',postData)
     const response = await fetch(BASE_URL+"get-product-details", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(postData)
+    });
+    const data = response.json();
+    return data;
+  },
+);
+
+export const createCustomer = createAsyncThunk(
+  "create/customer",
+  async (postData: any,thunkAPI) => {
+    console.log('postData...',postData)
+    const response = await fetch(BASE_URL+"create-customer", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -255,6 +274,10 @@ export const OrderSlice = createSlice({
 
     builder.addCase(updateCompanyInfo.fulfilled, (state, action) => {
       state.company_info = action.payload;
+    });
+
+    builder.addCase(createCustomer.fulfilled, (state, action) => {
+      state.createCustomerInfo = action.payload;
     });
   },
 });
