@@ -17,6 +17,9 @@ type SizeType = Parameters<typeof Form>[0]["size"];
 const BillingAddress: React.FC = () => {
   const [countryCode, setCountryCode] = useState("us");
   const [copyCompanyAddress, setCopyCompanyAddress] = useState(false);
+  const billingInfo = useAppSelector(
+    (state) => state.order?.company_info?.data?.billing_info 
+  );
   const [companyAddress, setCompanyAddress] = useState({ last_name: "" });
   const [componentSize, setComponentSize] = useState<SizeType | "default">(
     "default"
@@ -28,7 +31,7 @@ const BillingAddress: React.FC = () => {
   const dispatch = useAppDispatch();
 
   const businessInfo = useAppSelector(
-    (state) => state.order.myCompanyInfoFilled.business_info
+    (state) => state.order?.company_info?.data?.business_info 
   );
 
   const checkboxClick: CheckboxProps["onChange"] = (e) => {
@@ -51,7 +54,7 @@ const BillingAddress: React.FC = () => {
 
   const onChangeState = (value: string) => {
     let state_code = value?.toLowerCase();
-    console.log(`onChangeState ${state_code}`);
+    console.log(`onChangeState ${state_code}`,countryCode);
     setStateCode(state_code);
     if(countryCode === "us") 
       setStateCodeShort(convertUsStateAbbrAndName(state_code));
@@ -132,6 +135,22 @@ const BillingAddress: React.FC = () => {
     // setTimeout(() => {
     // }, 3000);
   }, []);
+
+  useEffect(() => {
+    if(billingInfo?.country_code){
+
+      console.log('effect countryCode',billingInfo?.country_code)
+      // let cntCode = convertUsStateAbbrAndName(billingInfo?.country_code)+"";
+      onChange(billingInfo?.country_code);
+      setTimeout(() => {
+        
+        setCompanyAddress(billingInfo)
+        form1.setFieldsValue(
+          billingInfo
+        );
+      }, 1000);
+    }
+  }, [billingInfo]);
 
   const displayTurtles = (
     <Form
@@ -294,17 +313,17 @@ const BillingAddress: React.FC = () => {
         <div className="relative">
           <Input
             onBlur={onValid}
-            // onChange={(e) =>
-            //   setCompanyAddress({
-            //     ...companyAddress,
-            //     ...{ address_2: e.target.value }
-            //   })
-            // }
-            // value={
-            //   copyCompanyAddress && !companyAddress?.address_2
-            //     ? businessInfo?.address_2 
-            //     : companyAddress?.address_2
-            //   }
+            onChange={(e) =>
+              setCompanyAddress({
+                ...companyAddress,
+                ...{ address_2: e.target.value }
+              })
+            }
+            value={
+              copyCompanyAddress && !companyAddress?.address_2
+                ? businessInfo?.address_2 
+                : companyAddress?.address_2
+              }
             className="fw-input"
           />
           <label htmlFor="floating_outlined" className="fw-label">
@@ -350,9 +369,9 @@ const BillingAddress: React.FC = () => {
             filterOption={filterOption}
             options={stateData}
             value={
-              copyCompanyAddress && !stateCodeShort
+              copyCompanyAddress && !stateCode
                 ? convertUsStateAbbrAndName(businessInfo?.state_code)
-                : stateCodeShort && convertUsStateAbbrAndName(stateCodeShort)
+                : stateCode && (stateCode)
             }
           >
             <label htmlFor="floating_outlined" className="fw-label">
@@ -368,8 +387,8 @@ const BillingAddress: React.FC = () => {
         rules={[
           { required: true, message: "Please enter your Zip!" },
           {
-            pattern: new RegExp(/\d{2,}/g),
-            message: "The enter should be a number"
+            pattern: new RegExp(/^[0-9]{2,7}$/),
+            message: "Please enter a valid zip !"
           }
         ]}
       >
@@ -398,8 +417,8 @@ const BillingAddress: React.FC = () => {
         rules={[
           { required: true, message: "Please enter your Phone Number!" },
           {
-            pattern: new RegExp(/\d{4,}/g),
-            message: "The enter should be a number"
+            pattern: new RegExp(/^[0-9]{2,14}$/),
+            message: "Please enter a valid phone number!"
           }
         ]}
       >

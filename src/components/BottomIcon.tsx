@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Button, PaginationProps, Spin, notification } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store";
-import { updateCompanyInfo } from "../store/features/orderSlice";
+import { updateCompanyInfo, updateCompany } from "../store/features/orderSlice";
 
 type NotificationType = 'success' | 'info' | 'warning' | 'error';
 interface NotificationAlertProps {
@@ -49,8 +49,10 @@ const BottomIcon: React.FC = (): JSX.Element => {
   const location = useLocation();
   console.log(location.pathname);
   
-  if (location.pathname === "/mycompany") {
+  if (location.pathname === "/mycompany" ) {
     backVisiable && setBackVisiable(false);
+  } else {
+    !backVisiable && setBackVisiable(true);
   }
 
   if (location.pathname === "/importlist") {
@@ -69,9 +71,9 @@ const BottomIcon: React.FC = (): JSX.Element => {
   const onNextHandler = async() => {
     if (location.pathname === "/mycompany") {
       if ( 
-          myCompanyInfoFilled.business_info &&
-          !isNaN(myCompanyInfoFilled.business_info.zip_postal_code) &&
-          !isNaN(myCompanyInfoFilled.business_info.phone)
+          myCompanyInfoFilled?.business_info &&
+          !isNaN(myCompanyInfoFilled?.business_info?.zip_postal_code) &&
+          !isNaN(myCompanyInfoFilled?.business_info?.phone)
         
         ) {
           setNextSpinning(true)
@@ -104,12 +106,19 @@ const BottomIcon: React.FC = (): JSX.Element => {
   
   const onDeleteHandler = () => {};
 
+  const onBackHandler = () => {
+    if (location.pathname === "/billingaddress") 
+      navigate('/mycompany')
+    if (location.pathname === "/paymentaddress")   
+      navigate('/billingaddress')
+  };
+
   const onDownloadHandler = () => {};
   useEffect(() => {
     if (
-        myCompanyInfoFilled.business_info &&
-        !isNaN(myCompanyInfoFilled.business_info.zip_postal_code) &&
-        !isNaN(myCompanyInfoFilled.business_info.phone)
+        myCompanyInfoFilled?.business_info &&
+        !isNaN(myCompanyInfoFilled?.business_info?.zip_postal_code) &&
+        !isNaN(myCompanyInfoFilled?.business_info?.phone)
       ) {
         !nextVisiable && setNextVisiable(true);
     } else{
@@ -133,13 +142,13 @@ const BottomIcon: React.FC = (): JSX.Element => {
   }, [myBillingInfoFilled]);
 
   useEffect(() => {
-    if(companyInfo?.data?.account_id){
+    if(companyInfo?.data?.account_id && nextVisiable){
       if (location.pathname === "/mycompany") 
         navigate('/billingaddress')
       if (location.pathname === "/billingaddress")   
         navigate('/paymentaddress')
-      if (location.pathname === "/paymentaddress")  
-        navigate('/')
+      // if (location.pathname === "/paymentaddress")  
+      //   navigate('/')
       setNextSpinning(false)
       setNextVisiable(false);
       openNotificationWithIcon( {type:'success', message:'Success',description:'Information has been saved'})
@@ -150,6 +159,10 @@ const BottomIcon: React.FC = (): JSX.Element => {
       openNotificationWithIcon( {type:'error', message:'Error',description:'Something went wrong'})
     }
   }, [companyInfo]);
+
+  useEffect(() => {
+    dispatch(updateCompanyInfo({}));
+  }, []);
 
   return isLoadingImgDelete ? (
     <div className="pt-5 pb-2">
@@ -227,6 +240,7 @@ const BottomIcon: React.FC = (): JSX.Element => {
               className="  w-44 mx-8 mt-2  text-gray-500"
               size={"large"}
               type="default"
+              onClick={onBackHandler}
             >
               Back
             </Button>
