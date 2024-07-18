@@ -158,16 +158,20 @@ const PaymentAddress: React.FC = () => {
   );
 
   useEffect(() => {
-    dispatch(createCustomer(
-      {
-        "firstName":companyInfo.first_name,
-        "lastName":companyInfo.last_name,
-        "email":companyInfo.email,
-        "company": companyInfo.company_name,
-        "phone": companyInfo.phone,
-        "account_key":"81de5dba-0300-4988-a1cb-df97dfa4e372"
-      }));
-  },[]);
+    if(companyInfo?.first_name){
+     
+      dispatch(createCustomer(
+        {
+          "firstName":companyInfo?.first_name,
+          "lastName":companyInfo?.last_name,
+          "email":companyInfo?.email,
+          "company": companyInfo?.company_name,
+          "phone": companyInfo?.phone,
+          "account_key":"81de5dba-0300-4988-a1cb-df97dfa4e372"
+        }));
+      
+    }
+  },[companyInfo]);
 
   return (
     <div className="flex justify-end items-center w-full h-full p-8 max-md:flex-col max-md:mt-12">

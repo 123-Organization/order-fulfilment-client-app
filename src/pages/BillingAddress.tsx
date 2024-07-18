@@ -143,7 +143,7 @@ const BillingAddress: React.FC = () => {
       // let cntCode = convertUsStateAbbrAndName(billingInfo?.country_code)+"";
       onChange(billingInfo?.country_code);
       setTimeout(() => {
-        
+        setStateCode(convertUsStateAbbrAndName(billingInfo?.state_code));
         setCompanyAddress(billingInfo)
         form1.setFieldsValue(
           billingInfo
