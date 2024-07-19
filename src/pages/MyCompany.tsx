@@ -110,7 +110,7 @@ const MyCompany: React.FC = () => {
       setTimeout(() => {
         if(businessInfo?.state_code){
           // onChangeState(convertUsStateAbbrAndName(businessInfo?.state_code));
-          // setStateCodeShort(businessInfo?.state_code)
+          setStateCodeShort(businessInfo?.state_code)
         }
         onValid();
       }, 1000);
@@ -161,7 +161,7 @@ const MyCompany: React.FC = () => {
             onChange={(e) =>
               setCompanyAddress({
                 ...companyAddress,
-                ...{ company_name: e.target.value }
+                ...{ company_name: e?.target?.value }
               })
             }
             className='fw-input' />
@@ -185,7 +185,7 @@ const MyCompany: React.FC = () => {
             onChange={(e) =>
                 setCompanyAddress({
                   ...companyAddress,
-                  ...{ first_name: e.target.value }
+                  ...{ first_name: e?.target?.value }
                 })
             } 
             className='fw-input' 
@@ -209,7 +209,7 @@ const MyCompany: React.FC = () => {
             onChange={(e) =>
                 setCompanyAddress({
                   ...companyAddress,
-                  ...{ last_name: e.target.value }
+                  ...{ last_name: e?.target?.value }
                 })
             }
             className='fw-input' 
@@ -229,7 +229,7 @@ const MyCompany: React.FC = () => {
             onChange={(e) =>
                 setCompanyAddress({
                   ...companyAddress,
-                  ...{ address_1: e.target.value }
+                  ...{ address_1: e?.target?.value }
                 })
             }
             className='fw-input' 
@@ -250,7 +250,7 @@ const MyCompany: React.FC = () => {
             onChange={(e) =>
                 setCompanyAddress({
                   ...companyAddress,
-                  ...{ address_2: e.target.value }
+                  ...{ address_2: e?.target?.value }
                 })
             }
             className='fw-input' 
@@ -271,7 +271,7 @@ const MyCompany: React.FC = () => {
               onChange={(e) =>
                   setCompanyAddress({
                     ...companyAddress,
-                    ...{ city: e.target.value }
+                    ...{ city: e?.target?.value }
                   })
               } 
           />
@@ -323,7 +323,7 @@ const MyCompany: React.FC = () => {
             onChange={(e) =>
                   setCompanyAddress({
                     ...companyAddress,
-                    ...{ zip_postal_code: e.target.value }
+                    ...{ zip_postal_code: e?.target?.value }
                   })
             }   
             className='fw-input' 
@@ -353,7 +353,7 @@ const MyCompany: React.FC = () => {
               onChange={(e) =>
                     setCompanyAddress({
                       ...companyAddress,
-                      ...{ phone: e.target.value }
+                      ...{ phone: e?.target?.value }
                     })
               }
               className='fw-input' 

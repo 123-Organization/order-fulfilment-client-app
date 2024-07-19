@@ -194,10 +194,10 @@ const BillingAddress: React.FC = () => {
             onChange={(e) =>
               setCompanyAddress({
                 ...companyAddress,
-                ...{ company_name: e.target.value }
+                ...{ company_name: e?.target?.value }
               })
             }
-            value={copyCompanyAddress && !companyAddress?.company_name ? businessInfo?.company_name : companyAddress?.company_name}
+            value={copyCompanyAddress ? businessInfo?.company_name : companyAddress?.company_name}
             className="fw-input"
           />
           <label htmlFor="floating_outlined" className="fw-label">
@@ -226,10 +226,10 @@ const BillingAddress: React.FC = () => {
             onChange={(e) =>
               setCompanyAddress({
                 ...companyAddress,
-                ...{ first_name: e.target.value }
+                ...{ first_name: e?.target?.value }
               })
             }
-            value={copyCompanyAddress && !companyAddress?.first_name ? businessInfo?.first_name : companyAddress?.first_name}
+            value={copyCompanyAddress ? businessInfo?.first_name : companyAddress?.first_name}
             className="fw-input"
           />
           <label htmlFor="floating_outlined" className="fw-label">
@@ -260,11 +260,11 @@ const BillingAddress: React.FC = () => {
             onChange={(e) =>
               setCompanyAddress({
                 ...companyAddress,
-                ...{ last_name: e.target.value }
+                ...{ last_name: e?.target?.value }
               })
             }
             value={
-              copyCompanyAddress && !companyAddress?.last_name
+              copyCompanyAddress 
                 ? businessInfo?.last_name
                 : companyAddress?.last_name
             }
@@ -288,11 +288,11 @@ const BillingAddress: React.FC = () => {
             onChange={(e) =>
               setCompanyAddress({
                 ...companyAddress,
-                ...{ address_1: e.target.value }
+                ...{ address_1: e?.target?.value }
               })
             }
             value={
-                copyCompanyAddress && !companyAddress?.address_1
+                copyCompanyAddress 
                   ? businessInfo?.address_1 
                   : companyAddress?.address_1
               }
@@ -316,11 +316,11 @@ const BillingAddress: React.FC = () => {
             onChange={(e) =>
               setCompanyAddress({
                 ...companyAddress,
-                ...{ address_2: e.target.value }
+                ...{ address_2: e?.target?.value }
               })
             }
             value={
-              copyCompanyAddress && !companyAddress?.address_2
+              copyCompanyAddress 
                 ? businessInfo?.address_2 
                 : companyAddress?.address_2
               }
@@ -342,10 +342,10 @@ const BillingAddress: React.FC = () => {
             onChange={(e) =>
               setCompanyAddress({
                 ...companyAddress,
-                ...{ city: e.target.value }
+                ...{ city: e?.target?.value }
               })
             }
-            value={copyCompanyAddress && !companyAddress?.city ? businessInfo?.city : companyAddress?.city}
+            value={copyCompanyAddress  ? businessInfo?.city : companyAddress?.city}
             className="fw-input"
           />
           <label htmlFor="floating_outlined" className="fw-label">
@@ -369,7 +369,7 @@ const BillingAddress: React.FC = () => {
             filterOption={filterOption}
             options={stateData}
             value={
-              copyCompanyAddress && !stateCode
+              copyCompanyAddress 
                 ? convertUsStateAbbrAndName(businessInfo?.state_code)
                 : stateCode && (stateCode)
             }
@@ -399,10 +399,10 @@ const BillingAddress: React.FC = () => {
             onChange={(e) =>
               setCompanyAddress({
                 ...companyAddress,
-                ...{ zip_postal_code: e.target.value }
+                ...{ zip_postal_code: e?.target?.value }
               })
             }
-            value={copyCompanyAddress && !companyAddress?.zip_postal_code ? businessInfo?.zip_postal_code : companyAddress?.zip_postal_code}
+            value={copyCompanyAddress  ? businessInfo?.zip_postal_code : companyAddress?.zip_postal_code}
             className="fw-input"
           />
           <label htmlFor="floating_outlined" className="fw-label">
@@ -425,12 +425,12 @@ const BillingAddress: React.FC = () => {
         <div className="relative">
           <InputNumber
             type="number"
-            value={copyCompanyAddress && !companyAddress?.phone ? businessInfo?.phone : companyAddress?.phone}
+            value={copyCompanyAddress  ? businessInfo?.phone : companyAddress?.phone}
             onBlur={onValid}
             onChange={(e) =>
               setCompanyAddress({
                 ...companyAddress,
-                ...{ phone: e.target.value }
+                ...{ phone: e?.target?.value }
               })
             }
             className="fw-input"

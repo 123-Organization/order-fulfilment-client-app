@@ -258,10 +258,10 @@ const BottomIcon: React.FC = (): JSX.Element => {
           {nextVisiable && (
             <Spin tip="Updating..." spinning={nextSpinning}>
                 <Button
-                onClick={onNextHandler}
-                className="my-2 w-44 absolute right-2"
-                type="primary"
-                size="large"
+                  onClick={onNextHandler}
+                  className="my-2 w-44 absolute right-2"
+                  type="primary"
+                  size="large"
                 >
                     Next
                 </Button>
