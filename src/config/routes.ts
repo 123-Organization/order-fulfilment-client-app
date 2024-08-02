@@ -1,6 +1,7 @@
 export const routes = {
   import: "/import",
   importlist: "/importlist",
+  virtualinventory: "/virtualinventory",
   billingaddress:"/billingaddress",
   paymentaddress:"/paymentaddress",
   editorder:"/editorder",

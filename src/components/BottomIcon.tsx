@@ -32,7 +32,8 @@ const BottomIcon: React.FC = (): JSX.Element => {
       description
     });
   };
-
+  
+  const pathNameAvoidBackButton = ["/mycompany","/virtualinventory"]
   const myCompanyInfoFilled = useAppSelector(
     (state) => state.order.myCompanyInfoFilled
   );
@@ -49,7 +50,7 @@ const BottomIcon: React.FC = (): JSX.Element => {
   const location = useLocation();
   console.log(location.pathname);
   
-  if (location.pathname === "/mycompany" ) {
+  if ( pathNameAvoidBackButton.includes(location.pathname)  ) {
     backVisiable && setBackVisiable(false);
   } else {
     !backVisiable && setBackVisiable(true);
