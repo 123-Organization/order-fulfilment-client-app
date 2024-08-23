@@ -24,7 +24,7 @@ const MyCompany: React.FC = () => {
   const [countryCode, setCountryCode] = useState('us');
   const [stateCodeShort, setStateCodeShort] = useState<String | null>('');
   const [companyAddress, setCompanyAddress] = useState({ last_name: "" });
-  const [stateCode, setStateCode] = useState('');
+  const [stateCode, setStateCode] = useState<String | null>('');
   const [form] = Form.useForm();
   
   const dispatch = useAppDispatch();
@@ -53,8 +53,8 @@ const MyCompany: React.FC = () => {
     
   };
 
-  const onChangeState = (value: string) => {
-    let state_code = value?.toLowerCase();
+  const onChangeState = (value: (string|null)) => {
+    let state_code: (string|null) = value?.toLowerCase();
     console.log(`onChangeState ${state_code}`);
     setStateCode(state_code);
     countryCode==='us' && setStateCodeShort(convertUsStateAbbrAndName(state_code))
@@ -98,14 +98,24 @@ const MyCompany: React.FC = () => {
     (option?.label ?? '').toLowerCase().includes(input.toLowerCase());
 
   useEffect(() => {
-    // if(orders && !orders?.data?.length) {
-      // dispatch(updateCompanyInfo(21));
-      // } 
       onChange(countryCode);
-      // setTimeout(() => {
-      // }, 3000);
   },[]);
+  
+  useEffect(() => {
+    form.setFieldsValue(
+      businessInfo
+    );
+    if( businessInfo?.company_name){
 
+      setTimeout(() => {
+        if(businessInfo?.state_code){
+          // onChangeState(convertUsStateAbbrAndName(businessInfo?.state_code));
+          setStateCodeShort(businessInfo?.state_code)
+        }
+        onValid();
+      }, 1000);
+    }
+  },[businessInfo]);
 
   const displayTurtles =  <Form
   form={form} 
@@ -151,7 +161,7 @@ const MyCompany: React.FC = () => {
             onChange={(e) =>
               setCompanyAddress({
                 ...companyAddress,
-                ...{ company_name: e.target.value }
+                ...{ company_name: e?.target?.value }
               })
             }
             className='fw-input' />
@@ -175,7 +185,7 @@ const MyCompany: React.FC = () => {
             onChange={(e) =>
                 setCompanyAddress({
                   ...companyAddress,
-                  ...{ first_name: e.target.value }
+                  ...{ first_name: e?.target?.value }
                 })
             } 
             className='fw-input' 
@@ -199,7 +209,7 @@ const MyCompany: React.FC = () => {
             onChange={(e) =>
                 setCompanyAddress({
                   ...companyAddress,
-                  ...{ last_name: e.target.value }
+                  ...{ last_name: e?.target?.value }
                 })
             }
             className='fw-input' 
@@ -219,7 +229,7 @@ const MyCompany: React.FC = () => {
             onChange={(e) =>
                 setCompanyAddress({
                   ...companyAddress,
-                  ...{ address_1: e.target.value }
+                  ...{ address_1: e?.target?.value }
                 })
             }
             className='fw-input' 
@@ -240,7 +250,7 @@ const MyCompany: React.FC = () => {
             onChange={(e) =>
                 setCompanyAddress({
                   ...companyAddress,
-                  ...{ address_2: e.target.value }
+                  ...{ address_2: e?.target?.value }
                 })
             }
             className='fw-input' 
@@ -261,7 +271,7 @@ const MyCompany: React.FC = () => {
               onChange={(e) =>
                   setCompanyAddress({
                     ...companyAddress,
-                    ...{ city: e.target.value }
+                    ...{ city: e?.target?.value }
                   })
               } 
           />
@@ -283,6 +293,11 @@ const MyCompany: React.FC = () => {
             onChange={onChangeState}
             filterOption={filterOption}
             options={stateData}
+            value={
+              companyAddress && !stateCode
+                ? businessInfo?.state_code && convertUsStateAbbrAndName(businessInfo?.state_code)
+                : stateCode && (stateCode)
+            }
           >
           <label htmlFor="floating_outlined" className="fw-label">State</label>
           </Select>
@@ -308,7 +323,7 @@ const MyCompany: React.FC = () => {
             onChange={(e) =>
                   setCompanyAddress({
                     ...companyAddress,
-                    ...{ zip_postal_code: e.target.value }
+                    ...{ zip_postal_code: e?.target?.value }
                   })
             }   
             className='fw-input' 
@@ -338,7 +353,7 @@ const MyCompany: React.FC = () => {
               onChange={(e) =>
                     setCompanyAddress({
                       ...companyAddress,
-                      ...{ phone: e.target.value }
+                      ...{ phone: e?.target?.value }
                     })
               }
               className='fw-input' 
