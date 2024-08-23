@@ -7,6 +7,7 @@ import HeaderIcon from './components/HeaderIcon';
 import BottomIcon from './components/BottomIcon';
 import { useLocation } from 'react-router-dom';
 
+
 const { Header, Footer, Content } = Layout;
 
 function App() {
