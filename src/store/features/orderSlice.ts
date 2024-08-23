@@ -2,6 +2,7 @@ import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import config  from "../../config/configs";
 // https://github.com/vahid-nejad/redux-toolkit-example/blob/master/src/components/Add.tsx
 const BASE_URL = config.SERVER_BASE_URL;
+const ECOMMERCE_CONNCET_URL = "https://artsafenet.com/wp-json/finerworks-media/v1/";
 
 export interface Order {
   id: number;
@@ -16,6 +17,13 @@ interface OrderState {
   myBillingInfoFilled: any;
   shippingOptions: any;
   createCustomerInfo: any;
+  ecommerceConnectorgetOrderWoocommerce: any;
+  ecommerceConnectorImportOrderWoocommerce: any;
+  ecommerceConnectorInfo: any;
+  ecommerceConnectorImportInfo: any;
+  ecommerceConnectorExportInfo: any;
+  ecommerceGetImportOrders: any;
+  listVirtualInventory: any;
   
 }
 
@@ -26,7 +34,14 @@ const initialState: OrderState = {
   company_info: {},
   myCompanyInfoFilled: {},
   myBillingInfoFilled:{},
-  createCustomerInfo: {}
+  createCustomerInfo: {},
+  ecommerceConnectorInfo: {},
+  ecommerceConnectorImportInfo: {},
+  ecommerceConnectorExportInfo: {},
+  ecommerceConnectorgetOrderWoocommerce: {},
+  ecommerceConnectorImportOrderWoocommerce: {},
+  ecommerceGetImportOrders:{},
+  listVirtualInventory:{},
 };
 
 export const fetchOrder = createAsyncThunk(
@@ -60,11 +75,93 @@ export const fetchProductDetails = createAsyncThunk(
   },
 );
 
+export const getImportOrders = createAsyncThunk(
+  "import/order",
+  async (postData: any,thunkAPI) => {
+    console.log('postData...',postData)
+    
+    const response = await fetch(ECOMMERCE_CONNCET_URL+"get-orders", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    const data = response.json();
+    return data;
+  },
+);
+
+export const ecommerceConnector = createAsyncThunk(
+  "ecommerce/connector",
+  async (postData: any,thunkAPI) => {
+    console.log('postData...',postData)
+    
+    const response = await fetch(ECOMMERCE_CONNCET_URL+"authorize?client_id="+postData.account_key, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    const data = response.json();
+    return data;
+  },
+);
+
+export const ecommerceConnectorExport = createAsyncThunk(
+  "ecommerce/connector/export",
+  async (postData: any,thunkAPI) => {
+    console.log('postData...',postData)
+    
+    const response = await fetch(ECOMMERCE_CONNCET_URL+"import-products", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(postData)
+    });
+    const data = response.json();
+    return data;
+  },
+);
+
+
+export const ecommerceConnectorImport = createAsyncThunk(
+  "ecommerce/connector/import",
+  async (postData: any,thunkAPI) => {
+    console.log('postData...',postData)
+    
+    const response = await fetch(ECOMMERCE_CONNCET_URL+"get-orders", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const data = response.json();
+    return data;
+  },
+);
+
 export const createCustomer = createAsyncThunk(
   "create/customer",
   async (postData: any,thunkAPI) => {
     console.log('postData...',postData)
     const response = await fetch(BASE_URL+"create-customer", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(postData)
+    });
+    const data = response.json();
+    return data;
+  },
+);
+
+export const listVirtualInventory = createAsyncThunk(
+  "list/virtual/inventory",
+  async (postData: any,thunkAPI) => {
+    console.log('postData...',postData)
+    const response = await fetch(BASE_URL+"list-virtual-inventory", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -183,55 +280,13 @@ export const updateCompanyInfo = createAsyncThunk(
 
 export const saveOrder = createAsyncThunk(
   "order/save",
-  async (name: string, thunkAPI) => {
+  async (postData: any, thunkAPI) => {
     const response = await fetch(BASE_URL+"upload-order-excel", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(
-
-        {
-          "accountId":22,
-            "orders": [
-              {
-              "order_po": "beee-004",
-              "order_key": null,
-              "recipient": {
-                "first_name": "Dan",
-                "last_name": "Desantis",
-                "company_name": "Marriott International HQ",
-                "address_1": "The Westin Edmonton",
-                "address_2": "10135 100 St NW",
-                "address_3": null,
-                "city": "Edmonton",
-                "state_code": null,
-                "province": "AB",
-                "zip_postal_code": "T5J 0N7",
-                "country_code": "ca",
-                "phone": "780-426-3636",
-                "email": null
-              },
-              "order_items": [
-                {
-                  
-                  "product_qty": 1,
-                  "product_sku": "AP1556P58353",
-                  "product_image": {
-                    "pixel_width": 0,
-                    "pixel_height": 0,
-                    "product_url_file": null,
-                    "product_url_thumbnail": null
-                  },
-                  "title": null
-                }
-              ],
-              "shipping_code": "GD",
-              "test_mode": true
-            }
-          ]
-          }
-      ),
+      body: JSON.stringify(postData),
     });
     const data = await response.json();
     return data;
@@ -279,6 +334,27 @@ export const OrderSlice = createSlice({
     builder.addCase(createCustomer.fulfilled, (state, action) => {
       state.createCustomerInfo = action.payload;
     });
+
+    builder.addCase(ecommerceConnector.fulfilled, (state, action) => {
+      state.ecommerceConnectorInfo = action.payload;
+    });
+
+    builder.addCase(ecommerceConnectorImport.fulfilled, (state, action) => {
+      state.ecommerceConnectorImportInfo = action.payload;
+    });
+
+    builder.addCase(ecommerceConnectorExport.fulfilled, (state, action) => {
+      state.ecommerceConnectorExportInfo = action.payload;
+    });
+
+    builder.addCase(getImportOrders.fulfilled, (state, action) => {
+      state.ecommerceGetImportOrders = action.payload;
+    });
+
+    builder.addCase(listVirtualInventory.fulfilled, (state, action) => {
+      state.listVirtualInventory = action.payload;
+    });
+
   },
 });
 
