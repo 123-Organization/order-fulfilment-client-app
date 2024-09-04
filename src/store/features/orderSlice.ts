@@ -15,8 +15,10 @@ interface OrderState {
   company_info: any;
   myCompanyInfoFilled: any;
   myBillingInfoFilled: any;
+  myImport: any;
   shippingOptions: any;
   createCustomerInfo: any;
+  saveOrderInfo:any;
   ecommerceConnectorgetOrderWoocommerce: any;
   ecommerceConnectorImportOrderWoocommerce: any;
   ecommerceConnectorInfo: any;
@@ -32,8 +34,10 @@ const initialState: OrderState = {
   product_details: [],
   shippingOptions: [],
   company_info: {},
+  saveOrderInfo:{},
   myCompanyInfoFilled: {},
   myBillingInfoFilled:{},
+  myImport:{},
   createCustomerInfo: {},
   ecommerceConnectorInfo: {},
   ecommerceConnectorImportInfo: {},
@@ -134,6 +138,7 @@ export const ecommerceConnectorImport = createAsyncThunk(
       headers: {
         "Content-Type": "application/json",
       },
+      body: JSON.stringify(postData)
     });
 
     const data = response.json();
@@ -323,6 +328,9 @@ export const OrderSlice = createSlice({
     },
     updateBilling: (state, action: PayloadAction) => {
       state.myBillingInfoFilled = action.payload;
+    },
+    updateImport: (state, action: PayloadAction) => {
+      state.myImport = action.payload;
     }
   },
   extraReducers: (builder) => {
@@ -335,7 +343,11 @@ export const OrderSlice = createSlice({
     });
 
     builder.addCase(saveOrder.fulfilled, (state, action) => {
-      state.orders.push(action.payload);
+      state.saveOrderInfo = action.payload;
+    });
+
+    builder.addCase(saveOrder.pending, (state, action) => {
+      state.saveOrderInfo = action.payload;
     });
 
     builder.addCase(fetchProductDetails.fulfilled, (state, action) => {
@@ -374,4 +386,4 @@ export const OrderSlice = createSlice({
 });
 
 export default OrderSlice.reducer;
-export const { addOrder, updateCompany, updateBilling } = OrderSlice.actions;
+export const { addOrder, updateCompany, updateBilling, updateImport } = OrderSlice.actions;
