@@ -6,16 +6,17 @@ import type { SelectProps } from "antd";
 import { countryType } from "../types/ICountry";
 import type { CheckboxProps } from "antd";
 import { useAppDispatch, useAppSelector } from "../store";
-import { updateBilling } from "../store/features/orderSlice";
+import { updateBilling, updateImport } from "../store/features/orderSlice";
 import convertUsStateAbbrAndName from "../services/state";
 
-const countryList = require("../json/order_status.json");
+const countryList = require("../json/order_status_same_label.json");
 const { RangePicker } = DatePicker; 
 const { Option } = Select;
 type SizeType = Parameters<typeof Form>[0]["size"];
 
 const ImportFilter: React.FC = () => {
-  const [countryCode, setCountryCode] = useState("us");
+  const [countryCode, setCountryCode] = useState("");
+  const [dateRange, setDateRange] = useState([]);
   const [copyCompanyAddress, setCopyCompanyAddress] = useState(false);
   const billingInfo = useAppSelector(
     (state) => state.order?.company_info?.data?.billing_info 
@@ -64,10 +65,13 @@ const ImportFilter: React.FC = () => {
   };
 
   const onChange = (value: string) => {
-    let country_code = value?.toLowerCase();
-    console.log(`selected ${country_code}`);
-    setStates(country_code?.toLowerCase());
-    setCountryCode(country_code);
+    if(value){
+
+      console.log(`selected ${value}`);
+      let country_code = value;
+      setStates(country_code);
+      setCountryCode(country_code);
+    }
   };
 
   const setStates = (value: string = "us") => {
@@ -82,35 +86,42 @@ const ImportFilter: React.FC = () => {
 
   const onValid = () => {
     // form1.resetFields();
-    let value = form1.getFieldsValue();
-    value.country_code = countryCode;
-    value.state_code = countryCode === "us" ? stateCodeShort : stateCode;
-    // value.address_order_po="this is test";
-    //https://dev.to/bayusyaits/using-antd-and-react-for-editable-cells-implementation-and-table-2b5m
+    // let value = form1.getFieldsValue();
+    // // value.country_code = countryCode;
+    // // value.state_code = countryCode === "us" ? stateCodeShort : stateCode;
+    // // value.address_order_po="this is test";
+    // //https://dev.to/bayusyaits/using-antd-and-react-for-editable-cells-implementation-and-table-2b5m
 
-    console.log(`onValid `, value);
-    let eveVal = Object.values(value).every(Boolean);
-    if (!eveVal) {
-      form1.submit();
-    }
+    // console.log(`onValid `, value);
+    // let eveVal = Object.values(value).every(Boolean);
+    // if (!eveVal) {
+    //   form1.submit();
+    // }
+
+    // dateRange.length
+
     // value.email = "james@gmail.com";
-    value.province = "";
-    // value.address_3=null;
-    console.log(`eveVal `, eveVal);
+    // value.province = "";
+    // // value.address_3=null;
+    // console.log(`eveVal `, eveVal);
     // const isFormValid = () => form1.getFieldsError().some((item) => item.errors.length > 0)
     // https://github.com/ant-design/ant-design/issues/15674
     // console.log('isFormValid',form1.getFieldsError(),isFormValid(),valid)
-    if (eveVal) {
+    if (countryCode || countryCode.length && dateRange.length) {
+      let importData = { };
+      if(countryCode) importData = {...importData,...{status:countryCode}}
+      if(dateRange.length) importData = {...importData,...{"start_date":dateRange[0],"end_date":dateRange[1]}}
+      dispatch(updateImport(importData));
       // let valid = form1.validateFields();
-      form1
-        .validateFields()
-        .then(() => {
-          // do whatever you need to
-          dispatch(updateBilling({ billing_info: value }));
-        })
-        .catch((err) => {
-          console.log(err);
-        });
+      // form1
+      //   .validateFields()
+      //   .then(() => {
+      //     // do whatever you need to
+          
+      //   })
+      //   .catch((err) => {
+      //     console.log(err);
+      //   });
       // console.log('isFormValid',valid)
       // dispatch(updateCompany({billing_info:value}));
     }
@@ -184,7 +195,29 @@ const ImportFilter: React.FC = () => {
           </label>
         </div>
       </Form.Item>
-      <RangePicker className="w-full sm:ml-[100px]" />
+      {/* <Form.Item name="range_picker" label="Date range" 
+      > */}
+        <RangePicker 
+        onBlur={onValid}
+
+        onChange={(_,info) =>
+         { 
+          console.log('Focus:', info); 
+          setDateRange(info)
+          onValid()
+         }
+        }
+
+        // value={dateRange}
+
+          // onChange={(_, info) => {
+          //   console.log('Focus:', info);
+          // }}
+
+          className="w-full sm:ml-[100px]" 
+        />
+        
+      {/* </Form.Item> */}
          
     </Form>
   );

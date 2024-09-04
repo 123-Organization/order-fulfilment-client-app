@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Button, PaginationProps, Spin, notification } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store";
-import { updateCompanyInfo, updateCompany } from "../store/features/orderSlice";
+import { updateCompanyInfo, updateCompany, ecommerceConnector, getImportOrders, saveOrder } from "../store/features/orderSlice";
 
 type NotificationType = 'success' | 'info' | 'warning' | 'error';
 interface NotificationAlertProps {
@@ -15,6 +15,7 @@ interface NotificationAlertProps {
 const BottomIcon: React.FC = (): JSX.Element => {
   const orders = useAppSelector((state) => state.order.orders);
   const product_details = useAppSelector((state) => state.order.product_details);
+  const ecommerceGetImportOrders = useAppSelector((state) => state.order.ecommerceGetImportOrders);
 
   console.log('product_details ....',product_details)
 
@@ -33,10 +34,20 @@ const BottomIcon: React.FC = (): JSX.Element => {
     });
   };
   
-  const pathNameAvoidBackButton = ["/mycompany","/virtualinventory"]
+  const pathNameAvoidBackButton = ["/mycompany","/virtualinventory","/importfilter"];
+
   const myCompanyInfoFilled = useAppSelector(
     (state) => state.order.myCompanyInfoFilled
   );
+
+  const myImport = useAppSelector(
+    (state) => state.order.myImport
+  );
+
+  const saveOrderInfo = useAppSelector(
+    (state) => state.order.saveOrderInfo
+  );
+
   const myBillingInfoFilled = useAppSelector(
     (state) => state.order.myBillingInfoFilled
   );
@@ -84,6 +95,28 @@ const BottomIcon: React.FC = (): JSX.Element => {
       } else {
         alert("Billing info missing");
       }
+    }
+
+    if (location.pathname === "/importfilter") {
+      if (
+            (myImport?.start_date) ||
+            (myImport?.end_date) ||
+            (myImport?.status)
+        ) {
+            setNextSpinning(true)
+            // dispatch(updateCompanyInfo(myImport));
+            dispatch(
+              getImportOrders(
+                { ...{
+                    account_key: "81de5dba-0300-4988-a1cb-df97dfa4e372"
+                  },...{myImport}
+                }
+              )
+            );
+          
+        } else {
+          alert("Import info missing");
+        }
     }
 
     if (location.pathname === "/billingaddress") {
@@ -141,6 +174,57 @@ const BottomIcon: React.FC = (): JSX.Element => {
     }
     console.log('nextVisiable',nextVisiable)
   }, [myBillingInfoFilled]);
+
+  useEffect(() => {
+    if (location.pathname === "/importfilter") {
+      if (
+            (myImport?.start_date) ||
+            (myImport?.end_date) ||
+            (myImport?.status)
+        ) {
+          !nextVisiable && setNextVisiable(true);
+      } else{
+        nextVisiable && setNextVisiable(false);
+      }
+      console.log('nextVisiable',nextVisiable)
+    }
+  }, [myImport]);
+
+  useEffect(() => {
+    if (location.pathname === "/importfilter") {
+      if (
+        (ecommerceGetImportOrders?.accountId)
+        ) {
+          dispatch(saveOrder(ecommerceGetImportOrders));
+      } else{
+        nextVisiable && setNextVisiable(false);
+      }
+    }
+
+  }, [ecommerceGetImportOrders]);
+
+  useEffect(() => {
+    if (location.pathname === "/importfilter") {
+      if (
+        (saveOrderInfo?.statusCode===200)
+        ) {
+          openNotificationWithIcon( {type:'success', message:'Success',description:'Import and Export have been done successfully'})
+          
+          navigate('/importlist')
+      } 
+      else if (
+        (saveOrderInfo?.statusCode===400)
+        ) {
+          openNotificationWithIcon( {type:'error', message:'Error',description:saveOrderInfo.message})
+          setNextSpinning(false)
+          !nextVisiable && setNextVisiable(true);
+      }
+      else{
+        nextVisiable && setNextVisiable(false);
+      }
+    }
+
+  }, [saveOrderInfo]);
 
   useEffect(() => {
     if(companyInfo?.data?.account_id && nextVisiable){
