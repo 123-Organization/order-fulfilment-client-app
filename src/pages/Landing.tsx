@@ -14,9 +14,11 @@ import { useNavigate } from "react-router-dom";
 import {
   ecommerceConnector,
   getImportOrders,
-  saveOrder
+  saveOrder,
+  updateCompanyInfo
 } from "../store/features/orderSlice";
 import { useAppDispatch, useAppSelector } from "../store";
+import { connectAdvanced } from "react-redux";
 
 const images = [
   { name: "Squarespace", img: squarespace },
@@ -40,7 +42,13 @@ export enum StepType {
 const Landing: React.FC = (): JSX.Element => {
 
   const ecommerceGetImportOrders = useAppSelector((state) => state.order.ecommerceGetImportOrders);
+  const companyInfo = useAppSelector(
+    (state) => state.order?.company_info?.data 
+  );
+
+  console.log('companyInfo',companyInfo)
   console.log('ecommerceGetImportOrders',ecommerceGetImportOrders)
+
   const ecommerceConnectorInfo = useAppSelector(
     (state) => state.order.ecommerceConnectorInfo
   );
@@ -222,11 +230,21 @@ const Landing: React.FC = (): JSX.Element => {
 
   useEffect(() => {
     if (ecommerceConnectorInfo.approval_url) {
-      
+      dispatch(updateCompanyInfo({
+        "connections": [
+          {
+            "name": "WooCommerce",
+            "id": ecommerceConnectorInfo.approval_url,
+            "data": ""
+          }
+        ]
+      }));
     }
   }, [ecommerceConnectorInfo]);
 
-  
+  useEffect(() => {
+    dispatch(updateCompanyInfo({}));
+  }, []);
 
   useEffect(() => {
     if(ecommerceGetImportOrders){
@@ -241,7 +259,7 @@ const Landing: React.FC = (): JSX.Element => {
         onClick={() => importData(image.name)}
       >
         {
-        (image.name === "WooCommerce") &&
+        (image.name === "WooCommerce" && companyInfo?.connections) &&
         <Tag className="absolute ml-12 -mt-3" color="#52c41a">
           Connected
         </Tag>

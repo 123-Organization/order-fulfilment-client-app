@@ -13,6 +13,7 @@ const BillingAddress = lazy(() => import("../pages/BillingAddress"));
 const PaymentAddress = lazy(() => import("../pages/PaymentAddress"));
 const ShippingPreference = lazy(() => import("../pages/ShippingPreference"));
 const Checkout = lazy(() => import("../pages/Checkout"));
+const ImportFilter = lazy(() => import("../pages/ImportFilter"));
 
 const Router: React.FC = (): JSX.Element  => {
   
@@ -42,6 +43,7 @@ const Router: React.FC = (): JSX.Element  => {
           <Route path={routes.billingaddress} Component={BillingAddress} />
           <Route path={routes.import} Component={Import} />
           <Route path={routes.importlist} Component={ImportList} />
+          <Route path={routes.importfilter} Component={ImportFilter} />
           <Route path={routes.virtualinventory} Component={VirtualInventory} />
           <Route path="*" Component={initialRoute()} />
         </Routes>

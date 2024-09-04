@@ -293,6 +293,21 @@ export const saveOrder = createAsyncThunk(
   },
 );
 
+export const saveUserProfile = createAsyncThunk(
+  "user/save",
+  async (postData: any, thunkAPI) => {
+    const response = await fetch(BASE_URL+"upload-order-excel", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(postData),
+    });
+    const data = await response.json();
+    return data;
+  },
+);
+
 export const OrderSlice = createSlice({
   name: "order",
   initialState,
