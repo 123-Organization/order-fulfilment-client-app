@@ -84,7 +84,7 @@ const ImportFilter: React.FC = () => {
     setStateData(data);
   };
 
-  const onValid = () => {
+  const onValid = (date:[]) => {
     // form1.resetFields();
     // let value = form1.getFieldsValue();
     // // value.country_code = countryCode;
@@ -107,24 +107,22 @@ const ImportFilter: React.FC = () => {
     // const isFormValid = () => form1.getFieldsError().some((item) => item.errors.length > 0)
     // https://github.com/ant-design/ant-design/issues/15674
     // console.log('isFormValid',form1.getFieldsError(),isFormValid(),valid)
-    if (countryCode || countryCode.length && dateRange.length) {
-      let importData = { };
-      if(countryCode) importData = {...importData,...{status:countryCode}}
-      if(dateRange.length) importData = {...importData,...{"start_date":dateRange[0],"end_date":dateRange[1]}}
-      dispatch(updateImport(importData));
-      // let valid = form1.validateFields();
-      // form1
-      //   .validateFields()
-      //   .then(() => {
-      //     // do whatever you need to
-          
-      //   })
-      //   .catch((err) => {
-      //     console.log(err);
-      //   });
-      // console.log('isFormValid',valid)
-      // dispatch(updateCompany({billing_info:value}));
-    }
+      if (countryCode || countryCode.length && dateRange.length) {
+        let importData = { };
+        if(countryCode) importData = {...importData,...{status:countryCode}}
+        console.log('dateRange',dateRange)
+
+        if(dateRange.length) 
+        { 
+          importData = {...importData,...{"start_date":dateRange[0],"end_date":dateRange[1]}}
+        } else if(date.length) { 
+          importData = {...importData,...{"start_date":date[0],"end_date":date[1]}}
+          setDateRange(date)
+        }
+        console.log('importData',importData)
+        dispatch(updateImport(importData));
+      
+      }
 
     // return true;
   };
@@ -198,13 +196,13 @@ const ImportFilter: React.FC = () => {
       {/* <Form.Item name="range_picker" label="Date range" 
       > */}
         <RangePicker 
-        onBlur={onValid}
+        // onBlur={onValid}
 
         onChange={(_,info) =>
          { 
-          console.log('Focus:', info); 
-          setDateRange(info)
-          onValid()
+          console.log('onChange:', info); 
+          onValid(info)
+          
          }
         }
 

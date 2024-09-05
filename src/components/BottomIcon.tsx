@@ -109,7 +109,7 @@ const BottomIcon: React.FC = (): JSX.Element => {
               getImportOrders(
                 { ...{
                     account_key: "81de5dba-0300-4988-a1cb-df97dfa4e372"
-                  },...{myImport}
+                  },...myImport
                 }
               )
             );
@@ -169,7 +169,7 @@ const BottomIcon: React.FC = (): JSX.Element => {
         !isNaN(myBillingInfoFilled.billing_info.phone)
       ) {
         !nextVisiable && setNextVisiable(true);
-    } else{
+    } else {
       nextVisiable && setNextVisiable(false);
     }
     console.log('nextVisiable',nextVisiable)
@@ -193,11 +193,25 @@ const BottomIcon: React.FC = (): JSX.Element => {
   useEffect(() => {
     if (location.pathname === "/importfilter") {
       if (
-        (ecommerceGetImportOrders?.accountId)
-        ) {
-          dispatch(saveOrder(ecommerceGetImportOrders));
-      } else{
-        nextVisiable && setNextVisiable(false);
+        (myImport?.start_date) ||
+        (myImport?.end_date) ||
+        (myImport?.status)
+      ) {
+          if (
+            (ecommerceGetImportOrders?.accountId)
+            ) {
+              dispatch(saveOrder(ecommerceGetImportOrders));
+          }
+          else if (
+            (ecommerceGetImportOrders?.data?.status===400)
+            ) {
+              openNotificationWithIcon( {type:'error', message:'Error',description:ecommerceGetImportOrders.message})
+              setNextSpinning(false)
+              !nextVisiable && setNextVisiable(true);
+          }
+          else{
+            nextVisiable && setNextVisiable(false);
+          }
       }
     }
 
@@ -206,21 +220,27 @@ const BottomIcon: React.FC = (): JSX.Element => {
   useEffect(() => {
     if (location.pathname === "/importfilter") {
       if (
-        (saveOrderInfo?.statusCode===200)
-        ) {
-          openNotificationWithIcon( {type:'success', message:'Success',description:'Import and Export have been done successfully'})
-          
-          navigate('/importlist')
-      } 
-      else if (
-        (saveOrderInfo?.statusCode===400)
-        ) {
-          openNotificationWithIcon( {type:'error', message:'Error',description:saveOrderInfo.message})
-          setNextSpinning(false)
-          !nextVisiable && setNextVisiable(true);
-      }
-      else{
-        nextVisiable && setNextVisiable(false);
+        (myImport?.start_date) ||
+        (myImport?.end_date) ||
+        (myImport?.status)
+      ) {
+          if (
+            (saveOrderInfo?.statusCode===200)
+            ) {
+              openNotificationWithIcon( {type:'success', message:'Success',description:'Import and Export have been done successfully'})
+              
+              navigate('/importlist')
+          } 
+          else if (
+            (saveOrderInfo?.statusCode===400)
+            ) {
+              openNotificationWithIcon( {type:'error', message:'Error',description:saveOrderInfo.message})
+              setNextSpinning(false)
+              !nextVisiable && setNextVisiable(true);
+          }
+          else{
+            nextVisiable && setNextVisiable(false);
+          }
       }
     }
 

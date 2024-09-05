@@ -18,7 +18,8 @@ import {
   updateCompanyInfo
 } from "../store/features/orderSlice";
 import { useAppDispatch, useAppSelector } from "../store";
-import { connectAdvanced } from "react-redux";
+// import { connectAdvanced } from "react-redux";
+import { find } from "lodash";
 
 const images = [
   { name: "Squarespace", img: squarespace },
@@ -206,18 +207,15 @@ const Landing: React.FC = (): JSX.Element => {
     }
 
     if (imgname === "WooCommerce") {
-      if (!ecommerceConnectorInfo.approval_url) {
+      if (!openBtnConnected) {
         dispatch(
           ecommerceConnector({
             account_key: "81de5dba-0300-4988-a1cb-df97dfa4e372"
           })
         );
-      } else {
-        dispatch(
-          getImportOrders({
-            account_key: "81de5dba-0300-4988-a1cb-df97dfa4e372"
-          })
-        );
+      }
+      else{
+        navigate("/importfilter")
       }
     }
   };
@@ -247,6 +245,15 @@ const Landing: React.FC = (): JSX.Element => {
   }, []);
 
   useEffect(() => {
+    if(companyInfo?.connections?.length){
+      let obj = find(companyInfo.connections, {"name":"WooCommerce"});
+      if(obj?.name){
+        setOpenBtnConnected(true);
+      }
+    }
+  }, [companyInfo]);
+
+  useEffect(() => {
     if(ecommerceGetImportOrders){
       dispatch(saveOrder(ecommerceGetImportOrders));
     }
@@ -259,7 +266,7 @@ const Landing: React.FC = (): JSX.Element => {
         onClick={() => importData(image.name)}
       >
         {
-        (image.name === "WooCommerce" && companyInfo?.connections) &&
+        (image.name === "WooCommerce" && openBtnConnected) &&
         <Tag className="absolute ml-12 -mt-3" color="#52c41a">
           Connected
         </Tag>
