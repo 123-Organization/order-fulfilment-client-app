@@ -89,6 +89,7 @@ export const getImportOrders = createAsyncThunk(
       headers: {
         "Content-Type": "application/json",
       },
+      body: JSON.stringify(postData)
     });
     const data = response.json();
     return data;
