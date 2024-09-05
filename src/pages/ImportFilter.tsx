@@ -8,11 +8,20 @@ import type { CheckboxProps } from "antd";
 import { useAppDispatch, useAppSelector } from "../store";
 import { updateBilling, updateImport } from "../store/features/orderSlice";
 import convertUsStateAbbrAndName from "../services/state";
+import { useLocation } from "react-router-dom";
+import dayjs from 'dayjs';
+import customParseFormat from 'dayjs/plugin/customParseFormat';
 
 const countryList = require("../json/order_status_same_label.json");
 const { RangePicker } = DatePicker; 
 const { Option } = Select;
 type SizeType = Parameters<typeof Form>[0]["size"];
+dayjs.extend(customParseFormat);
+
+
+const currentDate = dayjs();
+const formattedDate = currentDate.format('YYYY-MM-DD');
+console.log(formattedDate,formattedDate);
 
 const ImportFilter: React.FC = () => {
   const [countryCode, setCountryCode] = useState("");
@@ -31,6 +40,13 @@ const ImportFilter: React.FC = () => {
   const [form1] = Form.useForm();
   const [form2] = Form.useForm();
   const dispatch = useAppDispatch();
+
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const typeValue = queryParams.get("type");
+  const dateFormat = 'YYYY-MM-DD';
+
+  console.log(location.pathname,typeValue);
 
   const businessInfo = useAppSelector(
     (state) => state.order?.company_info?.data?.business_info 
@@ -85,28 +101,7 @@ const ImportFilter: React.FC = () => {
   };
 
   const onValid = (date:[]) => {
-    // form1.resetFields();
-    // let value = form1.getFieldsValue();
-    // // value.country_code = countryCode;
-    // // value.state_code = countryCode === "us" ? stateCodeShort : stateCode;
-    // // value.address_order_po="this is test";
-    // //https://dev.to/bayusyaits/using-antd-and-react-for-editable-cells-implementation-and-table-2b5m
-
-    // console.log(`onValid `, value);
-    // let eveVal = Object.values(value).every(Boolean);
-    // if (!eveVal) {
-    //   form1.submit();
-    // }
-
-    // dateRange.length
-
-    // value.email = "james@gmail.com";
-    // value.province = "";
-    // // value.address_3=null;
-    // console.log(`eveVal `, eveVal);
-    // const isFormValid = () => form1.getFieldsError().some((item) => item.errors.length > 0)
-    // https://github.com/ant-design/ant-design/issues/15674
-    // console.log('isFormValid',form1.getFieldsError(),isFormValid(),valid)
+  
       if (countryCode || countryCode.length && dateRange.length) {
         let importData = { };
         if(countryCode) importData = {...importData,...{status:countryCode}}
@@ -124,7 +119,6 @@ const ImportFilter: React.FC = () => {
       
       }
 
-    // return true;
   };
 
   const onSearch = (value: string) => {
@@ -197,10 +191,11 @@ const ImportFilter: React.FC = () => {
       > */}
         <RangePicker 
         // onBlur={onValid}
-
+        maxDate={(dayjs(currentDate, dateFormat))}
         onChange={(_,info) =>
          { 
-          console.log('onChange:', info); 
+
+          console.log('onChange:', info,currentDate); 
           onValid(info)
           
          }
@@ -272,7 +267,7 @@ const ImportFilter: React.FC = () => {
         "
       >
         <div className="text-left text-gray-400 pt-4">
-          <p className="text-lg  font-bold">My Import</p>
+          <p className="text-lg  font-bold">{typeValue} Import</p>
           <p className="pt-5 pb-7">
             Import orders  or even a single orders
           </p>

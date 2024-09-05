@@ -86,7 +86,7 @@ const HeaderIcon: React.FC = (): JSX.Element => {
         <div className="grid md:place-items-center max-md:grid-cols-3 max-md:grid-cols-10 max-md:grid-rows-1 max-w-[700px] grid-rows-1 grid-cols-6 font-medium max-md:font-normal">
           <div className="flex flex-col items-center"  >
             {!logo ? (
-                <div className=" cursor-pointer " onClick={()=>{ navigate('/')}}>
+                <div className=" cursor-pointer " onClick={()=>{ window.location.href='/' }}>
                     <Skeleton.Avatar
                       className="pt-4"
                       active={active}

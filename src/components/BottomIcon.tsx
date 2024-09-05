@@ -55,6 +55,7 @@ const BottomIcon: React.FC = (): JSX.Element => {
   const companyInfo = useAppSelector(
     (state) => state.order.company_info
   );
+  
   const [stateData, setStateData] = useState<Boolean>(false);
   const dispatch = useAppDispatch();
   let isLoadingImgDelete = false;

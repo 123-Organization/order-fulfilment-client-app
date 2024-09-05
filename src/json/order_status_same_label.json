@@ -1,118 +1,34 @@
 [
   {
-      "value": "Waiting Customer Response",
-      "label": "Waiting Customer Response"
+      "value": "pending",
+      "label": "Pending"
   },
   {
-      "value": "Pending Payment",
-      "label": "Pending Payment"
+    "value": "shipped",
+    "label": "Shipped"
   },
   {
-      "value": "Order Received",
-      "label": "Order Received"
+    "value": "processing",
+    "label": "Processing"
   },
   {
-      "value": "Processing",
-      "label": "Processing"
+    "value": "on-hold",
+    "label": "On-hold"
   },
   {
-      "value": "Ready to Ship",
-      "label": "Ready to Ship"
+    "value": "completed",
+    "label": "Completed"
   },
   {
-      "value": "Shipped",
-      "label": "Shipped"
+    "value": "cancelled",
+    "label": "Cancelled"
   },
   {
-      "value": "Complete / For Pickup",
-      "label": "Complete / For Pickup"
+    "value": "failed",
+    "label": "Failed"
   },
   {
-      "value": "Archived",
-      "label": "Archived"
-  },
-  {
-      "value": "Complete",
-      "label": "Complete"
-  },
-  {
-      "value": "Forwarded to Production",
-      "label": "Forwarded to Production"
-  },
-  {
-      "value": "Cancellation",
-      "label": "Cancellation"
-  },
-  {
-      "value": "Replacement Requested",
-      "label": "Replacement Requested"
-  },
-  {
-      "value": "Replacement Processing",
-      "label": "Replacement Processing"
-  },
-  {
-      "value": "Design Phase",
-      "label": "Design Phase"
-  },
-  {
-      "value": "Partially Refunded",
-      "label": "Partially Refunded"
-  },
-  {
-      "value": "Fully Refunded",
-      "label": "Fully Refunded"
-  },
-  {
-      "value": "Duplicate Order",
-      "label": "Duplicate Order"
-  },
-  {
-      "value": "Submitted by App",
-      "label": "Submitted by App"
-  },
-  {
-      "value": "Framing - Processing",
-      "label": "Framing - Processing"
-  },
-  {
-      "value": "Cancellation Request",
-      "label": "Cancellation Request"
-  },
-  {
-      "value": "Customer Hold Request",
-      "label": "Customer Hold Request"
-  },
-  {
-      "value": "Packaging / Complete",
-      "label": "Packaging / Complete"
-  },
-  {
-      "value": "Returned",
-      "label": "Returned"
-  },
-  {
-      "value": "Priority Processing",
-      "label": "Priority Processing"
-  },
-  {
-      "value": "UPS/USPS Rejected Address",
-      "label": "UPS/USPS Rejected Address"
-  },
-  {
-      "value": "Framing - Processing",
-      "label": "Framing - Processing"
-  },
-  {
-      "value": "Partially Shipped",
-      "label": "Partially Shipped"
-  },
-  {
-      "value": "Payment Failed",
-      "label": "Payment Failed"
-  },
-  {
-      "value": "Pending Ship Estimate",
-      "label": "Pending Ship Estimate"
+      "value": "refunded",
+      "label": "Refunded"
   }
 ]
