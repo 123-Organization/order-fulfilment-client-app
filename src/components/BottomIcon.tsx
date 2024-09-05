@@ -35,6 +35,7 @@ const BottomIcon: React.FC = (): JSX.Element => {
   };
   
   const pathNameAvoidBackButton = ["/mycompany","/virtualinventory","/importfilter"];
+  const pathNameAvoidUpdateProfile = ["/importfilter"];
 
   const myCompanyInfoFilled = useAppSelector(
     (state) => state.order.myCompanyInfoFilled
@@ -267,7 +268,9 @@ const BottomIcon: React.FC = (): JSX.Element => {
   }, [companyInfo]);
 
   useEffect(() => {
-    dispatch(updateCompanyInfo({}));
+    if ( !pathNameAvoidBackButton.includes(location.pathname)  ) {
+      dispatch(updateCompanyInfo({}));
+    }
   }, []);
 
   return isLoadingImgDelete ? (
