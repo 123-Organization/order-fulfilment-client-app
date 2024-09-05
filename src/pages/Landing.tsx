@@ -10,7 +10,7 @@ import square from "../assets/images/store-square.svg";
 import squarespace from "../assets/images/store-squarespace.svg";
 import wix from "../assets/images/store-wix.svg";
 import woocommerce from "../assets/images/store-woocommerce.svg";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   ecommerceConnector,
   getImportOrders,
@@ -57,6 +57,12 @@ const Landing: React.FC = (): JSX.Element => {
 
   const [openExcel, setOpenExcel] = useState<Boolean>(false);
   const [openBtnConnected, setOpenBtnConnected] = useState(false);
+
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const typeValue = queryParams.get("type");
+
+  console.log(location.pathname,typeValue);
   // const [isOpen, setOpenExcel] = useState<Boolean>(true);
   // Determines if modal is visible.
   const isOpen: boolean = true;
@@ -215,16 +221,12 @@ const Landing: React.FC = (): JSX.Element => {
         );
       }
       else{
-        navigate("/importfilter")
+        navigate("/importfilter?type=WooCommerce")
       }
     }
   };
 
-  useEffect(() => {
-    if(ecommerceGetImportOrders){
-      dispatch(saveOrder(ecommerceGetImportOrders));
-    }
-  }, [ecommerceGetImportOrders]);
+
 
   useEffect(() => {
     if (ecommerceConnectorInfo.approval_url) {
