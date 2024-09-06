@@ -255,6 +255,11 @@ const Landing: React.FC = (): JSX.Element => {
     }
   }, [companyInfo]);
 
+  useEffect(() => {
+    if(ecommerceGetImportOrders){
+      dispatch(saveOrder(ecommerceGetImportOrders));
+    }
+  }, [ecommerceGetImportOrders]);
 
   const displayTurtles = images.map((image) => (
     <div className="flex w-1/3 max-sm:w-1/2 max-[400px]:w-full flex-wrap">
