@@ -132,15 +132,6 @@ const ImportFilter: React.FC = () => {
   ) => (option?.label ?? "").toLowerCase().includes(input.toLowerCase());
 
   useEffect(() => {
-    // if(orders && !orders?.data?.length) {
-    //dispatch(updateCompanyInfo(21));
-    // }
-    // onChange(countryCode);
-    // setTimeout(() => {
-    // }, 3000);
-  }, []);
-
-  useEffect(() => {
     if(billingInfo?.country_code){
 
       console.log('effect countryCode',billingInfo?.country_code)
@@ -191,23 +182,15 @@ const ImportFilter: React.FC = () => {
       > */}
         <RangePicker 
         // onBlur={onValid}
-        maxDate={(dayjs(currentDate, dateFormat))}
-        onChange={(_,info) =>
-         { 
+          maxDate={(dayjs(currentDate, dateFormat))}
+          onChange={(_,info) =>
+            { 
+              console.log('onChange:', info,currentDate); 
+              onValid(info)
+            }
+          }
 
-          console.log('onChange:', info,currentDate); 
-          onValid(info)
-          
-         }
-        }
-
-        // value={dateRange}
-
-          // onChange={(_, info) => {
-          //   console.log('Focus:', info);
-          // }}
-
-          className="w-full sm:ml-[100px]" 
+         className="w-full sm:ml-[100px]" 
         />
         
       {/* </Form.Item> */}

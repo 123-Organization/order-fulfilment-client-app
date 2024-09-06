@@ -379,6 +379,10 @@ export const OrderSlice = createSlice({
       state.ecommerceGetImportOrders = action.payload;
     });
 
+    builder.addCase(getImportOrders.rejected, (state, action) => {
+      state.ecommerceGetImportOrders = {data:{status:500}};
+    });
+
     builder.addCase(listVirtualInventory.fulfilled, (state, action) => {
       state.listVirtualInventory = action.payload;
     });

@@ -199,15 +199,28 @@ const BottomIcon: React.FC = (): JSX.Element => {
         (myImport?.end_date) ||
         (myImport?.status)
       ) {
+         console.log('ecommerceGetImportOrders',ecommerceGetImportOrders);
           if (
             (ecommerceGetImportOrders?.accountId)
             ) {
-              dispatch(saveOrder(ecommerceGetImportOrders));
+              if(!(ecommerceGetImportOrders?.orders?.length)){
+                openNotificationWithIcon( {type:'error', message:'Error',description:'We couldn’t find any records matching your search criteria. Please check the information you’ve entered and try again.'})   
+                setNextSpinning(false)
+                !nextVisiable && setNextVisiable(true);
+              } else {
+                dispatch(saveOrder(ecommerceGetImportOrders));
+              }
           }
           else if (
-            (ecommerceGetImportOrders?.data?.status===400)
+            (ecommerceGetImportOrders?.data?.status===400) ||
+            (ecommerceGetImportOrders?.data?.status>=500)
             ) {
-              openNotificationWithIcon( {type:'error', message:'Error',description:ecommerceGetImportOrders.message})
+              openNotificationWithIcon( 
+                {
+                  type:'error', 
+                  message:'Error',
+                  description:ecommerceGetImportOrders?.message?ecommerceGetImportOrders?.message:"Something went wrong"
+                })
               setNextSpinning(false)
               !nextVisiable && setNextVisiable(true);
           }
