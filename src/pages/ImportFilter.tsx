@@ -107,13 +107,11 @@ const ImportFilter: React.FC = () => {
         if(countryCode) importData = {...importData,...{status:countryCode}}
         console.log('dateRange',dateRange)
 
-        if(dateRange.length) 
-        { 
-          importData = {...importData,...{"start_date":dateRange[0],"end_date":dateRange[1]}}
-        } else if(date.length) { 
+        if(date.length) { 
           importData = {...importData,...{"start_date":date[0],"end_date":date[1]}}
           setDateRange(date)
         }
+        
         console.log('importData',importData)
         dispatch(updateImport(importData));
       
