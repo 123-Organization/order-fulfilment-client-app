@@ -4,7 +4,7 @@ import PaymentHttpClient, {
   ITransactionRequest,
   ITransactionResponse,
 } from '../services/payments';
-import Braintree from '../components/braintree /Braintree';
+import Braintree from '../components/braintree/Braintree';
 
 export default function Payment() {
   const [clientToken, setClientToken] = useState('');

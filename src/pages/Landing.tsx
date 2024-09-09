@@ -268,7 +268,7 @@ const Landing: React.FC = (): JSX.Element => {
         </Tag>
         }
         <img
-          className="block h-[100px] w-[100px] border-2  rounded-lg object-cover object-center"
+          className="block h-[100px] w-[100px] border-2 cursor-pointer rounded-lg object-cover object-center"
           src={image.img}
         />
         <p className="text-center pt-2 font-bold text-gray-400">{image.name}</p>

@@ -4,10 +4,6 @@
       "label": "Pending"
   },
   {
-    "value": "shipped",
-    "label": "Shipped"
-  },
-  {
     "value": "processing",
     "label": "Processing"
   },
