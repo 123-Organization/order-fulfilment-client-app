@@ -102,6 +102,7 @@ const ImportList: React.FC = () => {
                               className="   w-full text-gray-500"
                               size={"small"}
                               type="default"
+                              href="#/editorder"
                             >
                               Edit order
                             </Button>
