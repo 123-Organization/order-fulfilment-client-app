@@ -5,27 +5,36 @@ import Router from "./routes";
 
 import HeaderIcon from './components/HeaderIcon';
 import BottomIcon from './components/BottomIcon';
+import { useLocation } from 'react-router-dom';
+
 
 const { Header, Footer, Content } = Layout;
 
 function App() {
+  const location = useLocation();
+  console.log(location.pathname);
+
   const {
     token: { colorBgContainer },
   } = theme.useToken();
   
   return (
-    <Layout className="layout">
+    <Layout className="layout ">
       <Header style={{ display: 'flex', alignItems: 'center', backgroundColor: '#fff', }}>
         <HeaderIcon />
       </Header>
-      <Content style={{ padding: '50px' }}>
-        <div className="site-layout-content" style={{ background: colorBgContainer, minHeight: '600px' }}>
+      <Content className=' ' style={{ padding: '50px' }}>
+        <div className="site-layout-content sm:min-h-[600px] max-sm:min-h-screen" style={{ background: colorBgContainer }}>
           <Router />
         </div>
       </Content>
-      <Footer style={{ textAlign: 'center', backgroundColor: '#fff', }}>
-        {/* <BottomIcon /> */}
-     </Footer>
+      {
+        location.pathname !== '/' &&
+        <Footer style={{ textAlign: 'center', backgroundColor: '#fff', }}>
+          <BottomIcon />
+        </Footer>
+
+      }
     </Layout>
   );
 }

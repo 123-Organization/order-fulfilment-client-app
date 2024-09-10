@@ -1,13 +1,15 @@
 const prod = {
   ENVIRONMENT : "PROD",
-  SERVER_BASE_URL : "https://prod1-api.finerworks.com/api/",
+  SERVER_BASE_URL : "https://v59dq0jx2e.execute-api.us-east-1.amazonaws.com/Prod/api/",
   COMPANION_BASE_URL : "https://prod-companion-app-filemanagement.finerworks.com",
+  WEBSOCKET_URL: ""
 }
 
 const dev = {
   ENVIRONMENT : "STAGE",
-  SERVER_BASE_URL : "https://app-filemanager.finerworks.com/api/",
+  SERVER_BASE_URL : "https://v59dq0jx2e.execute-api.us-east-1.amazonaws.com/Prod/api/",
   COMPANION_BASE_URL : "https://companion-app-filemanagement.finerworks.com",
+  WEBSOCKET_URL: ""
 }
 
 const prodDomain = ['prod1-filemanger-app.finerworks.com']
