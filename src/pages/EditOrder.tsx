@@ -48,7 +48,7 @@ const EditOrder: React.FC = () => {
   const [componentSize, setComponentSize] = useState<SizeType | "default">(
     "default"
   );
-  const [stateData, setStateData] = useState<SelectProps["options"]>([]);
+  const [stateData, setStateData] = useState<{ label: string; value: string; }[]>([]);
   const [listVisble, SetListVisble] = useState(false);
   const [virtualINv, setVirtualInv] = useState(false);
 
