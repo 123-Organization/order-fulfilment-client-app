@@ -1,14 +1,6 @@
 export const routes = {
-  import: "/import",
-  importlist: "/importlist",
-  importfilter: "/importfilter",
-  virtualinventory: "/virtualinventory",
-  billingaddress:"/billingaddress",
-  paymentaddress:"/paymentaddress",
-  editorder:"/editorder",
-  shippingpreference:"/shippingpreference",
+  login: "/login",
   mycompany: "/mycompany",
-  checkout: "/checkout",
   thumbnail: "/thumbnail",
   landingPage: "/",
 };
