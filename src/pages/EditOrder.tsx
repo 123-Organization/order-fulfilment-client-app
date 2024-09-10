@@ -8,6 +8,7 @@ import { getStates } from "country-state-picker";
 import type { SelectProps } from "antd";
 import { countryType } from "../types/ICountry";
 import PopupModal from "../components/PopupModal";
+import VirtualInvModal from "../components/VirtualInvModal";
 
 type productType = {
   name?: string; // Optional because not all entries have 'name'
@@ -30,17 +31,17 @@ const EditOrder: React.FC = () => {
     {
       name: "Create New",
       value: "/NewProduct",
-      options: () => navigate("/NewProduct"), // Wrap navigate in a function
+      options: () => navigate("/NewProduct"), 
     },
     {
       name: "Enter Product code",
       value: "",
-      options: () => setPopupVisible(true), // Set popup visibility here
+      options: () => setPopupVisible(true), 
     },
     {
       name: "Select from Inventory",
       value: "/Inventory",
-      options: () => navigate("/Inventory"), // Wrap navigate in a function
+      options: ()=> setVirtualInv(true),
     },
   ];
 
@@ -49,6 +50,7 @@ const EditOrder: React.FC = () => {
   );
   const [stateData, setStateData] = useState<SelectProps["options"]>([]);
   const [listVisble, SetListVisble] = useState(false);
+  const [virtualINv, setVirtualInv] = useState(false);
 
   const setStates = (value: string = "us") => {
     let states = getStates(value);
@@ -337,6 +339,7 @@ const EditOrder: React.FC = () => {
               </ul>
             ))}
             <PopupModal visible={popupVisible} onClose={() => setPopupVisible(false)} />
+            <VirtualInvModal visible={virtualINv} onClose={() => setVirtualInv(false)} />
           </div>
         </div>
       </div>
