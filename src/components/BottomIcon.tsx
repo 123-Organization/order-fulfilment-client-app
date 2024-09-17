@@ -41,7 +41,7 @@ const BottomIcon: React.FC = (): JSX.Element => {
     message,
     description,
   }: NotificationAlertProps) => {
-    api[type]({
+    api[type]({ 
       message,
       description,
     });
@@ -284,10 +284,10 @@ const BottomIcon: React.FC = (): JSX.Element => {
       openNotificationWithIcon({
         type: "error",
         message: "Error",
-        description: "Something went wrong",
+        description: "Something went wrong", 
       });
     }
-  }, [companyInfo]);
+  }, [companyInfo, location.pathname, nextVisiable,]);
 
   useEffect(() => {
     if (!pathNameAvoidBackButton.includes(location.pathname)) {
