@@ -7,8 +7,9 @@ import { useAppDispatch, useAppSelector } from "../store";
 import {
   ecommerceConnectorExport,
   listVirtualInventory,
+  inventorySelection
 } from "../store/features/orderSlice";
-
+let userInfoMultiselectOptions = true;
 const images = [
   {
     public_thumbnail_uri:
@@ -120,7 +121,7 @@ const IMAGE_STYLES: CSSProperties = {
 
 interface ImageType {
   public_thumbnail_uri?: string;
-  guid?: string;
+  sku?: string;
   public_preview_uri?: string;
   isSelected?: false;
   title?: string;
@@ -133,20 +134,26 @@ const VirtualInventory: React.FC = (): JSX.Element => {
   const [open, setOpen] = useState(false);
   const [spinLoader, setSpinLoader] = useState(false);
   const [openFilter, setOpenFilter] = useState(false);
-  const listVirtualInventoryData = useAppSelector((state) => state.order.listVirtualInventory?.data);
+  const listVirtualInventoryData = useAppSelector((state) => state.order.listVirtualInventory?.data)
+  ?.map(data =>{
+    return {...data,...{isSelected:false}}
+   } 
+  );
+  console.log('listVirtualInventoryData',listVirtualInventoryData)
+  const referrer = useAppSelector((state) => state.order.referrer);
   const dispatch = useAppDispatch();
   // const [images, setImages] = useState<Array<ImageType>>([]);
   const [imgData, setImgData] = useState({});
   const [referrerImages, setReferrerImages] = useState<
     Array<String | undefined>
   >([]);
-  // const [images, setImages] = useState<Array<ImageType>>([]);
+  const [images, setImages] = useState<Array<ImageType>>([]);
   const [messageApi, contextHolder] = message.useMessage();
 
   const createPrints = () => {
     if (spinLoader) return false;
     setSpinLoader(true);
-    // let guids = referrer.fileSelected.map((image: { guid: string })=>image.guid);
+    // let guids = referrer.fileSelected.map((image: { guid: string })=>image.sku);
     // printImagesDataFn({guids});
     // // window.open(`https://finerworks.com/apps/orderform/post.aspx?guids=${guids}`, "_blank")
   };
@@ -154,46 +161,49 @@ const VirtualInventory: React.FC = (): JSX.Element => {
   const handleSelect = (index: number) => {
     console.log('referrerImages',referrerImages)
       const nextImages = images.map((image, i) =>
-        ( i === index 
-          || (!userInfo.multiselectOptions && image.isSelected) 
+        ( 
+          // i === index || 
+          (!userInfoMultiselectOptions && image.isSelected) 
         ) ? { 
           ...image, 
           
           isSelected:
           (
-            (i === index && referrerImages?.length && referrerImages.includes(image.guid))
+            (
+              // i === index && 
+              referrerImages?.length && referrerImages.includes(image.sku))
             ? false
             : !image.isSelected
           ) 
         } : {
           ...image, 
           isSelected:
-            referrerImages?.length && referrerImages.includes(image.guid)
+            referrerImages?.length && referrerImages.includes(image.sku)
             ? true
             : image.isSelected
         }
       );
 
       console.log('nextImages',nextImages)
-      const fileUnSelected = nextImages.filter((image) => !image.isSelected ).map((img:any) => img.guid);
+      const fileUnSelected = nextImages.filter((image) => !image.isSelected ).map((img:any) => img.sku);
       console.log('fileUnSelected',fileUnSelected)
 
-      const fileSelected = userInfo.multiselectOptions 
+      const fileSelected = userInfoMultiselectOptions 
                           ? nextImages
                             //No repeation on referrerImages
                             .filter((image) => (
-                                image.isSelected && !referrerImages.includes(image?.guid) 
+                                image.isSelected && !referrerImages.includes(image?.sku) 
                               ))
-                            .concat(referrer.fileSelected)
+                            // .concat(referrer.fileSelected)
                             .filter((image) =>(
                               (
-                                !fileUnSelected.includes(image.guid)
+                                !fileUnSelected.includes(image.sku)
                               )
                             ))
                           : nextImages.filter((image) =>image.isSelected )
                         ;
 
-      // setReferrerImages(fileSelected.map((img:any) => img.guid));
+      // setReferrerImages(fileSelected.map((img:any) => img.sku));
       //@ts-ignore
       setImages(nextImages);
       const hasSelected = nextImages.some((image) => image.isSelected);
@@ -202,22 +212,22 @@ const VirtualInventory: React.FC = (): JSX.Element => {
       console.log('referrer',referrer)
       console.log('referrerObj',referrerObj)
 
-      let isUpdated = (
-          referrerObj.hasSelected !== referrer.hasSelected ||
-          referrerObj.fileSelected !== referrer.fileSelected ||
-          referrerObj.fileSelected.length !== referrer.fileSelected.length
-        );
-      console.log('isUpdated',isUpdated)
+      // let isUpdated = (
+      //     referrerObj.hasSelected !== referrer.hasSelected ||
+      //     referrerObj.fileSelected !== referrer.fileSelected ||
+      //     referrerObj.fileSelected.length !== referrer.fileSelected.length
+      //   );
+      // console.log('isUpdated',isUpdated)
 
-      isUpdated && dynamicData.mutations.setReferrerData(referrerObj);
+      inventorySelection(referrerObj);
 
       // if(fileUnSelected.length && fileUnSelected.includes())
-      //   setReferrerImages(fileSelected.map((img:any) => img.guid));
+      //   setReferrerImages(fileSelected.map((img:any) => img.sku));
 
       let referrerImagesChange:string[] = []; 
 
       if(referrerImages.length){
-        const imgSelected = nextImages.filter((image) => image.isSelected).map((img)=>img.guid);
+        const imgSelected = nextImages.filter((image) => image.isSelected).map((img)=>img.sku);
         imgSelected.forEach(
           guids => {
             if(referrerImages.includes(guids) && guids){
@@ -237,7 +247,9 @@ const VirtualInventory: React.FC = (): JSX.Element => {
 
         }
 
-      }  
+      } else {
+        setReferrerImages(fileSelected.map((img:any) => img.sku));
+      }
 
   };
 
@@ -277,7 +289,12 @@ const VirtualInventory: React.FC = (): JSX.Element => {
   const listInventory = () => {
 
     dispatch(
-      listVirtualInventory({"search_filter":""})
+      listVirtualInventory({
+        "search_filter":"",
+        'sort_field':'id',
+        'sort_direction':'DESC',
+        'per_page':12
+      })
     )
   }  
 
@@ -380,7 +397,7 @@ const VirtualInventory: React.FC = (): JSX.Element => {
                 className={`border rounded-lg shadow-lg   border-gray-100 ${
                   image?.isSelected ||
                   (referrerImages?.length &&
-                    referrerImages.includes(image?.guid))
+                    referrerImages.includes(image?.sku))
                     ? "isSelectedImg"
                     : ""
                 }`}

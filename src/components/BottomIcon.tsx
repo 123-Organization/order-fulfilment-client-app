@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { Button, PaginationProps, Spin, notification } from "antd";
+import { Button, PaginationProps, Spin, notification, Pagination } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store";
-import { updateCompanyInfo, updateCompany, ecommerceConnector, getImportOrders, saveOrder } from "../store/features/orderSlice";
+import { updateCompanyInfo, updateCompany, ecommerceConnector, getImportOrders, saveOrder, listVirtualInventory } from "../store/features/orderSlice";
 
 type NotificationType = 'success' | 'info' | 'warning' | 'error';
 interface NotificationAlertProps {
@@ -24,6 +24,8 @@ const BottomIcon: React.FC = (): JSX.Element => {
   const [totalVisiable, setTotalVisiable] = useState<Boolean>(false);
   const [nextSpinning, setNextSpinning] = useState<Boolean>(false);
   const [currentStep, setCurrentStep] = useState(1);
+  const [current, setCurrent] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
 
   const [api, contextHolder] = notification.useNotification();
 
@@ -80,6 +82,16 @@ const BottomIcon: React.FC = (): JSX.Element => {
     filterPageNumber: number
   ) => {
     console.log("Page: ", filterPageNumber);
+    setCurrent(filterPageNumber)
+    dispatch(
+      listVirtualInventory({
+        "search_filter":"",
+        'sort_field':'id',
+        'sort_direction':'DESC',
+        'per_page':12,
+        'page_number':filterPageNumber
+      })
+    )
   };
 
   const onNextHandler = async() => {
@@ -390,6 +402,18 @@ const BottomIcon: React.FC = (): JSX.Element => {
             </Spin>
           )}
         </div>
+        {(location.pathname === "/virtualinventory") &&
+        <div className='flex w-full justify-end'>
+            <Pagination 
+                simple className=' mt-5 mr-3 ' 
+                // defaultCurrent={current}
+                showSizeChanger={false}  
+                onChange={onChange}
+                current={current} 
+                pageSize={pageSize} 
+                total={100} 
+            />
+        </div>}
       </div>
     </div>
   );

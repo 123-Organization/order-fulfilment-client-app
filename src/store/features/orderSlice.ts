@@ -9,6 +9,12 @@ export interface Order {
   name: string;
 }
 
+interface IFileExport {
+  hasSelected: boolean,
+  fileSelected: string[]
+  filterCount:string
+}
+
 interface OrderState {
   orders: any;
   product_details: any;
@@ -26,8 +32,17 @@ interface OrderState {
   ecommerceConnectorExportInfo: any;
   ecommerceGetImportOrders: any;
   listVirtualInventory: any;
-  
+  filterVirtualInventory: any;
+  filterVirtualInventoryOption: any;
+  inventorySelection:any;
+  referrer:IFileExport;
 }
+
+const referrer: IFileExport = {
+  "hasSelected": false,
+  "fileSelected": [],
+  'filterCount': "100"
+};
 
 const initialState: OrderState = {
   orders: [],
@@ -46,6 +61,10 @@ const initialState: OrderState = {
   ecommerceConnectorImportOrderWoocommerce: {},
   ecommerceGetImportOrders:{},
   listVirtualInventory:{},
+  filterVirtualInventory:{},
+  filterVirtualInventoryOption:{},
+  inventorySelection:[],
+  referrer:referrer,
 };
 
 export const fetchOrder = createAsyncThunk(
@@ -167,6 +186,7 @@ export const listVirtualInventory = createAsyncThunk(
   "list/virtual/inventory",
   async (postData: any,thunkAPI) => {
     console.log('postData...',postData)
+    // OrderAddSlice.reducer.updateFilterVirtualInventoryOption(postData);
     const response = await fetch(BASE_URL+"list-virtual-inventory", {
       method: "POST",
       headers: {
@@ -314,6 +334,21 @@ export const saveUserProfile = createAsyncThunk(
   },
 );
 
+export const OrderAddSlice = createSlice({
+  name: "order",
+  initialState,
+  reducers: (create) =>  ({
+    updateFilterVirtualInventoryOption: create.preparedReducer(
+      (requestPayload:any) => {
+        return { payload:requestPayload }
+      },
+      // action type is inferred from prepare callback
+      (state, action) => {
+      state.filterVirtualInventory = {...state.filterVirtualInventoryOption,...action.payload};
+    }),
+  })
+});
+
 export const OrderSlice = createSlice({
   name: "order",
   initialState,
@@ -332,7 +367,14 @@ export const OrderSlice = createSlice({
     },
     updateImport: (state, action: PayloadAction) => {
       state.myImport = action.payload;
-    }
+    },
+    inventorySelection: (state, action) => {
+      state.referrer = {...state.referrer,...action.payload};
+    },
+    updateFilterVirtualInventory: (state, action) => {
+      state.filterVirtualInventory = {...state.filterVirtualInventory,...action.payload};
+    },
+   
   },
   extraReducers: (builder) => {
     builder.addCase(fetchOrder.fulfilled, (state, action) => {
@@ -388,7 +430,7 @@ export const OrderSlice = createSlice({
     });
 
   },
-});
+});   
 
 export default OrderSlice.reducer;
-export const { addOrder, updateCompany, updateBilling, updateImport } = OrderSlice.actions;
+export const { addOrder, updateCompany, updateBilling, updateImport, inventorySelection } = OrderSlice.actions;
