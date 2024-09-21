@@ -3,6 +3,7 @@ import { Button, Checkbox, Form, Input, Select } from "antd";
 import shoppingCart from "../assets/images/shopping-cart-228.svg";
 import { fetchOrder, fetchProductDetails, fetchShippingOption } from "../store/features/orderSlice";
 import { useAppDispatch, useAppSelector } from "../store";
+import { useNavigate } from "react-router-dom";
 import parse from 'html-react-parser';
 import SelectShippingOption from "../components/SelectShippingOption";
 
@@ -17,8 +18,13 @@ const ImportList: React.FC = () => {
   const product_details = useAppSelector((state) => state.order.product_details?.data?.product_list);
   console.log('product_details...',product_details)
   const dispatch = useAppDispatch();
-  console.log('orders',orders)
- 
+  console.log('productdata',productData)
+  
+  const navigate = useNavigate();
+
+  const handleEditOrderClick = (order) => {
+    navigate("/editorder", { state: { order } });
+  };
 
   useEffect(() => {
     if(orders && !orders?.data?.length) {
@@ -40,7 +46,7 @@ const ImportList: React.FC = () => {
     }
 
   },[product_details]);
-
+  
   useEffect(() => {
     if(orders && orders?.data?.length && !orderPostData.length) {
 
@@ -103,6 +109,7 @@ const ImportList: React.FC = () => {
                               size={"small"}
                               type="default"
                               href="#/editorder"
+                              onClick={() => handleEditOrderClick(order)}
                             >
                               Edit order
                             </Button>
@@ -125,6 +132,7 @@ const ImportList: React.FC = () => {
                         <img
                           src={
                             productData[order?.orders[0]?.order_items[0].product_sku]?.image_url_1
+                            
                           }
                           alt="product-image"
                           className="rounded-lg" width={116} height={26}

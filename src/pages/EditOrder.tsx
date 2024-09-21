@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Button, Form, Input, Select } from "antd";
 import { useNavigate } from "react-router-dom";
-
+import { useLocation } from "react-router-dom";
 import shoppingCart from "../assets/images/shopping-cart-228.svg";
 import uploadYourLogo from "../assets/images/upload-your-logo.svg";
 import { getStates } from "country-state-picker";
@@ -9,6 +9,8 @@ import type { SelectProps } from "antd";
 import { countryType } from "../types/ICountry";
 import PopupModal from "../components/PopupModal";
 import VirtualInvModal from "../components/VirtualInvModal";
+import { useAppDispatch, useAppSelector } from "../store";
+import { fetchProductDetails } from "../store/features/orderSlice";
 
 type productType = {
   name?: string; // Optional because not all entries have 'name'
@@ -27,28 +29,68 @@ type SizeType = Parameters<typeof Form>[0]["size"];
 const EditOrder: React.FC = () => {
   const [popupVisible, setPopupVisible] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const dispatch = useAppDispatch();
+  const { order } = location.state;
+  const { order_items, order_key, order_status, recipient } = order?.orders[0];
+
+  console.log("order", order);
   const newProductList: productType[] = [
     {
       name: "Create New",
       value: "/NewProduct",
-      options: () => navigate("/NewProduct"), 
+      options: () => navigate("/NewProduct"),
     },
     {
       name: "Enter Product code",
       value: "",
-      options: () => setPopupVisible(true), 
+      options: () => setPopupVisible(true),
     },
     {
       name: "Select from Inventory",
       value: "/Inventory",
-      options: ()=> setVirtualInv(true),
+      options: () => setVirtualInv(true),
     },
   ];
 
+  const [productData, setProductData] = useState({});
+  const [orderPostData, setOrderPostData] = useState([]);
+  const product_details = useAppSelector(
+    (state) => state.order.product_details?.data?.product_list
+  );
+  console.log("product_details...", product_details);
+  let products: any = {};
+
+  useEffect(() => {
+    if (product_details && product_details?.length) {
+      product_details?.map((product, index) => {
+        products[product.sku] = product;
+      });
+
+      console.log("products", products);
+      setProductData(products);
+    }
+  }, [product_details]);
+
+  useEffect(() => {
+    if (order && order?.orders?.length && !orderPostData.length) {
+      let orderPostData1 =[ {
+        product_sku: order_items[0].product_sku,
+        product_qty: order_items[0].product_qty,
+        product_order_po: order?.orders[0]?.order_po,
+      }];
+
+      console.log("orderPostData...", orderPostData1);
+      setOrderPostData(orderPostData1);
+      dispatch(fetchProductDetails(orderPostData1));
+    }
+  }, [order]);
   const [componentSize, setComponentSize] = useState<SizeType | "default">(
     "default"
   );
-  const [stateData, setStateData] = useState<{ label: string; value: string; }[]>([]);
+  const [stateData, setStateData] = useState<
+    { label: string; value: string }[]
+  >([]);
   const [listVisble, SetListVisble] = useState(false);
   const [virtualINv, setVirtualInv] = useState(false);
 
@@ -87,7 +129,18 @@ const EditOrder: React.FC = () => {
       labelCol={{ span: 4 }}
       wrapperCol={{ span: 14 }}
       layout="horizontal"
-      initialValues={{ size: componentSize }}
+      initialValues={{
+        country_code: order?.country_code || "US",
+        company_name: order?.company_name || "",
+        first_name: recipient?.first_name || "",
+        last_name: order?.last_name || "",
+        address_1: order?.address_1 || "",
+        address_2: order?.address_2 || "",
+        city: order?.city || "",
+        state: order?.state || "",
+        zip_postal_code: order?.zip_postal_code || "",
+        phone: order?.phone || "",
+      }}
       className="w-full flex flex-col items-center"
     >
       <Form.Item name="country_code" className="w-full ">
@@ -109,23 +162,35 @@ const EditOrder: React.FC = () => {
       </Form.Item>
       <Form.Item name="company_name" className="w-full ">
         <div className="relative">
-          <Input className="fw-input" />
+          <Input
+            className="fw-input"
+            value={recipient?.company_name || ""}
+            id="company_name"
+          />
           <label htmlFor="floating_outlined" className="fw-label">
             My Company Name
           </label>
         </div>
       </Form.Item>
-      <Form.Item name="first_name" className="w-full ">
+      <Form.Item name="first_name" className="w-full">
         <div className="relative">
-          <Input className="fw-input" />
-          <label htmlFor="floating_outlined" className="fw-label">
+          <Input
+            className="fw-input"
+            id="first_name"
+            value={recipient?.first_name || ""}
+          />
+          <label htmlFor="first_name" className="fw-label">
             First Name
           </label>
         </div>
       </Form.Item>
       <Form.Item name="last_name" className="w-full ">
         <div className="relative">
-          <Input className="fw-input" />
+          <Input
+            className="fw-input"
+            value={recipient?.last_name || ""}
+            id="last_name"
+          />
           <label htmlFor="floating_outlined" className="fw-label">
             Last Name
           </label>
@@ -133,7 +198,11 @@ const EditOrder: React.FC = () => {
       </Form.Item>
       <Form.Item name="address_1" className="w-full ">
         <div className="relative">
-          <Input className="fw-input" />
+          <Input
+            className="fw-input"
+            value={recipient?.address_1 || ""}
+            id="address_1"
+          />
           <label htmlFor="floating_outlined" className="fw-label">
             Address Line 1
           </label>
@@ -141,7 +210,7 @@ const EditOrder: React.FC = () => {
       </Form.Item>
       <Form.Item name="address_2" className="w-full ">
         <div className="relative">
-          <Input className="fw-input" />
+          <Input className="fw-input" value={recipient?.address_2 || ""} />
           <label htmlFor="floating_outlined" className="fw-label">
             Address Line 2
           </label>
@@ -149,7 +218,7 @@ const EditOrder: React.FC = () => {
       </Form.Item>
       <Form.Item name="city" className="w-full ">
         <div className="relative">
-          <Input className="fw-input" />
+          <Input className="fw-input" value={recipient?.city || ""} id="city" />
           <label htmlFor="floating_outlined" className="fw-label">
             City
           </label>
@@ -165,6 +234,7 @@ const EditOrder: React.FC = () => {
             className="fw-input1 "
             filterOption={filterOption}
             options={stateData}
+            value={recipient?.state_code || ""}
           >
             <label htmlFor="floating_outlined" className="fw-label">
               State
@@ -175,7 +245,11 @@ const EditOrder: React.FC = () => {
 
       <Form.Item name="zip_postal_code" className="w-full ">
         <div className="relative">
-          <Input className="fw-input" />
+          <Input
+            className="fw-input"
+            value={recipient?.zip_postal_code}
+            id="zip_postal_code"
+          />
           <label htmlFor="floating_outlined" className="fw-label">
             Zip
           </label>
@@ -184,7 +258,7 @@ const EditOrder: React.FC = () => {
 
       <Form.Item name="phone" className="w-full ">
         <div className="relative">
-          <Input className="fw-input" />
+          <Input className="fw-input" value={recipient?.phone} />
           <label htmlFor="floating_outlined" className="fw-label">
             Phone
           </label>
@@ -256,7 +330,7 @@ const EditOrder: React.FC = () => {
               </p>
               <div className="justify-between pt-6  rounded-lg  sm:flex sm:justify-start">
                 <img
-                  src="https://images.unsplash.com/photo-1587563871167-1ee9c731aefb?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1131&q=80"
+                  src={productData[order_items[0].product_sku]?.image_url_1}
                   // src="https://images.unsplash.com/photo-1515955656352-a1fa3ffcd111?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1170&q=80"
                   alt="product-image"
                   className="rounded-lg"
@@ -338,8 +412,14 @@ const EditOrder: React.FC = () => {
                 </li>
               </ul>
             ))}
-            <PopupModal visible={popupVisible} onClose={() => setPopupVisible(false)} />
-            <VirtualInvModal visible={virtualINv} onClose={() => setVirtualInv(false)} />
+            <PopupModal
+              visible={popupVisible}
+              onClose={() => setPopupVisible(false)}
+            />
+            <VirtualInvModal
+              visible={virtualINv}
+              onClose={() => setVirtualInv(false)}
+            />
           </div>
         </div>
       </div>
