@@ -31,8 +31,8 @@ const EditOrder: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
-  const { order } = location.state;
-  const { order_items, order_key, order_status, recipient } = order?.orders[0];
+  const { order } = location.state || {};
+  const { order_items, order_key, order_status, recipient } = order?.orders[0] || {};
 
   console.log("order", order);
   const newProductList: productType[] = [
@@ -57,8 +57,21 @@ const EditOrder: React.FC = () => {
   const [orderPostData, setOrderPostData] = useState([]);
   const product_details = useAppSelector(
     (state) => state.order.product_details?.data?.product_list
-  );
+  ) || [];
   console.log("product_details...", product_details);
+
+  const descriptionLong = product_details[0]?.description_long ;
+
+  const startTag = "<h4>";
+const endTag = "</h4>";
+const startIndex = descriptionLong?.indexOf(startTag) + startTag.length;
+const endIndex = descriptionLong?.indexOf(endTag);
+
+// Extract the content between the tags
+const h4Content = descriptionLong?.substring(startIndex, endIndex);
+
+// Display the extracted content
+console.log(h4Content); 
   let products: any = {};
 
   useEffect(() => {
@@ -74,11 +87,13 @@ const EditOrder: React.FC = () => {
 
   useEffect(() => {
     if (order && order?.orders?.length && !orderPostData.length) {
-      let orderPostData1 =[ {
-        product_sku: order_items[0].product_sku,
-        product_qty: order_items[0].product_qty,
-        product_order_po: order?.orders[0]?.order_po,
-      }];
+      let orderPostData1 = [
+        {
+          product_sku: order_items[0].product_sku,
+          product_qty: order_items[0].product_qty,
+          product_order_po: order?.orders[0]?.order_po,
+        },
+      ];
 
       console.log("orderPostData...", orderPostData1);
       setOrderPostData(orderPostData1);
@@ -332,13 +347,14 @@ const EditOrder: React.FC = () => {
                 <img
                   src={productData[order_items[0].product_sku]?.image_url_1}
                   // src="https://images.unsplash.com/photo-1515955656352-a1fa3ffcd111?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1170&q=80"
-                  alt="product-image"
-                  className="rounded-lg"
+                  alt="product"
+                  className="rounded-lg" // max-md:w-20 w-40 h-[90px]
                   width={116}
                   height={26}
                 />
+
                 <div className="sm:ml-4 flex flex-col w-full sm:justify-between">
-                  <div className="w-full text-sm">John Doe</div>
+                  <div className="w-full text-sm">{h4Content}</div>
                   <div className="w-full text-sm">1234 Elm Street</div>
                   <div className="w-full text-sm">Suite 567</div>
                   <div className="w-full text-sm">
@@ -379,7 +395,7 @@ const EditOrder: React.FC = () => {
                   </Button>
                 </div>
                 <div className=" text-sm  absolute right-2 -bottom-3">
-                  $75.00 ea
+                 ${product_details[0]?.per_item_price}
                 </div>
               </p>
             </div>
