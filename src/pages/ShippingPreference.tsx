@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "../store";
 import { Checkbox, Form, Input, Select, Tabs, Radio, Space } from "antd";
-import { updateCompanyInfo } from "../store/features/orderSlice";
+import { updateCompanyInfo, updateShipping } from "../store/features/orderSlice";
 import type { TabsProps } from "antd";
 import ShippingPreferencesOption from "../components/ShippingPreferencesOption";
+import { updateLanguageServiceSourceFile } from "typescript";
 
 const onChange = (key: string) => {
   console.log(key);
@@ -19,14 +20,15 @@ const ShippingPreference: React.FC = () => {
     (state) => state.order.ecommerceConnectorInfo
   );
   console.log("ecommerceConnectorInfo", ecommerceConnectorInfo);
-  const [selectedPreferences, setSelectedPreferences] = useState<string[]>([]);
+  const [selectedPreferences, setSelectedPreferences] = useState<string[]>([1,1,1]);
 
   useEffect(() => {
     if (selectedPreferences.length > 0) {
       dispatch(
-        updateCompanyInfo({
+        updateShipping({
           shipping_preferences:[
-          selectedPreferences[0],
+            ...selectedPreferences
+          ,
         ]
         })
       );

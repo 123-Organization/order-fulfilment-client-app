@@ -46,7 +46,7 @@ const ImportList: React.FC = () => {
     }
 
   },[product_details]);
-  
+  console.log('orders...',orders)
   useEffect(() => {
     if(orders && orders?.data?.length && !orderPostData.length) {
 
@@ -66,6 +66,24 @@ const ImportList: React.FC = () => {
     }
   },[orders]);
 
+  // useEffect(() => {
+  //   if (orders?.data?.length && !orderPostData.length) {
+  //     const orderPostDataList = orders?.data?.map((order) => ({
+  //       order_po: order?.orders[0]?.order_po,
+  //       product_sku: order?.orders[0]?.order_items[0]?.product_sku,
+  //       product_qty: order?.orders[0]?.order_items[0]?.product_qty,
+  //     }));
+  
+  //     console.log('orderPostData...', orderPostDataList);
+      
+  //     // Dispatch the entire order list to fetch shipping options
+  //     dispatch(fetchShippingOption(orderPostDataList));
+  
+  //     setOrderPostData(orderPostDataList);
+      
+  //     dispatch(fetchProductDetails(orderPostDataList));
+  //   }
+  // }, [orders]);
   
 
   return (

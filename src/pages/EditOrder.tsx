@@ -348,7 +348,7 @@ console.log(h4Content);
                   src={productData[order_items[0].product_sku]?.image_url_1}
                   // src="https://images.unsplash.com/photo-1515955656352-a1fa3ffcd111?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1170&q=80"
                   alt="product"
-                  className="rounded-lg" // max-md:w-20 w-40 h-[90px]
+                  className="rounded-lg max-md:w-20 w-40 h-[90px]" // max-md:w-20 w-40 h-[90px]
                   width={116}
                   height={26}
                 />

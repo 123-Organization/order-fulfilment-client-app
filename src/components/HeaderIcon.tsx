@@ -9,6 +9,7 @@ import store from "../assets/images/store.svg";
 import image from "../assets/images/image.svg";
 import ShipmentModal from "./ShipmentModal";
 import { useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 // import UploadFileModal from "./UploadFileModal";
 
 /**
@@ -31,7 +32,13 @@ const whPixel = "35px";
 /**
  * ****************************************************************** Function Components **********************************************
  */
-const HeaderIcon: React.FC = (): JSX.Element => {
+type HeaderIconProps = {
+  collapsed: boolean;
+  setCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
+};
+
+const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
+  const location = useLocation();
   const [open, setOpen] = useState(false);
   const [openDash, setDash] = useState(true);
   const [spinLoader, setSpinLoader] = useState(false);
@@ -47,6 +54,11 @@ const HeaderIcon: React.FC = (): JSX.Element => {
   const menuProps = {
     items,
     onClick: handleMenuClick
+  };
+
+  const handleCollapsed = () => {
+    setCollapsed(!collapsed);
+    setOpen(true);
   };
 
   const createPrints = () => {};
@@ -128,7 +140,7 @@ const HeaderIcon: React.FC = (): JSX.Element => {
               <button
                 type="button"
                 className="fw-icon-btn"
-                onClick={()=>{ setOpen(true) }}
+                onClick={()=>{navigate('/shippingpreference')}}
                 // onClick={() => {
                 //   setOpen(true)}}
               >

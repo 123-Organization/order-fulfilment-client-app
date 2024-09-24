@@ -9,6 +9,7 @@ import {
   getImportOrders,
   saveOrder,
 } from "../store/features/orderSlice";
+import ShippingPreference from "../pages/ShippingPreference";
 
 type NotificationType = "success" | "info" | "warning" | "error";
 interface NotificationAlertProps {
@@ -17,7 +18,14 @@ interface NotificationAlertProps {
   description: string;
 }
 
-const BottomIcon: React.FC = (): JSX.Element => {
+type bottomIconProps = {
+  //bolean or null or undefined
+  collapsed: boolean | null | undefined
+  setCollapsed: React.Dispatch<React.SetStateAction<boolean>> | undefined | null
+}
+
+const BottomIcon: React.FC <bottomIconProps>  =  ({collapsed, setCollapsed}) => {
+  console.log("collapsed", collapsed);
   const orders = useAppSelector((state) => state.order.orders);
   const product_details = useAppSelector(
     (state) => state.order.product_details
@@ -25,6 +33,9 @@ const BottomIcon: React.FC = (): JSX.Element => {
   const ecommerceGetImportOrders = useAppSelector(
     (state) => state.order.ecommerceGetImportOrders
   );
+
+  const {shipping_preferences} = useAppSelector( (state) => state.order.shipping_preferences);
+  console.log("shipping_preferences", shipping_preferences);
 
   console.log("product_details ....", product_details);
 
@@ -137,7 +148,17 @@ const BottomIcon: React.FC = (): JSX.Element => {
       }
     }
     if (location.pathname === "/shippingpreference") {
-      navigate("/editorder");
+      if (shipping_preferences?.length) {
+        setNextSpinning(true);
+        dispatch(updateCompanyInfo({ shipping_preferences }));
+        notification.success({
+          message: "Success",
+          description: "Information has been saved",
+        });
+      } else {
+        alert("Shipping info missing");
+      }
+      navigate("/");
     }
     // alert("next");
     // navigate('/BillingAddress')
@@ -253,12 +274,11 @@ const BottomIcon: React.FC = (): JSX.Element => {
 
   useEffect(() => {
     if (location.pathname === "/shippingpreference") {
-      if (companyInfo.data?.shipping_preferences) {
         setNextVisiable(true);
-      }
+      
       console.log("companyInfo", companyInfo);
     }
-  }, [companyInfo, location.pathname]);
+  }, [ companyInfo, location.pathname]);
 
   useEffect(() => {
     if (
@@ -387,16 +407,16 @@ const BottomIcon: React.FC = (): JSX.Element => {
             </div>
           )}
         </div>
-        <div className="grid h-full max-w-lg grid-cols-2/3 font-medium basis-1/2 relative ">
+        <div className="grid h-full max-w-lg grid-cols-2/3 font-medium basis-1/2 relative z-50 ">
           {nextVisiable && (
             <Spin tip="Updating..." spinning={nextSpinning}>
               <Button
                 onClick={onNextHandler}
-                className="my-2 w-44 absolute right-2"
+                className="my-2 w-44 absolute right-2 z-50"
                 type="primary"
                 size="large"
               >
-                Next
+                {location.pathname === "/shippingpreference" ? "Update" : "Next"}
               </Button>
             </Spin>
           )}

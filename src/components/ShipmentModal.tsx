@@ -1,12 +1,15 @@
 import React from "react";
 import { Modal } from "antd";
 import ShippingPreference from "../pages/ShippingPreference";
+import BottomIcon from "./BottomIcon";
 interface VirtualInvProps {
   visible: boolean;
   onClose: () => void;
+  collapsed: boolean;
+  
 }
 
-const ShipmentModal: React.FC<VirtualInvProps> = ({ visible, onClose }) => {
+const ShipmentModal: React.FC<VirtualInvProps> = ({ visible, onClose, collapsed }) => {
   return (
     <Modal
       title="Shipment prefrence"
@@ -16,6 +19,7 @@ const ShipmentModal: React.FC<VirtualInvProps> = ({ visible, onClose }) => {
       footer={[]}
     >
       <ShippingPreference />
+      { <BottomIcon  />}
     </Modal>
   );
 };
