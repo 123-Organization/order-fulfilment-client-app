@@ -3,12 +3,9 @@ import { Select, Form } from "antd";
 import { useAppSelector } from "../store";
 
 const SelectShippingOption: React.FC<{ poNumber: string }> = ({ poNumber }) => {
-  console.log("poNumber...", poNumber);
-
   const shipping_option = useAppSelector(
     (state) => state.order.shippingOptions
   );
-  console.log("shipping_option main...", shipping_option);
 
   // Memoize shipping_details to avoid re-filtering on every render
   const shipping_details = useMemo(() => {

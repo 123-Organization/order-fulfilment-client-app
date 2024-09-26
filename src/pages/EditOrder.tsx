@@ -32,7 +32,8 @@ const EditOrder: React.FC = () => {
   const location = useLocation();
   const dispatch = useAppDispatch();
   const { order } = location.state || {};
-  const { order_items, order_key, order_status, recipient } = order?.orders[0] || {};
+  const { order_items, order_key, order_status, recipient } =
+    order?.orders[0] || {};
 
   console.log("order", order);
   const newProductList: productType[] = [
@@ -55,23 +56,28 @@ const EditOrder: React.FC = () => {
 
   const [productData, setProductData] = useState({});
   const [orderPostData, setOrderPostData] = useState([]);
-  const product_details = useAppSelector(
-    (state) => state.order.product_details?.data?.product_list
-  ) || [];
+  const product_details =
+    useAppSelector(
+      (state) => state.order.product_details?.data?.product_list
+    ) || [];
   console.log("product_details...", product_details);
+  // parse the string to html
 
-  const descriptionLong = product_details[0]?.description_long ;
+  const descriptionLong = product_details[0]?.description_long?.replace(
+    /<[^>]*>?/gm,
+    ""
+  );
 
   const startTag = "<h4>";
-const endTag = "</h4>";
-const startIndex = descriptionLong?.indexOf(startTag) + startTag.length;
-const endIndex = descriptionLong?.indexOf(endTag);
+  const endTag = "</h4>";
+  const startIndex = descriptionLong?.indexOf(startTag) + startTag.length;
+  const endIndex = descriptionLong?.indexOf(endTag);
 
-// Extract the content between the tags
-const h4Content = descriptionLong?.substring(startIndex, endIndex);
+  // Extract the content between the tags
+  const h4Content = descriptionLong?.substring(startIndex, endIndex);
 
-// Display the extracted content
-console.log(h4Content); 
+  // Display the extracted content
+  console.log(h4Content);
   let products: any = {};
 
   useEffect(() => {
@@ -337,67 +343,74 @@ console.log(h4Content);
       <div className="w-1/2 max-md:w-full flex flex-col justify-start md:border-r-2  max-md:border-b-2 max-md:pb-6  items-center h-[800px] max-md:h-auto">
         <div className="text-left w-full px-4 text-gray-400 pt-4">
           <p className="text-lg pb-4 text-gray-400  font-bold">Cart</p>
-          <label className="h-[220px] max-md:h-auto inline-flex  justify-between w-full p-5 text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700">
+          <label className="h-[200px] max-md:h-auto inline-flex  justify-between w-full px-3 text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700">
             <div className="block relative pb-4 w-full">
-              <p className="text-right">
-                Quantity <br />
-                <label className="text-center w-40">1</label>
-              </p>
-              <div className="justify-between pt-6  rounded-lg  sm:flex sm:justify-start">
-                <img
-                  src={productData[order_items[0].product_sku]?.image_url_1}
-                  // src="https://images.unsplash.com/photo-1515955656352-a1fa3ffcd111?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1170&q=80"
-                  alt="product"
-                  className="rounded-lg max-md:w-20 w-40 h-[90px]" // max-md:w-20 w-40 h-[90px]
-                  width={116}
-                  height={26}
-                />
+              <div className="justify-around  pt-4  rounded-lg  sm:flex sm:justify-start">
+                <div className="flex pt-8">
+                  <img
+                    src={productData[order_items[0].product_sku]?.image_url_1}
+                    // src="https://images.unsplash.com/photo-1515955656352-a1fa3ffcd111?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1170&q=80"
+                    alt="product"
+                    className="rounded-lg max-md:w-20 w-40 h-[90px]"
+                    width={116}
+                    height={26}
+                  />
 
-                <div className="sm:ml-4 flex flex-col w-full sm:justify-between">
-                  <div className="w-full text-sm">{h4Content}</div>
-                  <div className="w-full text-sm">1234 Elm Street</div>
-                  <div className="w-full text-sm">Suite 567</div>
-                  <div className="w-full text-sm">
-                    Cityvile, Statevile 98567
+                  <div className="sm:ml-4 flex flex-col w-full sm:justify-between">
+                    <div className="w-8/12 text-sm ">{descriptionLong}</div>
+                    {/* <div className="w-full text-sm">1234 Elm Street</div>
+                   <div className="w-full text-sm">Suite 567</div>
+                   <div className="w-full text-sm">
+                     Cityvile, Statevile 98567
+                   </div> */}
                   </div>
                 </div>
+                <div className="border-gray-400 border  rounded-md h-1/2 px-1 ">
+                  <p className="text-center text-gray-400 text-xs ">
+                    Quantity <br />
+                    <label className="text-center w-40  text-black">{productData[order_items[0].product_sku]?.quantity}</label>
+                  </p>
+                </div>
               </div>
-              <p className="flex">
-                <button
-                  data-tooltip-target="tooltip-document"
-                  type="button"
-                  className="max-md:pl-2 mt-2 inline-flex  flex-col items-center justify-center px-5 hover:bg-gray-50 dark:hover:bg-gray-800 group"
-                >
-                  <svg
-                    className="w-5 h-5 mb-1 text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500"
-                    aria-hidden="true"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 18 20"
+              <div className="flex justify-start w-full   ">
+                <div className="w-20 mt-6 ">
+                  <button
+                    data-tooltip-target="tooltip-document"
+                    type="button"
+                    className="max-md:pl-2 mt-2 inline-flex  flex-col justify-start items-start  hover:bg-gray-50 dark:hover:bg-gray-800 group"
                   >
-                    <path
-                      stroke="currentColor"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M1 5h16M7 8v8m4-8v8M7 1h4a1 1 0 0 1 1 1v3H6V2a1 1 0 0 1 1-1ZM3 5h12v13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5Z"
-                    />
-                  </svg>
-                </button>
-                <div className="w-40 ml-20 pt-3">
+                    <svg
+                      className="w-5 h-5 mb-1 text-gray-500 dark:text-gray-400 group-hover:text-red-600 dark:group-hover:text-blue-500"
+                      aria-hidden="true"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 18 20"
+                    >
+                      <path
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M1 5h16M7 8v8m4-8v8M7 1h4a1 1 0 0 1 1 1v3H6V2a1 1 0 0 1 1-1ZM3 5h12v13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5Z"
+                      />
+                    </svg>
+                  </button>
+                </div>
+                <div className=" mt-6  w-8/12 text-center">
                   <Button
                     key="submit"
-                    className="   w-full text-gray-500"
+                    className=" text-gray-500 border w-52 border-gray-400 rounded-lg text-center font-semibold  "
                     size={"small"}
-                    type="default"
+                  style={{ backgroundColor: "#f5f4f4" }}
+                    type="link"
                   >
                     Add / Change Image
                   </Button>
                 </div>
-                <div className=" text-sm  absolute right-2 -bottom-3">
-                 ${product_details[0]?.per_item_price}
+                <div className=" text-sm w-40 text-right mt-8">
+                  ${product_details[0]?.per_item_price}
                 </div>
-              </p>
+              </div>
             </div>
           </label>
         </div>

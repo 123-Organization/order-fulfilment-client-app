@@ -20,21 +20,31 @@ interface NotificationAlertProps {
 
 type bottomIconProps = {
   //bolean or null or undefined
-  collapsed: boolean | null | undefined
-  setCollapsed: React.Dispatch<React.SetStateAction<boolean>> | undefined | null
-}
+  collapsed: boolean | null | undefined;
+  setCollapsed:
+    | React.Dispatch<React.SetStateAction<boolean>>
+    | undefined
+    | null;
+};
 
-const BottomIcon: React.FC <bottomIconProps>  =  ({collapsed, setCollapsed}) => {
+const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   console.log("collapsed", collapsed);
   const orders = useAppSelector((state) => state.order.orders);
   const product_details = useAppSelector(
     (state) => state.order.product_details
   );
+
+  const { product_list } = product_details?.data || {};
+  console.log("product_list", product_list);
+  const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
+  console.log("checkedOrders", checkedOrders);
   const ecommerceGetImportOrders = useAppSelector(
     (state) => state.order.ecommerceGetImportOrders
   );
 
-  const {shipping_preferences} = useAppSelector( (state) => state.order.shipping_preferences);
+  const { shipping_preferences } = useAppSelector(
+    (state) => state.order.shipping_preferences
+  );
   console.log("shipping_preferences", shipping_preferences);
 
   console.log("product_details ....", product_details);
@@ -44,7 +54,7 @@ const BottomIcon: React.FC <bottomIconProps>  =  ({collapsed, setCollapsed}) => 
   const [totalVisiable, setTotalVisiable] = useState<Boolean>(false);
   const [nextSpinning, setNextSpinning] = useState<Boolean>(false);
   const [currentStep, setCurrentStep] = useState(1);
-
+  const [grandTotal, setGrandtotal] = useState<number>(0);
   const [api, contextHolder] = notification.useNotification();
 
   const openNotificationWithIcon = ({
@@ -52,7 +62,7 @@ const BottomIcon: React.FC <bottomIconProps>  =  ({collapsed, setCollapsed}) => 
     message,
     description,
   }: NotificationAlertProps) => {
-    api[type]({ 
+    api[type]({
       message,
       description,
     });
@@ -274,11 +284,11 @@ const BottomIcon: React.FC <bottomIconProps>  =  ({collapsed, setCollapsed}) => 
 
   useEffect(() => {
     if (location.pathname === "/shippingpreference") {
-        setNextVisiable(true);
-      
+      setNextVisiable(true);
+
       console.log("companyInfo", companyInfo);
     }
-  }, [ companyInfo, location.pathname]);
+  }, [companyInfo, location.pathname]);
 
   useEffect(() => {
     if (
@@ -304,16 +314,31 @@ const BottomIcon: React.FC <bottomIconProps>  =  ({collapsed, setCollapsed}) => 
       openNotificationWithIcon({
         type: "error",
         message: "Error",
-        description: "Something went wrong", 
+        description: "Something went wrong",
       });
     }
-  }, [companyInfo, location.pathname, nextVisiable,]);
+  }, [companyInfo, location.pathname, nextVisiable]);
 
   useEffect(() => {
     if (!pathNameAvoidBackButton.includes(location.pathname)) {
       dispatch(updateCompanyInfo({}));
     }
   }, []);
+
+  useEffect(() => {
+    if (product_details?.totalPrice && product_list) {
+      let newTotalPrice = 0;
+
+      checkedOrders.forEach((order) => {
+        const product = product_list.find((product) => product.sku === order);
+        if (product) {
+          newTotalPrice += product.total_price;
+        }
+      });
+      setGrandtotal(newTotalPrice);
+      console.log("Remaining Total Price", newTotalPrice);
+    }
+  }, [checkedOrders, product_details, product_list]);
 
   return isLoadingImgDelete ? (
     <div className="pt-5 pb-2">
@@ -400,9 +425,8 @@ const BottomIcon: React.FC <bottomIconProps>  =  ({collapsed, setCollapsed}) => 
             <div className="flex flex-col font-bold text-gray-400 pt-2">
               <span>Order Count : {orders?.data?.length}</span>
               <span>
-                Grant Total :{" "}
-                {product_details?.totalPrice &&
-                  "$" + product_details?.totalPrice}
+                Grand Total :{" "}
+                {product_details?.totalPrice && "$" + grandTotal.toFixed(2)}
               </span>
             </div>
           )}
@@ -416,7 +440,9 @@ const BottomIcon: React.FC <bottomIconProps>  =  ({collapsed, setCollapsed}) => 
                 type="primary"
                 size="large"
               >
-                {location.pathname === "/shippingpreference" ? "Update" : "Next"}
+                {location.pathname === "/shippingpreference"
+                  ? "Update"
+                  : "Next"}
               </Button>
             </Spin>
           )}

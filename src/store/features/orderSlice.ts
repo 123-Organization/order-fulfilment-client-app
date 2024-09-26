@@ -28,6 +28,7 @@ interface OrderState {
   ecommerceGetImportOrders: any;
   listVirtualInventory: any;
   shipping_preferences: any;
+  checkedOrders: any;
 
 }
 
@@ -35,6 +36,7 @@ const initialState: OrderState = {
   orders: [],
   product_details: [],
   shippingOptions: [],
+  checkedOrders : [],
   shipping_preferences: [],
   company_info: {},
   saveOrderInfo: {},
@@ -384,6 +386,9 @@ export const fetchShippingOption = createAsyncThunk(
         },
         updateShipping: (state, action: PayloadAction) => {
           state.shipping_preferences = action.payload;
+        },
+        updateCheckedOrders: (state, action: PayloadAction) => {
+          state.checkedOrders = action.payload;
         }
       },
       extraReducers: (builder) => {
@@ -443,4 +448,4 @@ export const fetchShippingOption = createAsyncThunk(
     });
 
     export default OrderSlice.reducer;
-    export const { addOrder, updateCompany, updateBilling, updateImport, updateShipping } = OrderSlice.actions;
+    export const { addOrder, updateCompany, updateBilling, updateImport, updateShipping, updateCheckedOrders } = OrderSlice.actions;
