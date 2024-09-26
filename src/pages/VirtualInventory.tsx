@@ -1,14 +1,18 @@
 import React, { CSSProperties, useEffect, useState } from "react";
-import { Empty, message, Skeleton, Space, Spin } from "antd";
+import { Empty, message, Skeleton, Space, Spin, notification } from "antd";
 import { Typography } from "antd";
 import FilterSortModal from "../components/FilterSortModal";
 import { FileSearchOutlined, SortDescendingOutlined } from "@ant-design/icons";
 import { useAppDispatch, useAppSelector } from "../store";
+import {remove, find} from "lodash";
 import {
   ecommerceConnectorExport,
   listVirtualInventory,
+  inventorySelectionUpdate,
+  inventorySelectionDelete
 } from "../store/features/orderSlice";
-
+import HTMLReactParser from "html-react-parser";
+let userInfoMultiselectOptions = true;
 const images = [
   {
     public_thumbnail_uri:
@@ -114,13 +118,13 @@ const images = [
 
 const { Text } = Typography;
 const IMAGE_STYLES: CSSProperties = {
-  width: 200,
-  height: 200
+  width: 300,
+  height: 300
 };
 
 interface ImageType {
   public_thumbnail_uri?: string;
-  guid?: string;
+  sku?: string;
   public_preview_uri?: string;
   isSelected?: false;
   title?: string;
@@ -133,151 +137,87 @@ const VirtualInventory: React.FC = (): JSX.Element => {
   const [open, setOpen] = useState(false);
   const [spinLoader, setSpinLoader] = useState(false);
   const [openFilter, setOpenFilter] = useState(false);
-  const listVirtualInventoryData = useAppSelector((state) => state.order.listVirtualInventory?.data);
+  let listVirtualInventoryData = useAppSelector((state) => state.order.listVirtualInventory?.data)
+  ?.map(data =>{
+    return {...data,...{isSelected:false}}
+   } 
+  );
+  const listVirtualInventoryLoader = useAppSelector((state) => state.order.listVirtualInventoryLoader);
+  const ecommerceConnectorExportInfo = useAppSelector((state) => state.order.ecommerceConnectorExportInfo);
+  console.log('listVirtualInventoryData',listVirtualInventoryData)
+  const inventorySelection = useAppSelector((state) => state.order.inventorySelection);
   const dispatch = useAppDispatch();
   // const [images, setImages] = useState<Array<ImageType>>([]);
   const [imgData, setImgData] = useState({});
   const [referrerImages, setReferrerImages] = useState<
     Array<String | undefined>
   >([]);
-  // const [images, setImages] = useState<Array<ImageType>>([]);
-  const [messageApi, contextHolder] = message.useMessage();
+  const [images, setImages] = useState<Array<ImageType>>([]);
+  // const [messageApi, contextHolder] = message.useMessage();
+  const [api, contextHolder] = notification.useNotification();
+  const openNotificationWithIcon = ({ type, message, description }: NotificationAlertProps) => {
+    api[type]({
+      message,
+      description
+    });
+  };
 
-  const createPrints = () => {
+  const exportToWP = () => {
     if (spinLoader) return false;
     setSpinLoader(true);
-    // let guids = referrer.fileSelected.map((image: { guid: string })=>image.guid);
+    // let guids = referrer.fileSelected.map((image: { guid: string })=>image.sku);
     // printImagesDataFn({guids});
     // // window.open(`https://finerworks.com/apps/orderform/post.aspx?guids=${guids}`, "_blank")
   };
 
-  const handleSelect = (index: number) => {
+  const handleSelect = (skuObj:any) => {
+    
+    console.log('inventorySelection',inventorySelection)
+    console.log('sku',skuObj)
     console.log('referrerImages',referrerImages)
-      const nextImages = images.map((image, i) =>
-        ( i === index 
-          || (!userInfo.multiselectOptions && image.isSelected) 
-        ) ? { 
-          ...image, 
-          
-          isSelected:
-          (
-            (i === index && referrerImages?.length && referrerImages.includes(image.guid))
-            ? false
-            : !image.isSelected
-          ) 
-        } : {
-          ...image, 
-          isSelected:
-            referrerImages?.length && referrerImages.includes(image.guid)
-            ? true
-            : image.isSelected
-        }
-      );
-
-      console.log('nextImages',nextImages)
-      const fileUnSelected = nextImages.filter((image) => !image.isSelected ).map((img:any) => img.guid);
-      console.log('fileUnSelected',fileUnSelected)
-
-      const fileSelected = userInfo.multiselectOptions 
-                          ? nextImages
-                            //No repeation on referrerImages
-                            .filter((image) => (
-                                image.isSelected && !referrerImages.includes(image?.guid) 
-                              ))
-                            .concat(referrer.fileSelected)
-                            .filter((image) =>(
-                              (
-                                !fileUnSelected.includes(image.guid)
-                              )
-                            ))
-                          : nextImages.filter((image) =>image.isSelected )
-                        ;
-
-      // setReferrerImages(fileSelected.map((img:any) => img.guid));
-      //@ts-ignore
-      setImages(nextImages);
-      const hasSelected = nextImages.some((image) => image.isSelected);
-      //@ts-ignore
-      const referrerObj = {...referrer,...{hasSelected,fileSelected}}
-      console.log('referrer',referrer)
-      console.log('referrerObj',referrerObj)
-
-      let isUpdated = (
-          referrerObj.hasSelected !== referrer.hasSelected ||
-          referrerObj.fileSelected !== referrer.fileSelected ||
-          referrerObj.fileSelected.length !== referrer.fileSelected.length
-        );
-      console.log('isUpdated',isUpdated)
-
-      isUpdated && dynamicData.mutations.setReferrerData(referrerObj);
-
-      // if(fileUnSelected.length && fileUnSelected.includes())
-      //   setReferrerImages(fileSelected.map((img:any) => img.guid));
-
-      let referrerImagesChange:string[] = []; 
-
-      if(referrerImages.length){
-        const imgSelected = nextImages.filter((image) => image.isSelected).map((img)=>img.guid);
-        imgSelected.forEach(
-          guids => {
-            if(referrerImages.includes(guids) && guids){
-              referrerImagesChange.push(guids)
-            }
-          }
-        );
+    
+    listVirtualInventoryData = listVirtualInventoryData.map(data =>{
+      if(data.sku===skuObj.sku) {
         
-        if(referrerImagesChange.length){
-          
-          let finalArray:any[] = [...referrerImages,...referrerImagesChange] || [];
-          if(finalArray && finalArray.length){
+        if(
+          find(inventorySelection, {sku: skuObj?.sku})
+        )
+          dispatch(inventorySelectionDelete(skuObj));
+        else 
+          dispatch(inventorySelectionUpdate(skuObj));
 
-            let unique = [...removeDuplicates(finalArray)];
-            setReferrerImages(unique);
-          }
+        return {...data,...{isSelected:!data.isSelected}}
 
-        }
+      } else
+      return data
+     });
 
-      }  
-
+     console.log('handleSelect listVirtualInventoryData',listVirtualInventoryData)
+   
   };
 
   const exportInventory = () => {
 
-    dispatch(
-      ecommerceConnectorExport({
-        "products": [
-            {
-                "monetary_format": "USD",
-                "quantity": 1,
-                "sku": "AP1556P79511",
-                "product_code": "5M41M9S8X10F131S13X15J2S9X11G1",
-                "price_details": null,
-                "per_item_price": 113.0,
-                "total_price": 113.0,
-                "asking_price": 200.0,
-                "name": "Framed Giclee - Paper Prints",
-                "description_short": "Giclee - Paper Prints",
-                "description_long": "<h4>Framed Giclee - Paper Prints</h4><ul><li>8 x 10\" Archival Canvas Paper<ul><li>1/2\" Extra Border Added</li></ul></li><li>Frame: Rustic Britanny<ul><li>Vermill Red 1-1/2\" (354303)<ul><li>13 x 15\"</li></ul></li></ul></li><li>Single Mat: Off White (A4902)<ul><li>13 x 15\" (window: 9 x 11)</li></ul></li><li>Glazing (Acrylic Glass): Premium Clear </li></ul>",
-                "image_url_1": "https://somewhere.com/image.png",
-                "image_url_2": null,
-                "image_url_3": null,
-                "image_url_4": null,
-                "image_url_5": null,
-                "image_guid": "0fda6212-d5a5-48ee-85c2-74254fecdad0",
-                "product_size": null,
-                "third_party_integrations": null,
-                "debug": null
-            }
-        ]
-      })
-    );
+    if(inventorySelection.length){
+
+      dispatch(
+        ecommerceConnectorExport({
+          "products": inventorySelection
+        })
+      );
+    }
 
   }
 
   const listInventory = () => {
 
     dispatch(
-      listVirtualInventory({"search_filter":""})
+      listVirtualInventory({
+        "search_filter":"",
+        'sort_field':'id',
+        'sort_direction':'DESC',
+        'per_page':12
+      })
     )
   }  
 
@@ -285,6 +225,15 @@ const VirtualInventory: React.FC = (): JSX.Element => {
     listInventory();
 
   }, []);
+
+  useEffect(() => {
+    if(ecommerceConnectorExportInfo.status===200 && spinLoader){
+      openNotificationWithIcon( {type:'success', message:'Success',description:`Import to Wordpress have been done successfully`})
+      setSpinLoader(false);
+      window.location.reload()
+    }
+
+  }, [ecommerceConnectorExportInfo]);
   /**
    * ****************************************************************** JSX  ***************************************************************************
    */
@@ -330,9 +279,9 @@ const VirtualInventory: React.FC = (): JSX.Element => {
               </span>
             </button>
           </div>
-          {true && (
+          {!!inventorySelection.length && (
             <div
-              onClick={createPrints}
+              onClick={exportToWP}
               className="fw-sky-btn mr-4 basis-1/12 max-md:row-1 max-md:col-span-4 max-md:relative"
             >
               <Spin spinning={spinLoader} size="small">
@@ -351,7 +300,7 @@ const VirtualInventory: React.FC = (): JSX.Element => {
       </div>
       <div className="grid max-sm:grid-cols-1 max-xl:grid-cols-2 grid-cols-4 gap-8 p-8 max-md:pt-20 content-center">
         {contextHolder}
-        {false ? (
+        {listVirtualInventoryLoader ? (
           <div className="center-div1  md:col-span-4">
             <Space size={"large"} className="text-center" wrap>
               <Skeleton.Image style={IMAGE_STYLES} active />
@@ -379,14 +328,17 @@ const VirtualInventory: React.FC = (): JSX.Element => {
                 key={i}
                 className={`border rounded-lg shadow-lg   border-gray-100 ${
                   image?.isSelected ||
-                  (referrerImages?.length &&
-                    referrerImages.includes(image?.guid))
+                  ( 
+                    inventorySelection?.length &&
+                    find(inventorySelection, {sku: image?.sku})
+                    // inventorySelection.includes(image?.sku)
+                  )
                     ? "isSelectedImg"
                     : ""
                 }`}
               >
                 <div
-                  onClick={() => handleSelect(i)}
+                  onClick={() => handleSelect(image)}
                   className="min-h-[300px] flex justify-center items-center"
                 >
                   <div>
@@ -417,10 +369,9 @@ const VirtualInventory: React.FC = (): JSX.Element => {
                                     </svg> */}
                   </div>
                   <div>
-                    <h2>{image.name}</h2>
-                    <h2>18 * 45" Silva matic canvas </h2>
-                    <h2>Strech mounted images wraps - 1.4 deep"</h2>
-                    <h2>Color collection services : No</h2>
+                    <h2 className="px-4">{image.name}</h2>
+                    <h2 className="px-4">SKU - {image.sku}</h2>
+                    <div className="px-4">{HTMLReactParser(image.description_long)}</div>
                   </div>
                 </div>
               </div>
