@@ -1,5 +1,6 @@
 import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import config  from "../../config/configs";
+import {remove, find} from "lodash";
 // https://github.com/vahid-nejad/redux-toolkit-example/blob/master/src/components/Add.tsx
 const BASE_URL = config.SERVER_BASE_URL;
 const ECOMMERCE_CONNCET_URL = "https://artsafenet.com/wp-json/finerworks-media/v1/";
@@ -32,6 +33,7 @@ interface OrderState {
   ecommerceConnectorExportInfo: any;
   ecommerceGetImportOrders: any;
   listVirtualInventory: any;
+  listVirtualInventoryLoader: boolean;
   filterVirtualInventory: any;
   filterVirtualInventoryOption: any;
   inventorySelection:any;
@@ -60,6 +62,7 @@ const initialState: OrderState = {
   ecommerceConnectorgetOrderWoocommerce: {},
   ecommerceConnectorImportOrderWoocommerce: {},
   ecommerceGetImportOrders:{},
+  listVirtualInventoryLoader:false,
   listVirtualInventory:{},
   filterVirtualInventory:{},
   filterVirtualInventoryOption:{},
@@ -368,8 +371,15 @@ export const OrderSlice = createSlice({
     updateImport: (state, action: PayloadAction) => {
       state.myImport = action.payload;
     },
-    inventorySelection: (state, action) => {
-      state.referrer = {...state.referrer,...action.payload};
+    inventorySelectionUpdate: (state, action: PayloadAction) => {
+      console.log('inventorySelectionUpdateAction',action)
+      if(!find(state.inventorySelection, {sku: action?.payload?.sku})){
+        state.inventorySelection.push(action.payload);
+      }
+    },
+    inventorySelectionDelete: (state, action: PayloadAction) => {
+      console.log('inventorySelectionDeleteAction',action)
+        remove(state.inventorySelection, {sku: action.payload?.sku})
     },
     updateFilterVirtualInventory: (state, action) => {
       state.filterVirtualInventory = {...state.filterVirtualInventory,...action.payload};
@@ -426,11 +436,16 @@ export const OrderSlice = createSlice({
     });
 
     builder.addCase(listVirtualInventory.fulfilled, (state, action) => {
+      state.listVirtualInventoryLoader = false;
       state.listVirtualInventory = action.payload;
+    });
+
+    builder.addCase(listVirtualInventory.pending, (state, action) => {
+      state.listVirtualInventoryLoader = true;
     });
 
   },
 });   
 
 export default OrderSlice.reducer;
-export const { addOrder, updateCompany, updateBilling, updateImport, inventorySelection } = OrderSlice.actions;
+export const { addOrder, updateCompany, updateBilling, updateImport, inventorySelectionUpdate, inventorySelectionDelete } = OrderSlice.actions;
