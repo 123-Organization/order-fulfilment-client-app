@@ -16,6 +16,7 @@ const BottomIcon: React.FC = (): JSX.Element => {
   const orders = useAppSelector((state) => state.order.orders);
   const product_details = useAppSelector((state) => state.order.product_details);
   const ecommerceGetImportOrders = useAppSelector((state) => state.order.ecommerceGetImportOrders);
+  let listVirtualInventoryData = useAppSelector((state) => state.order.listVirtualInventory?.data)
 
   console.log('product_details ....',product_details)
 
@@ -411,7 +412,7 @@ const BottomIcon: React.FC = (): JSX.Element => {
                 onChange={onChange}
                 current={current} 
                 pageSize={pageSize} 
-                total={100} 
+                total={listVirtualInventoryData?.count || 100} 
             />
         </div>}
       </div>
