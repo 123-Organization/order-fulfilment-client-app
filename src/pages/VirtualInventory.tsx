@@ -9,7 +9,8 @@ import {
   ecommerceConnectorExport,
   listVirtualInventory,
   inventorySelectionUpdate,
-  inventorySelectionDelete
+  inventorySelectionDelete,
+  inventorySelectionClean
 } from "../store/features/orderSlice";
 import HTMLReactParser from "html-react-parser";
 let userInfoMultiselectOptions = true;
@@ -228,9 +229,12 @@ const VirtualInventory: React.FC = (): JSX.Element => {
 
   useEffect(() => {
     if(ecommerceConnectorExportInfo.status===200 && spinLoader){
+      // ecommerceConnectorExportInfo.status=300
       openNotificationWithIcon( {type:'success', message:'Success',description:`Import to Wordpress have been done successfully`})
       setSpinLoader(false);
-      window.location.reload()
+      //  window.location.reload()
+      dispatch(inventorySelectionClean())
+      listInventory();
     }
 
   }, [ecommerceConnectorExportInfo]);

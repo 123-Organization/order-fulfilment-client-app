@@ -377,6 +377,9 @@ export const OrderSlice = createSlice({
         state.inventorySelection.push(action.payload);
       }
     },
+    inventorySelectionClean: (state, action: PayloadAction) => {
+        state.inventorySelection=[];
+    },
     inventorySelectionDelete: (state, action: PayloadAction) => {
       console.log('inventorySelectionDeleteAction',action)
         remove(state.inventorySelection, {sku: action.payload?.sku})
@@ -448,4 +451,4 @@ export const OrderSlice = createSlice({
 });   
 
 export default OrderSlice.reducer;
-export const { addOrder, updateCompany, updateBilling, updateImport, inventorySelectionUpdate, inventorySelectionDelete } = OrderSlice.actions;
+export const { addOrder, updateCompany, updateBilling, updateImport, inventorySelectionUpdate, inventorySelectionDelete, inventorySelectionClean } = OrderSlice.actions;
