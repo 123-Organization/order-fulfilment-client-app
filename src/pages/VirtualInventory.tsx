@@ -13,6 +13,7 @@ import {
   inventorySelectionClean
 } from "../store/features/orderSlice";
 import HTMLReactParser from "html-react-parser";
+import { useLocation } from "react-router-dom";
 let userInfoMultiselectOptions = true;
 const images = [
   {
