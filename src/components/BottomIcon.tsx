@@ -404,7 +404,7 @@ const BottomIcon: React.FC = (): JSX.Element => {
             </Spin>
           )}
         </div>
-        {(location.pathname === "/virtualinventory") &&
+        {!!(location.pathname === "/virtualinventory" && listVirtualInventoryDataCount) &&
         <div className='flex w-full justify-end'>
             <Pagination 
                 simple className=' mt-5 mr-3 ' 
@@ -413,7 +413,7 @@ const BottomIcon: React.FC = (): JSX.Element => {
                 onChange={onChange}
                 current={current} 
                 pageSize={pageSize} 
-                total={listVirtualInventoryDataCount || 100} 
+                total={listVirtualInventoryDataCount} 
             />
         </div>}
       </div>
