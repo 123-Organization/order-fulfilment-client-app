@@ -16,7 +16,7 @@ const BottomIcon: React.FC = (): JSX.Element => {
   const orders = useAppSelector((state) => state.order.orders);
   const product_details = useAppSelector((state) => state.order.product_details);
   const ecommerceGetImportOrders = useAppSelector((state) => state.order.ecommerceGetImportOrders);
-  let listVirtualInventoryData = useAppSelector((state) => state.order.listVirtualInventory?.data)
+  let listVirtualInventoryDataCount = useAppSelector((state) => state.order.listVirtualInventory?.count)
 
   console.log('product_details ....',product_details)
 
@@ -37,7 +37,7 @@ const BottomIcon: React.FC = (): JSX.Element => {
     });
   };
   
-  const pathNameAvoidBackButton = ["/mycompany","/virtualinventory","/importfilter"];
+  const pathNameAvoidBackButton = ["/mycompany","/virtualinventory","/importfilter","/paymentaddress"];
   const pathNameAvoidUpdateProfile = ["/importfilter"];
 
   const myCompanyInfoFilled = useAppSelector(
@@ -299,6 +299,7 @@ const BottomIcon: React.FC = (): JSX.Element => {
     }
   }, []);
 
+  console.log('listVirtualInventoryData?.count',listVirtualInventoryDataCount)
   return isLoadingImgDelete ? (
     <div className="pt-5 pb-2">
       <Spin tip="Deleting files...">
@@ -412,7 +413,7 @@ const BottomIcon: React.FC = (): JSX.Element => {
                 onChange={onChange}
                 current={current} 
                 pageSize={pageSize} 
-                total={listVirtualInventoryData?.count || 100} 
+                total={listVirtualInventoryDataCount || 100} 
             />
         </div>}
       </div>
