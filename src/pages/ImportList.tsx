@@ -57,23 +57,6 @@ const ImportList: React.FC = () => {
       setProductData(products);
     }
   }, [product_details]);
-  console.log("orders...", orders);
-  // useEffect(() => {
-  //   if (orders && orders?.data?.length && !orderPostData.length) {
-  //     let orderPostData1 = orders?.data?.map((order, index) => {
-  //       dispatch(fetchShippingOption({ order_po: order?.orders[0]?.order_po }));
-  //       return {
-  //         product_sku: order?.orders[0]?.order_items[0].product_sku,
-  //         product_qty: order?.orders[0]?.order_items[0].product_qty,
-  //         product_order_po: order?.orders[0]?.order_po,
-  //       };
-  //     });
-
-  //     console.log("orderPostData...", orderPostData1);
-  //     setOrderPostData(orderPostData1);
-  //     dispatch(fetchProductDetails(orderPostData1));
-  //   }
-  // }, [orders]);
 
   useEffect(() => {
     if (orders?.data?.length && !orderPostData.length) {
