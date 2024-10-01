@@ -13,6 +13,7 @@ import {
   inventorySelectionClean
 } from "../store/features/orderSlice";
 import HTMLReactParser from "html-react-parser";
+import { useLocation } from "react-router-dom";
 let userInfoMultiselectOptions = true;
 const images = [
   {
@@ -21,7 +22,7 @@ const images = [
     public_preview_uri:
       "https://flowbite.s3.amazonaws.com/docs/gallery/square/image.jpg",
     isSelected: false,
-    title: "first image"
+    title: "first image",
   },
   {
     public_thumbnail_uri:
@@ -29,7 +30,7 @@ const images = [
     public_preview_uri:
       "https://flowbite.s3.amazonaws.com/docs/gallery/square/image-1.jpg",
     isSelected: false,
-    title: "second image"
+    title: "second image",
   },
   {
     public_thumbnail_uri:
@@ -37,7 +38,7 @@ const images = [
     public_preview_uri:
       "https://flowbite.s3.amazonaws.com/docs/gallery/square/image-2.jpg",
     isSelected: false,
-    title: "third image"
+    title: "third image",
   },
   {
     public_thumbnail_uri:
@@ -45,7 +46,7 @@ const images = [
     public_preview_uri:
       "https://flowbite.s3.amazonaws.com/docs/gallery/square/image-3.jpg",
     isSelected: false,
-    title: "fourth image"
+    title: "fourth image",
   },
   {
     public_thumbnail_uri:
@@ -53,7 +54,7 @@ const images = [
     public_preview_uri:
       "https://flowbite.s3.amazonaws.com/docs/gallery/square/image-4.jpg",
     isSelected: false,
-    title: "fifth image"
+    title: "fifth image",
   },
   {
     public_thumbnail_uri:
@@ -61,7 +62,7 @@ const images = [
     public_preview_uri:
       "https://flowbite.s3.amazonaws.com/docs/gallery/square/image-5.jpg",
     isSelected: false,
-    title: "six image"
+    title: "six image",
   },
   {
     public_thumbnail_uri:
@@ -69,7 +70,7 @@ const images = [
     public_preview_uri:
       "https://flowbite.s3.amazonaws.com/docs/gallery/square/image-6.jpg",
     isSelected: false,
-    title: "seven image"
+    title: "seven image",
   },
   {
     public_thumbnail_uri:
@@ -77,7 +78,7 @@ const images = [
     public_preview_uri:
       "https://flowbite.s3.amazonaws.com/docs/gallery/square/image-7.jpg",
     isSelected: false,
-    title: "eight image"
+    title: "eight image",
   },
   {
     public_thumbnail_uri:
@@ -85,7 +86,7 @@ const images = [
     public_preview_uri:
       "https://flowbite.s3.amazonaws.com/docs/gallery/square/image-8.jpg",
     isSelected: false,
-    title: "nineth image"
+    title: "nineth image",
   },
   {
     public_thumbnail_uri:
@@ -93,7 +94,7 @@ const images = [
     public_preview_uri:
       "https://flowbite.s3.amazonaws.com/docs/gallery/square/image-9.jpg",
     isSelected: false,
-    title: "tenth image"
+    title: "tenth image",
   },
   {
     public_thumbnail_uri:
@@ -101,7 +102,7 @@ const images = [
     public_preview_uri:
       "https://flowbite.s3.amazonaws.com/docs/gallery/square/image-10.jpg",
     isSelected: false,
-    title: "eleventh image"
+    title: "eleventh image",
   },
   {
     public_thumbnail_uri:
@@ -109,8 +110,8 @@ const images = [
     public_preview_uri:
       "https://flowbite.s3.amazonaws.com/docs/gallery/square/image-11.jpg",
     isSelected: false,
-    title: "twelth image"
-  }
+    title: "twelth image",
+  },
 ];
 
 /**
@@ -135,6 +136,8 @@ interface ImageType {
  */
 
 const VirtualInventory: React.FC = (): JSX.Element => {
+  const location = useLocation();
+  console.log("location", location.pathname);
   const [open, setOpen] = useState(false);
   const [spinLoader, setSpinLoader] = useState(false);
   const [openFilter, setOpenFilter] = useState(false);
@@ -224,7 +227,6 @@ const VirtualInventory: React.FC = (): JSX.Element => {
 
   useEffect(() => {
     listInventory();
-
   }, []);
 
   useEffect(() => {
@@ -246,7 +248,6 @@ const VirtualInventory: React.FC = (): JSX.Element => {
     <div className="relative">
       <div className="fixed1">
         <div className=" flex flex-row p-5 mr-5">
-
           <div id="docsearch" className=" hidden md:flex ml-4 basis-11/12">
             <button
               type="button"
@@ -289,14 +290,25 @@ const VirtualInventory: React.FC = (): JSX.Element => {
               className="fw-sky-btn mr-4 basis-1/12 max-md:row-1 max-md:col-span-4 max-md:relative"
             >
               <Spin spinning={spinLoader} size="small">
-                <button
-                  type="button"
-                  onClick={() => exportInventory()}
-                  className="  
+                {location.pathname === "/virtualinventory" ? (
+                  <button
+                    type="button"
+                    onClick={() => exportInventory()}
+                    className="  
                             "
-                >
-                  {"Export"}
-                </button>
+                  >
+                    {"Export"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => exportInventory()}
+                    className="  
+                            "
+                  >
+                    {"Add to Cart"}
+                  </button>
+                )}
               </Spin>
             </div>
           )}
@@ -325,7 +337,8 @@ const VirtualInventory: React.FC = (): JSX.Element => {
               <Skeleton.Image style={IMAGE_STYLES} active />
             </Space>
           </div>
-        ) : listVirtualInventoryData && Object.keys(listVirtualInventoryData).length ? (
+        ) : listVirtualInventoryData &&
+          Object.keys(listVirtualInventoryData).length ? (
           <>
             {listVirtualInventoryData.map((image, i) => (
               <div
