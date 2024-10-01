@@ -2,23 +2,56 @@ import React, { useEffect, useState } from "react";
 import { Button, PaginationProps, Spin, notification, Pagination } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store";
-import { updateCompanyInfo, updateCompany, ecommerceConnector, getImportOrders, saveOrder, listVirtualInventory } from "../store/features/orderSlice";
+import {
+  updateCompanyInfo,
+  updateCompany,
+  ecommerceConnector,
+  getImportOrders,
+  saveOrder, listVirtualInventory,
+} from "../store/features/orderSlice";
+import ShippingPreference from "../pages/ShippingPreference";
 
-type NotificationType = 'success' | 'info' | 'warning' | 'error';
+type NotificationType = "success" | "info" | "warning" | "error";
 interface NotificationAlertProps {
-  type: NotificationType,
-  message : string,
-  description : string
+  type: NotificationType;
+  message: string;
+  description: string;
 }
 
+type bottomIconProps = {
+  //bolean or null or undefined
+  collapsed: boolean | null | undefined;
+  setCollapsed:
+    | React.Dispatch<React.SetStateAction<boolean>>
+    | undefined
+    | null;
+};
 
-const BottomIcon: React.FC = (): JSX.Element => {
+const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
+  console.log("collapsed", collapsed);
   const orders = useAppSelector((state) => state.order.orders);
-  const product_details = useAppSelector((state) => state.order.product_details);
-  const ecommerceGetImportOrders = useAppSelector((state) => state.order.ecommerceGetImportOrders);
+  const product_details = useAppSelector(
+    (state) => state.order.product_details
+  );
+
+  const orderEdited = useAppSelector((state) => state.order.orderEdited);
+  console.log("orderEdited", orderEdited);
+
+  const { product_list } = product_details?.data || {};
+  console.log("product_list", product_list);
+  const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
+  console.log("checkedOrders", checkedOrders);
+  const ecommerceGetImportOrders = useAppSelector(
+    (state) => state.order.ecommerceGetImportOrders
+  );
   let listVirtualInventoryData = useAppSelector((state) => state.order.listVirtualInventory?.data)
 
-  console.log('product_details ....',product_details)
+  const { shipping_preferences } = useAppSelector(
+    (state) => state.order.shipping_preferences
+  );
+  console.log("shipping_preferences", shipping_preferences);
+
+  console.log("product_details ....", product_details);
 
   const [backVisiable, setBackVisiable] = useState<Boolean>(true);
   const [nextVisiable, setNextVisiable] = useState<Boolean>(false);
@@ -27,55 +60,57 @@ const BottomIcon: React.FC = (): JSX.Element => {
   const [currentStep, setCurrentStep] = useState(1);
   const [current, setCurrent] = useState(1);
   const [pageSize, setPageSize] = useState(12);
-
+  const [grandTotal, setGrandtotal] = useState<number>(0);
   const [api, contextHolder] = notification.useNotification();
 
-  const openNotificationWithIcon = ({ type, message, description }: NotificationAlertProps) => {
+  const openNotificationWithIcon = ({
+    type,
+    message,
+    description,
+  }: NotificationAlertProps) => {
     api[type]({
       message,
-      description
+      description,
     });
   };
-  
-  const pathNameAvoidBackButton = ["/mycompany","/virtualinventory","/importfilter"];
+
+  const pathNameAvoidBackButton = [
+    "/mycompany",
+    "/virtualinventory",
+    "/importfilter",
+  ];
   const pathNameAvoidUpdateProfile = ["/importfilter"];
 
   const myCompanyInfoFilled = useAppSelector(
     (state) => state.order.myCompanyInfoFilled
   );
 
-  const myImport = useAppSelector(
-    (state) => state.order.myImport
-  );
+  const myImport = useAppSelector((state) => state.order.myImport);
 
-  const saveOrderInfo = useAppSelector(
-    (state) => state.order.saveOrderInfo
-  );
+  const saveOrderInfo = useAppSelector((state) => state.order.saveOrderInfo);
 
   const myBillingInfoFilled = useAppSelector(
     (state) => state.order.myBillingInfoFilled
   );
-  
-  const companyInfo = useAppSelector(
-    (state) => state.order.company_info
-  );
-  
+
+  const companyInfo = useAppSelector((state) => state.order.company_info);
+
   const [stateData, setStateData] = useState<Boolean>(false);
   const dispatch = useAppDispatch();
   let isLoadingImgDelete = false;
   const location = useLocation();
   console.log(location.pathname);
-  
-  if ( pathNameAvoidBackButton.includes(location.pathname)  ) {
+
+  if (pathNameAvoidBackButton.includes(location.pathname)) {
     backVisiable && setBackVisiable(false);
   } else {
     !backVisiable && setBackVisiable(true);
   }
 
   if (location.pathname === "/importlist") {
-    !totalVisiable  && setTotalVisiable(true);
-  }else {
-    totalVisiable  && setTotalVisiable(false);
+    !totalVisiable && setTotalVisiable(true);
+  } else {
+    totalVisiable && setTotalVisiable(false);
   }
 
   const navigate = useNavigate();
@@ -95,209 +130,238 @@ const BottomIcon: React.FC = (): JSX.Element => {
     )
   };
 
-  const onNextHandler = async() => {
+  const onNextHandler = async () => {
     if (location.pathname === "/mycompany") {
-      if ( 
-          myCompanyInfoFilled?.business_info &&
-          !isNaN(myCompanyInfoFilled?.business_info?.zip_postal_code) &&
-          !isNaN(myCompanyInfoFilled?.business_info?.phone)
-        
-        ) {
-          setNextSpinning(true)
-          dispatch(updateCompanyInfo(myCompanyInfoFilled));
-         
-        
+      if (
+        myCompanyInfoFilled?.business_info &&
+        !isNaN(myCompanyInfoFilled?.business_info?.zip_postal_code) &&
+        !isNaN(myCompanyInfoFilled?.business_info?.phone)
+      ) {
+        setNextSpinning(true);
+        dispatch(updateCompanyInfo(myCompanyInfoFilled));
       } else {
         alert("Billing info missing");
       }
     }
 
     if (location.pathname === "/importfilter") {
-      if (
-            (myImport?.start_date) ||
-            (myImport?.end_date) ||
-            (myImport?.status)
-        ) {
-            setNextSpinning(true)
-            // dispatch(updateCompanyInfo(myImport));
-            dispatch(
-              getImportOrders(
-                { ...{
-                    account_key: "81de5dba-0300-4988-a1cb-df97dfa4e372"
-                  },...myImport
-                }
-              )
-            );
-          
-        } else {
-          alert("Import info missing");
-        }
+      if (myImport?.start_date || myImport?.end_date || myImport?.status) {
+        setNextSpinning(true);
+        // dispatch(updateCompanyInfo(myImport));
+        dispatch(
+          getImportOrders({
+            ...{
+              account_key: "81de5dba-0300-4988-a1cb-df97dfa4e372",
+            },
+            ...myImport,
+          })
+        );
+      } else {
+        alert("Import info missing");
+      }
     }
 
     if (location.pathname === "/billingaddress") {
-      if ( 
+      if (
         myBillingInfoFilled.billing_info &&
-          !isNaN(myBillingInfoFilled.billing_info.zip_postal_code) &&
-          !isNaN(myBillingInfoFilled.billing_info.phone)
-        
-        ) {
-          setNextSpinning(true)
-          dispatch(updateCompanyInfo(myBillingInfoFilled));
-         
-        
+        !isNaN(myBillingInfoFilled.billing_info.zip_postal_code) &&
+        !isNaN(myBillingInfoFilled.billing_info.phone)
+      ) {
+        setNextSpinning(true);
+        dispatch(updateCompanyInfo(myBillingInfoFilled));
       } else {
         alert("Billing info missing");
       }
     }
+    if (location.pathname === "/shippingpreference") {
+      if (shipping_preferences?.length) {
+        setNextSpinning(true);
+        dispatch(updateCompanyInfo({ shipping_preferences }));
+        notification.success({
+          message: "Success",
+          description: "Information has been saved",
+        });
+      } else {
+        alert("Shipping info missing");
+      }
+      navigate("/");
+    }
     // alert("next");
     // navigate('/BillingAddress')
   };
-  
+
   const onDeleteHandler = () => {};
 
   const onBackHandler = () => {
-    if (location.pathname === "/billingaddress") 
-      navigate('/mycompany')
-    if (location.pathname === "/paymentaddress")   
-      navigate('/billingaddress')
+    if (location.pathname === "/billingaddress") navigate("/mycompany");
+    if (location.pathname === "/paymentaddress") navigate("/billingaddress");
   };
 
   const onDownloadHandler = () => {};
   useEffect(() => {
     if (
-        myCompanyInfoFilled?.business_info &&
-        !isNaN(myCompanyInfoFilled?.business_info?.zip_postal_code) &&
-        !isNaN(myCompanyInfoFilled?.business_info?.phone)
-      ) {
-        !nextVisiable && setNextVisiable(true);
-    } else{
+      myCompanyInfoFilled?.business_info &&
+      !isNaN(myCompanyInfoFilled?.business_info?.zip_postal_code) &&
+      !isNaN(myCompanyInfoFilled?.business_info?.phone)
+    ) {
+      !nextVisiable && setNextVisiable(true);
+    } else {
       nextVisiable && setNextVisiable(false);
     }
-    console.log('nextVisiable',nextVisiable)
+    console.log("nextVisiable", nextVisiable);
   }, [myCompanyInfoFilled]);
-
 
   useEffect(() => {
     if (
       myBillingInfoFilled.billing_info &&
-        !isNaN(myBillingInfoFilled.billing_info.zip_postal_code) &&
-        !isNaN(myBillingInfoFilled.billing_info.phone)
-      ) {
-        !nextVisiable && setNextVisiable(true);
+      !isNaN(myBillingInfoFilled.billing_info.zip_postal_code) &&
+      !isNaN(myBillingInfoFilled.billing_info.phone)
+    ) {
+      !nextVisiable && setNextVisiable(true);
     } else {
       nextVisiable && setNextVisiable(false);
     }
-    console.log('nextVisiable',nextVisiable)
+    console.log("nextVisiable", nextVisiable);
   }, [myBillingInfoFilled]);
 
   useEffect(() => {
     if (location.pathname === "/importfilter") {
-      if (
-            (myImport?.start_date) ||
-            (myImport?.end_date) ||
-            (myImport?.status)
-        ) {
-          !nextVisiable && setNextVisiable(true);
-      } else{
+      if (myImport?.start_date || myImport?.end_date || myImport?.status) {
+        !nextVisiable && setNextVisiable(true);
+      } else {
         nextVisiable && setNextVisiable(false);
       }
-      console.log('nextVisiable',nextVisiable)
+      console.log("nextVisiable", nextVisiable);
     }
   }, [myImport]);
 
   useEffect(() => {
     if (location.pathname === "/importfilter") {
-      if (
-        (myImport?.start_date) ||
-        (myImport?.end_date) ||
-        (myImport?.status)
-      ) {
-         console.log('ecommerceGetImportOrders',ecommerceGetImportOrders);
-          if (
-            (ecommerceGetImportOrders?.accountId)
-            ) {
-              if(!(ecommerceGetImportOrders?.orders?.length)){
-                openNotificationWithIcon( {type:'error', message:'Error',description:'We couldn’t find any records matching your search criteria. Please check the information you’ve entered and try again.'})   
-                setNextSpinning(false)
-                !nextVisiable && setNextVisiable(true);
-              } else {
-                dispatch(saveOrder(ecommerceGetImportOrders));
-              }
+      if (myImport?.start_date || myImport?.end_date || myImport?.status) {
+        console.log("ecommerceGetImportOrders", ecommerceGetImportOrders);
+        if (ecommerceGetImportOrders?.accountId) {
+          if (!ecommerceGetImportOrders?.orders?.length) {
+            openNotificationWithIcon({
+              type: "error",
+              message: "Error",
+              description:
+                "We couldn’t find any records matching your search criteria. Please check the information you’ve entered and try again.",
+            });
+            setNextSpinning(false);
+            !nextVisiable && setNextVisiable(true);
+          } else {
+            dispatch(saveOrder(ecommerceGetImportOrders));
           }
-          else if (
-            (ecommerceGetImportOrders?.data?.status===400) ||
-            (ecommerceGetImportOrders?.data?.status>=500)
-            ) {
-              openNotificationWithIcon( 
-                {
-                  type:'error', 
-                  message:'Error',
-                  description:ecommerceGetImportOrders?.message?ecommerceGetImportOrders?.message:"Something went wrong"
-                })
-              setNextSpinning(false)
-              !nextVisiable && setNextVisiable(true);
-          }
-          else{
-            nextVisiable && setNextVisiable(false);
-          }
+        } else if (
+          ecommerceGetImportOrders?.data?.status === 400 ||
+          ecommerceGetImportOrders?.data?.status >= 500
+        ) {
+          openNotificationWithIcon({
+            type: "error",
+            message: "Error",
+            description: ecommerceGetImportOrders?.message
+              ? ecommerceGetImportOrders?.message
+              : "Something went wrong",
+          });
+          setNextSpinning(false);
+          !nextVisiable && setNextVisiable(true);
+        } else {
+          nextVisiable && setNextVisiable(false);
+        }
       }
     }
-
   }, [ecommerceGetImportOrders]);
 
   useEffect(() => {
     if (location.pathname === "/importfilter") {
-      if (
-        (myImport?.start_date) ||
-        (myImport?.end_date) ||
-        (myImport?.status)
-      ) {
-          if (
-            (saveOrderInfo?.statusCode===200)
-            ) {
-              openNotificationWithIcon( {type:'success', message:'Success',description:'Import and Export have been done successfully'})
-              
-              navigate('/importlist')
-          } 
-          else if (
-            (saveOrderInfo?.statusCode===400)
-            ) {
-              openNotificationWithIcon( {type:'error', message:'Error',description:saveOrderInfo.message})
-              setNextSpinning(false)
-              !nextVisiable && setNextVisiable(true);
-          }
-          else{
-            nextVisiable && setNextVisiable(false);
-          }
+      if (myImport?.start_date || myImport?.end_date || myImport?.status) {
+        if (saveOrderInfo?.statusCode === 200) {
+          openNotificationWithIcon({
+            type: "success",
+            message: "Success",
+            description: "Import and Export have been done successfully",
+          });
+
+          navigate("/importlist");
+        } else if (saveOrderInfo?.statusCode === 400) {
+          openNotificationWithIcon({
+            type: "error",
+            message: "Error",
+            description: saveOrderInfo.message,
+          });
+          setNextSpinning(false);
+          !nextVisiable && setNextVisiable(true);
+        } else {
+          nextVisiable && setNextVisiable(false);
+        }
       }
     }
-
   }, [saveOrderInfo]);
 
   useEffect(() => {
-    if(companyInfo?.data?.account_id && nextVisiable){
-      if (location.pathname === "/mycompany") 
-        navigate('/billingaddress')
-      if (location.pathname === "/billingaddress")   
-        navigate('/paymentaddress')
-      // if (location.pathname === "/paymentaddress")  
-      //   navigate('/')
-      setNextSpinning(false)
-      setNextVisiable(false);
-      openNotificationWithIcon( {type:'success', message:'Success',description:'Information has been saved'})
+    if (location.pathname === "/shippingpreference") {
+      setNextVisiable(true);
+
+      console.log("companyInfo", companyInfo);
     }
-    else if(companyInfo?.statusCode===400){
-      setNextSpinning(false)
-      setNextVisiable(false);
-      openNotificationWithIcon( {type:'error', message:'Error',description:'Something went wrong'})
-    }
-  }, [companyInfo]);
+  }, [companyInfo, location.pathname]);
 
   useEffect(() => {
-    if ( !pathNameAvoidBackButton.includes(location.pathname)  ) {
+    if (
+      companyInfo?.data?.account_id &&
+      nextVisiable &&
+      location.pathname !== "/shippingpreference" &&
+      location.pathname !== "/editorder"
+    ) {
+      if (location.pathname === "/mycompany") navigate("/billingaddress");
+      if (location.pathname === "/billingaddress") navigate("/paymentaddress");
+
+      // if (location.pathname === "/paymentaddress")
+      //   navigate('/')
+      setNextSpinning(false);
+      setNextVisiable(false);
+      openNotificationWithIcon({
+        type: "success",
+        message: "Success",
+        description: "Information has been saved",
+      });
+    } else if (companyInfo?.statusCode === 400) {
+      setNextSpinning(false);
+      setNextVisiable(false);
+      openNotificationWithIcon({
+        type: "error",
+        message: "Error",
+        description: "Something went wrong",
+      });
+    }
+  }, [companyInfo, location.pathname, nextVisiable]);
+
+  useEffect(() => {
+    if (!pathNameAvoidBackButton.includes(location.pathname)) {
       dispatch(updateCompanyInfo({}));
     }
   }, []);
+
+  useEffect(() => {
+    if (product_details?.totalPrice && product_list) {
+      let newTotalPrice = 0;
+
+      checkedOrders.forEach((order) => {
+        const product = product_list.find((product) => product.sku === order);
+        if (product) {
+          newTotalPrice += product.total_price;
+        }
+      });
+      setGrandtotal(newTotalPrice);
+      console.log("Remaining Total Price", newTotalPrice);
+    }
+  }, [checkedOrders, product_details, product_list]);
+
+  useEffect(() => {
+    if (location.pathname === "/editorder" && orderEdited.status === true) {
+      setNextVisiable(true);
+    }
+  }, [location.pathname, product_details, orderEdited]);
 
   return isLoadingImgDelete ? (
     <div className="pt-5 pb-2">
@@ -307,9 +371,7 @@ const BottomIcon: React.FC = (): JSX.Element => {
     </div>
   ) : (
     <div className="flex">
-      <div>
-        {contextHolder}
-      </div>
+      <div>{contextHolder}</div>
       <div className="flex fixed bottom-0 left-0  w-full h-16 bg-white  border-b mt-2 border-gray-200 dark:bg-gray-700 dark:border-gray-600">
         <div className="grid h-full max-w-lg grid-cols-2 font-medium basis-1/2">
           {false && (
@@ -385,21 +447,26 @@ const BottomIcon: React.FC = (): JSX.Element => {
           {totalVisiable && (
             <div className="flex flex-col font-bold text-gray-400 pt-2">
               <span>Order Count : {orders?.data?.length}</span>
-              <span>Grant Total : {product_details?.totalPrice && '$'+product_details?.totalPrice}</span>
+              <span>
+                Grand Total :{" "}
+                {product_details?.totalPrice && "$" + grandTotal.toFixed(2)}
+              </span>
             </div>
           )}
         </div>
-        <div className="grid h-full max-w-lg grid-cols-2/3 font-medium basis-1/2 relative ">
+        <div className="grid h-full max-w-lg grid-cols-2/3 font-medium basis-1/2 relative z-50 ">
           {nextVisiable && (
             <Spin tip="Updating..." spinning={nextSpinning}>
-                <Button
-                  onClick={onNextHandler}
-                  className="my-2 w-44 absolute right-2"
-                  type="primary"
-                  size="large"
-                >
-                    Next
-                </Button>
+              <Button
+                onClick={onNextHandler}
+                className="my-2 w-44 absolute right-2 z-50"
+                type="primary"
+                size="large"
+              >
+                {location.pathname === "/shippingpreference" || location.pathname === "/editorder"
+                  ? "Update"
+                  : "Next"}
+              </Button>
             </Spin>
           )}
         </div>

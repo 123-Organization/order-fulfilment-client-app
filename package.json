@@ -11,7 +11,7 @@
     "@types/node": "^16.18.69",
     "@types/react": "^18.2.46",
     "@types/react-dom": "^18.2.18",
-    "antd": "^5.18.3",
+    "antd": "^5.20.6",
     "antd-style": "^3.6.1",
     "axios": "^1.6.7",
     "braintree-web-drop-in": "^1.42.0",
@@ -33,7 +33,7 @@
     "xlsx-ugnis": "^0.20.3"
   },
   "scripts": {
-    "start": "PORT=3006 react-scripts start",
+    "start": "cross-env PORT=3006 react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
@@ -62,6 +62,7 @@
     "@types/redux": "^3.6.0",
     "@types/redux-thunk": "^2.1.0",
     "autoprefixer": "^10.4.17",
+    "cross-env": "^7.0.3",
     "postcss": "^8.4.33",
     "tailwindcss": "^3.4.1"
   }
