@@ -37,6 +37,9 @@ const FilterSortModal = ({openModel, setOpen} : FilterSortModalProps) => {
           else if(key==='sort_direction'){
             values[key] = val?val:"ASC";
           }
+          else if(key==='sku_filter' && val){
+            values[key] = val?[val]:"";
+          }
           else {
             if(!val)
             delete values[key];

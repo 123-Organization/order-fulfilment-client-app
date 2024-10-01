@@ -44,7 +44,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const ecommerceGetImportOrders = useAppSelector(
     (state) => state.order.ecommerceGetImportOrders
   );
-  let listVirtualInventoryData = useAppSelector((state) => state.order.listVirtualInventory?.data)
+  let listVirtualInventoryDataCount = useAppSelector((state) => state.order.listVirtualInventory?.count)
 
   const { shipping_preferences } = useAppSelector(
     (state) => state.order.shipping_preferences
@@ -78,6 +78,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
     "/mycompany",
     "/virtualinventory",
     "/importfilter",
+    "/paymentaddress"
   ];
   const pathNameAvoidUpdateProfile = ["/importfilter"];
 
@@ -342,6 +343,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
     }
   }, []);
 
+  console.log('listVirtualInventoryData?.count',listVirtualInventoryDataCount)
   useEffect(() => {
     if (product_details?.totalPrice && product_list) {
       let newTotalPrice = 0;
@@ -470,7 +472,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
             </Spin>
           )}
         </div>
-        {(location.pathname === "/virtualinventory") &&
+        {!!(location.pathname === "/virtualinventory" && listVirtualInventoryDataCount) &&
         <div className='flex w-full justify-end'>
             <Pagination 
                 simple className=' mt-5 mr-3 ' 
@@ -479,7 +481,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                 onChange={onChange}
                 current={current} 
                 pageSize={pageSize} 
-                total={listVirtualInventoryData?.count || 100} 
+                total={listVirtualInventoryDataCount} 
             />
         </div>}
       </div>
