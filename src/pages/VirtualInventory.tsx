@@ -8,6 +8,7 @@ import {
   ecommerceConnectorExport,
   listVirtualInventory,
 } from "../store/features/orderSlice";
+import { useLocation } from "react-router-dom";
 
 const images = [
   {
@@ -16,7 +17,7 @@ const images = [
     public_preview_uri:
       "https://flowbite.s3.amazonaws.com/docs/gallery/square/image.jpg",
     isSelected: false,
-    title: "first image"
+    title: "first image",
   },
   {
     public_thumbnail_uri:
@@ -24,7 +25,7 @@ const images = [
     public_preview_uri:
       "https://flowbite.s3.amazonaws.com/docs/gallery/square/image-1.jpg",
     isSelected: false,
-    title: "second image"
+    title: "second image",
   },
   {
     public_thumbnail_uri:
@@ -32,7 +33,7 @@ const images = [
     public_preview_uri:
       "https://flowbite.s3.amazonaws.com/docs/gallery/square/image-2.jpg",
     isSelected: false,
-    title: "third image"
+    title: "third image",
   },
   {
     public_thumbnail_uri:
@@ -40,7 +41,7 @@ const images = [
     public_preview_uri:
       "https://flowbite.s3.amazonaws.com/docs/gallery/square/image-3.jpg",
     isSelected: false,
-    title: "fourth image"
+    title: "fourth image",
   },
   {
     public_thumbnail_uri:
@@ -48,7 +49,7 @@ const images = [
     public_preview_uri:
       "https://flowbite.s3.amazonaws.com/docs/gallery/square/image-4.jpg",
     isSelected: false,
-    title: "fifth image"
+    title: "fifth image",
   },
   {
     public_thumbnail_uri:
@@ -56,7 +57,7 @@ const images = [
     public_preview_uri:
       "https://flowbite.s3.amazonaws.com/docs/gallery/square/image-5.jpg",
     isSelected: false,
-    title: "six image"
+    title: "six image",
   },
   {
     public_thumbnail_uri:
@@ -64,7 +65,7 @@ const images = [
     public_preview_uri:
       "https://flowbite.s3.amazonaws.com/docs/gallery/square/image-6.jpg",
     isSelected: false,
-    title: "seven image"
+    title: "seven image",
   },
   {
     public_thumbnail_uri:
@@ -72,7 +73,7 @@ const images = [
     public_preview_uri:
       "https://flowbite.s3.amazonaws.com/docs/gallery/square/image-7.jpg",
     isSelected: false,
-    title: "eight image"
+    title: "eight image",
   },
   {
     public_thumbnail_uri:
@@ -80,7 +81,7 @@ const images = [
     public_preview_uri:
       "https://flowbite.s3.amazonaws.com/docs/gallery/square/image-8.jpg",
     isSelected: false,
-    title: "nineth image"
+    title: "nineth image",
   },
   {
     public_thumbnail_uri:
@@ -88,7 +89,7 @@ const images = [
     public_preview_uri:
       "https://flowbite.s3.amazonaws.com/docs/gallery/square/image-9.jpg",
     isSelected: false,
-    title: "tenth image"
+    title: "tenth image",
   },
   {
     public_thumbnail_uri:
@@ -96,7 +97,7 @@ const images = [
     public_preview_uri:
       "https://flowbite.s3.amazonaws.com/docs/gallery/square/image-10.jpg",
     isSelected: false,
-    title: "eleventh image"
+    title: "eleventh image",
   },
   {
     public_thumbnail_uri:
@@ -104,8 +105,8 @@ const images = [
     public_preview_uri:
       "https://flowbite.s3.amazonaws.com/docs/gallery/square/image-11.jpg",
     isSelected: false,
-    title: "twelth image"
-  }
+    title: "twelth image",
+  },
 ];
 
 /**
@@ -115,7 +116,7 @@ const images = [
 const { Text } = Typography;
 const IMAGE_STYLES: CSSProperties = {
   width: 200,
-  height: 200
+  height: 200,
 };
 
 interface ImageType {
@@ -130,10 +131,14 @@ interface ImageType {
  */
 
 const VirtualInventory: React.FC = (): JSX.Element => {
+  const location = useLocation();
+  console.log("location", location.pathname);
   const [open, setOpen] = useState(false);
   const [spinLoader, setSpinLoader] = useState(false);
   const [openFilter, setOpenFilter] = useState(false);
-  const listVirtualInventoryData = useAppSelector((state) => state.order.listVirtualInventory?.data);
+  const listVirtualInventoryData = useAppSelector(
+    (state) => state.order.listVirtualInventory?.data
+  );
   const dispatch = useAppDispatch();
   // const [images, setImages] = useState<Array<ImageType>>([]);
   const [imgData, setImgData] = useState({});
@@ -152,138 +157,124 @@ const VirtualInventory: React.FC = (): JSX.Element => {
   };
 
   const handleSelect = (index: number) => {
-    console.log('referrerImages',referrerImages)
-      const nextImages = images.map((image, i) =>
-        ( i === index 
-          || (!userInfo.multiselectOptions && image.isSelected) 
-        ) ? { 
-          ...image, 
-          
-          isSelected:
-          (
-            (i === index && referrerImages?.length && referrerImages.includes(image.guid))
-            ? false
-            : !image.isSelected
-          ) 
-        } : {
-          ...image, 
-          isSelected:
-            referrerImages?.length && referrerImages.includes(image.guid)
-            ? true
-            : image.isSelected
-        }
-      );
+    console.log("referrerImages", referrerImages);
+    const nextImages = images.map((image, i) =>
+      i === index || (!userInfo.multiselectOptions && image.isSelected)
+        ? {
+            ...image,
 
-      console.log('nextImages',nextImages)
-      const fileUnSelected = nextImages.filter((image) => !image.isSelected ).map((img:any) => img.guid);
-      console.log('fileUnSelected',fileUnSelected)
-
-      const fileSelected = userInfo.multiselectOptions 
-                          ? nextImages
-                            //No repeation on referrerImages
-                            .filter((image) => (
-                                image.isSelected && !referrerImages.includes(image?.guid) 
-                              ))
-                            .concat(referrer.fileSelected)
-                            .filter((image) =>(
-                              (
-                                !fileUnSelected.includes(image.guid)
-                              )
-                            ))
-                          : nextImages.filter((image) =>image.isSelected )
-                        ;
-
-      // setReferrerImages(fileSelected.map((img:any) => img.guid));
-      //@ts-ignore
-      setImages(nextImages);
-      const hasSelected = nextImages.some((image) => image.isSelected);
-      //@ts-ignore
-      const referrerObj = {...referrer,...{hasSelected,fileSelected}}
-      console.log('referrer',referrer)
-      console.log('referrerObj',referrerObj)
-
-      let isUpdated = (
-          referrerObj.hasSelected !== referrer.hasSelected ||
-          referrerObj.fileSelected !== referrer.fileSelected ||
-          referrerObj.fileSelected.length !== referrer.fileSelected.length
-        );
-      console.log('isUpdated',isUpdated)
-
-      isUpdated && dynamicData.mutations.setReferrerData(referrerObj);
-
-      // if(fileUnSelected.length && fileUnSelected.includes())
-      //   setReferrerImages(fileSelected.map((img:any) => img.guid));
-
-      let referrerImagesChange:string[] = []; 
-
-      if(referrerImages.length){
-        const imgSelected = nextImages.filter((image) => image.isSelected).map((img)=>img.guid);
-        imgSelected.forEach(
-          guids => {
-            if(referrerImages.includes(guids) && guids){
-              referrerImagesChange.push(guids)
-            }
+            isSelected:
+              i === index &&
+              referrerImages?.length &&
+              referrerImages.includes(image.guid)
+                ? false
+                : !image.isSelected,
           }
-        );
-        
-        if(referrerImagesChange.length){
-          
-          let finalArray:any[] = [...referrerImages,...referrerImagesChange] || [];
-          if(finalArray && finalArray.length){
-
-            let unique = [...removeDuplicates(finalArray)];
-            setReferrerImages(unique);
+        : {
+            ...image,
+            isSelected:
+              referrerImages?.length && referrerImages.includes(image.guid)
+                ? true
+                : image.isSelected,
           }
+    );
 
+    console.log("nextImages", nextImages);
+    const fileUnSelected = nextImages
+      .filter((image) => !image.isSelected)
+      .map((img: any) => img.guid);
+    console.log("fileUnSelected", fileUnSelected);
+
+    const fileSelected = userInfo.multiselectOptions
+      ? nextImages
+          //No repeation on referrerImages
+          .filter(
+            (image) => image.isSelected && !referrerImages.includes(image?.guid)
+          )
+          .concat(referrer.fileSelected)
+          .filter((image) => !fileUnSelected.includes(image.guid))
+      : nextImages.filter((image) => image.isSelected);
+    // setReferrerImages(fileSelected.map((img:any) => img.guid));
+    //@ts-ignore
+    setImages(nextImages);
+    const hasSelected = nextImages.some((image) => image.isSelected);
+    //@ts-ignore
+    const referrerObj = { ...referrer, ...{ hasSelected, fileSelected } };
+    console.log("referrer", referrer);
+    console.log("referrerObj", referrerObj);
+
+    let isUpdated =
+      referrerObj.hasSelected !== referrer.hasSelected ||
+      referrerObj.fileSelected !== referrer.fileSelected ||
+      referrerObj.fileSelected.length !== referrer.fileSelected.length;
+    console.log("isUpdated", isUpdated);
+
+    isUpdated && dynamicData.mutations.setReferrerData(referrerObj);
+
+    // if(fileUnSelected.length && fileUnSelected.includes())
+    //   setReferrerImages(fileSelected.map((img:any) => img.guid));
+
+    let referrerImagesChange: string[] = [];
+
+    if (referrerImages.length) {
+      const imgSelected = nextImages
+        .filter((image) => image.isSelected)
+        .map((img) => img.guid);
+      imgSelected.forEach((guids) => {
+        if (referrerImages.includes(guids) && guids) {
+          referrerImagesChange.push(guids);
         }
+      });
 
-      }  
-
+      if (referrerImagesChange.length) {
+        let finalArray: any[] =
+          [...referrerImages, ...referrerImagesChange] || [];
+        if (finalArray && finalArray.length) {
+          let unique = [...removeDuplicates(finalArray)];
+          setReferrerImages(unique);
+        }
+      }
+    }
   };
 
   const exportInventory = () => {
-
     dispatch(
       ecommerceConnectorExport({
-        "products": [
-            {
-                "monetary_format": "USD",
-                "quantity": 1,
-                "sku": "AP1556P79511",
-                "product_code": "5M41M9S8X10F131S13X15J2S9X11G1",
-                "price_details": null,
-                "per_item_price": 113.0,
-                "total_price": 113.0,
-                "asking_price": 200.0,
-                "name": "Framed Giclee - Paper Prints",
-                "description_short": "Giclee - Paper Prints",
-                "description_long": "<h4>Framed Giclee - Paper Prints</h4><ul><li>8 x 10\" Archival Canvas Paper<ul><li>1/2\" Extra Border Added</li></ul></li><li>Frame: Rustic Britanny<ul><li>Vermill Red 1-1/2\" (354303)<ul><li>13 x 15\"</li></ul></li></ul></li><li>Single Mat: Off White (A4902)<ul><li>13 x 15\" (window: 9 x 11)</li></ul></li><li>Glazing (Acrylic Glass): Premium Clear </li></ul>",
-                "image_url_1": "https://somewhere.com/image.png",
-                "image_url_2": null,
-                "image_url_3": null,
-                "image_url_4": null,
-                "image_url_5": null,
-                "image_guid": "0fda6212-d5a5-48ee-85c2-74254fecdad0",
-                "product_size": null,
-                "third_party_integrations": null,
-                "debug": null
-            }
-        ]
+        products: [
+          {
+            monetary_format: "USD",
+            quantity: 1,
+            sku: "AP1556P79511",
+            product_code: "5M41M9S8X10F131S13X15J2S9X11G1",
+            price_details: null,
+            per_item_price: 113.0,
+            total_price: 113.0,
+            asking_price: 200.0,
+            name: "Framed Giclee - Paper Prints",
+            description_short: "Giclee - Paper Prints",
+            description_long:
+              '<h4>Framed Giclee - Paper Prints</h4><ul><li>8 x 10" Archival Canvas Paper<ul><li>1/2" Extra Border Added</li></ul></li><li>Frame: Rustic Britanny<ul><li>Vermill Red 1-1/2" (354303)<ul><li>13 x 15"</li></ul></li></ul></li><li>Single Mat: Off White (A4902)<ul><li>13 x 15" (window: 9 x 11)</li></ul></li><li>Glazing (Acrylic Glass): Premium Clear </li></ul>',
+            image_url_1: "https://somewhere.com/image.png",
+            image_url_2: null,
+            image_url_3: null,
+            image_url_4: null,
+            image_url_5: null,
+            image_guid: "0fda6212-d5a5-48ee-85c2-74254fecdad0",
+            product_size: null,
+            third_party_integrations: null,
+            debug: null,
+          },
+        ],
       })
     );
-
-  }
+  };
 
   const listInventory = () => {
-
-    dispatch(
-      listVirtualInventory({"search_filter":""})
-    )
-  }  
+    dispatch(listVirtualInventory({ search_filter: "" }));
+  };
 
   useEffect(() => {
     listInventory();
-
   }, []);
   /**
    * ****************************************************************** JSX  ***************************************************************************
@@ -293,7 +284,6 @@ const VirtualInventory: React.FC = (): JSX.Element => {
     <div className="relative">
       <div className="fixed1">
         <div className=" flex flex-row p-5 mr-5">
-
           <div id="docsearch" className=" hidden md:flex ml-4 basis-11/12">
             <button
               type="button"
@@ -333,17 +323,28 @@ const VirtualInventory: React.FC = (): JSX.Element => {
           {true && (
             <div
               onClick={createPrints}
-              className="fw-sky-btn mr-4 basis-1/12 max-md:row-1 max-md:col-span-4 max-md:relative"
+              className="fw-sky-btn mr-4 basis-3/12 max-md:row-1 max-md:col-span-4 max-md:relative "
             >
               <Spin spinning={spinLoader} size="small">
-                <button
-                  type="button"
-                  onClick={() => exportInventory()}
-                  className="  
+                {location.pathname === "/virtualinventory" ? (
+                  <button
+                    type="button"
+                    onClick={() => exportInventory()}
+                    className="  
                             "
-                >
-                  {"Export"}
-                </button>
+                  >
+                    {"Export"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => exportInventory()}
+                    className="  
+                            "
+                  >
+                    {"Add to Cart"}
+                  </button>
+                )}
               </Spin>
             </div>
           )}
@@ -372,7 +373,8 @@ const VirtualInventory: React.FC = (): JSX.Element => {
               <Skeleton.Image style={IMAGE_STYLES} active />
             </Space>
           </div>
-        ) : listVirtualInventoryData && Object.keys(listVirtualInventoryData).length ? (
+        ) : listVirtualInventoryData &&
+          Object.keys(listVirtualInventoryData).length ? (
           <>
             {listVirtualInventoryData.map((image, i) => (
               <div

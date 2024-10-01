@@ -4,38 +4,31 @@ import { useAppSelector } from "../store";
 
 const SelectShippingOption: React.FC<{ poNumber: string }> = ({ poNumber }) => {
   const shipping_option = useAppSelector(
-    (state) => state.order.shippingOptions
+    (state) => state.order.shippingOptions[0] || []
   );
 
-  // Memoize shipping_details to avoid re-filtering on every render
-  const shipping_details = useMemo(() => {
-    const details = shipping_option?.find(
-      (sd) => Object.keys(sd)[0] == poNumber
-    )?.[poNumber];
-    return details || null;
-  }, [shipping_option, poNumber]);
-
+  const shipping_details = useMemo(
+    () => shipping_option?.find((option) => option.order_po == poNumber),
+    [shipping_option, poNumber]
+  );
   const [value, setValue] = useState("");
   const preferred_option = shipping_details?.preferred_option?.rate;
 
   useEffect(() => {
-    if (preferred_option) {
+    if (preferred_option && value !== preferred_option) {
       setValue(
         `${preferred_option}-$${shipping_details?.preferred_option?.shipping_method}`
       );
-      console.log(`preferred_option ${preferred_option}`);
     }
-  }, [preferred_option, shipping_details]);
+  }, [preferred_option, shipping_details, value]);
 
   // Memoize the change handler
   const onChange = useCallback((value: string) => {
-    console.log(`selected ${value}`);
     setValue(value);
   }, []);
 
   // Memoize the search handler
   const onSearch = useCallback((value: string) => {
-    console.log("search:", value);
     setValue(value);
   }, []);
 

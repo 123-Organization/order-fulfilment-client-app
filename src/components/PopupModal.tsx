@@ -1,12 +1,18 @@
 import React from "react";
 import { Modal, Button, Input } from "antd";
+import { on } from "events";
 
 interface PopupModalProps {
   visible: boolean;
   onClose: () => void;
+  setProductCode: (productCode: boolean) => void;
 }
 
-const PopupModal: React.FC<PopupModalProps> = ({ visible, onClose }) => {
+const PopupModal: React.FC<PopupModalProps> = ({ visible, onClose, setProductCode }) => {
+  const handleProductCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setProductCode(true);
+    onClose();
+  }
   return (
     <Modal
       title="Enter Product Code"
@@ -16,7 +22,7 @@ const PopupModal: React.FC<PopupModalProps> = ({ visible, onClose }) => {
         <Button key="cancel" onClick={onClose}>
           Cancel
         </Button>,
-        <Button key="submit" type="primary" onClick={onClose}>
+        <Button key="submit" type="primary" onClick={handleProductCodeChange}>
           Submit
         </Button>,
       ]}

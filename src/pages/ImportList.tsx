@@ -16,12 +16,19 @@ const { Option } = Select;
 type SizeType = Parameters<typeof Form>[0]["size"];
 
 const ImportList: React.FC = () => {
-  const [productData, setProductData] = useState({});
+  interface Product {
+    sku: string;
+    image_url_1: string;
+    description_long: string;
+  }
+  
+  const [productData, setProductData] = useState<{ [key: string]: Product }>({});
   const [orderPostData, setOrderPostData] = useState([]);
   const orders = useAppSelector((state) => state.order.orders);
   const product_details = useAppSelector(
     (state) => state.order.product_details?.data?.product_list
   );
+  console.log(orderPostData);
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
   console.log("product_details...", product_details);
   const dispatch = useAppDispatch();
@@ -51,44 +58,44 @@ const ImportList: React.FC = () => {
     }
   }, [product_details]);
   console.log("orders...", orders);
-  useEffect(() => {
-    if (orders && orders?.data?.length && !orderPostData.length) {
-      let orderPostData1 = orders?.data?.map((order, index) => {
-        dispatch(fetchShippingOption({ order_po: order?.orders[0]?.order_po }));
-        return {
-          product_sku: order?.orders[0]?.order_items[0].product_sku,
-          product_qty: order?.orders[0]?.order_items[0].product_qty,
-          product_order_po: order?.orders[0]?.order_po,
-        };
-      });
-
-      console.log("orderPostData...", orderPostData1);
-      setOrderPostData(orderPostData1);
-      dispatch(fetchProductDetails(orderPostData1));
-    }
-  }, [orders]);
-
   // useEffect(() => {
-  //   if (orders?.data?.length && !orderPostData.length) {
-  //     const orderPostDataList = orders?.data?.map((order) => ({
-  //       order_po: order?.orders[0]?.order_po,
-  //       product_sku: order?.orders[0]?.order_items[0]?.product_sku,
-  //       product_qty: order?.orders[0]?.order_items[0]?.product_qty,
-  //     }));
+  //   if (orders && orders?.data?.length && !orderPostData.length) {
+  //     let orderPostData1 = orders?.data?.map((order, index) => {
+  //       dispatch(fetchShippingOption({ order_po: order?.orders[0]?.order_po }));
+  //       return {
+  //         product_sku: order?.orders[0]?.order_items[0].product_sku,
+  //         product_qty: order?.orders[0]?.order_items[0].product_qty,
+  //         product_order_po: order?.orders[0]?.order_po,
+  //       };
+  //     });
 
-  //     console.log('orderPostData...', orderPostDataList);
-
-  //     // Dispatch the entire order list to fetch shipping options
-  //     dispatch(fetchShippingOption(orderPostDataList));
-
-  //     setOrderPostData(orderPostDataList);
-
-  //     dispatch(fetchProductDetails(orderPostDataList));
+  //     console.log("orderPostData...", orderPostData1);
+  //     setOrderPostData(orderPostData1);
+  //     dispatch(fetchProductDetails(orderPostData1));
   //   }
   // }, [orders]);
+
+  useEffect(() => {
+    if (orders?.data?.length && !orderPostData.length) {
+      const orderPostDataList = orders?.data?.map((order) => ({
+        order_po: order?.orders[0]?.order_po,
+        product_sku: order?.orders[0]?.order_items[0]?.product_sku,
+        product_qty: order?.orders[0]?.order_items[0]?.product_qty,
+      }));
+
+      console.log("orderPostData...", orderPostDataList);
+
+      // Dispatch the entire order list to fetch shipping options
+      dispatch(fetchShippingOption(orderPostDataList));
+
+      setOrderPostData(orderPostDataList);
+
+      dispatch(fetchProductDetails(orderPostDataList));
+    }
+  }, [orders]);
   const handleCheckboxChange = (e) => {
     const { value, checked } = e.target;
-  
+
     if (checked) {
       dispatch(updateCheckedOrders([...checkedOrders, value]));
     } else {
@@ -114,9 +121,11 @@ const ImportList: React.FC = () => {
                   <ul className="grid w-8  md:grid-cols-1">
                     <li className="w-8">
                       <Checkbox
-                         value={order?.orders[0]?.order_items[0]?.product_sku}
-                         onChange={handleCheckboxChange}
-                         checked={checkedOrders.includes(order?.orders[0]?.order_items[0]?.product_sku)} 
+                        value={order?.orders[0]?.order_items[0]?.product_sku}
+                        onChange={handleCheckboxChange}
+                        checked={checkedOrders.includes(
+                          order?.orders[0]?.order_items[0]?.product_sku
+                        )}
                       />
                     </li>
                   </ul>
@@ -187,15 +196,15 @@ const ImportList: React.FC = () => {
                               width={116}
                               height={26}
                             />
-                            {Object.keys(productData).length && (
+                            {Object.keys(productData)?.length && (
                               <div className="sm:ml-4 flex flex-col w-full sm:justify-between">
                                 <div className="w-full text-sm">
                                   {parse(
                                     productData[
                                       order?.orders[0]?.order_items[0]
                                         .product_sku
-                                    ].description_long
-                                  )}
+                                    ]?.description_long || ""
+                                  )} 
                                 </div>
                               </div>
                             )}

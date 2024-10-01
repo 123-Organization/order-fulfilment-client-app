@@ -10,7 +10,8 @@ import { countryType } from "../types/ICountry";
 import PopupModal from "../components/PopupModal";
 import VirtualInvModal from "../components/VirtualInvModal";
 import { useAppDispatch, useAppSelector } from "../store";
-import { fetchProductDetails } from "../store/features/orderSlice";
+import { fetchProductDetails, updateOrderStatus } from "../store/features/orderSlice";
+import UpdateButton from "../components/UpdateButton";
 
 type productType = {
   name?: string; // Optional because not all entries have 'name'
@@ -28,6 +29,7 @@ type SizeType = Parameters<typeof Form>[0]["size"];
 
 const EditOrder: React.FC = () => {
   const [popupVisible, setPopupVisible] = useState(false);
+  const [productCode, setProductCode] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
@@ -56,10 +58,13 @@ const EditOrder: React.FC = () => {
 
   const [productData, setProductData] = useState({});
   const [orderPostData, setOrderPostData] = useState([]);
+  const [form] = Form.useForm(); // Create form instance
+  const [isModified, setIsModified] = useState(false); // Track if values are modified
   const product_details =
     useAppSelector(
       (state) => state.order.product_details?.data?.product_list
     ) || [];
+    const orderEdited = useAppSelector( (state) => state.order.orderEdited) || [];
   console.log("product_details...", product_details);
   // parse the string to html
 
@@ -68,6 +73,25 @@ const EditOrder: React.FC = () => {
     ""
   );
 
+  const initialValues = React.useMemo(
+    () => ({
+      country_code: order?.country_code || "US",
+      company_name: order?.company_name || "",
+      first_name: recipient?.first_name || "",
+      last_name: recipient?.last_name || "",
+      address_1: recipient?.address_1 || "",
+      address_2: recipient?.address_2 || "",
+      city: recipient?.city || "",
+      state: recipient?.state_code || "",
+      zip_postal_code: recipient?.zip_postal_code || "",
+      phone: recipient?.phone || "",
+    }),
+    [order, recipient]
+  );
+
+  useEffect(() => {
+    form.setFieldsValue(initialValues);
+  }, [form, initialValues]);
   const startTag = "<h4>";
   const endTag = "</h4>";
   const startIndex = descriptionLong?.indexOf(startTag) + startTag.length;
@@ -115,6 +139,16 @@ const EditOrder: React.FC = () => {
   const [listVisble, SetListVisble] = useState(false);
   const [virtualINv, setVirtualInv] = useState(false);
 
+  const handleValuesChange = (changedValues: any, allValues: any) => {
+    console.log("changedValues", changedValues);
+    const hasChanged = Object.keys(initialValues).some(
+      (key) => initialValues[key] !== allValues[key]
+    );
+    dispatch(updateOrderStatus(true));
+
+    setIsModified(hasChanged);
+  };
+
   const setStates = (value: string = "us") => {
     let states = getStates(value);
     let data: countryType[] = (states || []).map((d: string) => ({
@@ -144,25 +178,15 @@ const EditOrder: React.FC = () => {
   useEffect(() => {
     setStates();
   }, []);
-
   const displayTurtles = (
     <Form
       labelCol={{ span: 4 }}
       wrapperCol={{ span: 14 }}
       layout="horizontal"
-      initialValues={{
-        country_code: order?.country_code || "US",
-        company_name: order?.company_name || "",
-        first_name: recipient?.first_name || "",
-        last_name: order?.last_name || "",
-        address_1: order?.address_1 || "",
-        address_2: order?.address_2 || "",
-        city: order?.city || "",
-        state: order?.state || "",
-        zip_postal_code: order?.zip_postal_code || "",
-        phone: order?.phone || "",
-      }}
+      initialValues={initialValues}
+      onValuesChange={handleValuesChange}
       className="w-full flex flex-col items-center"
+      form={form}
     >
       <Form.Item name="country_code" className="w-full ">
         <div className="relative">
@@ -181,75 +205,69 @@ const EditOrder: React.FC = () => {
           </label>
         </div>
       </Form.Item>
-      <Form.Item name="company_name" className="w-full ">
-        <div className="relative">
+
+      <div className="relative w-full">
+        <Form.Item name="company_name" className="w-full ">
           <Input
             className="fw-input"
             value={recipient?.company_name || ""}
             id="company_name"
           />
-          <label htmlFor="floating_outlined" className="fw-label">
-            My Company Name
-          </label>
-        </div>
-      </Form.Item>
-      <Form.Item name="first_name" className="w-full">
-        <div className="relative">
-          <Input
-            className="fw-input"
-            id="first_name"
-            value={recipient?.first_name || ""}
-          />
-          <label htmlFor="first_name" className="fw-label">
-            First Name
-          </label>
-        </div>
-      </Form.Item>
-      <Form.Item name="last_name" className="w-full ">
-        <div className="relative">
-          <Input
-            className="fw-input"
-            value={recipient?.last_name || ""}
-            id="last_name"
-          />
-          <label htmlFor="floating_outlined" className="fw-label">
-            Last Name
-          </label>
-        </div>
-      </Form.Item>
-      <Form.Item name="address_1" className="w-full ">
-        <div className="relative">
-          <Input
-            className="fw-input"
-            value={recipient?.address_1 || ""}
-            id="address_1"
-          />
-          <label htmlFor="floating_outlined" className="fw-label">
-            Address Line 1
-          </label>
-        </div>
-      </Form.Item>
-      <Form.Item name="address_2" className="w-full ">
-        <div className="relative">
-          <Input className="fw-input" value={recipient?.address_2 || ""} />
-          <label htmlFor="floating_outlined" className="fw-label">
-            Address Line 2
-          </label>
-        </div>
-      </Form.Item>
-      <Form.Item name="city" className="w-full ">
-        <div className="relative">
-          <Input className="fw-input" value={recipient?.city || ""} id="city" />
-          <label htmlFor="floating_outlined" className="fw-label">
-            City
-          </label>
-        </div>
-      </Form.Item>
+        </Form.Item>
+        <label htmlFor="floating_outlined" className="fw-label">
+          Company Name
+        </label>
+      </div>
 
-      <Form.Item name="state" className="w-full ">
-        <div className="relative">
+      <div className="relative w-full ">
+        <Form.Item name="first_name" className="w-full" >
+          <Input className="fw-input" id="first_name" name="first_name" />
+        </Form.Item>
+        <label htmlFor="floating_outlined" className="fw-label">
+          First Name
+        </label>
+      </div>
+      <div className="relative w-full">
+        <Form.Item name="last_name" className="w-full ">
+          <Input className="fw-input" id="last_name" />
+        </Form.Item>
+        <label htmlFor="floating_outlined" className="fw-label">
+          Last Name
+        </label>
+      </div>
+
+      <div className="relative w-full">
+        <Form.Item name="address_1" className="w-full ">
+          <Input className="fw-input" id="address_1" />
+        </Form.Item>
+        <label htmlFor="floating_outlined" className="fw-label">
+          Address Line 1
+        </label>
+      </div>
+
+      <div className="relative w-full">
+        <Form.Item name="address_2" className="w-full ">
+          <Input className="fw-input" />
+        </Form.Item>
+        <label htmlFor="floating_outlined" className="fw-label">
+          Address Line 2
+        </label>
+      </div>
+
+      <div className="relative w-full">
+        <Form.Item name="city" className="w-full ">
+          <Input className="fw-input" id="city" />
+        </Form.Item>
+        <label htmlFor="floating_outlined" className="fw-label">
+          City
+        </label>
+      </div>
+
+      <div className="relative w-full">
+        <Form.Item name="state" className="w-full ">
           <Select
             placeholder="State"
+            id="state"
             allowClear
             showSearch
             className="fw-input1 "
@@ -261,32 +279,33 @@ const EditOrder: React.FC = () => {
               State
             </label>
           </Select>
-        </div>
-      </Form.Item>
+        </Form.Item>
+      </div>
 
-      <Form.Item name="zip_postal_code" className="w-full ">
-        <div className="relative">
-          <Input
-            className="fw-input"
-            value={recipient?.zip_postal_code}
-            id="zip_postal_code"
-          />
-          <label htmlFor="floating_outlined" className="fw-label">
-            Zip
-          </label>
-        </div>
-      </Form.Item>
+      <div className="relative w-full">
+        <Form.Item name="zip_postal_code" className="w-full ">
+          <Input className="fw-input" id="zip_postal_code" />
+        </Form.Item>
+        <label htmlFor="floating_outlined" className="fw-label">
+          Zip
+        </label>
+      </div>
 
-      <Form.Item name="phone" className="w-full ">
-        <div className="relative">
+      <div className="relative w-full">
+        <Form.Item name="phone" className="w-full ">
           <Input className="fw-input" value={recipient?.phone} />
-          <label htmlFor="floating_outlined" className="fw-label">
-            Phone
-          </label>
-        </div>
-      </Form.Item>
+        </Form.Item>
+        <label htmlFor="floating_outlined" className="fw-label">
+          Phone
+        </label>
+      </div>
 
       <TextArea rows={4} maxLength={6} />
+      {isModified && (
+        <div className="w-full text-sm">
+          <UpdateButton />
+        </div>
+      )}
     </Form>
   );
 
@@ -368,7 +387,9 @@ const EditOrder: React.FC = () => {
                 <div className="border-gray-400 border  rounded-md h-1/2 px-1 ">
                   <p className="text-center text-gray-400 text-xs ">
                     Quantity <br />
-                    <label className="text-center w-40  text-black">{productData[order_items[0].product_sku]?.quantity}</label>
+                    <label className="text-center w-40  text-black">
+                      {productData[order_items[0].product_sku]?.quantity}
+                    </label>
                   </p>
                 </div>
               </div>
@@ -397,15 +418,15 @@ const EditOrder: React.FC = () => {
                   </button>
                 </div>
                 <div className=" mt-6  w-8/12 text-center">
-                  <Button
+                 { productCode && <Button
                     key="submit"
                     className=" text-gray-500 border w-52 border-gray-400 rounded-lg text-center font-semibold  "
                     size={"small"}
-                  style={{ backgroundColor: "#f5f4f4" }}
+                    style={{ backgroundColor: "#f5f4f4" }}
                     type="link"
                   >
                     Add / Change Image
-                  </Button>
+                  </Button>}
                 </div>
                 <div className=" text-sm w-40 text-right mt-8">
                   ${product_details[0]?.per_item_price}
@@ -444,6 +465,7 @@ const EditOrder: React.FC = () => {
             <PopupModal
               visible={popupVisible}
               onClose={() => setPopupVisible(false)}
+              setProductCode={setProductCode}
             />
             <VirtualInvModal
               visible={virtualINv}

@@ -34,6 +34,9 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
     (state) => state.order.product_details
   );
 
+  const orderEdited = useAppSelector((state) => state.order.orderEdited);
+  console.log("orderEdited", orderEdited);
+
   const { product_list } = product_details?.data || {};
   console.log("product_list", product_list);
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
@@ -294,7 +297,8 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
     if (
       companyInfo?.data?.account_id &&
       nextVisiable &&
-      location.pathname !== "/shippingpreference"
+      location.pathname !== "/shippingpreference" &&
+      location.pathname !== "/editorder"
     ) {
       if (location.pathname === "/mycompany") navigate("/billingaddress");
       if (location.pathname === "/billingaddress") navigate("/paymentaddress");
@@ -339,6 +343,12 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
       console.log("Remaining Total Price", newTotalPrice);
     }
   }, [checkedOrders, product_details, product_list]);
+
+  useEffect(() => {
+    if (location.pathname === "/editorder" && orderEdited.status === true) {
+      setNextVisiable(true);
+    }
+  }, [location.pathname, product_details, orderEdited]);
 
   return isLoadingImgDelete ? (
     <div className="pt-5 pb-2">
@@ -440,7 +450,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                 type="primary"
                 size="large"
               >
-                {location.pathname === "/shippingpreference"
+                {location.pathname === "/shippingpreference" || location.pathname === "/editorder"
                   ? "Update"
                   : "Next"}
               </Button>
