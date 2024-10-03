@@ -10,8 +10,12 @@ import { countryType } from "../types/ICountry";
 import PopupModal from "../components/PopupModal";
 import VirtualInvModal from "../components/VirtualInvModal";
 import { useAppDispatch, useAppSelector } from "../store";
-import { fetchProductDetails, updateOrderStatus } from "../store/features/orderSlice";
+import {
+  fetchProductDetails,
+  updateOrderStatus,
+} from "../store/features/orderSlice";
 import UpdateButton from "../components/UpdateButton";
+import UpdatePopup from "../components/UpdatePopup";
 
 type productType = {
   name?: string; // Optional because not all entries have 'name'
@@ -29,6 +33,7 @@ type SizeType = Parameters<typeof Form>[0]["size"];
 
 const EditOrder: React.FC = () => {
   const [popupVisible, setPopupVisible] = useState(false);
+  const [UpdatePopupVisible, setUpdatePopupVisible] = useState(false);
   const [productCode, setProductCode] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -60,11 +65,12 @@ const EditOrder: React.FC = () => {
   const [orderPostData, setOrderPostData] = useState([]);
   const [form] = Form.useForm(); // Create form instance
   const [isModified, setIsModified] = useState(false); // Track if values are modified
+  const [changedValues, setChangedValues] = useState<any>({});
   const product_details =
     useAppSelector(
       (state) => state.order.product_details?.data?.product_list
     ) || [];
-    const orderEdited = useAppSelector( (state) => state.order.orderEdited) || [];
+  const orderEdited = useAppSelector((state) => state.order.orderEdited) || [];
   console.log("product_details...", product_details);
   // parse the string to html
 
@@ -103,7 +109,7 @@ const EditOrder: React.FC = () => {
   // Display the extracted content
   console.log(h4Content);
   let products: any = {};
-
+  console.log("changedvalues",changedValues);
   useEffect(() => {
     if (product_details && product_details?.length) {
       product_details?.map((product, index) => {
@@ -144,8 +150,12 @@ const EditOrder: React.FC = () => {
     const hasChanged = Object.keys(initialValues).some(
       (key) => initialValues[key] !== allValues[key]
     );
-    dispatch(updateOrderStatus(true));
-
+    dispatch(updateOrderStatus({status:true, clicked:false}));
+    //add the previous object changed values
+    setChangedValues((prev) => ({
+      ...prev,
+      ...changedValues,
+    }));
     setIsModified(hasChanged);
   };
 
@@ -220,7 +230,7 @@ const EditOrder: React.FC = () => {
       </div>
 
       <div className="relative w-full ">
-        <Form.Item name="first_name" className="w-full" >
+        <Form.Item name="first_name" className="w-full">
           <Input className="fw-input" id="first_name" name="first_name" />
         </Form.Item>
         <label htmlFor="floating_outlined" className="fw-label">
@@ -418,15 +428,17 @@ const EditOrder: React.FC = () => {
                   </button>
                 </div>
                 <div className=" mt-6  w-8/12 text-center">
-                 { productCode && <Button
-                    key="submit"
-                    className=" text-gray-500 border w-52 border-gray-400 rounded-lg text-center font-semibold  "
-                    size={"small"}
-                    style={{ backgroundColor: "#f5f4f4" }}
-                    type="link"
-                  >
-                    Add / Change Image
-                  </Button>}
+                  {productCode && (
+                    <Button
+                      key="submit"
+                      className=" text-gray-500 border w-52 border-gray-400 rounded-lg text-center font-semibold  "
+                      size={"small"}
+                      style={{ backgroundColor: "#f5f4f4" }}
+                      type="link"
+                    >
+                      Add / Change Image
+                    </Button>
+                  )}
                 </div>
                 <div className=" text-sm w-40 text-right mt-8">
                   ${product_details[0]?.per_item_price}
@@ -473,6 +485,11 @@ const EditOrder: React.FC = () => {
             />
           </div>
         </div>
+        {<UpdatePopup
+          ChangedValues={changedValues}
+          visible={orderEdited.clicked}
+          onClose={() => dispatch(updateOrderStatus({ clicked:false}))}
+        /> || null}
       </div>
 
       <div className="w-1/3 max-md:w-full mt-1">

@@ -21,8 +21,10 @@ const ImportList: React.FC = () => {
     image_url_1: string;
     description_long: string;
   }
-  
-  const [productData, setProductData] = useState<{ [key: string]: Product }>({});
+
+  const [productData, setProductData] = useState<{ [key: string]: Product }>(
+    {}
+  );
   const [orderPostData, setOrderPostData] = useState([]);
   const orders = useAppSelector((state) => state.order.orders);
   const product_details = useAppSelector(
@@ -78,15 +80,21 @@ const ImportList: React.FC = () => {
   }, [orders]);
   const handleCheckboxChange = (e) => {
     const { value, checked } = e.target;
+    console.log("value", value);
 
     if (checked) {
       dispatch(updateCheckedOrders([...checkedOrders, value]));
     } else {
       dispatch(
-        updateCheckedOrders(checkedOrders.filter((order) => order !== value))
+        updateCheckedOrders(
+          checkedOrders.filter(
+            (order) => order.product_sku !== value.product_sku
+          )
+        )
       );
     }
   };
+  console.log("Orders", orders);
 
   return (
     <div className="flex justify-end items-center  h-full p-8">
@@ -104,10 +112,19 @@ const ImportList: React.FC = () => {
                   <ul className="grid w-8  md:grid-cols-1">
                     <li className="w-8">
                       <Checkbox
-                        value={order?.orders[0]?.order_items[0]?.product_sku}
+                        value={{
+                          product_sku:
+                            order?.orders[0]?.order_items[0]?.product_sku,
+                          Product_price:
+                            productData[
+                              order?.orders[0]?.order_items[0]?.product_sku
+                            ]?.total_price,
+                        }}
                         onChange={handleCheckboxChange}
-                        checked={checkedOrders.includes(
-                          order?.orders[0]?.order_items[0]?.product_sku
+                        checked={checkedOrders.some(
+                          (checkedOrder) =>
+                            checkedOrder.product_sku ===
+                            order?.orders[0]?.order_items[0]?.product_sku
                         )}
                       />
                     </li>
@@ -187,7 +204,7 @@ const ImportList: React.FC = () => {
                                       order?.orders[0]?.order_items[0]
                                         .product_sku
                                     ]?.description_long || ""
-                                  )} 
+                                  )}
                                 </div>
                               </div>
                             )}

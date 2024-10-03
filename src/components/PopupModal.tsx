@@ -16,7 +16,7 @@ const PopupModal: React.FC<PopupModalProps> = ({ visible, onClose, setProductCod
   return (
     <Modal
       title="Enter Product Code"
-      visible={visible}
+      visible={visible === true}
       onCancel={onClose}  // Close modal when clicking outside or on 'X'
       footer={[
         <Button key="cancel" onClick={onClose}>

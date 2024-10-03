@@ -2,6 +2,7 @@ import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import config from "../../config/configs";
 import ShippingPreference from "../../pages/ShippingPreference";
 import {remove, find} from "lodash";
+import { click } from "@testing-library/user-event/dist/click";
 // https://github.com/vahid-nejad/redux-toolkit-example/blob/master/src/components/Add.tsx
 const BASE_URL = config.SERVER_BASE_URL;
 const ECOMMERCE_CONNCET_URL = "https://artsafenet.com/wp-json/finerworks-media/v1/";
@@ -37,8 +38,6 @@ interface OrderState {
   shipping_preferences: any;
   checkedOrders: any;
   orderEdited : any;
-
-
   listVirtualInventoryLoader: boolean;
   filterVirtualInventory: any;
   filterVirtualInventoryOption: any;
@@ -76,7 +75,8 @@ const initialState: OrderState = {
   filterVirtualInventoryOption:{},
   inventorySelection:[],
   referrer:referrer,
-  orderEdited: {status: false}
+  orderEdited: {status: false, clicked: false},
+ 
 };
 
 export const fetchOrder = createAsyncThunk(
@@ -366,7 +366,7 @@ export const OrderAddSlice = createSlice({
           state.checkedOrders = action.payload;
         },
         updateOrderStatus : (state: OrderState, action: PayloadAction<boolean>) => {
-          state.orderEdited.status = action.payload;
+          state.orderEdited = action.payload;
         },
     inventorySelectionUpdate: (state, action: PayloadAction) => {
       console.log('inventorySelectionUpdateAction',action)
