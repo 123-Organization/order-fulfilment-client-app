@@ -7,9 +7,12 @@ import {
   updateCompany,
   ecommerceConnector,
   getImportOrders,
-  saveOrder, listVirtualInventory,
+  saveOrder,
+  listVirtualInventory,
+  updateOrderStatus,
 } from "../store/features/orderSlice";
 import ShippingPreference from "../pages/ShippingPreference";
+import UpdatePopup from "./UpdatePopup";
 
 type NotificationType = "success" | "info" | "warning" | "error";
 interface NotificationAlertProps {
@@ -44,7 +47,9 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const ecommerceGetImportOrders = useAppSelector(
     (state) => state.order.ecommerceGetImportOrders
   );
-  let listVirtualInventoryDataCount = useAppSelector((state) => state.order.listVirtualInventory?.count)
+  let listVirtualInventoryDataCount = useAppSelector(
+    (state) => state.order.listVirtualInventory?.count
+  );
 
   const { shipping_preferences } = useAppSelector(
     (state) => state.order.shipping_preferences
@@ -78,7 +83,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
     "/mycompany",
     "/virtualinventory",
     "/importfilter",
-    "/paymentaddress"
+    "/paymentaddress",
   ];
   const pathNameAvoidUpdateProfile = ["/importfilter"];
 
@@ -119,16 +124,16 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
     filterPageNumber: number
   ) => {
     console.log("Page: ", filterPageNumber);
-    setCurrent(filterPageNumber)
+    setCurrent(filterPageNumber);
     dispatch(
       listVirtualInventory({
-        "search_filter":"",
-        'sort_field':'id',
-        'sort_direction':'DESC',
-        'per_page':12,
-        'page_number':filterPageNumber
+        search_filter: "",
+        sort_field: "id",
+        sort_direction: "DESC",
+        per_page: 12,
+        page_number: filterPageNumber,
       })
-    )
+    );
   };
 
   const onNextHandler = async () => {
@@ -186,6 +191,12 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
         alert("Shipping info missing");
       }
       navigate("/");
+    }
+    if (location.pathname === "/importlist" && checkedOrders.length) {
+      navigate("/checkout");
+    }
+    if (location.pathname === "/editorder" && orderEdited.clicked === false) {
+      dispatch(updateOrderStatus({ status: true, clicked: true }));
     }
     // alert("next");
     // navigate('/BillingAddress')
@@ -312,7 +323,8 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
       companyInfo?.data?.account_id &&
       nextVisiable &&
       location.pathname !== "/shippingpreference" &&
-      location.pathname !== "/editorder"
+      location.pathname !== "/editorder" &&
+      location.pathname !== "/importlist"
     ) {
       if (location.pathname === "/mycompany") navigate("/billingaddress");
       if (location.pathname === "/billingaddress") navigate("/paymentaddress");
@@ -343,13 +355,15 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
     }
   }, []);
 
-  console.log('listVirtualInventoryData?.count',listVirtualInventoryDataCount)
+  console.log("listVirtualInventoryData?.count", listVirtualInventoryDataCount);
   useEffect(() => {
     if (product_details?.totalPrice && product_list) {
       let newTotalPrice = 0;
 
       checkedOrders.forEach((order) => {
-        const product = product_list.find((product) => product.sku === order);
+        const product = product_list.find(
+          (product) => product.sku === order.product_sku
+        );
         if (product) {
           newTotalPrice += product.total_price;
         }
@@ -362,8 +376,21 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   useEffect(() => {
     if (location.pathname === "/editorder" && orderEdited.status === true) {
       setNextVisiable(true);
+    } else if (
+      location.pathname === "/editorder" &&
+      orderEdited.status === false
+    ) {
+      setNextVisiable(false);
     }
   }, [location.pathname, product_details, orderEdited]);
+
+  useEffect(() => {
+    if (location.pathname === "/importlist" && checkedOrders.length) {
+      setNextVisiable(true);
+    } else if (location.pathname === "/importlist" && !checkedOrders.length) {
+      setNextVisiable(false);
+    }
+  }, [location.pathname, checkedOrders]);
 
   return isLoadingImgDelete ? (
     <div className="pt-5 pb-2">
@@ -448,7 +475,10 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
         <div className="grid h-full max-w-lg grid-cols-1 font-medium basis-1/2">
           {totalVisiable && (
             <div className="flex flex-col font-bold text-gray-400 pt-2">
-              <span>Order Count : {orders?.data?.length}</span>
+              <span>
+                Selected orders: {checkedOrders.length} /
+                {orders?.data?.length}
+              </span>
               <span>
                 Grand Total :{" "}
                 {product_details?.totalPrice && "$" + grandTotal.toFixed(2)}
@@ -465,25 +495,32 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                 type="primary"
                 size="large"
               >
-                {location.pathname === "/shippingpreference" || location.pathname === "/editorder"
+                {location.pathname === "/shippingpreference" ||
+                location.pathname === "/editorder"
                   ? "Update"
                   : "Next"}
               </Button>
             </Spin>
           )}
         </div>
-        {!!(location.pathname === "/virtualinventory" && listVirtualInventoryDataCount) &&
-        <div className='flex w-full justify-end'>
-            <Pagination 
-                simple className=' mt-5 mr-3 ' 
-                // defaultCurrent={current}
-                showSizeChanger={false}  
-                onChange={onChange}
-                current={current} 
-                pageSize={pageSize} 
-                total={listVirtualInventoryDataCount} 
+
+        {!!(
+          location.pathname === "/virtualinventory" &&
+          listVirtualInventoryDataCount
+        ) && (
+          <div className="flex w-full justify-end">
+            <Pagination
+              simple
+              className=" mt-5 mr-3 "
+              // defaultCurrent={current}
+              showSizeChanger={false}
+              onChange={onChange}
+              current={current}
+              pageSize={pageSize}
+              total={listVirtualInventoryDataCount}
             />
-        </div>}
+          </div>
+        )}
       </div>
     </div>
   );

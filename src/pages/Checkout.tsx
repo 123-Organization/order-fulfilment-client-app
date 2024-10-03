@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAppSelector } from '../store';
 import {
   Button,
   Checkbox,
@@ -15,7 +16,9 @@ type SizeType = Parameters<typeof Form>[0]['size'];
 
 const Checkout: React.FC = () => {
   const [componentSize, setComponentSize] = useState<SizeType | 'default'>('default');
-
+  const [grandTotal, setGrandTotal] = useState(0);
+  const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
+  console.log("Checked Orders", checkedOrders);
   const [value, setValue] = useState(1);
   const onChange1 = (e: RadioChangeEvent) => {
     console.log('radio checked', e.target.value);
@@ -33,6 +36,21 @@ const Checkout: React.FC = () => {
   // Filter `option.label` match the user type `input`
   const filterOption = (input: string, option?: { label: string; value: string }) =>
     (option?.label ?? '').toLowerCase().includes(input.toLowerCase());
+
+  useEffect(() => {
+    if (checkedOrders.length > 0) {
+      let newTotalPrice = 0;
+
+      checkedOrders.forEach((order) => {
+        const product = order;
+        if (product) {
+          newTotalPrice += product.Product_price;
+        }
+      });
+      setGrandTotal(newTotalPrice);
+      console.log("Remaining Total Price", newTotalPrice);
+    }
+  }, [checkedOrders, grandTotal]);
 
 
   const displayTurtles =  <Form
@@ -115,11 +133,11 @@ const Checkout: React.FC = () => {
           </p>
           <p className='pt-6 flex justify-between  font-bold text-sm' >
             <span>Order Count:</span>
-            <span>2</span>
+            <span>{checkedOrders.length}</span>
           </p>
           <p className='text-sm flex pt-6 justify-between  font-bold' >
             <span>Grand Total:</span>
-            <span>$290.40</span>
+            <span>{grandTotal.toFixed(2)}</span>
           </p>
           <p className='text-sm border-b-2 pt-6 flex justify-between  font-bold' >
             <span>Account Credits:</span>
