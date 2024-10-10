@@ -11,6 +11,7 @@ import {
 } from 'antd';
 
 import type { RadioChangeEvent } from 'antd';
+import PaymentAddressModal from '../components/PaymentAddressModal';
 const { Option } = Select;
 type SizeType = Parameters<typeof Form>[0]['size'];
 
@@ -20,6 +21,7 @@ const Checkout: React.FC = () => {
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
   console.log("Checked Orders", checkedOrders);
   const [value, setValue] = useState(1);
+  const [paymentPopupEnable, setPaymentPopupEnable] = useState(false);
   const onChange1 = (e: RadioChangeEvent) => {
     console.log('radio checked', e.target.value);
     setValue(e.target.value);
@@ -100,6 +102,7 @@ const Checkout: React.FC = () => {
           className="max-md:w-full  w-[50%] md:mx-8 mt-2 "
           size={"large"}
           type="primary"
+          onClick={() => setPaymentPopupEnable(true)}
         >
           Add New Credit Card
         </Button>
@@ -111,6 +114,7 @@ const Checkout: React.FC = () => {
           className="max-md:w-full  w-[50%] md:mx-8 mt-2  "
           size={"large"}
           type="primary"
+          onClick={() => setPaymentPopupEnable(true)}
         >
           Add Paypal
         </Button>
@@ -156,6 +160,10 @@ const Checkout: React.FC = () => {
           </div>
         </div>
       </div>
+      <PaymentAddressModal
+         visible={paymentPopupEnable}
+         onClose={() => setPaymentPopupEnable(false)}
+      />
     </div>
    
   );

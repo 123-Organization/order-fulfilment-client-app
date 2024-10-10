@@ -14,6 +14,7 @@ import {
 } from "../store/features/orderSlice";
 import HTMLReactParser from "html-react-parser";
 import { useLocation } from "react-router-dom";
+import ExportModal from "../components/ExportModal";
 let userInfoMultiselectOptions = true;
 const images = [
   {
@@ -141,6 +142,7 @@ const VirtualInventory: React.FC = (): JSX.Element => {
   const [open, setOpen] = useState(false);
   const [spinLoader, setSpinLoader] = useState(false);
   const [openFilter, setOpenFilter] = useState(false);
+  const [openExport, setOpenExport] = useState(false);
   let listVirtualInventoryData = useAppSelector((state) => state.order.listVirtualInventory?.data)
   ?.map(data =>{
     return {...data,...{isSelected:false}}
@@ -165,6 +167,10 @@ const VirtualInventory: React.FC = (): JSX.Element => {
       description
     });
   };
+
+  const exportToWPInv = () => {
+    setOpenExport(true)
+  }
 
   const exportToWP = () => {
     if (spinLoader) return false;
@@ -200,7 +206,7 @@ const VirtualInventory: React.FC = (): JSX.Element => {
    
   };
 
-  const exportInventory = () => {
+  const exportInventoryFn = () => {
 
     if(inventorySelection.length){
 
@@ -210,6 +216,12 @@ const VirtualInventory: React.FC = (): JSX.Element => {
         })
       );
     }
+
+  }
+
+  const exportInventory = () => {
+
+    setOpenExport(true)
 
   }
 
@@ -286,7 +298,7 @@ const VirtualInventory: React.FC = (): JSX.Element => {
           </div>
           {!!inventorySelection.length && (
             <div
-              onClick={exportToWP}
+              onClick={exportToWPInv}
               className="fw-sky-btn mr-4 basis-1/12 max-md:row-1 max-md:col-span-4 max-md:relative"
             >
               <Spin spinning={spinLoader} size="small">
@@ -398,6 +410,10 @@ const VirtualInventory: React.FC = (): JSX.Element => {
           <Empty />
         )}
         <FilterSortModal openModel={openFilter} setOpen={setOpenFilter} />
+        <ExportModal
+            visible={openExport}
+            onClose={() => setOpenExport(false)} 
+         />
       </div>
     </div>
   );
