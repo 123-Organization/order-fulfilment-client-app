@@ -298,7 +298,7 @@ export const fetchShippingOption = createAsyncThunk(
     export const saveOrder = createAsyncThunk(
       "order/save",
       async (postData: any, thunkAPI) => {
-        const response = await fetch(BASE_URL + "upload-order-excel", {
+        const response = await fetch(BASE_URL + "upload-orders", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -313,7 +313,7 @@ export const fetchShippingOption = createAsyncThunk(
 export const saveUserProfile = createAsyncThunk(
   "user/save",
   async (postData: any, thunkAPI) => {
-    const response = await fetch(BASE_URL+"upload-order-excel", {
+    const response = await fetch(BASE_URL+"upload-orders", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
