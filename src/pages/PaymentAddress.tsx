@@ -197,7 +197,6 @@ const PaymentAddress: React.FC = () => {
       <div className="w-1/2 max-md:w-full">
         <div className="container mx-auto px-5 py-2 lg:px-8 md:px-4 justify-center items-center">
           <div className="-m-1 mx-4 flex items-center flex-wrap md:-m-2">
-            {/* {displayTurtles} */}
             <Payment />
           </div>
         </div>

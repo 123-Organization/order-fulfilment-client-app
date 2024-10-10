@@ -1,6 +1,8 @@
 import React, { CSSProperties, useEffect, useState } from "react";
-import { Checkbox, MenuProps, Spin, Skeleton, Avatar } from "antd";
-import { Dropdown, Space, Modal, message } from "antd";
+import { Checkbox, MenuProps, Spin, Skeleton, Avatar,  Modal, message } from "antd";
+import {
+  ProfileOutlined
+} from '@ant-design/icons';
 
 import briefcase from "../assets/images/briefcase.svg";
 import truck from "../assets/images/truck.svg";
@@ -198,7 +200,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                 </div>
               </div>
 
-               <div className="max-md:hidden">
+               {/* <div className="max-md:hidden">
                   <button
                     type="button"
                     className=" fw-icon-btn  "
@@ -209,7 +211,21 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                       My Stores
                     </span>
                   </button>
-                </div>               
+                </div>  */}
+                <div className="max-md:hidden">
+                  <button
+                    type="button"
+                    className=" fw-icon-btn  "
+                    onClick={()=>{ navigate('/virtualinventory') }}
+                  >
+                    {/* <img src={store} width={whPixel} height={whPixel} /> */}
+                    <ProfileOutlined  style={{fontSize:30,color:'#BFBFBF'}} />
+                    {/* <ContainerOutlined  /> */}
+                    <span className="pt-0.5 ">
+                      Virtual Inventory
+                    </span>
+                  </button>
+                </div>              
             </>
           ) : (
             <></>
