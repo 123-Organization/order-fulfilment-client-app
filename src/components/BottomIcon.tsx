@@ -324,7 +324,8 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
       nextVisiable &&
       location.pathname !== "/shippingpreference" &&
       location.pathname !== "/editorder" &&
-      location.pathname !== "/importlist"
+      location.pathname !== "/importlist" &&
+      location.pathname !== "/importfilter"
     ) {
       if (location.pathname === "/mycompany") navigate("/billingaddress");
       if (location.pathname === "/billingaddress") navigate("/paymentaddress");
