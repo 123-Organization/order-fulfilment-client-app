@@ -15,7 +15,7 @@ const UpdatePopup: React.FC<PopupModalProps> = ({
   if (!visible) return null; // Hide the popup when not visible
 
   return (
-    <Modal width={1000} visible={visible} footer={[]} onCancel={onClose} centered>
+    <Modal width={1000} visible={visible} footer={[]} onCancel={onClose} className="">
       <div className="flex flex-col items-center justify-center">
         <Result
           status="success"

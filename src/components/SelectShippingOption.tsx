@@ -2,46 +2,47 @@ import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { Select, Form } from "antd";
 import { useAppSelector } from "../store";
 
-const SelectShippingOption: React.FC<{ poNumber: string }> = ({ poNumber }) => {
+const SelectShippingOption: React.FC<{ poNumber: string , orderItems: any }> = ({ poNumber, orderItems,onShippingOptionChange }) => {
   const shipping_option = useAppSelector(
     (state) => state.order.shippingOptions[0] || []
   );
-
+  
+  
   const shipping_details = useMemo(
     () => shipping_option?.find((option) => option.order_po == poNumber),
     [shipping_option, poNumber]
   );
-  const [value, setValue] = useState("");
-  const preferred_option = shipping_details?.preferred_option?.rate;
-
+  
+  const [selectedOption, setSelectedOption] = useState<any>(null);
+  
+  // Set initial preferred option if available
   useEffect(() => {
-    if (preferred_option && value !== preferred_option) {
-      setValue(
-        `${preferred_option}-$${shipping_details?.preferred_option?.shipping_method}`
-      );
+    if (shipping_details?.preferred_option) {
+      setSelectedOption(shipping_details.preferred_option);
     }
-  }, [preferred_option, shipping_details, value]);
+  }, [shipping_details]);
 
-  // Memoize the change handler
-  const onChange = useCallback((value: string) => {
-    setValue(value);
-  }, []);
-
-  // Memoize the search handler
-  const onSearch = useCallback((value: string) => {
-    setValue(value);
-  }, []);
-
-  // Filter the Select options
-  const filterOption = useCallback(
-    (input: string, option?: { label: string; value: string }) =>
-      (option?.label ?? "").toLowerCase().includes(input.toLowerCase()),
-    []
+  const handleOptionChange = useCallback(
+    (value: string) => {
+      const option = shipping_details?.options?.find((opt) => `${opt.rate}-$${opt.shipping_method}` === value);
+      if (option) {
+        setSelectedOption(option);
+        // Notify the parent about the updated shipping price
+        onShippingOptionChange(poNumber, option.calculated_total.order_grand_total);
+      }
+    },
+    [shipping_details, poNumber, onShippingOptionChange]
   );
 
   if (!shipping_details) {
     return <div>No shipping options available for this order.</div>;
   }
+
+  const subTotal = selectedOption?.calculated_total?.order_subtotal || 0;
+  const discount = selectedOption?.calculated_total?.order_discount || 0;
+  const shipping = selectedOption?.calculated_total?.order_shipping_rate || 0;
+  const salesTax = selectedOption?.calculated_total?.order_sales_tax || 0;
+  const grandTotal =selectedOption?.calculated_total?.order_grand_total || 0;
 
   return (
     <>
@@ -58,10 +59,8 @@ const SelectShippingOption: React.FC<{ poNumber: string }> = ({ poNumber }) => {
               showSearch
               placeholder="Select Shipping Method"
               optionFilterProp="children"
-              onChange={onChange}
-              onSearch={onSearch}
-              filterOption={filterOption}
-              value={value}
+              onChange={handleOptionChange}
+              value={selectedOption ? `${selectedOption.rate}-$${selectedOption.shipping_method}` : undefined}
               options={shipping_details?.options?.map((option) => ({
                 value: `${option.rate}-$${option.shipping_method}`,
                 label: `${option.shipping_method} - $${option.rate}`,
@@ -74,11 +73,12 @@ const SelectShippingOption: React.FC<{ poNumber: string }> = ({ poNumber }) => {
         </Form.Item>
       </Form>
 
-      <div className="w-full text-sm pt-11"></div>
-      <div className="w-full text-sm">Sub Total: $75.00</div>
-      <div className="w-full text-sm">Discount: ($0.00)</div>
-      <div className="w-full text-sm">Shipping: ${value.split("-$")[0]}</div>
-      <div className="w-full text-sm">Sales Tax: $5.25</div>
+      <div className="w-full text-sm pt-5"></div>
+      <div className="w-full text-sm">Sub Total: ${subTotal.toFixed(2)}</div>
+      <div className="w-full text-sm">Discount: (${discount.toFixed(2)})</div>
+      <div className="w-full text-sm">Shipping: ${shipping.toFixed(2)}</div>
+      <div className="w-full text-sm">Sales Tax: ${salesTax.toFixed(2)}</div>
+      <div className="w-full text-sm">GrandTotal: {grandTotal}</div>
     </>
   );
 };
