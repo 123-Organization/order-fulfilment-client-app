@@ -355,23 +355,28 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
     }
   }, []);
 
-  console.log("listVirtualInventoryData?.count", listVirtualInventoryDataCount);
+  console.log("orders", orders);
   useEffect(() => {
-    if (product_details?.totalPrice && product_list) {
+    if (orders && checkedOrders) {
       let newTotalPrice = 0;
 
-      checkedOrders.forEach((order) => {
-        const product = product_list.find(
-          (product) => product.sku === order.product_sku
+      checkedOrders?.forEach((order) => {
+        orders?.data?.map((el)=>{
+          const product = el?.orders?.find(
+          (product) => product?.order_po === order?.order_po
+          
         );
         if (product) {
-          newTotalPrice += product.total_price;
+          newTotalPrice += order.Product_price;
         }
+        })
+        
+        
       });
       setGrandtotal(newTotalPrice);
       console.log("Remaining Total Price", newTotalPrice);
     }
-  }, [checkedOrders, product_details, product_list]);
+  }, [checkedOrders, orders]);
 
   useEffect(() => {
     if (location.pathname === "/editorder" && orderEdited.status === true) {

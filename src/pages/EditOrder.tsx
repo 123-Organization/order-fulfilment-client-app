@@ -16,6 +16,7 @@ import {
 } from "../store/features/orderSlice";
 import UpdateButton from "../components/UpdateButton";
 import UpdatePopup from "../components/UpdatePopup";
+import style from "./Pgaes.module.css";
 
 type productType = {
   name?: string; // Optional because not all entries have 'name'
@@ -39,8 +40,7 @@ const EditOrder: React.FC = () => {
   const location = useLocation();
   const dispatch = useAppDispatch();
   const { order } = location.state || {};
-  const { order_items, order_key, order_status, recipient } =
-    order?.orders[0] || {};
+  const { order_items, order_key, order_status, recipient } = order.orders[0] || {};
 
   console.log("order", order);
   const newProductList: productType[] = [
@@ -74,10 +74,11 @@ const EditOrder: React.FC = () => {
   console.log("product_details...", product_details);
   // parse the string to html
 
-  const descriptionLong = product_details[0]?.description_long?.replace(
-    /<[^>]*>?/gm,
-    ""
-  );
+  const filterDescription = (descriptionLong: string): string => {
+    return descriptionLong?.replace(/<[^>]*>?/gm, "");
+  };
+
+  console.log(orderPostData);
 
   const initialValues = React.useMemo(
     () => ({
@@ -98,18 +99,9 @@ const EditOrder: React.FC = () => {
   useEffect(() => {
     form.setFieldsValue(initialValues);
   }, [form, initialValues]);
-  const startTag = "<h4>";
-  const endTag = "</h4>";
-  const startIndex = descriptionLong?.indexOf(startTag) + startTag.length;
-  const endIndex = descriptionLong?.indexOf(endTag);
-
-  // Extract the content between the tags
-  const h4Content = descriptionLong?.substring(startIndex, endIndex);
-
-  // Display the extracted content
-  console.log(h4Content);
+  console.log(productData);
   let products: any = {};
-  console.log("changedvalues",changedValues);
+  console.log("changedvalues", changedValues);
   useEffect(() => {
     if (product_details && product_details?.length) {
       product_details?.map((product, index) => {
@@ -122,14 +114,12 @@ const EditOrder: React.FC = () => {
   }, [product_details]);
 
   useEffect(() => {
-    if (order && order?.orders?.length && !orderPostData.length) {
-      let orderPostData1 = [
-        {
-          product_sku: order_items[0].product_sku,
-          product_qty: order_items[0].product_qty,
-          product_order_po: order?.orders[0]?.order_po,
-        },
-      ];
+    if (order) {
+      const orderPostData1 = order?.orders[0].order_items?.map((item) => ({
+        order_po: order.orders[0].order_po,
+        product_sku: item.product_sku, // One product SKU per object
+        product_qty: item.product_qty, // Corresponding quantity
+      }));
 
       console.log("orderPostData...", orderPostData1);
       setOrderPostData(orderPostData1);
@@ -150,7 +140,7 @@ const EditOrder: React.FC = () => {
     const hasChanged = Object.keys(initialValues).some(
       (key) => initialValues[key] !== allValues[key]
     );
-    dispatch(updateOrderStatus({status:true, clicked:false}));
+    dispatch(updateOrderStatus({ status: true, clicked: false }));
     //add the previous object changed values
     setChangedValues((prev) => ({
       ...prev,
@@ -359,7 +349,7 @@ const EditOrder: React.FC = () => {
   );
 
   return (
-    <div className="flex max-md:flex-col  justify-end items-start w-full h-full p-8">
+    <div className={`flex max-md:flex-col  justify-end items-start w-full h-full p-8 ${style.card}`}>
       <div className="w-1/3 max-md:w-full md:border-r-2 max-md:pb-4 max-md:border-b-2">
         <div className="container mx-auto px-5 py-2 lg:px-8 md:px-4 justify-center items-center">
           <div className="-m-1 mx-4 flex flex-wrap md:-m-2">
@@ -370,84 +360,90 @@ const EditOrder: React.FC = () => {
       </div>
 
       <div className="w-1/2 max-md:w-full flex flex-col justify-start md:border-r-2  max-md:border-b-2 max-md:pb-6  items-center h-[800px] max-md:h-auto">
-        <div className="text-left w-full px-4 text-gray-400 pt-4">
+        <div className={`text-left w-full px-4 text-gray-400 pt-4 ${style.inner_card}`}>
           <p className="text-lg pb-4 text-gray-400  font-bold">Cart</p>
-          <label className="h-[200px] max-md:h-auto inline-flex  justify-between w-full px-3 text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700">
-            <div className="block relative pb-4 w-full">
-              <div className="justify-around  pt-4  rounded-lg  sm:flex sm:justify-start">
-                <div className="flex pt-8">
-                  <img
-                    src={productData[order_items[0].product_sku]?.image_url_1}
-                    // src="https://images.unsplash.com/photo-1515955656352-a1fa3ffcd111?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1170&q=80"
-                    alt="product"
-                    className="rounded-lg max-md:w-20 w-40 h-[90px]"
-                    width={116}
-                    height={26}
-                  />
+          {order?.orders[0].order_items?.map((item) => (
+            <label className="h-[200px] mt-2 hover:border-gray-500 max-md:h-auto inline-flex  justify-between w-full px-3 text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700">
+              <div className="block relative pb-4 w-full">
+                <div className="justify-around  pt-4  rounded-lg flex">
+                  <div className="flex pt-8">
+                    <img
+                      src={productData[item.product_sku]?.image_url_1}
+                      // src="https://images.unsplash.com/photo-1515955656352-a1fa3ffcd111?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1170&q=80"
+                      alt="product"
+                      className="rounded-lg max-md:w-20 w-40 h-[90px]"
+                      width={116}
+                      height={26}
+                    />
 
-                  <div className="sm:ml-4 flex flex-col w-full sm:justify-between">
-                    <div className="w-8/12 text-sm ">{descriptionLong}</div>
-                    {/* <div className="w-full text-sm">1234 Elm Street</div>
+                    <div className="sm:ml-4 flex flex-col w-full sm:justify-between">
+                      <div className={`w-8/12 text-sm  ${style.product_decription}`}>
+                        {filterDescription(
+                          productData[item.product_sku]?.description_long
+                        )}
+                      </div>
+                      {/* <div className="w-full text-sm">1234 Elm Street</div>
                    <div className="w-full text-sm">Suite 567</div>
                    <div className="w-full text-sm">
                      Cityvile, Statevile 98567
                    </div> */}
+                    </div>
+                  </div>
+                  <div className="border-gray-400 border  rounded-md h-1/2 px-1 ">
+                    <p className="text-center text-gray-400 text-xs ">
+                      Quantity <br />
+                      <label className="text-center w-40  text-black">
+                        {productData[item.product_sku]?.quantity}
+                      </label>
+                    </p>
                   </div>
                 </div>
-                <div className="border-gray-400 border  rounded-md h-1/2 px-1 ">
-                  <p className="text-center text-gray-400 text-xs ">
-                    Quantity <br />
-                    <label className="text-center w-40  text-black">
-                      {productData[order_items[0].product_sku]?.quantity}
-                    </label>
-                  </p>
+                <div className={`flex justify-start w-full  ${style.bottom_icons} `}>
+                  <div className="w-20 mt-6 ">
+                    <button
+                      data-tooltip-target="tooltip-document"
+                      type="button"
+                      className="max-md:pl-2 mt-2 inline-flex  flex-col justify-start items-start  hover:bg-gray-50 dark:hover:bg-gray-800 group"
+                    >
+                      <svg
+                        className="w-5 h-5 mb-1 text-gray-500 dark:text-gray-400 group-hover:text-red-600 dark:group-hover:text-blue-500"
+                        aria-hidden="true"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 18 20"
+                      >
+                        <path
+                          stroke="currentColor"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M1 5h16M7 8v8m4-8v8M7 1h4a1 1 0 0 1 1 1v3H6V2a1 1 0 0 1 1-1ZM3 5h12v13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5Z"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className=" mt-6  w-8/12 text-center">
+                    {productCode && (
+                      <Button
+                        key="submit"
+                        className=" text-gray-500 border w-52 border-gray-400 rounded-lg text-center font-semibold  "
+                        size={"small"}
+                        style={{ backgroundColor: "#f5f4f4" }}
+                        type="link"
+                      >
+                        Add / Change Image
+                      </Button>
+                    )}
+                  </div>
+                  <div className=" text-sm w-40 text-right mt-8">
+                    ${product_details[0]?.per_item_price}
+                  </div>
                 </div>
               </div>
-              <div className="flex justify-start w-full   ">
-                <div className="w-20 mt-6 ">
-                  <button
-                    data-tooltip-target="tooltip-document"
-                    type="button"
-                    className="max-md:pl-2 mt-2 inline-flex  flex-col justify-start items-start  hover:bg-gray-50 dark:hover:bg-gray-800 group"
-                  >
-                    <svg
-                      className="w-5 h-5 mb-1 text-gray-500 dark:text-gray-400 group-hover:text-red-600 dark:group-hover:text-blue-500"
-                      aria-hidden="true"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 18 20"
-                    >
-                      <path
-                        stroke="currentColor"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M1 5h16M7 8v8m4-8v8M7 1h4a1 1 0 0 1 1 1v3H6V2a1 1 0 0 1 1-1ZM3 5h12v13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5Z"
-                      />
-                    </svg>
-                  </button>
-                </div>
-                <div className=" mt-6  w-8/12 text-center">
-                  {productCode && (
-                    <Button
-                      key="submit"
-                      className=" text-gray-500 border w-52 border-gray-400 rounded-lg text-center font-semibold  "
-                      size={"small"}
-                      style={{ backgroundColor: "#f5f4f4" }}
-                      type="link"
-                    >
-                      Add / Change Image
-                    </Button>
-                  )}
-                </div>
-                <div className=" text-sm w-40 text-right mt-8">
-                  ${product_details[0]?.per_item_price}
-                </div>
-              </div>
-            </div>
-          </label>
+            </label>
+          ))}
         </div>
-        <div className="mt-4 w-full ml-10 bg-transparent">
+        <div className={`mt-4 w-full ml-10 bg-transparent`}>
           <Button
             key="submit"
             className=" flex-col w-[130px] text-white bg-green-600 rounded-lg text-center font-semibold border-gray-500"
@@ -458,13 +454,13 @@ const EditOrder: React.FC = () => {
           >
             + Add Product
           </Button>
-          <div className="ml-4">
+          <div className={`ml-4 $ }`}>
             {newProductList.map((product, index) => (
               <ul className={listVisble ? "block " : "hidden"}>
                 <li key={index}>
                   <Button
                     key="submit"
-                    className="   w-4/12 text-gray-500 "
+                    className={`${style.product_list}   w-4/12 text-gray-500 `}
                     size={"small"}
                     type="default"
                     onClick={product.options}
@@ -485,11 +481,14 @@ const EditOrder: React.FC = () => {
             />
           </div>
         </div>
-        {<UpdatePopup
-          ChangedValues={changedValues}
-          visible={orderEdited.clicked}
-          onClose={() => dispatch(updateOrderStatus({ clicked:false}))}
-        /> || null}
+
+        {(
+          <UpdatePopup
+            ChangedValues={changedValues}
+            visible={orderEdited.clicked}
+            onClose={() => dispatch(updateOrderStatus({ clicked: false }))}
+          />
+        ) || null}
       </div>
 
       <div className="w-1/3 max-md:w-full mt-1">
