@@ -364,7 +364,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
       checkedOrders?.forEach((order) => {
         orders?.data?.map((el)=>{
           const product = el?.orders?.find(
-          (product) => product?.order_po === order?.order_po
+          (product) => product?.order_po == order?.order_po
           
         );
         if (product) {
