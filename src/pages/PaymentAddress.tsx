@@ -7,7 +7,11 @@ import { useAppDispatch, useAppSelector } from "../store";
 const { Option } = Select;
 type SizeType = Parameters<typeof Form>[0]["size"];
 
-const PaymentAddress: React.FC = () => {
+type PaymentAddressProps = { 
+  remainingTotal: number;
+};
+
+const PaymentAddress: React.FC <PaymentAddressProps> = ({remainingTotal}) => {
   const dispatch = useAppDispatch();
   const [componentSize, setComponentSize] = useState<SizeType | "default">(
     "default"
@@ -16,6 +20,8 @@ const PaymentAddress: React.FC = () => {
   const companyInfo = useAppSelector(
     (state) => state.order.company_info?.data?.business_info
   );
+  const customerInfo = useAppSelector((state) => state.order.customer_info);
+  console.log("companyInfo", customerInfo);
 
   const onChange = (value: string) => {
     console.log(`selected ${value}`);
@@ -53,16 +59,16 @@ const PaymentAddress: React.FC = () => {
             options={[
               {
                 value: "Master",
-                label: "Master"
+                label: "Master",
               },
               {
                 value: "Visa",
-                label: "Visa"
+                label: "Visa",
               },
               {
                 value: "American Express",
-                label: "American Express"
-              }
+                label: "American Express",
+              },
             ]}
           ></Select>
           <label htmlFor="floating_outlined" className="fw-label">
@@ -92,16 +98,16 @@ const PaymentAddress: React.FC = () => {
             options={[
               {
                 value: "jack",
-                label: "Jack"
+                label: "Jack",
               },
               {
                 value: "lucy",
-                label: "Lucy"
+                label: "Lucy",
               },
               {
                 value: "tom",
-                label: "Tom"
-              }
+                label: "Tom",
+              },
             ]}
           ></Select>
           <label htmlFor="floating_outlined" className="fw-label">
@@ -123,16 +129,16 @@ const PaymentAddress: React.FC = () => {
             options={[
               {
                 value: "jack",
-                label: "Jack"
+                label: "Jack",
               },
               {
                 value: "lucy",
-                label: "Lucy"
+                label: "Lucy",
               },
               {
                 value: "tom",
-                label: "Tom"
-              }
+                label: "Tom",
+              },
             ]}
           ></Select>
           <label htmlFor="floating_outlined" className="fw-label">
@@ -158,21 +164,19 @@ const PaymentAddress: React.FC = () => {
   );
 
   useEffect(() => {
-    if(companyInfo?.first_name){
-     
-      dispatch(createCustomer(
-        {
-          "firstName":companyInfo?.first_name,
-          "lastName":companyInfo?.last_name,
-          "email":companyInfo?.email,
-          "company": companyInfo?.company_name,
-          "phone": companyInfo?.phone,
-          "account_key":"81de5dba-0300-4988-a1cb-df97dfa4e372"
-        }));
-      
+    if (companyInfo?.first_name && !customerInfo?.data.payment_profile_id) {
+      dispatch(
+        createCustomer({
+          firstName: companyInfo?.first_name,
+          lastName: companyInfo?.last_name,
+          email: companyInfo?.email,
+          company: companyInfo?.company_name,
+          phone: companyInfo?.phone,
+          account_key: "81de5dba-0300-4988-a1cb-df97dfa4e372",
+        })
+      );
     }
-  },[companyInfo]);
-
+  }, [companyInfo, dispatch]);
   return (
     <div className="flex justify-end items-center w-full h-full p-8 max-md:flex-col max-md:mt-12">
       <div
@@ -197,7 +201,9 @@ const PaymentAddress: React.FC = () => {
       <div className="w-1/2 max-md:w-full">
         <div className="container mx-auto px-5 py-2 lg:px-8 md:px-4 justify-center items-center">
           <div className="-m-1 mx-4 flex items-center flex-wrap md:-m-2">
-            <Payment />
+            <Payment 
+            remainingTotal = {remainingTotal}
+            />
           </div>
         </div>
       </div>

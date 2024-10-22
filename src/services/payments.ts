@@ -30,7 +30,7 @@ export default class PaymentHttpClient {
       data: { token },
     } = await HttpClient.get('/get-client-token');
     const braintreeToken: IBraintreeToken = { token };
-    console.log('braintreeToken....',braintreeToken)
+    console.log('braintreeToken....', braintreeToken)
     return braintreeToken;
   }
 
@@ -67,19 +67,23 @@ export default class PaymentHttpClient {
       createdAt,
       updatedAt,
     };
-
+    console.log('response....', id)
     return response;
   }
 
-   /**
-   * Add Payment Method
-   * @param payload
-   * @returns
-   */
-    public static async addPaymentMethod(
-      payload: any
-    ) {
-      const response = await HttpClient.post('/add-payment-card', payload);
-      return response;
+  /**
+  * Add Payment Method
+  * @param payload
+  * @returns
+  */
+  public static async addPaymentMethod(
+    payload: any
+  ) {
+    console.log('payload....', payload)
+    const response = await HttpClient.post('/add-payment-card', payload);
+    if (response) {
+      console.log('response....', response)
     }
+    return response;
+  }
 }

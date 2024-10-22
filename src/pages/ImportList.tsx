@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Button, Checkbox, Form, Input, Select } from "antd";
+import { Button, Checkbox, Form, Input, Select,Skeleton } from "antd";
+import Spinner from "../components/Spinner";
 import shoppingCart from "../assets/images/shopping-cart-228.svg";
 import { updateCheckedOrders } from "../store/features/orderSlice";
 import {
@@ -162,7 +163,7 @@ const ImportList: React.FC = () => {
                   >
                     <ul className="grid w-8   md:grid-cols-1 ">
                       <li className="w-8">
-                        <Checkbox
+                       {shipping_option.length > 0? <Checkbox
                           value={{
                             order_po: singleOrder?.order_po,
                             Product_price: getShippingPrice(
@@ -174,7 +175,7 @@ const ImportList: React.FC = () => {
                             (checkedOrder) =>
                               checkedOrder.order_po == singleOrder.order_po
                           )}
-                        />
+                        /> : null}
                       </li>
                     </ul>
 
@@ -236,23 +237,24 @@ const ImportList: React.FC = () => {
                         {singleOrder?.order_items?.map((order) => (
                           <label className="h-[220px] inline-flex mb-2 justify-between w-full hover:border-gray-600 transition-all duration-75 pt-5 pb-5 px-2 text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700">
                             <div className="block relative pb-4 w-full">
-                              <img src={shoppingCart} width="26" height="26" />
+                              <img src={shoppingCart} width="26" height="26" /> 
                               <div className="justify-between pt-4  rounded-lg  sm:flex sm:justify-start flex">
                                 <div className="w-[50%] ">
-                                  <img
+                                 {productData[order?.product_sku]
+                                        ?.image_url_1 ? <img
                                     src={
                                       productData[order?.product_sku]
                                         ?.image_url_1
-                                    }
+                                     } 
                                     alt="product"
                                     className="rounded-lg max-md:w-40 w-32 h-[120px] "
                                     width={125}
                                     height={26}
-                                  />
+                                  /> : <Skeleton.Image  active />}
                                 </div>
 
                                 <div className="w-[90%]  ">
-                                  {Object.keys(productData)?.length && (
+                                  {(Object.keys(productData)?.length && (
                                     <div className=" flex flex-col w-full sm:justify-between p-2 ">
                                       <div className={ `w-full text-sm ${style.order_description} font-seri `}>
                                         {parse(
@@ -261,12 +263,12 @@ const ImportList: React.FC = () => {
                                         )}
                                       </div>
                                     </div>
-                                  )}
+                                  )) || <Skeleton active />}
                                 </div>
                               </div>
                               <div className=" text-sm  absolute right-2 -bottom-3">
                                 {order?.product_qty} @ $
-                                {productData[order?.product_sku]?.total_price}
+                                {productData[order?.product_sku]?.total_price || ""}
                               </div>
                             </div>
                           </label>

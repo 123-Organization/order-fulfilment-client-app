@@ -193,7 +193,8 @@ export const createCustomer = createAsyncThunk(
       },
       body: JSON.stringify(postData)
     });
-    const data = response.json();
+    const data = await response.json();
+    console.log('data...', data)
     return data;
   },
 );
@@ -292,25 +293,25 @@ export const updateCompanyInfo = createAsyncThunk(
   },
 );
 
-    export const saveOrder = createAsyncThunk(
-      "order/save",
-      async (postData: any, thunkAPI) => {
-        const response = await fetch(BASE_URL + "upload-orders", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(postData),
-        });
-        const data = await response.json();
-        return data;
+export const saveOrder = createAsyncThunk(
+  "order/save",
+  async (postData: any, thunkAPI) => {
+    const response = await fetch(BASE_URL + "upload-orders", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify(postData),
+    });
+    const data = await response.json();
+    return data;
+  },
+);
 
 export const saveUserProfile = createAsyncThunk(
   "user/save",
   async (postData: any, thunkAPI) => {
-    const response = await fetch(BASE_URL+"upload-orders", {
+    const response = await fetch(BASE_URL + "upload-orders", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -342,7 +343,7 @@ export const getCustomerInfo = createAsyncThunk(
   "customer/info",
   async (_, thunkAPI) => {
     // Get the current state using thunkAPI.getState()
-    const state = thunkAPI.getState() as any;
+    const state = await thunkAPI.getState() as any;
 
     // Access company_info from the current state, not from initialState
     const companyInfo = state?.order?.company_info; // Replace 'order' with the actual slice name if different
@@ -385,7 +386,7 @@ export const getPaymentMethods = createAsyncThunk(
   "payment/methods",
   async (customerId: number, thunkAPI) => {
     // Get the current state using thunkAPI.getState()
-    const state = thunkAPI.getState() as any;
+    const state = await thunkAPI.getState() as any;
 
     // Access company_info from the current state, not from initialState
     const companyInfo = state?.order?.company_info; // Replace 'order' with the actual slice name if different
@@ -420,6 +421,10 @@ export const getPaymentMethods = createAsyncThunk(
     return data;
   }
 );
+
+
+
+
 
 export const OrderSlice = createSlice({
   name: "order",
