@@ -4,9 +4,10 @@ import PaymentAddress from "../pages/PaymentAddress";
 interface PaymentAddressProps {
   visible: boolean;
   onClose: () => void;
+  remainingTotal: number;
 }
 
-const PaymentAddressModal: React.FC<PaymentAddressProps> = ({ visible, onClose }) => {
+const PaymentAddressModal: React.FC<PaymentAddressProps> = ({ visible, onClose, remainingTotal }) => {
   return (
     <Modal
       title="Update Payment Method"
@@ -15,7 +16,9 @@ const PaymentAddressModal: React.FC<PaymentAddressProps> = ({ visible, onClose }
       onCancel={onClose}
       footer={[]}
     >
-      <PaymentAddress />
+      <PaymentAddress
+      remainingTotal = {remainingTotal}
+      />
     </Modal>
   );
 };

@@ -5,8 +5,10 @@ import PaymentHttpClient, {
   ITransactionResponse,
 } from '../services/payments';
 import Braintree from '../components/braintree/Braintree';
-
-export default function Payment() {
+type PaymentProps = { 
+  remainingTotal: number;
+};
+export default function Payment({ remainingTotal }: PaymentProps) {
   const [clientToken, setClientToken] = useState('');
   const [showBraintreeDropIn, setShowBraintreeDropIn] = useState(false);
 
@@ -29,6 +31,7 @@ export default function Payment() {
       amount: '10',
       paymentMethodNonce,
     };
+    console.log('payload',payload)
     PaymentHttpClient.checkout(payload)
       .then((result: ITransactionResponse) => {
         alert('Payment successfully completed');
@@ -49,7 +52,8 @@ export default function Payment() {
     };
 
     const nonceFromClient = paymentMethodNonce;
-    const customerId = '86584217823';
+    console.log('nonceFromClient',nonceFromClient)
+    const customerId = '86584217823'; 
 
     const finalPayload = {nonceFromClient,customerId};
 
@@ -87,6 +91,7 @@ export default function Payment() {
             show={showBraintreeDropIn}
             checkout={initiatePayment}
             addPaymentMethod={addPaymentMethod}
+            remainingTotal={remainingTotal}
           />
         </div>
       </div>

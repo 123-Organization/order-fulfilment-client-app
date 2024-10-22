@@ -69,3 +69,14 @@
     line-height: 16px;
   }
 }
+/*----------------------------Checkout------------------------------------*/
+
+.pay_button{
+  background-color: #FF8C00;
+  color: white;
+  font-size: 16px;
+  border: dashed 1px #FF8C00;
+  font-weight: 600;
+  border-radius: 5px;
+  cursor: pointer;
+}

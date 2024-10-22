@@ -1,30 +1,38 @@
-import React, { useEffect, useState } from 'react';
-import dropin, { Dropin, PaymentMethodPayload } from 'braintree-web-drop-in';
-import './Braintree.css';
-
+import React, { useEffect, useState } from "react";
+import dropin, { Dropin, PaymentMethodPayload } from "braintree-web-drop-in";
+import "./Braintree.css";
+import { useAppSelector } from "../../store";
 // https://developer.paypal.com/braintree/docs/guides/credit-cards/testing-go-live/node#test-value-6243030000000001
 
 type BraintreeProps = {
   clientToken: string;
   show: boolean;
   checkout: (nonce: string) => void;
-  addPaymentMethod: (payload:any) => void;
+  addPaymentMethod: (payload: any) => void;
+  remainingTotal: number;
 };
 
-const Braintree = ({ clientToken, show, checkout,addPaymentMethod }: BraintreeProps) => {
+const Braintree = ({
+  clientToken,
+  show,
+  checkout,
+  addPaymentMethod,
+  remainingTotal
+}: BraintreeProps) => {
   const [braintreeInstance, setBraintreeInstance] = useState<
     Dropin | undefined
   >();
 
   useEffect(() => {
     if (show) {
-      console.log('clientToken...',clientToken)
+      console.log("clientToken...", clientToken);
       const config = {
         authorization: clientToken,
-        container: '#braintree-drop-in-div',
+        container: "#braintree-drop-in-div",
         paypal: {
-          flow: 'vault'
+          flow: "vault",
         },
+        vault: true,
       };
 
       /**
@@ -48,8 +56,9 @@ const Braintree = ({ clientToken, show, checkout,addPaymentMethod }: BraintreePr
       }
     }
   }, [show]);
+  const companyInfo = useAppSelector((state) => state.order.company_info);
 
-    const requestPaymentMethod = () => {
+  const requestPaymentMethod = () => {
     /**
      * RequestPaymentMethod Callback
      * @param error
@@ -61,13 +70,19 @@ const Braintree = ({ clientToken, show, checkout,addPaymentMethod }: BraintreePr
       } else {
         const nonceFromClient = payload.nonce;
         const paymentMethodNonce = payload.nonce;
-        const customerId = '86584217823';
+        const customerId = companyInfo?.data?.payment_profile_id;
 
-        console.log('payment method nonce', payload.nonce);
-        const finalPayload = {nonceFromClient,customerId};
+        console.log("payment method nonce", payload.nonce);
+        const finalPayload = {
+          nonceFromClient,
+          customerId,
+          amount: remainingTotal.toFixed(2),
+          vault: true,
+        };
+        console.log("finalPayload", finalPayload);
         // TODO: use the paymentMethodNonce to
         // call you server and complete the payment here
-       addPaymentMethod(finalPayload);
+        addPaymentMethod(finalPayload);
         // checkout(paymentMethodNonce);
       }
     };
@@ -77,10 +92,10 @@ const Braintree = ({ clientToken, show, checkout,addPaymentMethod }: BraintreePr
 
   return (
     <div
-      className='braintree w-full'
-      style={{ display: `${show ? 'block' : 'none'}` }}
+      className="braintree w-full"
+      style={{ display: `${show ? "block" : "none"}` }}
     >
-      <div id={'braintree-drop-in-div'} />
+      <div id={"braintree-drop-in-div"} />
       {braintreeInstance && (
         <button disabled={!braintreeInstance} onClick={requestPaymentMethod}>
           Pay Now
