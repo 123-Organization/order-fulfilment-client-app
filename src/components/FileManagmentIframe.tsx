@@ -17,7 +17,7 @@ export default function FileManagementIframe({iframe, setIframe}) {
         footer={null} // Remove footer if you don't want any buttons in the modal footer
       >
         <iframe
-          src="http://localhost.finerworks.com:3000/#/thumbnail" 
+          src="https://dev1-filemanger-app.finerworks.com/#/thumbnail" 
           width="100%"
           height="550px"
           style={{ border: 'none' }}
