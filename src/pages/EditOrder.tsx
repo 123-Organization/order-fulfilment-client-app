@@ -12,11 +12,13 @@ import VirtualInvModal from "../components/VirtualInvModal";
 import { useAppDispatch, useAppSelector } from "../store";
 import {
   fetchProductDetails,
+  getInventoryImages,
   updateOrderStatus,
 } from "../store/features/orderSlice";
 import UpdateButton from "../components/UpdateButton";
 import UpdatePopup from "../components/UpdatePopup";
 import style from "./Pgaes.module.css";
+import { get } from "http";
 
 type productType = {
   name?: string; // Optional because not all entries have 'name'
@@ -41,6 +43,11 @@ const EditOrder: React.FC = () => {
   const dispatch = useAppDispatch();
   const { order } = location.state || {};
   const { order_items, order_key, order_status, recipient } = order.orders[0] || {};
+
+  const InventoryImages = useAppSelector((state) => state.order.inventoryImages) || [];
+
+  console.log("InventoryImages", InventoryImages);
+
 
   console.log("order", order);
   const newProductList: productType[] = [
@@ -125,6 +132,9 @@ const EditOrder: React.FC = () => {
       setOrderPostData(orderPostData1);
       dispatch(fetchProductDetails(orderPostData1));
     }
+
+    dispatch(getInventoryImages());
+    
   }, [order]);
   const [componentSize, setComponentSize] = useState<SizeType | "default">(
     "default"

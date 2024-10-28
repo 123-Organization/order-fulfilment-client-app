@@ -6,6 +6,8 @@ import { click } from "@testing-library/user-event/dist/click";
 // https://github.com/vahid-nejad/redux-toolkit-example/blob/master/src/components/Add.tsx
 const BASE_URL = config.SERVER_BASE_URL;
 const ECOMMERCE_CONNCET_URL = "https://artsafenet.com/wp-json/finerworks-media/v1/";
+const TEST_BASE_URL = "prod3-api.finerworks.com/api/";
+
 
 export interface Order {
   id: number;
@@ -45,6 +47,7 @@ interface OrderState {
   referrer: IFileExport;
   customer_info: any;
   payment_methods: any;
+  inventoryImages: any;
 }
 
 const referrer: IFileExport = {
@@ -79,7 +82,8 @@ const initialState: OrderState = {
   referrer: referrer,
   orderEdited: { status: false, clicked: false },
   customer_info: {},
-  payment_methods: {}
+  payment_methods: {},
+  inventoryImages: {}
 
 };
 
@@ -422,6 +426,51 @@ export const getPaymentMethods = createAsyncThunk(
   }
 );
 
+//https://prod3-api.finerworks.com/api/getallimages?libraryAccountKey=81de5dba-0300-4988-a1cb-df97dfa4e372
+
+export const getInventoryImages = createAsyncThunk(
+  "inventory/images",
+  async (_, thunkAPI) => {
+    const state = await thunkAPI.getState() as any;
+
+    // Access company_info from the current state, not from initialState
+    const companyInfo = state?.order?.company_info; // Replace 'order' with the actual slice name if different
+    console.log('companyInfo...', companyInfo)
+    const updatedPostData = {
+      libraryName: "temporary",
+      librarySessionId: "81de5dba-0300-4988-a1cb-df97dfa4e372",
+      libraryAccountKey: companyInfo?.account_key,
+      librarySiteId: "2",
+      filterSearchFilter: "",
+      filterPageNumber: "1",
+      filterPerPage: "12",
+      filterUploadFrom: "",
+      filterUploadTo: "",
+      filterSortField: "id",
+      filterSortDirection: "DESC",
+      filterUpdate: "1",
+      GAID: "",
+      guidPreSelected: "",
+      libraryOptions: ["temporary", "inventory"],
+      multiselectOptions: true,
+      domain: "",
+      terms_of_service_url: "/terms.aspx",
+      button_text: "Create Print",
+      account_id: 12,
+    };
+    const response = await fetch(`https://prod3-api.finerworks.com/api/getallimages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(updatedPostData)
+    });
+    const data = await response.json();
+    console.log('data...', data)
+    return data;
+  },
+);
+
 
 
 
@@ -537,7 +586,13 @@ export const OrderSlice = createSlice({
     builder.addCase(getPaymentMethods.fulfilled, (state, action) => {
       state.payment_methods = action.payload;
     });
-  },
+
+    builder.addCase(getInventoryImages.fulfilled, (state, action) => {
+      state.inventoryImages = action.payload
+
+    });
+  }
+
 
 });
 

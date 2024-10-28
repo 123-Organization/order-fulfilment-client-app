@@ -258,7 +258,7 @@ const Landing: React.FC = (): JSX.Element => {
   const displayTurtles = images.map((image) => (
     <div className="flex w-1/3 max-sm:w-1/2 max-[400px]:w-full flex-wrap">
       <div
-        className="w-full p-6 m-4  md:p-2 flex flex-col items-center"
+        className="w-full   md:p-2 flex flex-col items-center"
         onClick={() => importData(image.name)}
       >
         {
@@ -296,7 +296,7 @@ const Landing: React.FC = (): JSX.Element => {
         </div>
       </div>
       <div className="w-1/2 max-md:w-full">
-        <div className="container mx-auto px-5 py-2 lg:px-32 justify-center items-center">
+        <div className="container mx-auto px-5 py-2 xl:px-32 justify-center items-center">
           <div className="-m-1 mx-4 flex flex-wrap md:-m-2">
             {displayTurtles}
           </div>

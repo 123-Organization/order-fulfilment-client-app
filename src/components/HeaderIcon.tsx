@@ -12,6 +12,7 @@ import image from "../assets/images/image.svg";
 import ShipmentModal from "./ShipmentModal";
 import { useNavigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
+import FileManagementIframe from "./FileManagmentIframe";
 // import UploadFileModal from "./UploadFileModal";
 
 /**
@@ -47,6 +48,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
   const [active, setActive] = useState(true);
   const [size, setSize] = useState<SizeType>("large");
   const [avatarShape, setAvatarShape] = useState<AvatarShapeType>("square");
+  const [iframeVisible, setIframeVisible] = useState(false);
   const navigate = useNavigate();
 
   const handleMenuClick: MenuProps["onClick"] = (e) => {};
@@ -240,6 +242,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                   data-tooltip-target="tooltip-document"
                   type="button"
                   className="fw-icon-btn -mt-2"
+                  onClick={() => setIframeVisible(true)}
                 >
                     <img src={image} width={whPixel} height={whPixel} />
                     <span className="">
@@ -247,6 +250,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                   </span>
                 </button>
               </Spin>
+              <FileManagementIframe iframe={iframeVisible} setIframe={setIframeVisible}  />
             </div>
           )}
 

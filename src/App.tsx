@@ -6,11 +6,13 @@ import { useState } from "react";
 import HeaderIcon from "./components/HeaderIcon";
 import BottomIcon from "./components/BottomIcon";
 import { useLocation } from "react-router-dom";
+import FileManagementIframe from "./components/FileManagmentIframe";
 
 const { Header, Footer, Content } = Layout;
 
 function App() {
   const [collapsed, setCollapsed] = useState(false);
+  
   const location = useLocation();
   console.log(location.pathname);
 
@@ -36,6 +38,7 @@ function App() {
         >
           <Router />
         </div>
+        
       </Content>
       {location.pathname !== "/" && (
         <Footer style={{ textAlign: "center", backgroundColor: "#fff" }}>
