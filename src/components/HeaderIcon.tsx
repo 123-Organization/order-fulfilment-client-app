@@ -20,6 +20,8 @@ import { useNavigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import FileManagementIframe from "./FileManagmentIframe";
 import UserAvatar from "./UserAvatar";
+import FilesGallery from "./FilesGallery";
+import finerWorks from "../assets/images/finerworks_logo_icon.49c0d41a2f19011aa3ea27c47041d2ff.svg";
 // import UploadFileModal from "./UploadFileModal";
 
 /**
@@ -49,6 +51,7 @@ type HeaderIconProps = {
 
 const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
   const location = useLocation();
+  const [openModal, setOpenModal] = useState(false);
   const [open, setOpen] = useState(false);
   const [openDash, setDash] = useState(true);
   const [spinLoader, setSpinLoader] = useState(false);
@@ -76,7 +79,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
   const getLocation = () => true; // (window.location.href !== window.parent.location.href)
   const locationIsDiff = getLocation();
   console.log("locationIsDiff", locationIsDiff);
-  const logo = "";
+  const logo = {finerWorks};
   const info = () => {
     Modal.info({
       title: "Print Acknowledgement",
@@ -108,7 +111,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
     <div className={`flex w-full ${!openDash ? addtional : ""}`}>
       <div className=" fixed left-0 z-50 w-full top-0 h-18 bg-white pt-3 pb-3  mb-2 border-gray-200 dark:bg-gray-700 dark:border-gray-600">
         <div className="grid md:place-items-center max-md:grid-cols-3 max-md:grid-cols-10 max-md:grid-rows-1 max-w-[700px] grid-rows-1 grid-cols-6 font-medium max-md:font-normal">
-          <div className="flex flex-col items-center">
+          
             {!logo ? (
               <div
                 className=" cursor-pointer "
@@ -125,15 +128,15 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
               </div>
             ) : (
               <img
-                src={logo}
+                src={finerWorks}
                 onClick={() => {
                   window.location.reload();
                 }}
-                className="App-logo-icon cursor-pointer flex flex-col "
+                className="App-logo-icon cursor-pointer flex flex-row z-100 w-12 h-14"
                 alt="logo"
               />
             )}
-          </div>
+          
 
           {1 ? (
             <>
@@ -261,6 +264,10 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                   <span className="pt-0.5 ">Virtual Inventory</span>
                 </button>
               </div>
+              <button onClick={()=> setOpenModal(true)}>
+                Icon
+                <FilesGallery open={openModal} setOpenModal={setOpenModal} />
+              </button>
             </>
           ) : (
             <></>
@@ -274,7 +281,6 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                 <UserAvatar />
               </div>
               <Spin spinning={spinLoader} size="small">
-              
                 <button
                   data-tooltip-target="tooltip-document"
                   type="button"

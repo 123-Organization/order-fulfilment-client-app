@@ -69,16 +69,16 @@ const ImportList: React.FC = () => {
     if (orders?.data?.length && !orderPostData.length) {
       const orderPostDataList = orders?.data
         ?.map((order) =>
-          order.orders.map((order) => ({
+          order?.orders?.map((order) => ({
             order_po: order?.order_po,
-            order_items: order.order_items.map((order) => ({
+            order_items: order.order_items?.map((order) => ({
               product_order_po: order.product_order_po,
               product_qty: order.product_qty,
               product_sku: order.product_sku,
             })),
           }))
         )
-        .flat();
+        ?.flat();
 
       const ProductDetails = orders?.data?.flatMap((order) =>
         order.orders.flatMap((el) =>

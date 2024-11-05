@@ -430,19 +430,19 @@ export const getPaymentMethods = createAsyncThunk(
 
 export const getInventoryImages = createAsyncThunk(
   "inventory/images",
-  async (_, thunkAPI) => {
+  async (args: { library: string, Page?: number }, thunkAPI: any) => {
     const state = await thunkAPI.getState() as any;
 
     // Access company_info from the current state, not from initialState
     const companyInfo = state?.order?.company_info; // Replace 'order' with the actual slice name if different
-    console.log('companyInfo...', companyInfo)
+    console.log('cookie...', document.cookie.split('AccountGUID='))
     const updatedPostData = {
-      libraryName: "temporary",
-      librarySessionId: "81de5dba-0300-4988-a1cb-df97dfa4e372",
-      libraryAccountKey: companyInfo?.account_key,
+      libraryName: args.library,
+      librarySessionId: document.cookie.split('AccountGUID=')[1].split(';')[0],
+      libraryAccountKey: document.cookie.split('AccountGUID=')[1].split(';')[0],
       librarySiteId: "2",
       filterSearchFilter: "",
-      filterPageNumber: "1",
+      filterPageNumber: args.Page ? args.Page : "1",
       filterPerPage: "12",
       filterUploadFrom: "",
       filterUploadTo: "",
@@ -590,6 +590,10 @@ export const OrderSlice = createSlice({
     builder.addCase(getInventoryImages.fulfilled, (state, action) => {
       state.inventoryImages = action.payload
 
+    });
+    //getInventoryImages loading
+    builder.addCase(getInventoryImages.pending, (state, action) => {
+      state.inventoryImages = { loading: true }
     });
   }
 
