@@ -20,7 +20,7 @@ import { useNavigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import FileManagementIframe from "./FileManagmentIframe";
 import UserAvatar from "./UserAvatar";
-import FilesGallery from "./FilesGallery";
+
 import finerWorks from "../assets/images/finerworks_logo_icon.49c0d41a2f19011aa3ea27c47041d2ff.svg";
 // import UploadFileModal from "./UploadFileModal";
 
@@ -265,8 +265,6 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                 </button>
               </div>
               <button onClick={()=> setOpenModal(true)}>
-                Icon
-                <FilesGallery open={openModal} setOpenModal={setOpenModal} />
               </button>
             </>
           ) : (

@@ -19,6 +19,7 @@ import UpdateButton from "../components/UpdateButton";
 import UpdatePopup from "../components/UpdatePopup";
 import style from "./Pgaes.module.css";
 import { get } from "http";
+import FilesGallery from "../components/FilesGallery";
 
 type productType = {
   name?: string; // Optional because not all entries have 'name'
@@ -35,6 +36,7 @@ const { Option } = Select;
 type SizeType = Parameters<typeof Form>[0]["size"];
 
 const EditOrder: React.FC = () => {
+  const [openModal, setOpenModal] = useState(false);
   const [popupVisible, setPopupVisible] = useState(false);
   const [UpdatePopupVisible, setUpdatePopupVisible] = useState(false);
   const [productCode, setProductCode] = useState(false);
@@ -438,12 +440,14 @@ const EditOrder: React.FC = () => {
                         key="submit"
                         className=" text-gray-500 border w-52 border-gray-400 rounded-lg text-center font-semibold  "
                         size={"small"}
+                        onClick={()=>setOpenModal(true)}
                         style={{ backgroundColor: "#f5f4f4" }}
                         type="link"
                       >
                         Add / Change Image
                       </Button>
                     )}
+                    <FilesGallery open={openModal} setOpenModal={setOpenModal} productImage={productData[item.product_sku]?.image_url_1}/>
                   </div>
                   <div className=" text-sm w-40 text-right mt-8">
                     ${product_details[0]?.per_item_price}

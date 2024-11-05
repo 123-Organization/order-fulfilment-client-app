@@ -4,8 +4,14 @@ import { useAppDispatch, useAppSelector } from "../store";
 import { getInventoryImages } from "../store/features/orderSlice";
 import replace from "../assets/images/change-record-type-svgrepo-com.svg";
 import change from "../assets/images/change-svgrepo-com.svg";
+import style from "./Arrows.module.css";
 
-export default function FilesGallery({ open, setOpenModal }) {
+export default function FilesGallery({
+  open,
+  setOpenModal,
+  productImage,
+  ProductName,
+}) {
   const dispatch = useAppDispatch();
   const images = useAppSelector((state) => state.order.inventoryImages);
   const loading = useAppSelector(
@@ -51,7 +57,7 @@ export default function FilesGallery({ open, setOpenModal }) {
   };
   const onClose = () => {
     setOpenModal(false);
-  }
+  };
 
   return (
     <Modal
@@ -66,30 +72,42 @@ export default function FilesGallery({ open, setOpenModal }) {
         // Confirmation page
         <div>
           <div className="flex row relative justify-center gap-20">
-            <div className="p-8 flex flex-col items-center">
+            <div className="p-8 flex flex-col items-center relative group cursor-pointer">
+              <img
+                src={productImage}
+                alt="Original"
+                style={IMAGE_STYLES}
+                className="w-44 h-44  object-cover  p-4 cursor-pointer transition duration-300 ease-in-out group-hover:filter group-hover:brightness-75 border rounded-lg    border-gray-100"
+              />
+              <p className="mt-2 font-bold">Original</p>{" "}
+              {/* Label for original image */}
+              {/* <p className="mt-2">
+                {selectedImage?.title.length > 30
+                  ? `${selectedImage?.title.substring(0, 30)}...`
+                  : selectedImage?.title}
+              </p> */}
+            </div>
+            <div className="flex flex-col items-center mt-20">
+              <div className={style.arrow}>
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+            </div>
+            <div className="p-8 flex flex-col items-center relative group cursor-pointer">
               <img
                 src={selectedImage?.public_thumbnail_uri}
-                alt={selectedImage?.description}
+                alt="Replacement"
                 style={IMAGE_STYLES}
-                className="w-44 h-44 object-cover p-1 rounded-lg shadow-lg"
+                className="w-44 h-44 object-cover  p-4 cursor-pointer transition duration-300 ease-in-out group-hover:filter group-hover:brightness-75 border rounded-lg    border-gray-100"
               />
-              <p className="mt-4">{selectedImage?.title}</p>
-            </div>
-            <div className="p-10 flex flex-col items-center mt-38">
-              <img
-                src={change}
-                alt={selectedImage?.description}
-                className="w-20 h-20 mt-20  "
-              />
-            </div>
-            <div className="p-8 flex flex-col items-center">
-              <img
-                src={selectedImage?.public_thumbnail_uri}
-                alt={selectedImage?.description}
-                style={IMAGE_STYLES}
-                className="w-44 h-44 object-cover p-1 rounded-lg shadow-lg "
-              />
-              <p className="mt-4">{selectedImage?.title}</p>
+              <p className="mt-2 font-bold">Replacement</p>{" "}
+              {/* Label for replacement image */}
+              {/* <p className="mt-2">
+                {selectedImage?.title.length > 30
+                  ? `${selectedImage?.title.substring(0, 10)}...`
+                  : selectedImage?.title}
+              </p> */}
             </div>
           </div>
           <Space className="mt-6 flex justify-center">
@@ -115,20 +133,27 @@ export default function FilesGallery({ open, setOpenModal }) {
               {images?.data?.images?.map((image) => (
                 <div
                   key={image.id}
-                  className="flex flex-col items-center relative group cursor-pointer"
+                  className="flex flex-col items-center relative group cursor-pointer shadow-inner "
                   onClick={() => handleImageSelect(image)} // Handle image selection
                 >
                   <img
-                    src={image.public_thumbnail_uri}
+                    src={
+                      image.public_thumbnail_uri ||
+                      "https://via.placeholder.com/200x300?text=Deprecated"
+                    }
                     alt={image.description}
-                    className="w-44 h-44 object-cover p-1 rounded-lg cursor-pointer transition duration-300 ease-in-out group-hover:filter group-hover:brightness-75 shadow-xl"
+                    className="w-48 h-48 object-cover  p-4 cursor-pointer transition duration-300 ease-in-out group-hover:filter group-hover:brightness-75 border rounded-lg    border-gray-100 "
                   />
                   <img
                     src={replace}
                     alt="replace"
                     className="w-28 h-28 object-cover absolute top-10 opacity-0 transition-opacity duration-300 ease-in-out group-hover:opacity-100"
                   />
-                  <p className="text-center">{image.title}</p>
+                  <p className="text-center">
+                    {image.title.length > 10
+                      ? `${image.title.substring(0, 15)}...`
+                      : image.title}
+                  </p>
                 </div>
               ))}
             </div>
