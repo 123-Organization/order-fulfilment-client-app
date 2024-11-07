@@ -23,7 +23,18 @@ const MyCompany: React.FC = () => {
   const [stateData, setStateData] = useState<SelectProps['options']>([]);
   const [countryCode, setCountryCode] = useState('us');
   const [stateCodeShort, setStateCodeShort] = useState<String | null>('');
-  const [companyAddress, setCompanyAddress] = useState({ last_name: "" });
+  const [companyAddress, setCompanyAddress] = useState({
+    country_code: 'US',
+    company_name: '',
+    first_name: '',
+    last_name: '',
+    address_1: '',
+    address_2: '',
+    city: '',
+    state_code: '',
+    zip_postal_code: '',
+    phone: ''
+  })
   const [stateCode, setStateCode] = useState<String | null>('');
   const [form] = Form.useForm();
   
@@ -66,7 +77,9 @@ const MyCompany: React.FC = () => {
     value.country_code = countryCode;
     value.state_code = countryCode==='us'?stateCodeShort:stateCode;
     // value.address_order_po="this is test";
-    
+    if(companyAddress.address_2 === ""){
+       value.address_2 = "";
+    } 
     
     console.log(`onValid `,value);
     let eveVal = Object.values(value).every(Boolean)
@@ -77,11 +90,11 @@ const MyCompany: React.FC = () => {
     const isFormValid = () => form.getFieldsError().some((item) => item.errors.length > 0)
     // https://github.com/ant-design/ant-design/issues/15674
     console.log('isFormValid',form.getFieldsError(),isFormValid())
-    if(eveVal && !isFormValid()){
-      // dispatch(updateCompanyInfo({business_info:value}))
-      dispatch(updateCompany({business_info:value}));
-    }
-
+    // if(eveVal && !isFormValid()){
+    //   // dispatch(updateCompanyInfo({business_info:value}))
+    //   dispatch(updateCompany({business_info:companyAddress}));
+    // }
+    dispatch(updateCompany({business_info:companyAddress}));
     return true;
 
   }
@@ -116,6 +129,17 @@ const MyCompany: React.FC = () => {
       }, 1000);
     }
   },[businessInfo]);
+
+  useEffect(() => {
+    if (businessInfo) {
+      setCompanyAddress(businessInfo);
+      form.setFieldsValue(businessInfo);
+    }
+  }, [businessInfo]);
+  const handleInputChange = (e, field) => {
+    const { value } = e.target;
+    setCompanyAddress((prev) => ({ ...prev, [field]: value }));
+  };
 
   const displayTurtles =  <Form
   form={form} 
@@ -157,12 +181,9 @@ const MyCompany: React.FC = () => {
         
           <Input 
             onBlur={onValid}
-            value={companyAddress?.company_name ? companyAddress?.company_name : businessInfo?.company_name}
+            value={companyAddress?.company_name }
             onChange={(e) =>
-              setCompanyAddress({
-                ...companyAddress,
-                ...{ company_name: e?.target?.value }
-              })
+              handleInputChange(e, 'company_name')
             }
             className='fw-input' />
           <label htmlFor="floating_outlined" className="fw-label">My Company Name</label>
@@ -181,12 +202,9 @@ const MyCompany: React.FC = () => {
         
           <Input 
             onBlur={onValid}  
-            value={companyAddress?.first_name ? companyAddress?.first_name : businessInfo?.first_name}
+            value={companyAddress?.first_name }
             onChange={(e) =>
-                setCompanyAddress({
-                  ...companyAddress,
-                  ...{ first_name: e?.target?.value }
-                })
+               handleInputChange(e, 'first_name')
             } 
             className='fw-input' 
           />
@@ -238,7 +256,7 @@ const MyCompany: React.FC = () => {
         </div>
       </Form.Item>
       <Form.Item 
-        rules={[{ required: true, message: 'Please enter your address line 2' }]}
+        rules={[{ required: false, message: 'Please enter your address line 2' }]}
         name="address_2"
         className='w-full sm:ml-[200px]'
       >
@@ -246,13 +264,10 @@ const MyCompany: React.FC = () => {
         
           <Input 
             onBlur={onValid}
-            value={companyAddress?.address_2 ? companyAddress?.address_2 : businessInfo?.address_2}
-            onChange={(e) =>
-                setCompanyAddress({
-                  ...companyAddress,
-                  ...{ address_2: e?.target?.value }
-                })
-            }
+            value={companyAddress?.address_2}
+            onChange={(e) => handleInputChange(e, 'address_2')}
+                
+            
             className='fw-input' 
           />
           <label htmlFor="floating_outlined" className="fw-label">Address Line 2</label>

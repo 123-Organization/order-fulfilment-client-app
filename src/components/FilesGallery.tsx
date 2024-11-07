@@ -139,7 +139,7 @@ export default function FilesGallery({
                 src={productImage}
                 alt="Original"
                 
-                className="m-2 min-h-[200px] cursor-pointer  max-w-[200px] p-4    object-contain  transition duration-300 ease-in-out group-hover:filter group-hover:brightness-75 border-gray-200  shadow-sm "
+                className="m-2 min-h-[200px] cursor-pointer shadow-slate-700   shadow-md  max-w-[200px] p-4    object-contain  transition duration-300 ease-in-out group-hover:filter group-hover:brightness-75   "
               />
               <p className="mt-2 font-bold">Original</p>{" "}
               {/* Label for original image */}
@@ -161,7 +161,7 @@ export default function FilesGallery({
                 src={selectedImage?.public_thumbnail_uri}
                 alt="Replacement"
                 
-                className="m-2 min-h-[200px] cursor-pointer  max-w-[200px] p-4    object-contain  transition duration-300 ease-in-out group-hover:filter group-hover:brightness-75 border-gray-200  shadow-sm "
+                className="m-2 min-h-[200px] cursor-pointer  max-w-[200px] p-4  border-gray-600  object-contain  transition duration-300 ease-in-out group-hover:filter group-hover:brightness-75 shadow-slate-700   shadow-md "
               />
               <p className="mt-2 font-bold">Replacement</p>{" "}
               {/* Label for replacement image */}
@@ -196,7 +196,7 @@ export default function FilesGallery({
                 {images?.data?.images?.map((image) => (
                   <div
                     key={image.id}
-                    className="flex flex-col items-center  group p-8 cursor-pointer shadow-inner hover:bg-gray-100 relative "
+                    className="flex flex-col items-center  group p-8 cursor-pointer border-2 rounded-lg shadow-lg   border-gray-100 hover:bg-gray-100 relative "
                     onClick={() => handleImageSelect(image)} // Handle image selection
                   >
                     <img
@@ -205,7 +205,7 @@ export default function FilesGallery({
                         "https://via.placeholder.com/200x300?text=Deprecated"
                       }
                       alt={image.description}
-                      className="m-2 min-h-[200px] cursor-pointer  max-w-[200px] p-1    object-contain  transition duration-300 ease-in-out group-hover:filter group-hover:brightness-75    "
+                      className="m-2 min-h-[200px] cursor-pointer  max-w-[200px] p-1  shadow-slate-700   shadow-lg  object-contain  transition duration-300 ease-in-out group-hover:filter group-hover:brightness-75    "
                     />
                     {/* <img
                      src={Pin}

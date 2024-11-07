@@ -90,6 +90,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const myCompanyInfoFilled = useAppSelector(
     (state) => state.order.myCompanyInfoFilled
   );
+  console.log("myCompanyInfoFilled", myCompanyInfoFilled);
 
   const myImport = useAppSelector((state) => state.order.myImport);
 
@@ -145,6 +146,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
       ) {
         setNextSpinning(true);
         dispatch(updateCompanyInfo(myCompanyInfoFilled));
+        navigate("/billingaddress");
       } else {
         alert("Billing info missing");
       }
@@ -325,10 +327,9 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
       location.pathname !== "/shippingpreference" &&
       location.pathname !== "/editorder" &&
       location.pathname !== "/importlist" &&
-      location.pathname !== "/importfilter"
+      location.pathname !== "/importfilter"&&
+      location.pathname !== "/mycompany"
     ) {
-      if (location.pathname === "/mycompany") navigate("/billingaddress");
-      if (location.pathname === "/billingaddress") navigate("/paymentaddress");
 
       // if (location.pathname === "/paymentaddress")
       //   navigate('/')
@@ -394,6 +395,13 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
     if (location.pathname === "/importlist" && checkedOrders.length) {
       setNextVisiable(true);
     } else if (location.pathname === "/importlist" && !checkedOrders.length) {
+      setNextVisiable(false);
+    }
+  }, [location.pathname, checkedOrders]);
+  useEffect(() => {
+    if (location.pathname === "/mycompany" && myCompanyInfoFilled) {
+      setNextVisiable(true);
+    } else if (location.pathname === "/mycompany" && !myCompanyInfoFilled) {
       setNextVisiable(false);
     }
   }, [location.pathname, checkedOrders]);
