@@ -64,7 +64,8 @@ const initialState: OrderState = {
   shipping_preferences: [],
   company_info: {},
   saveOrderInfo: {},
-  myCompanyInfoFilled: {},
+  myCompanyInfoFilled: {
+  },
   myBillingInfoFilled: {},
   myImport: {},
   createCustomerInfo: {},
@@ -438,8 +439,8 @@ export const getInventoryImages = createAsyncThunk(
     console.log('cookie...', document.cookie.split('AccountGUID='))
     const updatedPostData = {
       libraryName: args.library,
-      librarySessionId: "81de5dba-0300-4988-a1cb-df97dfa4e372",
-      libraryAccountKey:"81de5dba-0300-4988-a1cb-df97dfa4e372" ,
+      librarySessionId: document.cookie.split('Session=')[1].split(';')[0],
+      libraryAccountKey: document.cookie.split('AccountGUID=')[1].split(';')[0] ,
       librarySiteId: "2",
       filterSearchFilter: "",
       filterPageNumber: args.Page ? args.Page : "1",
@@ -486,6 +487,7 @@ export const OrderSlice = createSlice({
       });
     },
     updateCompany: (state, action: PayloadAction) => {
+      console.log('updateCompanyAction', state)
       state.myCompanyInfoFilled = action.payload;
     },
     updateBilling: (state, action: PayloadAction) => {
