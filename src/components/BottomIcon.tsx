@@ -399,12 +399,12 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
     }
   }, [location.pathname, checkedOrders]);
   useEffect(() => {
-    if (location.pathname === "/mycompany" && Object.keys(myCompanyInfoFilled.validFields).length === 0) {
+    if (location.pathname === "/mycompany" && Object?.keys(myCompanyInfoFilled?.validFields).length === 0) {
       setNextVisiable(true);
     } else {
       setNextVisiable(false);
     }
-  }, [location.pathname, checkedOrders, myCompanyInfoFilled.validFields]);
+  }, [location.pathname, checkedOrders, myCompanyInfoFilled?.validFields]);
   
 
   return isLoadingImgDelete ? (
