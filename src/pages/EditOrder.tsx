@@ -20,6 +20,7 @@ import UpdatePopup from "../components/UpdatePopup";
 import style from "./Pgaes.module.css";
 import { get } from "http";
 import FilesGallery from "../components/FilesGallery";
+import NewOrder from "../components/NewOrder";
 
 type productType = {
   name?: string; // Optional because not all entries have 'name'
@@ -38,6 +39,7 @@ type SizeType = Parameters<typeof Form>[0]["size"];
 const EditOrder: React.FC = () => {
   const [openModal, setOpenModal] = useState(false);
   const [popupVisible, setPopupVisible] = useState(false);
+  const [PostModalVisible, setPostModalVisible] = useState(false);
   const [UpdatePopupVisible, setUpdatePopupVisible] = useState(false);
   const [productCode, setProductCode] = useState(false);
   const navigate = useNavigate();
@@ -56,7 +58,7 @@ const EditOrder: React.FC = () => {
     {
       name: "Create New",
       value: "/NewProduct",
-      options: () => navigate("/NewProduct"),
+      options: () => setPostModalVisible(true),
     },
     {
       name: "Enter Product code",
@@ -448,6 +450,7 @@ const EditOrder: React.FC = () => {
                       </Button>
                     )}
                     <FilesGallery open={openModal} setOpenModal={setOpenModal} productImage={productData[item.product_sku]?.image_url_1}/>
+                    <NewOrder iframe={PostModalVisible} setIframe={setPostModalVisible} />
                   </div>
                   <div className=" text-sm w-40 text-right mt-8">
                     ${product_details[0]?.per_item_price}
