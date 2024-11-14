@@ -81,8 +81,8 @@ const ImportList: React.FC = () => {
         ?.flat();
 
       const ProductDetails = orders?.data?.flatMap((order) =>
-        order.orders.flatMap((el) =>
-          el.order_items.map((item) => ({
+        order.orders?.flatMap((el) =>
+          el.order_items?.map((item) => ({
             order_po: el.order_po,
             product_sku: item.product_sku, // One product SKU per object
             product_qty: item.product_qty, // Corresponding quantity

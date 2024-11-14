@@ -440,7 +440,7 @@ export const getInventoryImages = createAsyncThunk(
     const updatedPostData = {
       libraryName: args.library,
       librarySessionId: document.cookie.split('Session=')[1].split(';')[0],
-      libraryAccountKey: document.cookie.split('AccountGUID=')[1].split(';')[0] ,
+      libraryAccountKey: document.cookie.split('AccountGUID=')[1].split(';')[0],
       librarySiteId: "2",
       filterSearchFilter: "",
       filterPageNumber: args.Page ? args.Page : "1",
