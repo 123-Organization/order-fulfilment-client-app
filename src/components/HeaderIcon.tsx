@@ -20,6 +20,7 @@ import { useNavigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import FileManagementIframe from "./FileManagmentIframe";
 import UserAvatar from "./UserAvatar";
+import NewOrder from "./NewOrder";
 
 import finerWorks from "../assets/images/finerworks_logo_icon.49c0d41a2f19011aa3ea27c47041d2ff.svg";
 // import UploadFileModal from "./UploadFileModal";
@@ -52,6 +53,7 @@ type HeaderIconProps = {
 const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
   const location = useLocation();
   const [openModal, setOpenModal] = useState(false);
+  const [openModal1, setOpenModal1] = useState(false);
   const [open, setOpen] = useState(false);
   const [openDash, setDash] = useState(true);
   const [spinLoader, setSpinLoader] = useState(false);

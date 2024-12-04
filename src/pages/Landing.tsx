@@ -258,7 +258,7 @@ const Landing: React.FC = (): JSX.Element => {
   const displayTurtles = images.map((image) => (
     <div className="flex w-1/3 max-sm:w-1/2 max-[400px]:w-full flex-wrap">
       <div
-        className="w-full   md:p-2 flex flex-col items-center"
+        className="w-full   md:p-2 flex flex-col items-center "
         onClick={() => importData(image.name)}
       >
         {
@@ -268,7 +268,7 @@ const Landing: React.FC = (): JSX.Element => {
         </Tag>
         }
         <img
-          className="block h-[100px] w-[100px] border-2 cursor-pointer rounded-lg object-cover object-center"
+          className={`block h-[100px] w-[100px] border-2 cursor-pointer rounded-lg object-cover object-center ${image.name === "WooCommerce" ? "grayscale-100": "grayscale"}`}
           src={image.img}
         />
         <p className="text-center pt-2 font-bold text-gray-400">{image.name}</p>

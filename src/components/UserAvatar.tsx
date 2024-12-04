@@ -9,6 +9,7 @@ import email from "../../src/assets/images/email-svgrepo-com.svg";
 import user_icon from "../../src/assets/images/user-svgrepo-com.svg";
 import log_out from "../../src/assets/images/logout-svgrepo-com.svg";
 import { UserOutlined } from "@ant-design/icons";
+import { persistor } from "../store";
 
 const ColorList = ["#f56a00", "#7265e6", "#ffbf00", "#00a2ae"];
 
@@ -68,6 +69,7 @@ export default function UserAvatar() {
           rel="noopener noreferrer"
           href="https://finerworks.com/login.aspx?mode=logout"
           className="flex gap-1 text-sm font-mono"
+          onClick={() => {persistor.purge()}}
         >
           <img className="text-black" src={log_out} width={18} alt="credit" />
           Log out
@@ -100,7 +102,7 @@ export default function UserAvatar() {
       setUser(customer_info?.data?.account_username[0]);
       setColor(ColorList[Math.floor(Math.random() * 3)]);
     }
-  }, [cookies.AccountGUID, dispatch]);
+  }, [cookies.AccountGUID, dispatch, customer_info?.data?.account_username]);
 
   return (
     <>

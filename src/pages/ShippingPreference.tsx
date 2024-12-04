@@ -1,40 +1,61 @@
 import React, { useState, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "../store";
-import { Checkbox, Form, Input, Select, Tabs, Radio, Space } from "antd";
+import { Checkbox, Form, Input, Select, Tabs, Radio, Space,notification } from "antd";
 import { updateCompanyInfo, updateShipping } from "../store/features/orderSlice";
 import type { TabsProps } from "antd";
 import ShippingPreferencesOption from "../components/ShippingPreferencesOption";
 import { updateLanguageServiceSourceFile } from "typescript";
+
+type NotificationType = "success" | "info" | "warning" | "error";
+interface NotificationAlertProps {
+  type: NotificationType;
+  message: string;
+  description: string;
+}
 
 const onChange = (key: string) => {
   console.log(key);
 };
 
 const ShippingPreference: React.FC = () => {
-  const [componentSize, setComponentSize] = useState<SizeType | "default">(
-    "default"
-  );
+  const [isFirstRender, setIsFirstRender] = useState(true);
+
+  const openNotificationWithIcon = ({
+    type,
+    message,
+    description,
+  }: NotificationAlertProps) => {
+    notification[type]({
+      message,
+      description,
+    });
+  };
 
   const dispatch = useAppDispatch();
   const ecommerceConnectorInfo = useAppSelector(
     (state) => state.order.ecommerceConnectorInfo
   );
-  console.log("ecommerceConnectorInfo", ecommerceConnectorInfo);
-  const [selectedPreferences, setSelectedPreferences] = useState<string[]>([1,1,1]);
+  const [selectedPreferences, setSelectedPreferences] = useState<string[]>([1, 1, 1]);
 
   useEffect(() => {
+    if (isFirstRender) {
+      setIsFirstRender(false); // Set to false after the first render
+      return; // Exit early on the first render
+    }
+
     if (selectedPreferences.length > 0) {
       dispatch(
         updateShipping({
-          shipping_preferences:[
-            ...selectedPreferences
-          ,
-        ]
+          shipping_preferences: [...selectedPreferences],
         })
       );
+      openNotificationWithIcon({
+        type: "success",
+        message: "Shipping Preferences Updated",
+        description: "Your shipping preferences have been updated successfully.",
+      });
     }
-    console.log("selectedPreferences", selectedPreferences);
-  }, [ecommerceConnectorInfo, selectedPreferences]);
+  }, [selectedPreferences, dispatch]); // Removed ecommerceConnectorInfo if unnecessary
 
   const handlePreferenceChange = (preference: string, index: number) => {
     const updatedPreferences = [...selectedPreferences];

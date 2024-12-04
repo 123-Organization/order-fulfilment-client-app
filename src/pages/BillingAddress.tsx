@@ -25,11 +25,11 @@ const BillingAddress: React.FC = () => {
     "default"
   );
   const [stateData, setStateData] = useState<SelectProps["options"]>([]);
+  const [form1] = Form.useForm();
   const [stateCode, setStateCode] = useState("");
   const [stateCodeShort, setStateCodeShort] = useState<string | null>("");
-  const [form1] = Form.useForm();
   const dispatch = useAppDispatch();
-
+console.log(stateCode, stateCodeShort)
   const businessInfo = useAppSelector(
     (state) => state.order?.company_info?.data?.business_info 
   );
@@ -78,13 +78,15 @@ const BillingAddress: React.FC = () => {
 
     setStateData(data);
   };
+  //update state_code on commponent mount 
+  
+
 
   const onValid = () => {
     // form1.resetFields();
     let value = form1.getFieldsValue();
     value.country_code = countryCode;
-    value.state_code = countryCode === "us" ? stateCodeShort : stateCode;
-    // value.address_order_po="this is test";
+    value.state_code = countryCode === "us" ? stateCodeShort  : stateCode;
     //https://dev.to/bayusyaits/using-antd-and-react-for-editable-cells-implementation-and-table-2b5m
 
     console.log(`onValid `, value);
@@ -99,20 +101,7 @@ const BillingAddress: React.FC = () => {
     // const isFormValid = () => form1.getFieldsError().some((item) => item.errors.length > 0)
     // https://github.com/ant-design/ant-design/issues/15674
     // console.log('isFormValid',form1.getFieldsError(),isFormValid(),valid)
-    if (eveVal) {
-      // let valid = form1.validateFields();
-      form1
-        .validateFields()
-        .then(() => {
-          // do whatever you need to
-          dispatch(updateBilling({ billing_info: value }));
-        })
-        .catch((err) => {
-          console.log(err);
-        });
-      // console.log('isFormValid',valid)
-      // dispatch(updateCompany({billing_info:value}));
-    }
+    dispatch(updateBilling({ billing_info: value, }));
 
     // return true;
   };
@@ -150,7 +139,7 @@ const BillingAddress: React.FC = () => {
         );
       }, 1000);
     }
-  }, [billingInfo]);
+  }, [billingInfo ]);
 
   const displayTurtles = (
     <Form
@@ -305,7 +294,7 @@ const BillingAddress: React.FC = () => {
       </Form.Item>
       <Form.Item
         rules={[
-          { required: true, message: "Please enter your Address Line 2!" }
+          { required: false, message: "Please enter your Address Line 2!" }
         ]}
         name="address_2"
         className="w-full sm:ml-[200px]"
@@ -370,7 +359,7 @@ const BillingAddress: React.FC = () => {
             options={stateData}
             value={
               copyCompanyAddress 
-                ? convertUsStateAbbrAndName(businessInfo?.state_code)
+                ? setStateCodeShort(convertUsStateAbbrAndName(billingInfo?.state_code))
                 : stateCode && (stateCode)
             }
           >

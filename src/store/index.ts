@@ -16,7 +16,7 @@ const rootReducer = combineReducers({
   order: OrderSlice.reducer,
 });
 
-// Create a persisted reducer
+// Create a reducer
 const persistedReducer = persistReducer(persistConfig, rootReducer);
 
 // Configure the store with the persisted reducer

@@ -5,7 +5,7 @@ import { remove, find } from "lodash";
 import { click } from "@testing-library/user-event/dist/click";
 // https://github.com/vahid-nejad/redux-toolkit-example/blob/master/src/components/Add.tsx
 const BASE_URL = config.SERVER_BASE_URL;
-const ECOMMERCE_CONNCET_URL = "https://artsafenet.com/wp-json/finerworks-media/v1/";
+const ECOMMERCE_CONNCET_URL = "https://artsafenet.com/wp-json/finerworks-med/";
 const TEST_BASE_URL = "prod3-api.finerworks.com/api/";
 
 
@@ -23,6 +23,7 @@ interface IFileExport {
 interface OrderState {
   orders: any;
   product_details: any;
+  updatedValues: any;
   company_info: any;
   myCompanyInfoFilled: any;
   myBillingInfoFilled: any;
@@ -58,6 +59,7 @@ const referrer: IFileExport = {
 
 const initialState: OrderState = {
   orders: [],
+  updatedValues: [],
   product_details: [],
   shippingOptions: [],
   checkedOrders: [],
@@ -99,6 +101,8 @@ export const fetchOrder = createAsyncThunk(
       body: JSON.stringify({ accountId })
     });
     const data = response.json();
+
+    console.log('data...', data)
     return data;
   },
 );
@@ -472,6 +476,29 @@ export const getInventoryImages = createAsyncThunk(
   },
 );
 
+export const updateOrdersInfo = createAsyncThunk(
+  "order/update",
+  async (postData: any, thunkAPI) => {
+    const Data = {
+      "accountId": "1556",
+      "orders":
+        [postData]
+    }
+
+
+
+    const response = await fetch(BASE_URL + "update-orders", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(Data),
+    });
+    const data = await response.json();
+    return data;
+  },
+);
+
 
 
 
@@ -489,6 +516,9 @@ export const OrderSlice = createSlice({
     updateCompany: (state, action: PayloadAction) => {
       console.log('updateCompanyAction', state)
       state.myCompanyInfoFilled = action.payload;
+    },
+    setUpdatedValues: (state, action: PayloadAction) => {
+      state.updatedValues = action.payload;
     },
     updateBilling: (state, action: PayloadAction) => {
       state.myBillingInfoFilled = action.payload;
@@ -527,6 +557,10 @@ export const OrderSlice = createSlice({
     builder.addCase(fetchOrder.fulfilled, (state, action) => {
       state.orders = action.payload;
     });
+    builder.addCase(updateOrdersInfo.fulfilled, (state, action) => {
+      state.orders = action.payload;
+    }
+    );
 
     builder.addCase(fetchShippingOption.fulfilled, (state, action) => {
       state.shippingOptions.push(action.payload.data);
@@ -603,4 +637,4 @@ export const OrderSlice = createSlice({
 });
 
 export default OrderSlice.reducer;
-export const { addOrder, updateCompany, updateBilling, updateImport, inventorySelectionUpdate, inventorySelectionDelete, inventorySelectionClean, updateShipping, updateCheckedOrders, updateOrderStatus } = OrderSlice.actions;
+export const { addOrder, updateCompany, updateBilling, updateImport, inventorySelectionUpdate, inventorySelectionDelete, inventorySelectionClean, updateShipping, updateCheckedOrders, updateOrderStatus, setUpdatedValues } = OrderSlice.actions;

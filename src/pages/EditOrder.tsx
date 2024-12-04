@@ -21,6 +21,7 @@ import style from "./Pgaes.module.css";
 import { get } from "http";
 import FilesGallery from "../components/FilesGallery";
 import NewOrder from "../components/NewOrder";
+import { setUpdatedValues } from "../store/features/orderSlice";
 
 type productType = {
   name?: string; // Optional because not all entries have 'name'
@@ -45,8 +46,11 @@ const EditOrder: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
+  const updatedValues = useAppSelector((state) => state.order.updatedValues) || {};
+  console.log("updatedValues", updatedValues);
   const { order } = location.state || {};
-  const { order_items, order_key, order_status, recipient } = order.orders[0] || {};
+  console.log("order", order);
+  const { order_items, order_key, order_status, recipient } = order|| {};
 
   const InventoryImages = useAppSelector((state) => state.order.inventoryImages) || [];
 
@@ -94,7 +98,7 @@ const EditOrder: React.FC = () => {
   const initialValues = React.useMemo(
     () => ({
       country_code: order?.country_code || "US",
-      company_name: order?.company_name || "",
+      company_name: recipient?.company_name || "",
       first_name: recipient?.first_name || "",
       last_name: recipient?.last_name || "",
       address_1: recipient?.address_1 || "",
@@ -126,8 +130,8 @@ const EditOrder: React.FC = () => {
 
   useEffect(() => {
     if (order) {
-      const orderPostData1 = order?.orders[0].order_items?.map((item) => ({
-        order_po: order.orders[0].order_po,
+      const orderPostData1 = order?.order_items?.map((item) => ({
+        order_po: order.order_po,
         product_sku: item.product_sku, // One product SKU per object
         product_qty: item.product_qty, // Corresponding quantity
       }));
@@ -160,6 +164,16 @@ const EditOrder: React.FC = () => {
       ...prev,
       ...changedValues,
     }));
+    
+    const updatedOrder = {
+      ...order,
+      recipient: {
+        ...allValues,
+        ...changedValues, // Include only the updated recipient fields
+      },
+    };
+    
+    dispatch(setUpdatedValues(updatedOrder));
     setIsModified(hasChanged);
   };
 
@@ -376,7 +390,7 @@ const EditOrder: React.FC = () => {
       <div className="w-1/2 max-md:w-full flex flex-col justify-start md:border-r-2  max-md:border-b-2 max-md:pb-6  items-center h-[800px] max-md:h-auto">
         <div className={`text-left w-full px-4 text-gray-400 pt-4 ${style.inner_card}`}>
           <p className="text-lg pb-4 text-gray-400  font-bold">Cart</p>
-          {order?.orders[0].order_items?.map((item) => (
+          {order?.order_items?.map((item) => (
             <label className="h-[200px] mt-2 hover:border-gray-500 max-md:h-auto inline-flex  justify-between w-full px-3 text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700">
               <div className="block relative pb-4 w-full">
                 <div className="justify-around  pt-4  rounded-lg flex">

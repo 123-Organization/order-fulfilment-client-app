@@ -10,9 +10,11 @@ import {
   saveOrder,
   listVirtualInventory,
   updateOrderStatus,
+  updateOrdersInfo,
 } from "../store/features/orderSlice";
 import ShippingPreference from "../pages/ShippingPreference";
 import UpdatePopup from "./UpdatePopup";
+import { loadavg } from "os";
 
 type NotificationType = "success" | "info" | "warning" | "error";
 interface NotificationAlertProps {
@@ -50,7 +52,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   let listVirtualInventoryDataCount = useAppSelector(
     (state) => state.order.listVirtualInventory?.count
   );
-
+const updatedValues = useAppSelector((state) => state.order.updatedValues);
   const { shipping_preferences } = useAppSelector(
     (state) => state.order.shipping_preferences
   );
@@ -99,6 +101,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const myBillingInfoFilled = useAppSelector(
     (state) => state.order.myBillingInfoFilled
   );
+  console.log("myBillingInfoFilled", myBillingInfoFilled);
 
   const companyInfo = useAppSelector((state) => state.order.company_info);
 
@@ -192,13 +195,14 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
       } else {
         alert("Shipping info missing");
       }
-      navigate("/");
+      navigate("/checkout");
     }
     if (location.pathname === "/importlist" && checkedOrders.length) {
       navigate("/checkout");
     }
     if (location.pathname === "/editorder" && orderEdited.clicked === false) {
       dispatch(updateOrderStatus({ status: true, clicked: true }));
+      dispatch(updateOrdersInfo(updatedValues));
     }
     // alert("next");
     // navigate('/BillingAddress')
@@ -328,7 +332,8 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
       location.pathname !== "/editorder" &&
       location.pathname !== "/importlist" &&
       location.pathname !== "/importfilter"&&
-      location.pathname !== "/mycompany"
+      location.pathname !== "/mycompany"&&
+      location.pathname !== "/billingaddress"
     ) {
 
       // if (location.pathname === "/paymentaddress")
@@ -357,23 +362,19 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
     }
   }, []);
 
+  console.log("next",nextVisiable)
   console.log("orders", orders);
   useEffect(() => {
     if (orders && checkedOrders) {
       let newTotalPrice = 0;
 
       checkedOrders?.forEach((order) => {
-        orders?.data?.map((el)=>{
-          const product = el?.orders?.find(
+        const product = orders?.data?.find(
           (product) => product?.order_po == order?.order_po
-          
         );
         if (product) {
           newTotalPrice += order.Product_price;
         }
-        })
-        
-        
       });
       setGrandtotal(newTotalPrice);
       console.log("Remaining Total Price", newTotalPrice);
@@ -390,16 +391,22 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
       setNextVisiable(false);
     }
   }, [location.pathname, product_details, orderEdited]);
-
   useEffect(() => {
-    if (location.pathname === "/importlist" && checkedOrders.length) {
+    if (location.pathname ==="/importlist" && checkedOrders.length) {
       setNextVisiable(true);
     } else if (location.pathname === "/importlist" && !checkedOrders.length) {
       setNextVisiable(false);
     }
-  }, [location.pathname, checkedOrders]);
+  }, [location.pathname, checkedOrders ]);
   useEffect(() => {
     if (location.pathname === "/mycompany" && myCompanyInfoFilled?.validFields && Object.keys(myCompanyInfoFilled.validFields).length === 0) {
+      setNextVisiable(true);
+    } else {
+      setNextVisiable(false);
+    }
+  }, [location.pathname, checkedOrders, myCompanyInfoFilled?.validFields]);
+  useEffect(() => {
+    if (location.pathname === "/billingaddress") {
       setNextVisiable(true);
     } else {
       setNextVisiable(false);
