@@ -401,14 +401,15 @@ const updatedValues = useAppSelector((state) => state.order.updatedValues);
   useEffect(() => {
     if (location.pathname === "/mycompany" && myCompanyInfoFilled?.validFields && Object.keys(myCompanyInfoFilled.validFields).length === 0) {
       setNextVisiable(true);
-    } else {
+  
+    } else if (location.pathname === "/mycompany" && !myCompanyInfoFilled.validFields) {
       setNextVisiable(false);
     }
   }, [location.pathname, checkedOrders, myCompanyInfoFilled?.validFields]);
   useEffect(() => {
     if (location.pathname === "/billingaddress") {
       setNextVisiable(true);
-    } else {
+    } else if (location.pathname === "/billingaddress" && !myBillingInfoFilled.billing_info) {
       setNextVisiable(false);
     }
   }, [location.pathname, checkedOrders, myCompanyInfoFilled?.validFields]);
