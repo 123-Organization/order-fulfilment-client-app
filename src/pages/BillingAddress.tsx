@@ -8,6 +8,7 @@ import type { CheckboxProps } from "antd";
 import { useAppDispatch, useAppSelector } from "../store";
 import { updateBilling } from "../store/features/orderSlice";
 import convertUsStateAbbrAndName from "../services/state";
+import { on } from "events";
 
 const countryList = require("../json/country.json");
 
@@ -87,8 +88,9 @@ console.log(stateCode, stateCodeShort)
     const values = form1.getFieldsValue();
     const normalizedStateCode =
       countryCode === "us"
-        ? convertUsStateAbbrAndName(values.state_code || stateCodeShort)
+        ? stateCodeShort
         : stateCode;
+        console.log("normalizedStateCode", normalizedStateCode);
   
     const payload = {
       ...values,
@@ -97,7 +99,12 @@ console.log(stateCode, stateCodeShort)
     };
   
     console.log("Payload to dispatch:", payload);
-  
+    form1.validateFields.then = (values) => {
+      console.log("values", values);
+    }
+
+
+
     if (Object.values(payload).every(Boolean)) {
       dispatch(updateBilling({ billing_info: payload }));
     } else {
@@ -129,11 +136,11 @@ console.log(stateCode, stateCodeShort)
       console.log("effect countryCode", billingInfo?.country_code);
       onChange(billingInfo?.country_code); // Update country
       setStates(billingInfo?.country_code);
-      const stateCodeNormalized = convertUsStateAbbrAndName(billingInfo?.state_code);
       setStateCode(billingInfo?.state_code?.toLowerCase());
-      setStateCodeShort(stateCodeNormalized);
+      setStateCodeShort( billingInfo?.state_code);
+      console.log("stateCode", stateCode, stateCodeShort);
       setCompanyAddress(billingInfo); // Load states for the country
-  
+      dispatch(updateBilling ({ billing_info: billingInfo }));
       setTimeout(() => {
        
         form1.setFieldsValue({
@@ -141,7 +148,27 @@ console.log(stateCode, stateCodeShort)
         });
       }, 1000);
     }
-  }, [billingInfo]);
+  }, [billingInfo, onchange, stateCode, stateCodeShort, form1]);
+
+  const handleInputChange = (e, field) => {
+    const { value } = e?.target || "";
+    setCompanyAddress((prev) => ({ ...prev, [field]: value }));
+    form1.setFieldsValue({ [field]: value });
+   form1.validateFields().then(() => {
+
+    dispatch(updateBilling({ billing_info: { ...companyAddress } }));
+    }).catch((errorInfo) => {
+
+      const errors = errorInfo.errorFields.reduce((acc, field) => {
+        acc[field.name[0]] = field.errors;
+        return acc;
+      }, {});
+      dispatch(updateBilling({ billing_info: { ...companyAddress },  validFields: errors }));
+    }
+    );
+  
+    
+  };
   
 
   const displayTurtles = (
@@ -184,10 +211,7 @@ console.log(stateCode, stateCodeShort)
           <Input
             onBlur={onValid}
             onChange={(e) =>
-              setCompanyAddress({
-                ...companyAddress,
-                ...{ company_name: e?.target?.value }
-              })
+              handleInputChange(e, "company_name")
             }
             value={copyCompanyAddress ? businessInfo?.company_name : companyAddress?.company_name}
             className="fw-input"
@@ -216,10 +240,7 @@ console.log(stateCode, stateCodeShort)
           <Input
             onBlur={onValid}
             onChange={(e) =>
-              setCompanyAddress({
-                ...companyAddress,
-                ...{ first_name: e?.target?.value }
-              })
+             handleInputChange(e, "first_name")
             }
             value={copyCompanyAddress ? businessInfo?.first_name : companyAddress?.first_name}
             className="fw-input"
@@ -250,10 +271,7 @@ console.log(stateCode, stateCodeShort)
           <Input
             onBlur={onValid}
             onChange={(e) =>
-              setCompanyAddress({
-                ...companyAddress,
-                ...{ last_name: e?.target?.value }
-              })
+              handleInputChange(e, "last_name")
             }
             value={
               copyCompanyAddress 
@@ -278,10 +296,7 @@ console.log(stateCode, stateCodeShort)
           <Input
             onBlur={onValid}
             onChange={(e) =>
-              setCompanyAddress({
-                ...companyAddress,
-                ...{ address_1: e?.target?.value }
-              })
+              handleInputChange(e, "address_1")
             }
             value={
                 copyCompanyAddress 
@@ -306,10 +321,7 @@ console.log(stateCode, stateCodeShort)
           <Input
             onBlur={onValid}
             onChange={(e) =>
-              setCompanyAddress({
-                ...companyAddress,
-                ...{ address_2: e?.target?.value }
-              })
+              handleInputChange(e, "address_2")
             }
             value={
               copyCompanyAddress 
@@ -332,10 +344,8 @@ console.log(stateCode, stateCodeShort)
           <Input
             onBlur={onValid}
             onChange={(e) =>
-              setCompanyAddress({
-                ...companyAddress,
-                ...{ city: e?.target?.value }
-              })
+              
+              handleInputChange(e, "city")
             }
             value={copyCompanyAddress  ? businessInfo?.city : companyAddress?.city}
             className="fw-input"
@@ -385,10 +395,7 @@ console.log(stateCode, stateCodeShort)
             type="number"
             onBlur={onValid}
             onChange={(e) =>
-              setCompanyAddress({
-                ...companyAddress,
-                ...{ zip_postal_code: e?.target?.value }
-              })
+              handleInputChange(e, "zip_postal_code")
             }
             value={copyCompanyAddress  ? businessInfo?.zip_postal_code : companyAddress?.zip_postal_code}
             className="fw-input"
@@ -416,10 +423,7 @@ console.log(stateCode, stateCodeShort)
             value={copyCompanyAddress  ? businessInfo?.phone : companyAddress?.phone}
             onBlur={onValid}
             onChange={(e) =>
-              setCompanyAddress({
-                ...companyAddress,
-                ...{ phone: e?.target?.value }
-              })
+              handleInputChange(e, "phone")
             }
             className="fw-input"
           />

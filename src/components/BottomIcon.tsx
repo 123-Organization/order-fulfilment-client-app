@@ -52,7 +52,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   let listVirtualInventoryDataCount = useAppSelector(
     (state) => state.order.listVirtualInventory?.count
   );
-const updatedValues = useAppSelector((state) => state.order.updatedValues);
+  const updatedValues = useAppSelector((state) => state.order.updatedValues);
   const { shipping_preferences } = useAppSelector(
     (state) => state.order.shipping_preferences
   );
@@ -82,7 +82,7 @@ const updatedValues = useAppSelector((state) => state.order.updatedValues);
   };
 
   const pathNameAvoidBackButton = [
-    "/mycompany",
+    // "/mycompany",
     "/virtualinventory",
     "/importfilter",
     "/paymentaddress",
@@ -331,11 +331,10 @@ const updatedValues = useAppSelector((state) => state.order.updatedValues);
       location.pathname !== "/shippingpreference" &&
       location.pathname !== "/editorder" &&
       location.pathname !== "/importlist" &&
-      location.pathname !== "/importfilter"&&
-      location.pathname !== "/mycompany"&&
+      location.pathname !== "/importfilter" &&
+      location.pathname !== "/mycompany" &&
       location.pathname !== "/billingaddress"
     ) {
-
       // if (location.pathname === "/paymentaddress")
       //   navigate('/')
       setNextSpinning(false);
@@ -362,7 +361,7 @@ const updatedValues = useAppSelector((state) => state.order.updatedValues);
     }
   }, []);
 
-  console.log("next",nextVisiable)
+  console.log("next", nextVisiable);
   console.log("orders", orders);
   useEffect(() => {
     if (orders && checkedOrders) {
@@ -389,28 +388,48 @@ const updatedValues = useAppSelector((state) => state.order.updatedValues);
     }
   }, [location.pathname, orderEdited.status]);
   useEffect(() => {
-    if (location.pathname ==="/importlist" && checkedOrders.length) {
+    if (location.pathname === "/importlist" && checkedOrders.length) {
       setNextVisiable(true);
     } else if (location.pathname === "/importlist" && !checkedOrders.length) {
       setNextVisiable(false);
     }
-  }, [location.pathname, checkedOrders ]);
+  }, [location.pathname, checkedOrders]);
+
   useEffect(() => {
-    if (location.pathname === "/mycompany" && myCompanyInfoFilled?.validFields && Object.keys(myCompanyInfoFilled.validFields).length === 0) {
+    if (
+      location.pathname === "/mycompany" &&
+      myCompanyInfoFilled?.validFields &&
+      Object?.keys(myCompanyInfoFilled?.validFields)?.length === 0
+    ) {
       setNextVisiable(true);
-  
-    } else if (location.pathname === "/mycompany" && !myCompanyInfoFilled.validFields) {
+    } else if (
+      location.pathname === "/mycompany" &&
+      myCompanyInfoFilled?.validFields &&
+      Object?.keys(myCompanyInfoFilled?.validFields)?.length > 0
+    ) {
       setNextVisiable(false);
     }
-  }, [location.pathname,  myCompanyInfoFilled?.validFields]);
+  }, [location.pathname, myCompanyInfoFilled?.validFields]);
+
   useEffect(() => {
-    if (location.pathname === "/billingaddress") {
+    if (
+      location.pathname === "/billingaddress" &&
+      myBillingInfoFilled?.validFields &&
+      Object?.keys(myBillingInfoFilled?.validFields)?.length === 0
+    ) {
       setNextVisiable(true);
-    } else if (location.pathname === "/billingaddress" && !myBillingInfoFilled.billing_info) {
+    } else if (
+      location.pathname === "/billingaddress" &&
+      myBillingInfoFilled?.validFields &&
+      Object?.keys(myBillingInfoFilled?.validFields)?.length > 0
+    ) {
       setNextVisiable(false);
     }
-  }, [location.pathname, checkedOrders, myCompanyInfoFilled?.validFields]);
-  
+  }, [
+    location.pathname,
+    myBillingInfoFilled.billing_info,
+    myBillingInfoFilled?.validFields,
+  ]);
 
   return isLoadingImgDelete ? (
     <div className="pt-5 pb-2">
@@ -496,8 +515,7 @@ const updatedValues = useAppSelector((state) => state.order.updatedValues);
           {totalVisiable && (
             <div className="flex flex-col font-bold text-gray-400 pt-2">
               <span>
-                Selected orders: {checkedOrders.length} /
-                {orders?.data?.length}
+                Selected orders: {checkedOrders.length} /{orders?.data?.length}
               </span>
               <span>
                 Grand Total :{" "}
