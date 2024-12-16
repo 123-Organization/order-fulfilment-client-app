@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Button, Form, Input, Select } from "antd";
-import { useNavigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import shoppingCart from "../assets/images/shopping-cart-228.svg";
 import uploadYourLogo from "../assets/images/upload-your-logo.svg";
 import { getStates } from "country-state-picker";
@@ -14,7 +14,11 @@ import {
   fetchProductDetails,
   getInventoryImages,
   updateOrderStatus,
+  updateOrdersInfo,
+  fetchOrder,
+  fetchSingleOrderDetails,
 } from "../store/features/orderSlice";
+import {  persistor } from "../store"; 
 import UpdateButton from "../components/UpdateButton";
 import UpdatePopup from "../components/UpdatePopup";
 import style from "./Pgaes.module.css";
@@ -22,6 +26,7 @@ import { get } from "http";
 import FilesGallery from "../components/FilesGallery";
 import NewOrder from "../components/NewOrder";
 import { setUpdatedValues } from "../store/features/orderSlice";
+import DeleteMessage from "../components/DeleteMessage";
 
 type productType = {
   name?: string; // Optional because not all entries have 'name'
@@ -42,20 +47,29 @@ const EditOrder: React.FC = () => {
   const [popupVisible, setPopupVisible] = useState(false);
   const [PostModalVisible, setPostModalVisible] = useState(false);
   const [UpdatePopupVisible, setUpdatePopupVisible] = useState(false);
+  const [DeleteMessageVisible, setDeleteMessageVisible] = useState(false);
   const [productCode, setProductCode] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
   const updatedValues = useAppSelector((state) => state.order.updatedValues) || {};
+  const orders = useAppSelector((state) => state.order.orders);
   console.log("updatedValues", updatedValues);
-  const { order } = location.state || {};
-  console.log("order", order);
+const orderData = useAppSelector((state) => state.order.order) || {};
+const order = orderData.data ? orderData.data[0] : {};
+const { id } = useParams<{ orderFullFillmentId: string }>();
+
   const { order_items, order_key, order_status, recipient } = order|| {};
 
   const InventoryImages = useAppSelector((state) => state.order.inventoryImages) || [];
 
   console.log("InventoryImages", InventoryImages);
 
+useEffect(() => {
+
+ dispatch(fetchSingleOrderDetails({ accountId: "1556", orderFullFillmentId : id })); 
+  } ,[dispatch]);
+console.log("order", order);
 
   console.log("order", order);
   const newProductList: productType[] = [
@@ -81,10 +95,12 @@ const EditOrder: React.FC = () => {
   const [form] = Form.useForm(); // Create form instance
   const [isModified, setIsModified] = useState(false); // Track if values are modified
   const [changedValues, setChangedValues] = useState<any>({});
+  const [localOrder, setLocalOrder] = useState(order); 
   const product_details =
     useAppSelector(
       (state) => state.order.product_details?.data?.product_list
     ) || [];
+    console.log("product_details...", product_details);
   const orderEdited = useAppSelector((state) => state.order.orderEdited) || [];
   console.log("product_details...", product_details);
   // parse the string to html
@@ -92,25 +108,56 @@ const EditOrder: React.FC = () => {
   const filterDescription = (descriptionLong: string): string => {
     return descriptionLong?.replace(/<[^>]*>?/gm, "");
   };
-
+console.log("local", localOrder);
   console.log(orderPostData);
+  useEffect(() => {
+    if (!orders?.data?.length) {
+      dispatch(fetchOrder(1556)); // Ensure you're using the most up-to-date orders
+    }
+  }, [dispatch, orders]);
+  console.log("ord", orders)
 
-  const initialValues = React.useMemo(
-    () => ({
-      country_code: order?.country_code || "US",
-      company_name: recipient?.company_name || "",
-      first_name: recipient?.first_name || "",
-      last_name: recipient?.last_name || "",
-      address_1: recipient?.address_1 || "",
-      address_2: recipient?.address_2 || "",
-      city: recipient?.city || "",
-      state: recipient?.state_code || "",
-      zip_postal_code: recipient?.zip_postal_code || "",
-      phone: recipient?.phone || "",
-    }),
-    [order, recipient]
-  );
-
+  //send the orders array without the dedeleted product object
+  const onDeleteProduct = (product_sku) => {
+    // Remove the deleted item from the local order
+    const updatedOrderItems = localOrder?.order_items?.filter(
+      (item) => item.product_sku !== product_sku
+    );
+  
+    // Update the local order with the updated items
+    const updatedLocalOrder = {
+      ...localOrder,
+      order_items: updatedOrderItems,
+    };
+  
+    // Now you need to find the order from the global orders array that corresponds to this local order
+    const updatedOrders = orders?.data?.map((order) => {
+      if (order?.order_po == localOrder?.order_po) {
+        return updatedLocalOrder; // Update the specific order
+      }
+      return order; // Leave other orders unchanged
+    });
+  
+    // Dispatch the updated orders to the global state
+    dispatch(updateOrdersInfo(updatedOrders));
+  
+    // Update the local state
+    setLocalOrder(updatedLocalOrder);
+  };
+  
+  const initialValues = React.useMemo(() => ({
+    country_code: order?.country_code || "US",
+    company_name: recipient?.company_name || "",
+    first_name: recipient?.first_name || "",
+    last_name: recipient?.last_name || "",
+    address_1: recipient?.address_1 || "",
+    address_2: recipient?.address_2 || "",
+    city: recipient?.city || "",
+    state: recipient?.state || "",
+    zip_postal_code: recipient?.zip_postal_code || "",
+    phone: recipient?.phone || "",
+  }), [order, recipient]);
+  
   useEffect(() => {
     form.setFieldsValue(initialValues);
   }, [form, initialValues]);
@@ -127,23 +174,46 @@ const EditOrder: React.FC = () => {
       setProductData(products);
     }
   }, [product_details]);
+  console.log("productData", productData);
+
+  // useEffect(() => {
+  //   if (orderData?.data?.length) {
+  //     const orderPostData1 = order.order_items.map((item) => ({
+  //       order_po: order.order_po,
+  //       product_sku: item.product_sku,
+  //       product_qty: item.product_qty,
+  //     }));
+  
+  //     console.log("orderPostData...", orderPostData1);
+  //     setOrderPostData(orderPostData1);
+  
+  //     // Dispatch only if there's data to fetch
+  //     if (orderPostData1.length > 0) {
+  //       dispatch(fetchProductDetails(orderPostData1));
+  //     }
+  //   }
+  
+  //   dispatch(getInventoryImages());
+  // }, [orderData?.data,order.order_items]);
+
 
   useEffect(() => {
-    if (order) {
-      const orderPostData1 = order?.order_items?.map((item) => ({
+    if (orderData?.data?.length) {
+      const orderPostData1 = order.order_items.map((item) => ({
         order_po: order.order_po,
-        product_sku: item.product_sku, // One product SKU per object
-        product_qty: item.product_qty, // Corresponding quantity
+        product_sku: item.product_sku,
+        product_qty: item.product_qty,
       }));
-
-      console.log("orderPostData...", orderPostData1);
+  
       setOrderPostData(orderPostData1);
-      dispatch(fetchProductDetails(orderPostData1));
+      if (orderPostData1.length > 0) {
+        dispatch(fetchProductDetails(orderPostData1));
+        setLocalOrder(order);
+      }
+      
     }
-
     dispatch(getInventoryImages());
-    
-  }, [order]);
+  }, [orderData]);
   const [componentSize, setComponentSize] = useState<SizeType | "default">(
     "default"
   );
@@ -154,17 +224,26 @@ const EditOrder: React.FC = () => {
   const [virtualINv, setVirtualInv] = useState(false);
 
   const handleValuesChange = (changedValues: any, allValues: any) => {
-    console.log("changedValues", changedValues);
+    
+  
+    // Check if values have changed
     const hasChanged = Object.keys(initialValues).some(
       (key) => initialValues[key] !== allValues[key]
     );
-    dispatch(updateOrderStatus({ status: true, clicked: false }));
-    //add the previous object changed values
-    setChangedValues((prev) => ({
-      ...prev,
-      ...changedValues,
-    }));
-    
+    console.log("hasChanged:", hasChanged);
+  
+    // Exclude 'address_2' when checking for all fields filled
+    const requiredFields = Object.keys(allValues).filter((key) => key !== "address_2" && key !== "company_name");
+  
+    const allFieldsFilled = requiredFields.every((key) => {
+      const fieldValue = allValues[key];
+      return fieldValue !== undefined && fieldValue !== null && fieldValue !== "";
+    });
+    console.log("allFieldsFilled:", allFieldsFilled);
+  
+    dispatch(updateOrderStatus({ status: allFieldsFilled, clicked: false }));
+
+
     const updatedOrder = {
       ...order,
       recipient: {
@@ -176,7 +255,7 @@ const EditOrder: React.FC = () => {
     dispatch(setUpdatedValues(updatedOrder));
     setIsModified(hasChanged);
   };
-
+  
   const setStates = (value: string = "us") => {
     let states = getStates(value);
     let data: countryType[] = (states || []).map((d: string) => ({
@@ -216,7 +295,7 @@ const EditOrder: React.FC = () => {
       className="w-full flex flex-col items-center"
       form={form}
     >
-      <Form.Item name="country_code" className="w-full ">
+      <Form.Item name="country_code" className="w-full "   rules={[{ required: true, message:"Please Enter Country Nmae" }]}>
         <div className="relative">
           <Select
             allowClear
@@ -235,20 +314,20 @@ const EditOrder: React.FC = () => {
       </Form.Item>
 
       <div className="relative w-full">
-        <Form.Item name="company_name" className="w-full ">
+        <Form.Item name="company_name" className="w-full "  rules={[{ required: false }]}>
           <Input
             className="fw-input"
             value={recipient?.company_name || ""}
             id="company_name"
           />
         </Form.Item>
-        <label htmlFor="floating_outlined" className="fw-label">
+        <label htmlFor="floating_outlined" className="fw-label" >
           Company Name
         </label>
       </div>
 
       <div className="relative w-full ">
-        <Form.Item name="first_name" className="w-full">
+        <Form.Item name="first_name" className="w-full" rules={[{ required: true, message: "Please enter your First Name!" }]}>
           <Input className="fw-input" id="first_name" name="first_name" />
         </Form.Item>
         <label htmlFor="floating_outlined" className="fw-label">
@@ -256,7 +335,7 @@ const EditOrder: React.FC = () => {
         </label>
       </div>
       <div className="relative w-full">
-        <Form.Item name="last_name" className="w-full ">
+        <Form.Item name="last_name" className="w-full " rules={[{ required: true, message: "Please enter your Last Name" }]}>
           <Input className="fw-input" id="last_name" />
         </Form.Item>
         <label htmlFor="floating_outlined" className="fw-label">
@@ -265,7 +344,7 @@ const EditOrder: React.FC = () => {
       </div>
 
       <div className="relative w-full">
-        <Form.Item name="address_1" className="w-full ">
+        <Form.Item name="address_1" className="w-full " rules={[{ required: true, message: "Please enter your Address" }]}>
           <Input className="fw-input" id="address_1" />
         </Form.Item>
         <label htmlFor="floating_outlined" className="fw-label">
@@ -274,7 +353,7 @@ const EditOrder: React.FC = () => {
       </div>
 
       <div className="relative w-full">
-        <Form.Item name="address_2" className="w-full ">
+        <Form.Item name="address_2" className="w-full " rules={[{ required: false }]}>
           <Input className="fw-input" />
         </Form.Item>
         <label htmlFor="floating_outlined" className="fw-label">
@@ -283,7 +362,7 @@ const EditOrder: React.FC = () => {
       </div>
 
       <div className="relative w-full">
-        <Form.Item name="city" className="w-full ">
+        <Form.Item name="city" className="w-full " rules={[{ required: true, message: "Please enter your City" }]}>
           <Input className="fw-input" id="city" />
         </Form.Item>
         <label htmlFor="floating_outlined" className="fw-label">
@@ -292,7 +371,7 @@ const EditOrder: React.FC = () => {
       </div>
 
       <div className="relative w-full">
-        <Form.Item name="state" className="w-full ">
+        <Form.Item name="state" className="w-full " rules={[{ required: true, message: "Please enter your state" }]}>
           <Select
             placeholder="State"
             id="state"
@@ -301,7 +380,7 @@ const EditOrder: React.FC = () => {
             className="fw-input1 "
             filterOption={filterOption}
             options={stateData}
-            value={recipient?.state_code || ""}
+            value={recipient?.state || ""}
           >
             <label htmlFor="floating_outlined" className="fw-label">
               State
@@ -311,7 +390,7 @@ const EditOrder: React.FC = () => {
       </div>
 
       <div className="relative w-full">
-        <Form.Item name="zip_postal_code" className="w-full ">
+        <Form.Item name="zip_postal_code" className="w-full "  rules={[{ required: true, message: "Please enter Zip Postal Code" }]}>
           <Input className="fw-input" id="zip_postal_code" />
         </Form.Item>
         <label htmlFor="floating_outlined" className="fw-label">
@@ -320,7 +399,7 @@ const EditOrder: React.FC = () => {
       </div>
 
       <div className="relative w-full">
-        <Form.Item name="phone" className="w-full ">
+        <Form.Item name="phone" className="w-full " rules={[{ required: true, message: "Please enter Your Phone Number" }]}>
           <Input className="fw-input" value={recipient?.phone} />
         </Form.Item>
         <label htmlFor="floating_outlined" className="fw-label">
@@ -390,7 +469,7 @@ const EditOrder: React.FC = () => {
       <div className="w-1/2 max-md:w-full flex flex-col justify-start md:border-r-2  max-md:border-b-2 max-md:pb-6  items-center h-[800px] max-md:h-auto">
         <div className={`text-left w-full px-4 text-gray-400 pt-4 ${style.inner_card}`}>
           <p className="text-lg pb-4 text-gray-400  font-bold">Cart</p>
-          {order?.order_items?.map((item) => (
+          {localOrder?.order_items?.map((item) => (
             <label className="h-[200px] mt-2 hover:border-gray-500 max-md:h-auto inline-flex  justify-between w-full px-3 text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700">
               <div className="block relative pb-4 w-full">
                 <div className="justify-around  pt-4  rounded-lg flex">
@@ -432,6 +511,7 @@ const EditOrder: React.FC = () => {
                       data-tooltip-target="tooltip-document"
                       type="button"
                       className="max-md:pl-2 mt-2 inline-flex  flex-col justify-start items-start  hover:bg-gray-50 dark:hover:bg-gray-800 group"
+                      onClick={() => setDeleteMessageVisible(true)}
                     >
                       <svg
                         className="w-5 h-5 mb-1 text-gray-500 dark:text-gray-400 group-hover:text-red-600 dark:group-hover:text-blue-500"
@@ -449,6 +529,7 @@ const EditOrder: React.FC = () => {
                         />
                       </svg>
                     </button>
+                    <DeleteMessage visible={DeleteMessageVisible} onClose={setDeleteMessageVisible} onDeleteProduct={onDeleteProduct} deleteItem={(item.product_sku)}/>
                   </div>
                   <div className=" mt-6  w-8/12 text-center">
                     {productCode && (

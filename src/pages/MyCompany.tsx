@@ -16,6 +16,12 @@ const countryList = require("../json/country.json");
 type SizeType = Parameters<typeof Form>[0]["size"];
 
 const MyCompany: React.FC = () => {
+
+  const dispatch = useAppDispatch();
+  const businessInfo = useAppSelector(
+    (state) => state.order?.company_info?.data?.business_info
+  );
+console.log("businessInfo", businessInfo);
   const [componentSize, setComponentSize] = useState<SizeType | "default">(
     "default"
   );
@@ -50,10 +56,6 @@ const [validFields, setValidFields] = useState({
   });
 
   /*////////////////////////////////////////////////////*/
-  const dispatch = useAppDispatch();
-  const businessInfo = useAppSelector(
-    (state) => state.order?.company_info?.data?.business_info
-  );
 
   const setStates = (value: string = "us") => {
     let states = getStates(value);

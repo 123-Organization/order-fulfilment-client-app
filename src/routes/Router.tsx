@@ -39,7 +39,7 @@ const Router: React.FC = (): JSX.Element  => {
           <Route path={routes.shippingpreference} Component={ShippingPreference} />
           <Route path={routes.paymentaddress} Component={PaymentAddress} />
           <Route path={routes.mycompany} Component={MyCompany} />
-          <Route path={routes.editorder} Component={EditOrder} />
+          <Route path={routes.editorder} Component={EditOrder}   />
           <Route path={routes.billingaddress} Component={BillingAddress} />
           <Route path={routes.import} Component={Import} />
           <Route path={routes.importlist} Component={ImportList} />

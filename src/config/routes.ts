@@ -5,7 +5,7 @@ export const routes = {
   virtualinventory: "/virtualinventory",
   billingaddress:"/billingaddress",
   paymentaddress:"/paymentaddress",
-  editorder:"/editorder",
+  editorder:"/editorder/:id",
   shippingpreference:"/shippingpreference",
   mycompany: "/mycompany",
   checkout: "/checkout",

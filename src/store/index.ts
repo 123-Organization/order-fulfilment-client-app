@@ -9,6 +9,7 @@ import { combineReducers } from "redux";
 const persistConfig = {
   key: 'root', // key to store the persisted data
   storage,
+  blacklist: ['order'], // Exclude 'order' slice from persistence
 };
 
 // Combine your reducers (if you have multiple slices)
@@ -16,7 +17,7 @@ const rootReducer = combineReducers({
   order: OrderSlice.reducer,
 });
 
-// Create a reducer
+// Create a persisted reducer
 const persistedReducer = persistReducer(persistConfig, rootReducer);
 
 // Configure the store with the persisted reducer

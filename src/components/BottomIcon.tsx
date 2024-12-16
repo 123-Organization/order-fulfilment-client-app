@@ -384,13 +384,10 @@ const updatedValues = useAppSelector((state) => state.order.updatedValues);
   useEffect(() => {
     if (location.pathname === "/editorder" && orderEdited.status === true) {
       setNextVisiable(true);
-    } else if (
-      location.pathname === "/editorder" &&
-      orderEdited.status === false
-    ) {
+    } else {
       setNextVisiable(false);
     }
-  }, [location.pathname, product_details, orderEdited]);
+  }, [location.pathname, orderEdited.status]);
   useEffect(() => {
     if (location.pathname ==="/importlist" && checkedOrders.length) {
       setNextVisiable(true);
@@ -405,7 +402,7 @@ const updatedValues = useAppSelector((state) => state.order.updatedValues);
     } else if (location.pathname === "/mycompany" && !myCompanyInfoFilled.validFields) {
       setNextVisiable(false);
     }
-  }, [location.pathname, checkedOrders, myCompanyInfoFilled?.validFields]);
+  }, [location.pathname,  myCompanyInfoFilled?.validFields]);
   useEffect(() => {
     if (location.pathname === "/billingaddress") {
       setNextVisiable(true);

@@ -20,6 +20,7 @@ const BillingAddress: React.FC = () => {
   const billingInfo = useAppSelector(
     (state) => state.order?.company_info?.data?.billing_info 
   );
+  console.log(billingInfo)
   const [companyAddress, setCompanyAddress] = useState({ last_name: "" });
   const [componentSize, setComponentSize] = useState<SizeType | "default">(
     "default"
@@ -33,6 +34,7 @@ console.log(stateCode, stateCodeShort)
   const businessInfo = useAppSelector(
     (state) => state.order?.company_info?.data?.business_info 
   );
+  console.log("businessInfo", businessInfo);
 
   const checkboxClick: CheckboxProps["onChange"] = (e) => {
     e.preventDefault();
@@ -81,29 +83,26 @@ console.log(stateCode, stateCodeShort)
   //update state_code on commponent mount 
   
 
-
   const onValid = () => {
-    // form1.resetFields();
-    let value = form1.getFieldsValue();
-    value.country_code = countryCode;
-    value.state_code = countryCode === "us" ? stateCodeShort  : stateCode;
-    //https://dev.to/bayusyaits/using-antd-and-react-for-editable-cells-implementation-and-table-2b5m
-
-    console.log(`onValid `, value);
-    let eveVal = Object.values(value).every(Boolean);
-    if (!eveVal) {
-      form1.submit();
+    const values = form1.getFieldsValue();
+    const normalizedStateCode =
+      countryCode === "us"
+        ? convertUsStateAbbrAndName(values.state_code || stateCodeShort)
+        : stateCode;
+  
+    const payload = {
+      ...values,
+      country_code: countryCode,
+      state_code: normalizedStateCode,
+    };
+  
+    console.log("Payload to dispatch:", payload);
+  
+    if (Object.values(payload).every(Boolean)) {
+      dispatch(updateBilling({ billing_info: payload }));
+    } else {
+      form1.submit(); // Handle incomplete form
     }
-    // value.email = "james@gmail.com";
-    value.province = "";
-    // value.address_3=null;
-    console.log(`eveVal `, eveVal);
-    // const isFormValid = () => form1.getFieldsError().some((item) => item.errors.length > 0)
-    // https://github.com/ant-design/ant-design/issues/15674
-    // console.log('isFormValid',form1.getFieldsError(),isFormValid(),valid)
-    dispatch(updateBilling({ billing_info: value, }));
-
-    // return true;
   };
 
   const onSearch = (value: string) => {
@@ -126,20 +125,24 @@ console.log(stateCode, stateCodeShort)
   }, []);
 
   useEffect(() => {
-    if(billingInfo?.country_code){
-
-      console.log('effect countryCode',billingInfo?.country_code)
-      // let cntCode = convertUsStateAbbrAndName(billingInfo?.country_code)+"";
-      onChange(billingInfo?.country_code);
+    if (billingInfo?.country_code) {
+      console.log("effect countryCode", billingInfo?.country_code);
+      onChange(billingInfo?.country_code); // Update country
+      setStates(billingInfo?.country_code);
+      const stateCodeNormalized = convertUsStateAbbrAndName(billingInfo?.state_code);
+      setStateCode(billingInfo?.state_code?.toLowerCase());
+      setStateCodeShort(stateCodeNormalized);
+      setCompanyAddress(billingInfo); // Load states for the country
+  
       setTimeout(() => {
-        setStateCode(convertUsStateAbbrAndName(billingInfo?.state_code));
-        setCompanyAddress(billingInfo)
-        form1.setFieldsValue(
-          billingInfo
-        );
+       
+        form1.setFieldsValue({
+          ...billingInfo,
+        });
       }, 1000);
     }
-  }, [billingInfo ]);
+  }, [billingInfo]);
+  
 
   const displayTurtles = (
     <Form
@@ -357,11 +360,7 @@ console.log(stateCode, stateCodeShort)
             onChange={onChangeState}
             filterOption={filterOption}
             options={stateData}
-            value={
-              copyCompanyAddress 
-                ? setStateCodeShort(convertUsStateAbbrAndName(billingInfo?.state_code))
-                : stateCode && (stateCode)
-            }
+            value={stateCodeShort || stateCode} // Ensure correct value is passed
           >
             <label htmlFor="floating_outlined" className="fw-label">
               State

@@ -22,6 +22,7 @@ interface IFileExport {
 
 interface OrderState {
   orders: any;
+  order: any;
   product_details: any;
   updatedValues: any;
   company_info: any;
@@ -59,6 +60,7 @@ const referrer: IFileExport = {
 
 const initialState: OrderState = {
   orders: [],
+  order: [],
   updatedValues: [],
   product_details: [],
   shippingOptions: [],
@@ -83,7 +85,7 @@ const initialState: OrderState = {
   filterVirtualInventoryOption: {},
   inventorySelection: [],
   referrer: referrer,
-  orderEdited: { status: false, clicked: false },
+  orderEdited: { status: false, clicked: false, },
   customer_info: {},
   payment_methods: {},
   inventoryImages: {}
@@ -103,6 +105,23 @@ export const fetchOrder = createAsyncThunk(
     const data = response.json();
 
     console.log('data...', data)
+    return data;
+  },
+);
+
+export const fetchSingleOrderDetails = createAsyncThunk(
+  "order/fetch/single",
+  async (postData: any, thunkAPI) => {
+    console.log('postData...', postData)
+
+    const response = await fetch(BASE_URL + "view-order-details", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(postData)
+    });
+    const data = response.json();
     return data;
   },
 );
@@ -482,7 +501,7 @@ export const updateOrdersInfo = createAsyncThunk(
     const Data = {
       "accountId": "1556",
       "orders":
-        [postData]
+        [...postData]
     }
 
 
@@ -511,8 +530,9 @@ export const OrderSlice = createSlice({
       state.orders.push({
         id: state.orders.length,
         name: action.payload.name,
-      });
+      })
     },
+
     updateCompany: (state, action: PayloadAction) => {
       console.log('updateCompanyAction', state)
       state.myCompanyInfoFilled = action.payload;
@@ -573,10 +593,15 @@ export const OrderSlice = createSlice({
     builder.addCase(saveOrder.pending, (state, action) => {
       state.saveOrderInfo = action.payload;
     });
+    builder.addCase(fetchSingleOrderDetails.fulfilled, (state, action) => {
+      state.order = action.payload;
+    }
+    );
 
     builder.addCase(fetchProductDetails.fulfilled, (state, action) => {
       state.product_details = action.payload;
     });
+
 
     builder.addCase(updateCompanyInfo.fulfilled, (state, action) => {
       state.company_info = action.payload;

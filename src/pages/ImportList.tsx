@@ -3,17 +3,20 @@ import { Button, Checkbox, Form, Input, Select, Skeleton } from "antd";
 import Spinner from "../components/Spinner";
 import shoppingCart from "../assets/images/shopping-cart-228.svg";
 import { updateCheckedOrders } from "../store/features/orderSlice";
+import locked_Shipment from "../assets/images/package-delivery-box-8-svgrepo-com.svg";
 import {
   fetchOrder,
   fetchProductDetails,
   fetchShippingOption,
 } from "../store/features/orderSlice";
+import { Link } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store";
 import { useNavigate } from "react-router-dom";
 import parse from "html-react-parser";
 import SelectShippingOption from "../components/SelectShippingOption";
 import style from "./Pgaes.module.css";
-
+import { persistor } from "../store";
+// persistor.purge(); // Clear the persisted state
 const { Option } = Select;
 type SizeType = Parameters<typeof Form>[0]["size"];
 
@@ -43,9 +46,26 @@ const ImportList: React.FC = () => {
   console.log("shipping_option", shipping_option);
   const navigate = useNavigate();
 
-  const handleEditOrderClick = (order) => {
-    navigate("/editorder", { state: { order } });
+  const AddProductsTemplate = () => {
+    return (
+      <div className="flex-col justify-center  content-center w-full  h-full text-center border">
+        <h1 className="w-full text-base font-medium text-gray-400 mb-2">
+          {" "}
+          There are currently no products in this order
+        </h1>
+        <Button
+          key="submit"
+          className="   w-36 h-6 text-gray-500"
+          size={"small"}
+          type="default"
+          href="#/editorder"
+        >
+          Add Products
+        </Button>
+      </div>
+    );
   };
+
 
   useEffect(() => {
     if (orders && !orders?.data?.length) {
@@ -67,23 +87,26 @@ const ImportList: React.FC = () => {
 
   useEffect(() => {
     if (orders?.data?.length && !orderPostData.length) {
-      const orderPostDataList = orders?.data
+      const validOrders = orders?.data?.filter(
+        (order) => order?.order_items && order?.order_items?.length > 0
+      );
+      const orderPostDataList = validOrders
         ?.map((order) => ({
-            order_po: order?.order_po,
-            order_items: order.order_items?.map((item) => ({
-              product_order_po: item.product_order_po,
-              product_qty: item.product_qty,
-              product_sku: item.product_sku,
-            }))
+          order_po: order?.order_po,
+          order_items: order.order_items?.map((item) => ({
+            product_order_po: item.product_order_po,
+            product_qty: item.product_qty,
+            product_sku: item.product_sku,
+          })),
         }))
         ?.flat();
 
       const ProductDetails = orders?.data?.flatMap((order) =>
-          order.order_items?.map((item) => ({
-            order_po: order.order_po,
-            product_sku: item.product_sku, // One product SKU per object
-            product_qty: item.product_qty, // Corresponding quantity
-          }))
+        order.order_items?.map((item) => ({
+          order_po: order.order_po,
+          product_sku: item.product_sku, // One product SKU per object
+          product_qty: item.product_qty, // Corresponding quantity
+        }))
       );
 
       console.log("orderPostData...", orderPostDataList);
@@ -156,13 +179,12 @@ const ImportList: React.FC = () => {
                 >
                   <ul className="grid w-8   md:grid-cols-1 ">
                     <li className="w-8">
-                      {shipping_option.length > 0 ? (
+                      {shipping_option.length > 0 &&
+                      order?.order_items.length > 0 ? (
                         <Checkbox
                           value={{
                             order_po: order?.order_po,
-                            Product_price: getShippingPrice(
-                              order?.order_po
-                            ),
+                            Product_price: getShippingPrice(order?.order_po),
                           }}
                           onChange={(e) => handleCheckboxChange(e)}
                           checked={checkedOrders.some(
@@ -212,10 +234,14 @@ const ImportList: React.FC = () => {
                               className="   w-full text-gray-500"
                               size={"small"}
                               type="default"
-                              href="#/editorder"
-                              onClick={() => handleEditOrderClick(order)}
                             >
-                              Edit order
+                              <Link
+                                to={
+                                  "/editorder/" + order?.orderFullFillmentId
+                                }
+                              >
+                                Edit order
+                              </Link>
                             </Button>
                           </div>
                         </div>
@@ -229,61 +255,78 @@ const ImportList: React.FC = () => {
                         value=""
                         className="hidden peer"
                       />
-                      {order?.order_items?.map((order) => (
-                        <label className="h-[220px] inline-flex mb-2 justify-between w-full hover:border-gray-600 transition-all duration-75 pt-5 pb-5 px-2 text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700">
-                          <div className="block relative pb-4 w-full">
-                            <img src={shoppingCart} width="26" height="26" />
-                            <div className="justify-between pt-4  rounded-lg  sm:flex sm:justify-start flex">
-                              <div className="w-[50%] ">
-                                {productData[order?.product_sku]
-                                  ?.image_url_1 ? (
-                                  <img
-                                    src={
-                                      productData[order?.product_sku]
-                                        ?.image_url_1
-                                    }
-                                    alt="product"
-                                    className="rounded-lg max-md:w-40 w-32 h-[120px] "
-                                    width={125}
-                                    height={26}
-                                  />
-                                ) : (
-                                  <Skeleton.Image active />
-                                )}
-                              </div>
-
-                              <div className="w-[90%]  ">
-                                {(Object.keys(productData)?.length && (
-                                  <div className=" flex flex-col w-full sm:justify-between p-2 ">
-                                    <div
-                                      className={`w-full text-sm ${style.order_description} font-seri `}
-                                    >
-                                      {parse(
+                      {order?.order_items.length > 0 ? (
+                        order?.order_items?.map((order) => (
+                          <label className="h-[220px] inline-flex mb-2 justify-between w-full hover:border-gray-600 transition-all duration-75 pt-5 pb-5 px-2 text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700">
+                            <div className="block relative pb-4 w-full">
+                              <img src={shoppingCart} width="26" height="26" />
+                              <div className="justify-between pt-4  rounded-lg  sm:flex sm:justify-start flex">
+                                <div className="w-[50%] ">
+                                  {productData[order?.product_sku]
+                                    ?.image_url_1 ? (
+                                    <img
+                                      src={
                                         productData[order?.product_sku]
-                                          ?.description_long || ""
-                                      )}
+                                          ?.image_url_1
+                                      }
+                                      alt="product"
+                                      className="rounded-lg max-md:w-40 w-32 h-[120px] "
+                                      width={125}
+                                      height={26}
+                                    />
+                                  ) : (
+                                    <Skeleton.Image active />
+                                  )}
+                                </div>
+
+                                <div className="w-[90%]  ">
+                                  {(Object.keys(productData)?.length && (
+                                    <div className=" flex flex-col w-full sm:justify-between p-2 ">
+                                      <div
+                                        className={`w-full text-sm ${style.order_description} font-seri `}
+                                      >
+                                        {parse(
+                                          productData[order?.product_sku]
+                                            ?.description_long || ""
+                                        )}
+                                      </div>
                                     </div>
-                                  </div>
-                                )) || <Skeleton active />}
+                                  )) || <Skeleton active />}
+                                </div>
+                              </div>
+                              <div className=" text-sm  absolute right-2 -bottom-3">
+                                {order?.product_qty} @ $
+                                {productData[order?.product_sku]?.total_price ||
+                                  ""}
                               </div>
                             </div>
-                            <div className=" text-sm  absolute right-2 -bottom-3">
-                              {order?.product_qty} @ $
-                              {productData[order?.product_sku]?.total_price ||
-                                ""}
-                            </div>
-                          </div>
-                        </label>
-                      ))}
+                          </label>
+                        ))
+                      ) : (
+                        <AddProductsTemplate />
+                      )}
                     </li>
                     <li>
                       <label className="h-[220px] inline-flex  justify-between w-full p-5 text-gray-500 bg-white border-21 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700">
                         <div className="block w-full">
-                          <SelectShippingOption
-                            poNumber={order?.order_po}
-                            orderItesm={order?.order_items}
-                            onShippingOptionChange={handleShippingOptionChange}
-                          />
+                          {order.order_items.length > 0 ? (
+                            <SelectShippingOption
+                              poNumber={order?.order_po}
+                              orderItesm={order?.order_items}
+                              onShippingOptionChange={
+                                handleShippingOptionChange
+                              }
+                            />
+                          ) : (
+                            <div className="flex justify-center ">
+                              <img
+                                src={locked_Shipment}
+                                width="120"
+                                height="120"
+                                className="mt-4"
+                              />
+                            </div>
+                          )}
                         </div>
                       </label>
                     </li>
