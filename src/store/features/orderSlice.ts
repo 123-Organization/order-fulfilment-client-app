@@ -23,6 +23,7 @@ interface IFileExport {
 interface OrderState {
   orders: any;
   order: any;
+  productCode: any;
   product_details: any;
   updatedValues: any;
   company_info: any;
@@ -61,6 +62,7 @@ const referrer: IFileExport = {
 const initialState: OrderState = {
   orders: [],
   order: [],
+  productCode: [],
   updatedValues: [],
   product_details: [],
   shippingOptions: [],
@@ -519,7 +521,25 @@ export const updateOrdersInfo = createAsyncThunk(
 );
 
 
-
+export const AddProductToOrder = createAsyncThunk(
+  "order/addProduct",
+  async (postData: any, thunkAPI) => {
+    postData = {
+      "orderFullFillmentId": postData.orderFullFillmentId,
+      "productCode": postData.productCode,
+      "skuCode": postData.skuCode
+    }
+    const response = await fetch(BASE_URL + "update-order-by-product", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(postData),
+    });
+    const data = await response.json();
+    return data;
+  },
+);
 
 
 export const OrderSlice = createSlice({
@@ -578,6 +598,11 @@ export const OrderSlice = createSlice({
       state.orders = action.payload;
     });
     builder.addCase(updateOrdersInfo.fulfilled, (state, action) => {
+      state.productCode = action.payload;
+    }
+    );
+
+    builder.addCase(AddProductToOrder.fulfilled, (state, action) => {
       state.orders = action.payload;
     }
     );

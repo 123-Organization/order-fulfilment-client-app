@@ -58,6 +58,8 @@ const EditOrder: React.FC = () => {
 const orderData = useAppSelector((state) => state.order.order) || {};
 const order = orderData.data ? orderData.data[0] : {};
 const { id } = useParams<{ orderFullFillmentId: string }>();
+const code = useAppSelector((state) => state.order.productCode) || {};
+
 
   const { order_items, order_key, order_status, recipient } = order|| {};
 
@@ -116,6 +118,13 @@ console.log("local", localOrder);
     }
   }, [dispatch, orders]);
   console.log("ord", orders)
+
+  const handleProductCodeUpdate = () => {
+    // Refresh logic (e.g., re-fetch order details)
+    dispatch(fetchSingleOrderDetails({ accountId: "1556", orderFullFillmentId: id }));
+  };
+
+
 
   //send the orders array without the dedeleted product object
   const onDeleteProduct = (product_sku) => {
@@ -285,6 +294,15 @@ console.log("local", localOrder);
   useEffect(() => {
     setStates();
   }, []);
+
+  useEffect(() => {
+    
+  if (code?.data?.length > 0) {
+    dispatch(fetchSingleOrderDetails({ accountId: "1556", orderFullFillmentId: id }));
+    setLocalOrder(order);
+  }
+}, [code, order, dispatch, id]);
+
   const displayTurtles = (
     <Form
       labelCol={{ span: 4 }}
@@ -586,6 +604,8 @@ console.log("local", localOrder);
               visible={popupVisible}
               onClose={() => setPopupVisible(false)}
               setProductCode={setProductCode}
+              orderFullFillmentId = {localOrder?.orderFullFillmentId}
+              onProductCodeUpdate={handleProductCodeUpdate}
             />
             <VirtualInvModal
               visible={virtualINv}
