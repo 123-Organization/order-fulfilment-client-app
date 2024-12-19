@@ -1,0 +1,157 @@
+import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
+import config from "../../config/configs";
+import { remove, find } from "lodash";
+const BASE_URL = config.SERVER_BASE_URL;
+
+
+interface IFileExport {
+        hasSelected: boolean,
+        fileSelected: string[]
+        filterCount: string
+}
+
+interface InventoryState {
+        listVirtualInventory: any;
+        listVirtualInventoryLoader: boolean;
+        filterVirtualInventory: any;
+        filterVirtualInventoryOption: any;
+        inventorySelection: any;
+        referrer: IFileExport;
+        inventoryImages: any;
+
+}
+
+const referrer: IFileExport = {
+        "hasSelected": false,
+        "fileSelected": [],
+        'filterCount': "100"
+};
+
+const initialState: InventoryState = {
+        listVirtualInventoryLoader: false,
+        listVirtualInventory: {},
+        filterVirtualInventory: {},
+        filterVirtualInventoryOption: {},
+        inventorySelection: [],
+        referrer: referrer,
+        inventoryImages: {}
+};
+
+export const OrderAddSlice = createSlice({
+        name: "order",
+        initialState,
+        reducers: (create) => ({
+                updateFilterVirtualInventoryOption: create.preparedReducer(
+                        (requestPayload: any) => {
+                                return { payload: requestPayload }
+                        },
+                        // action type is inferred from prepare callback
+                        (state, action) => {
+                                state.filterVirtualInventory = { ...state.filterVirtualInventoryOption, ...action.payload };
+                        }),
+        })
+});
+
+export const listVirtualInventory = createAsyncThunk(
+        "list/virtual/inventory",
+        async (postData: any, thunkAPI) => {
+                console.log('postData...', postData)
+                // OrderAddSlice.reducer.updateFilterVirtualInventoryOption(postData);
+                const response = await fetch(BASE_URL + "list-virtual-inventory", {
+                        method: "POST",
+                        headers: {
+                                "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(postData)
+                });
+                const data = response.json();
+                return data;
+        },
+);
+
+export const getInventoryImages = createAsyncThunk(
+        "inventory/images",
+        async (args: { library: string, Page?: number }, thunkAPI: any) => {
+                const state = await thunkAPI.getState() as any;
+
+                const companyInfo = state?.order?.company_info; // Replace 'order' with the actual slice name if different
+                console.log('cookie...', document.cookie.split('AccountGUID='))
+                const updatedPostData = {
+                        libraryName: args.library,
+                        librarySessionId: document.cookie.split('Session=')[1].split(';')[0],
+                        libraryAccountKey: document.cookie.split('AccountGUID=')[1].split(';')[0],
+                        librarySiteId: "2",
+                        filterSearchFilter: "",
+                        filterPageNumber: args.Page ? args.Page : "1",
+                        filterPerPage: "12",
+                        filterUploadFrom: "",
+                        filterUploadTo: "",
+                        filterSortField: "id",
+                        filterSortDirection: "DESC",
+                        filterUpdate: "1",
+                        GAID: "",
+                        guidPreSelected: "",
+                        libraryOptions: ["temporary", "inventory"],
+                        multiselectOptions: true,
+                        domain: "",
+                        terms_of_service_url: "/terms.aspx",
+                        button_text: "Create Print",
+                        account_id: 12,
+                };
+                const response = await fetch(`https://prod3-api.finerworks.com/api/getallimages`, {
+                        method: "POST",
+                        headers: {
+                                "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(updatedPostData)
+                });
+                const data = await response.json();
+                console.log('data...', data)
+                return data;
+        },
+);
+
+export const InventorySlice = createSlice({
+        name: "inventory",
+        initialState,
+        reducers: {
+                inventorySelectionUpdate: (state, action: PayloadAction) => {
+                        console.log('inventorySelectionUpdateAction', action)
+                        if (!find(state.inventorySelection, { sku: action?.payload?.sku })) {
+                                state.inventorySelection.push(action.payload);
+                        }
+                },
+                inventorySelectionClean: (state, action: PayloadAction) => {
+                        state.inventorySelection = [];
+                },
+                inventorySelectionDelete: (state, action: PayloadAction) => {
+                        console.log('inventorySelectionDeleteAction', action)
+                        remove(state.inventorySelection, { sku: action.payload?.sku })
+                },
+                updateFilterVirtualInventory: (state, action) => {
+                        state.filterVirtualInventory = { ...state.filterVirtualInventory, ...action.payload };
+                },
+        },
+        extraReducers: (builder) => {
+                builder.addCase(listVirtualInventory.fulfilled, (state, action) => {
+                        state.listVirtualInventoryLoader = false;
+                        state.listVirtualInventory = action.payload;
+                });
+
+                builder.addCase(listVirtualInventory.pending, (state, action) => {
+                        state.listVirtualInventoryLoader = true;
+                });
+
+                builder.addCase(getInventoryImages.fulfilled, (state, action) => {
+                        state.inventoryImages = action.payload
+
+                });
+                //getInventoryImages loading
+                builder.addCase(getInventoryImages.pending, (state, action) => {
+                        state.inventoryImages = { loading: true }
+                });
+        },
+});
+
+export default InventorySlice;
+export const { inventorySelectionUpdate, inventorySelectionClean, inventorySelectionDelete, updateFilterVirtualInventory } = InventorySlice.actions;

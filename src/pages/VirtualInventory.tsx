@@ -6,12 +6,12 @@ import { FileSearchOutlined, SortDescendingOutlined } from "@ant-design/icons";
 import { useAppDispatch, useAppSelector } from "../store";
 import {remove, find} from "lodash";
 import {
-  ecommerceConnectorExport,
   listVirtualInventory,
   inventorySelectionUpdate,
   inventorySelectionDelete,
   inventorySelectionClean
-} from "../store/features/orderSlice";
+} from "../store/features/InventorySlice";
+import { ecommerceConnectorExport } from "../store/features/ecommerceSlice";
 import HTMLReactParser from "html-react-parser";
 import { useLocation } from "react-router-dom";
 import ExportModal from "../components/ExportModal";
@@ -143,15 +143,15 @@ const VirtualInventory: React.FC = (): JSX.Element => {
   const [spinLoader, setSpinLoader] = useState(false);
   const [openFilter, setOpenFilter] = useState(false);
   const [openExport, setOpenExport] = useState(false);
-  let listVirtualInventoryData = useAppSelector((state) => state.order.listVirtualInventory?.data)
+  let listVirtualInventoryData = useAppSelector((state) => state.Inventory.listVirtualInventory?.data)
   ?.map(data =>{
     return {...data,...{isSelected:false}}
    } 
   );
-  const listVirtualInventoryLoader = useAppSelector((state) => state.order.listVirtualInventoryLoader);
-  const ecommerceConnectorExportInfo = useAppSelector((state) => state.order.ecommerceConnectorExportInfo);
+  const listVirtualInventoryLoader = useAppSelector((state) => state.Inventory.listVirtualInventoryLoader);
+  const ecommerceConnectorExportInfo = useAppSelector((state) => state.Ecommerce.ecommerceConnectorExportInfo);
   console.log('listVirtualInventoryData',listVirtualInventoryData)
-  const inventorySelection = useAppSelector((state) => state.order.inventorySelection);
+  const inventorySelection = useAppSelector((state) => state.Inventory.inventorySelection);
   const dispatch = useAppDispatch();
   // const [images, setImages] = useState<Array<ImageType>>([]);
   const [imgData, setImgData] = useState({});

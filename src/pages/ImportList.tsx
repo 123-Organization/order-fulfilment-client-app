@@ -6,17 +6,15 @@ import { updateCheckedOrders } from "../store/features/orderSlice";
 import locked_Shipment from "../assets/images/package-delivery-box-8-svgrepo-com.svg";
 import {
   fetchOrder,
-  fetchProductDetails,
-  fetchShippingOption,
 } from "../store/features/orderSlice";
+import { fetchShippingOption} from "../store/features/shippingSlice";
+import { fetchProductDetails } from "../store/features/productSlice";
 import { Link } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store";
 import { useNavigate } from "react-router-dom";
 import parse from "html-react-parser";
 import SelectShippingOption from "../components/SelectShippingOption";
 import style from "./Pgaes.module.css";
-import { persistor } from "../store";
-// persistor.purge(); // Clear the persisted state
 const { Option } = Select;
 type SizeType = Parameters<typeof Form>[0]["size"];
 
@@ -33,7 +31,7 @@ const ImportList: React.FC = () => {
   const [orderPostData, setOrderPostData] = useState([]);
   const orders = useAppSelector((state) => state.order.orders);
   const product_details = useAppSelector(
-    (state) => state.order.product_details?.data?.product_list
+    (state) => state.ProductSlice.product_details?.data?.product_list
   );
   console.log(orderPostData);
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
@@ -41,7 +39,7 @@ const ImportList: React.FC = () => {
   const dispatch = useAppDispatch();
   console.log("productdata", productData);
   const shipping_option = useAppSelector(
-    (state) => state.order.shippingOptions[0] || []
+    (state) => state.Shipping.shippingOptions[0] || []
   );
   console.log("shipping_option", shipping_option);
   const navigate = useNavigate();

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "../store";
 import { Checkbox, Form, Input, Select, Tabs, Radio, Space,notification } from "antd";
-import { updateCompanyInfo, updateShipping } from "../store/features/orderSlice";
+import {  updateShipping } from "../store/features/shippingSlice";
 import type { TabsProps } from "antd";
 import ShippingPreferencesOption from "../components/ShippingPreferencesOption";
 import { updateLanguageServiceSourceFile } from "typescript";
@@ -33,7 +33,7 @@ const ShippingPreference: React.FC = () => {
 
   const dispatch = useAppDispatch();
   const ecommerceConnectorInfo = useAppSelector(
-    (state) => state.order.ecommerceConnectorInfo
+    (state) => state.Ecommerce.ecommerceConnectorInfo
   );
   const [selectedPreferences, setSelectedPreferences] = useState<string[]>([1, 1, 1]);
 

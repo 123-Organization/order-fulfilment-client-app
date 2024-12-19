@@ -3,7 +3,7 @@ import { Avatar, Dropdown } from "antd";
 import type { MenuProps } from "antd";
 import { useCookies } from "react-cookie";
 import { useAppSelector, useAppDispatch } from "../store";
-import { getCustomerInfo } from "../store/features/orderSlice";
+import { getCustomerInfo } from "../store/features/customerSlice";
 import credit from "../../src/assets/images/credit-card-svgrepo-com.svg";
 import email from "../../src/assets/images/email-svgrepo-com.svg";
 import user_icon from "../../src/assets/images/user-svgrepo-com.svg";
@@ -18,7 +18,7 @@ export default function UserAvatar() {
   const [user, setUser] = useState("U");
   const [color, setColor] = useState(ColorList[0]);
   const dispatch = useAppDispatch();
-  const customer_info = useAppSelector((state) => state.order.customer_info);
+  const customer_info = useAppSelector((state) => state.Customer.customer_info);
 
   const items: MenuProps["items"] = [
     {

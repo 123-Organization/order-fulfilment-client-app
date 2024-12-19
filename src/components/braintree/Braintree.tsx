@@ -56,7 +56,7 @@ const Braintree = ({
       }
     }
   }, [show]);
-  const companyInfo = useAppSelector((state) => state.order.company_info);
+  const companyInfo = useAppSelector((state) => state.company?.company_info);
 
   const requestPaymentMethod = () => {
     /**

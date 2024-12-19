@@ -6,7 +6,7 @@ import type { SelectProps } from "antd";
 import { countryType } from "../types/ICountry";
 import type { CheckboxProps } from "antd";
 import { useAppDispatch, useAppSelector } from "../store";
-import { updateBilling } from "../store/features/orderSlice";
+import { updateBilling } from "../store/features/companySlice";
 import convertUsStateAbbrAndName from "../services/state";
 import { on } from "events";
 
@@ -19,7 +19,7 @@ const BillingAddress: React.FC = () => {
   const [countryCode, setCountryCode] = useState("us");
   const [copyCompanyAddress, setCopyCompanyAddress] = useState(false);
   const billingInfo = useAppSelector(
-    (state) => state.order?.company_info?.data?.billing_info 
+    (state) => state.company?.company_info?.data?.billing_info 
   );
   console.log(billingInfo)
   const [companyAddress, setCompanyAddress] = useState({ last_name: "" });
@@ -33,7 +33,7 @@ const BillingAddress: React.FC = () => {
   const dispatch = useAppDispatch();
 console.log(stateCode, stateCodeShort)
   const businessInfo = useAppSelector(
-    (state) => state.order?.company_info?.data?.business_info 
+    (state) => state.company?.company_info?.data?.business_info 
   );
   console.log("businessInfo", businessInfo);
 

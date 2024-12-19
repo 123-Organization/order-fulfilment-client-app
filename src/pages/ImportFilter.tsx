@@ -6,7 +6,7 @@ import type { SelectProps } from "antd";
 import { countryType } from "../types/ICountry";
 import type { CheckboxProps } from "antd";
 import { useAppDispatch, useAppSelector } from "../store";
-import { updateBilling, updateImport } from "../store/features/orderSlice";
+import {  updateImport } from "../store/features/orderSlice";
 import convertUsStateAbbrAndName from "../services/state";
 import { useLocation } from "react-router-dom";
 import dayjs from 'dayjs';
@@ -28,7 +28,7 @@ const ImportFilter: React.FC = () => {
   const [dateRange, setDateRange] = useState([]);
   const [copyCompanyAddress, setCopyCompanyAddress] = useState(false);
   const billingInfo = useAppSelector(
-    (state) => state.order?.company_info?.data?.billing_info 
+    (state) => state.company?.company_info?.data?.billing_info 
   );
   const [companyAddress, setCompanyAddress] = useState({ last_name: "" });
   const [componentSize, setComponentSize] = useState<SizeType | "default">(
@@ -49,7 +49,7 @@ const ImportFilter: React.FC = () => {
   console.log(location.pathname,typeValue);
 
   const businessInfo = useAppSelector(
-    (state) => state.order?.company_info?.data?.business_info 
+    (state) => state.company?.company_info?.data?.business_info 
   );
 
   const checkboxClick: CheckboxProps["onChange"] = (e) => {

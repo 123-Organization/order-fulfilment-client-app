@@ -4,8 +4,9 @@ import { Button, Form, Radio, Space, Select, Input } from "antd";
 
 import {
   getCustomerInfo,
-  getPaymentMethods,
-} from "../store/features/orderSlice";
+
+} from "../store/features/customerSlice";
+import  { getPaymentMethods} from "../store/features/paymentSlice";
 import type { RadioChangeEvent } from "antd";
 import PaymentAddressModal from "../components/PaymentAddressModal";
 import style from "./Pgaes.module.css";
@@ -20,9 +21,9 @@ const Checkout: React.FC = () => {
   const [grandTotal, setGrandTotal] = useState(0);
   const [remainingTotal, setRemainingTotal] = useState(0); // To store the remaining billable amount
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
-  const companyInfo = useAppSelector((state) => state.order.company_info);
-  const customerInfo = useAppSelector((state) => state.order.customer_info);
-  const paymentMethods = useAppSelector((state) => state.order.payment_methods);
+  const companyInfo = useAppSelector((state) => state.company.company_info);
+  const customerInfo = useAppSelector((state) => state.Customer.customer_info);
+  const paymentMethods = useAppSelector((state) => state.Payment.payment_methods);
   console.log(paymentMethods);
 
   const dispatch = useAppDispatch();

@@ -3,7 +3,7 @@ import { Button, DatePicker, Divider, Form, Input, Modal, Radio, RadioChangeEven
 import { useAppDispatch, useAppSelector } from "../store";
 
 import dayjs from 'dayjs';
-import { listVirtualInventory } from '../store/features/orderSlice';
+import { listVirtualInventory } from '../store/features/InventorySlice';
 import { every, forEach, keys, map } from 'lodash';
 
 interface FilterSortModalProps {

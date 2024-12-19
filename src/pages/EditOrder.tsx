@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Button, Form, Input, Select } from "antd";
+import { Button, Form, Input, Select, Skeleton } from "antd";
 import { useLocation } from "react-router-dom";
 import { useParams, useNavigate } from "react-router-dom";
 import shoppingCart from "../assets/images/shopping-cart-228.svg";
@@ -11,13 +11,13 @@ import PopupModal from "../components/PopupModal";
 import VirtualInvModal from "../components/VirtualInvModal";
 import { useAppDispatch, useAppSelector } from "../store";
 import {
-  fetchProductDetails,
-  getInventoryImages,
   updateOrderStatus,
   updateOrdersInfo,
   fetchOrder,
   fetchSingleOrderDetails,
 } from "../store/features/orderSlice";
+import { getInventoryImages} from "../store/features/InventorySlice";
+import { fetchProductDetails } from "../store/features/productSlice";
 import {  persistor } from "../store"; 
 import UpdateButton from "../components/UpdateButton";
 import UpdatePopup from "../components/UpdatePopup";
@@ -48,6 +48,7 @@ const EditOrder: React.FC = () => {
   const [PostModalVisible, setPostModalVisible] = useState(false);
   const [UpdatePopupVisible, setUpdatePopupVisible] = useState(false);
   const [DeleteMessageVisible, setDeleteMessageVisible] = useState(false);
+  const [skuCode, setSkuCode] = useState("");
   const [productCode, setProductCode] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -59,11 +60,11 @@ const orderData = useAppSelector((state) => state.order.order) || {};
 const order = orderData.data ? orderData.data[0] : {};
 const { id } = useParams<{ orderFullFillmentId: string }>();
 const code = useAppSelector((state) => state.order.productCode) || {};
-
+console.log("full", id);
 
   const { order_items, order_key, order_status, recipient } = order|| {};
 
-  const InventoryImages = useAppSelector((state) => state.order.inventoryImages) || [];
+  const InventoryImages = useAppSelector((state) => state.Inventory.inventoryImages) || [];
 
   console.log("InventoryImages", InventoryImages);
 
@@ -71,6 +72,8 @@ useEffect(() => {
 
  dispatch(fetchSingleOrderDetails({ accountId: "1556", orderFullFillmentId : id })); 
   } ,[dispatch]);
+
+
 console.log("order", order);
 
   console.log("order", order);
@@ -100,7 +103,7 @@ console.log("order", order);
   const [localOrder, setLocalOrder] = useState(order); 
   const product_details =
     useAppSelector(
-      (state) => state.order.product_details?.data?.product_list
+      (state) => state.ProductSlice.product_details?.data?.product_list
     ) || [];
     console.log("product_details...", product_details);
   const orderEdited = useAppSelector((state) => state.order.orderEdited) || [];
@@ -124,6 +127,7 @@ console.log("local", localOrder);
     dispatch(fetchSingleOrderDetails({ accountId: "1556", orderFullFillmentId: id }));
   };
 
+  console.log("locals", localOrder);
 
 
   //send the orders array without the dedeleted product object
@@ -138,6 +142,7 @@ console.log("local", localOrder);
       ...localOrder,
       order_items: updatedOrderItems,
     };
+    
   
     // Now you need to find the order from the global orders array that corresponds to this local order
     const updatedOrders = orders?.data?.map((order) => {
@@ -146,7 +151,7 @@ console.log("local", localOrder);
       }
       return order; // Leave other orders unchanged
     });
-  
+    console.log("updatedLocalOrder", updatedOrders);
     // Dispatch the updated orders to the global state
     dispatch(updateOrdersInfo(updatedOrders));
   
@@ -295,13 +300,13 @@ console.log("local", localOrder);
     setStates();
   }, []);
 
-  useEffect(() => {
+//   useEffect(() => {
     
-  if (code?.data?.length > 0) {
-    dispatch(fetchSingleOrderDetails({ accountId: "1556", orderFullFillmentId: id }));
-    setLocalOrder(order);
-  }
-}, [code, order, dispatch, id]);
+//   if (code?.data?.length > 0) {
+//     dispatch(fetchSingleOrderDetails({ accountId: "1556", orderFullFillmentId: id }));
+//     setLocalOrder(order);
+//   }
+// }, [code, order, dispatch, id]);
 
   const displayTurtles = (
     <Form
@@ -492,21 +497,21 @@ console.log("local", localOrder);
               <div className="block relative pb-4 w-full">
                 <div className="justify-around  pt-4  rounded-lg flex">
                   <div className="flex pt-8">
-                    <img
+                   {productData[item.product_sku]?.image_url_1 ? <img
                       src={productData[item.product_sku]?.image_url_1}
                       // src="https://images.unsplash.com/photo-1515955656352-a1fa3ffcd111?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1170&q=80"
                       alt="product"
                       className="rounded-lg max-md:w-20 w-40 h-[90px]"
                       width={116}
                       height={26}
-                    />
+                    /> : <Skeleton.Image active className="mr-40" />}
 
                     <div className="sm:ml-4 flex flex-col w-full sm:justify-between">
-                      <div className={`w-8/12 text-sm  ${style.product_decription}`}>
+                     {(Object.keys(productData)?.length && ( <div className={`w-8/12 text-sm  ${style.product_decription}`}>
                         {filterDescription(
                           productData[item.product_sku]?.description_long
                         )}
-                      </div>
+                      </div> )) || <Skeleton active  />}
                       {/* <div className="w-full text-sm">1234 Elm Street</div>
                    <div className="w-full text-sm">Suite 567</div>
                    <div className="w-full text-sm">
@@ -529,7 +534,7 @@ console.log("local", localOrder);
                       data-tooltip-target="tooltip-document"
                       type="button"
                       className="max-md:pl-2 mt-2 inline-flex  flex-col justify-start items-start  hover:bg-gray-50 dark:hover:bg-gray-800 group"
-                      onClick={() => setDeleteMessageVisible(true)}
+                      onClick={() => { setSkuCode(item.product_sku); setDeleteMessageVisible(true); }}
                     >
                       <svg
                         className="w-5 h-5 mb-1 text-gray-500 dark:text-gray-400 group-hover:text-red-600 dark:group-hover:text-blue-500"
@@ -547,7 +552,7 @@ console.log("local", localOrder);
                         />
                       </svg>
                     </button>
-                    <DeleteMessage visible={DeleteMessageVisible} onClose={setDeleteMessageVisible} onDeleteProduct={onDeleteProduct} deleteItem={(item.product_sku)}/>
+                    <DeleteMessage visible={DeleteMessageVisible} onClose={setDeleteMessageVisible} onDeleteProduct={onDeleteProduct} deleteItem={skuCode}/>
                   </div>
                   <div className=" mt-6  w-8/12 text-center">
                     {productCode && (
@@ -604,7 +609,7 @@ console.log("local", localOrder);
               visible={popupVisible}
               onClose={() => setPopupVisible(false)}
               setProductCode={setProductCode}
-              orderFullFillmentId = {localOrder?.orderFullFillmentId}
+              orderFullFillmentId = {id}
               onProductCodeUpdate={handleProductCodeUpdate}
             />
             <VirtualInvModal

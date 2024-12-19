@@ -3,18 +3,16 @@ import { Button, PaginationProps, Spin, notification, Pagination } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store";
 import {
-  updateCompanyInfo,
-  updateCompany,
-  ecommerceConnector,
-  getImportOrders,
   saveOrder,
-  listVirtualInventory,
   updateOrderStatus,
   updateOrdersInfo,
 } from "../store/features/orderSlice";
+import { listVirtualInventory } from "../store/features/InventorySlice";
+import  {getImportOrders} from "../store/features/ecommerceSlice";
 import ShippingPreference from "../pages/ShippingPreference";
 import UpdatePopup from "./UpdatePopup";
 import { loadavg } from "os";
+import { updateCompanyInfo} from "../store/features/companySlice";
 
 type NotificationType = "success" | "info" | "warning" | "error";
 interface NotificationAlertProps {
@@ -36,7 +34,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   console.log("collapsed", collapsed);
   const orders = useAppSelector((state) => state.order.orders);
   const product_details = useAppSelector(
-    (state) => state.order.product_details
+    (state) => state.ProductSlice.product_details
   );
 
   const orderEdited = useAppSelector((state) => state.order.orderEdited);
@@ -47,14 +45,14 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
   console.log("checkedOrders", checkedOrders);
   const ecommerceGetImportOrders = useAppSelector(
-    (state) => state.order.ecommerceGetImportOrders
+    (state) => state.Ecommerce.ecommerceGetImportOrders
   );
   let listVirtualInventoryDataCount = useAppSelector(
-    (state) => state.order.listVirtualInventory?.count
+    (state) => state.Inventory.listVirtualInventory?.count
   );
   const updatedValues = useAppSelector((state) => state.order.updatedValues);
   const { shipping_preferences } = useAppSelector(
-    (state) => state.order.shipping_preferences
+    (state) => state.Shipping.shipping_preferences
   );
   console.log("shipping_preferences", shipping_preferences);
 
@@ -90,7 +88,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const pathNameAvoidUpdateProfile = ["/importfilter"];
 
   const myCompanyInfoFilled = useAppSelector(
-    (state) => state.order.myCompanyInfoFilled
+    (state) => state.company.myCompanyInfoFilled
   );
   console.log("myCompanyInfoFilled", myCompanyInfoFilled);
 
@@ -99,11 +97,11 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const saveOrderInfo = useAppSelector((state) => state.order.saveOrderInfo);
 
   const myBillingInfoFilled = useAppSelector(
-    (state) => state.order.myBillingInfoFilled
+    (state) => state.company.myBillingInfoFilled
   );
   console.log("myBillingInfoFilled", myBillingInfoFilled);
 
-  const companyInfo = useAppSelector((state) => state.order.company_info);
+  const companyInfo = useAppSelector((state) => state.company.company_info);
 
   const [stateData, setStateData] = useState<Boolean>(false);
   const dispatch = useAppDispatch();

@@ -16,7 +16,7 @@ const DeleteMessage: React.FC<PopupModalProps> = ({ visible, onClose, onDeletePr
     onDeleteProduct(deleteItem);
     onClose(false);
   }
-
+console.log("itit",deleteItem)
   return (
     <Modal
       visible={visible}

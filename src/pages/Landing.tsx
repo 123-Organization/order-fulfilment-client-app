@@ -11,12 +11,8 @@ import squarespace from "../assets/images/store-squarespace.svg";
 import wix from "../assets/images/store-wix.svg";
 import woocommerce from "../assets/images/store-woocommerce.svg";
 import { useLocation, useNavigate } from "react-router-dom";
-import {
-  ecommerceConnector,
-  getImportOrders,
-  saveOrder,
-  updateCompanyInfo
-} from "../store/features/orderSlice";
+import { ecommerceConnector } from "../store/features/ecommerceSlice";
+import { updateCompanyInfo} from "../store/features/companySlice";
 import { useAppDispatch, useAppSelector } from "../store";
 // import { connectAdvanced } from "react-redux";
 import { find } from "lodash";
@@ -42,16 +38,16 @@ export enum StepType {
 
 const Landing: React.FC = (): JSX.Element => {
 
-  const ecommerceGetImportOrders = useAppSelector((state) => state.order.ecommerceGetImportOrders);
+  const ecommerceGetImportOrders = useAppSelector((state) => state.Ecommerce.ecommerceGetImportOrders);
   const companyInfo = useAppSelector(
-    (state) => state.order?.company_info?.data 
+    (state) => state.company?.company_info?.data 
   );
 
   console.log('companyInfo',companyInfo)
   console.log('ecommerceGetImportOrders',ecommerceGetImportOrders)
 
   const ecommerceConnectorInfo = useAppSelector(
-    (state) => state.order.ecommerceConnectorInfo
+    (state) => state.Ecommerce.ecommerceConnectorInfo
   );
   console.log("ecommerceConnectorInfo", ecommerceConnectorInfo);
 

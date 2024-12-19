@@ -9,7 +9,7 @@ const SelectShippingOption: React.FC<{ poNumber: string; orderItems: any }> = ({
   onShippingOptionChange,
 }) => {
   const shipping_option = useAppSelector(
-    (state) => state.order.shippingOptions[0] || []
+    (state) => state.Shipping.shippingOptions[0] || []
   );
 
   const shipping_details = useMemo(

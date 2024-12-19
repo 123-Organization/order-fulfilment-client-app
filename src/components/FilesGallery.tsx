@@ -1,7 +1,7 @@
 import React, { useEffect, useState, CSSProperties } from "react";
 import { Modal, Empty, Skeleton, Pagination, Space, Button } from "antd";
 import { useAppDispatch, useAppSelector } from "../store";
-import { getInventoryImages } from "../store/features/orderSlice";
+import { getInventoryImages } from "../store/features/InventorySlice";
 import Pin from "../assets/images/pin-svgrepo-com.svg";
 import change from "../assets/images/change-svgrepo-com.svg";
 import type { DataNode, TreeProps } from "antd/es/tree";
@@ -44,9 +44,9 @@ export default function FilesGallery({
   ProductName,
 }) {
   const dispatch = useAppDispatch();
-  const images = useAppSelector((state) => state.order.inventoryImages);
+  const images = useAppSelector((state) => state.Inventory.inventoryImages);
   const loading = useAppSelector(
-    (state) => state.order.inventoryImages.loading
+    (state) => state.Inventory.inventoryImages.loading
   ); // Assume loading state is tracked
   const error = useAppSelector((state) => state.order.error); // Assume error state is tracked
   console.log(images);

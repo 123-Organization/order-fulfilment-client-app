@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Checkbox, Form, Input, Select } from "antd";
 import Payment from "./Payment";
-import { createCustomer } from "../store/features/orderSlice";
+import { createCustomer } from "../store/features/paymentSlice";
 import { useAppDispatch, useAppSelector } from "../store";
 
 const { Option } = Select;
@@ -18,9 +18,9 @@ const PaymentAddress: React.FC <PaymentAddressProps> = ({remainingTotal}) => {
   );
 
   const companyInfo = useAppSelector(
-    (state) => state.order.company_info?.data?.business_info
+    (state) => state.company.company_info?.data?.business_info
   );
-  const customerInfo = useAppSelector((state) => state.order.customer_info);
+  const customerInfo = useAppSelector((state) => state.Customer.customer_info);
   console.log("companyInfo", customerInfo);
 
   const onChange = (value: string) => {
