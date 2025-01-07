@@ -1,27 +1,36 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Modal, Button } from "antd";
 import { FullscreenOutlined, CompressOutlined } from "@ant-design/icons";
+import { useAppDispatch, useAppSelector } from "../store";
+import { CreateOrder } from "../store/features/orderSlice";
 
-export default function NewOrder({ iframe, setIframe }) {
+export default function NewOrder({ iframe, setIframe, recipient }) {
   const [addedProducts, setAddedProducts] = useState([]);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const iframeContainerRef = useRef(null);
+  const dispatch = useAppDispatch();
+  console.log("addedProducts...", addedProducts);
 
   // Listen for messages from iframe
   useEffect(() => {
     const handleMessage = (event) => {
-      console.log("Message event:", event);
+      console.log("Message event:", event.data);
 
       // Check if the message is coming from the expected origin
       if (event.origin !== "https://finerworks.com") return;
 
       try {
         const data = JSON.parse(event.data);
-
+              
         if (Array.isArray(data)) {
           setAddedProducts(data);
           setIframe(false);
+          const postData = {
+           data,
+          recipient,
         }
+          dispatch(CreateOrder(postData));
+      }
       } catch (error) {
         console.error("Error parsing message data:", error);
       }

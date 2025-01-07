@@ -6,6 +6,7 @@ interface CompanyState {
         company_info: any;
         myCompanyInfoFilled: any;
         myBillingInfoFilled: any;
+        iframeState: any;
 
 }
 
@@ -13,6 +14,7 @@ const initialState: CompanyState = {
         company_info: {},
         myCompanyInfoFilled: {},
         myBillingInfoFilled: {},
+        iframeState: false,
 };
 
 
@@ -65,6 +67,9 @@ export const Company = createSlice({
                 updateBilling: (state, action: PayloadAction) => {
                         state.myBillingInfoFilled = action.payload;
                 },
+                updateIframeState: (state, action: PayloadAction) => {
+                        state.iframeState = action.payload;
+                }
         },
         extraReducers: (builder) => {
                 builder.addCase(updateCompanyInfo.fulfilled, (state, action) => {
@@ -73,5 +78,5 @@ export const Company = createSlice({
         },
 });
 
-export const { updateCompany, updateBilling } = Company.actions;
+export const { updateCompany, updateBilling, updateIframeState } = Company.actions;
 

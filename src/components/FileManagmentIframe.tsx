@@ -1,11 +1,15 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Modal, Button } from 'antd';
-import { FullscreenOutlined, CompressOutlined } from '@ant-design/icons';
+import React, { useState, useRef, useEffect } from "react";
+import { Modal, Button } from "antd";
+import { FullscreenOutlined, CompressOutlined } from "@ant-design/icons";
+import { useAppSelector, useAppDispatch } from "../store";
+import { updateIframeState } from "../store/features/companySlice";
 
 export default function FileManagementIframe({ iframe, setIframe }) {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const iframeContainerRef = useRef(null);
-
+  const dispatch = useAppDispatch();
+  const { iframeState } = useAppSelector((state) => state.company.iframeState);
+  console.log("iframeState...", iframeState);
   // Handle full-screen change event
   useEffect(() => {
     const handleFullScreenChange = () => {
@@ -14,10 +18,10 @@ export default function FileManagementIframe({ iframe, setIframe }) {
       }
     };
 
-    document.addEventListener('fullscreenchange', handleFullScreenChange);
+    document.addEventListener("fullscreenchange", handleFullScreenChange);
 
     return () => {
-      document.removeEventListener('fullscreenchange', handleFullScreenChange);
+      document.removeEventListener("fullscreenchange", handleFullScreenChange);
     };
   }, []);
 
@@ -36,40 +40,48 @@ export default function FileManagementIframe({ iframe, setIframe }) {
     <div>
       <Modal
         title="File Management"
-        visible={iframe === true}
+        visible={iframe === true || iframeState === true}
         onOk={() => setIframe(false)}
-        onCancel={() => setIframe(false)}
+        onCancel={() => {
+          setIframe(false);
+          dispatch(updateIframeState({ iframeState: false }));
+        }}
         width="80%"
         footer={null}
       >
         <div
           ref={iframeContainerRef}
           style={{
-            position: 'relative',
-            width: '100%',
-            height: isFullScreen ? '100vh' : '550px',
+            position: "relative",
+            width: "100%",
+            height: isFullScreen ? "100vh" : "550px",
           }}
         >
           <iframe
             src="https://dev1-filemanger-app.finerworks.com/#/thumbnail"
             width="100%"
             height="100%"
-            style={{ border: 'none' }}
+            style={{ border: "none" }}
             title="File Management"
           />
           <Button
-            type="primary"
+            type="default"
             style={{
-              position: 'absolute',
-              top: !isFullScreen? -40 : 25,
-              right:  !isFullScreen? 20 : 200,
+              position: "absolute",
+              border: "none",
+              top: isFullScreen ? 10 : -39,
+              right: isFullScreen ? 100 : 20,
               zIndex: 1000,
             }}
-            icon={isFullScreen ? <CompressOutlined /> : <FullscreenOutlined />}
+            icon={
+              isFullScreen ? (
+                <CompressOutlined />
+              ) : (
+                <FullscreenOutlined className="text-gray-600" />
+              )
+            }
             onClick={toggleFullScreen}
-          >
-            {isFullScreen ? 'Exit Full Screen' : 'Full Screen'}
-          </Button>
+          ></Button>
         </div>
       </Modal>
     </div>

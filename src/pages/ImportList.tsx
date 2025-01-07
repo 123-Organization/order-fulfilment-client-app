@@ -38,9 +38,9 @@ const ImportList: React.FC = () => {
   console.log("product_details...", product_details);
   const dispatch = useAppDispatch();
   console.log("productdata", productData);
-  const shipping_option = useAppSelector(
-    (state) => state.Shipping.shippingOptions[0] || []
-  );
+   const shipping_option = useAppSelector(
+     (state) => state.Shipping.shippingOptions || []
+   );
   console.log("shipping_option", shipping_option);
   const navigate = useNavigate();
 
@@ -107,17 +107,12 @@ const ImportList: React.FC = () => {
         }))
       );
 
-      console.log("orderPostData...", orderPostDataList);
-      console.log("ProductDetails...", ProductDetails);
-      console.log("orderPostDataList...", orderPostDataList);
-
       dispatch(fetchShippingOption(orderPostDataList));
-
       setOrderPostData(orderPostDataList);
-
       dispatch(fetchProductDetails(ProductDetails));
     }
   }, [orders, product_details, orderPostData, dispatch]);
+
   const handleCheckboxChange = (e) => {
     const { value, checked } = e.target;
     console.log("value", value);
@@ -132,8 +127,6 @@ const ImportList: React.FC = () => {
       );
     }
   };
-  console.log("Orders", orders);
-  console.log("productdata", productData);
 
   const getShippingPrice = (order_po) => {
     const shippingForOrder = shipping_option.find(
@@ -142,23 +135,31 @@ const ImportList: React.FC = () => {
     if (shippingForOrder && shippingForOrder.options.length) {
       const selectedOption = shippingForOrder?.preferred_option; // or apply logic to select a specific shipping option
       return selectedOption?.calculated_total?.order_grand_total;
-    }
+    }else 
+
     return 0; // Default value if no shipping option is found
   };
 
-  const handleShippingOptionChange = (
-    order_po: string,
-    updatedPrice: number
-  ) => {
-    const updatedOrders = checkedOrders.map((order) => {
-      if (order.order_po === order_po) {
-        return {
-          ...order,
-          Product_price: updatedPrice, // Update the shipping price
-        };
-      }
-      return order;
-    });
+  const handleShippingOptionChange = (order_po: string, updatedPrice: number) => {
+    let updatedOrders = [...checkedOrders];
+  
+    // Check if the order is already in checkedOrders
+    const orderIndex = updatedOrders.findIndex((order) => order.order_po === order_po);
+  
+    if (orderIndex !== -1) {
+      // Update the shipping price for the existing order
+      updatedOrders[orderIndex] = {
+        ...updatedOrders[orderIndex],
+        Product_price: updatedPrice,
+      };
+    } else {
+      // Add the order with the updated shipping price
+      updatedOrders.push({
+        order_po,
+        Product_price: updatedPrice,
+      });
+    }
+  
     dispatch(updateCheckedOrders(updatedOrders));
   };
 

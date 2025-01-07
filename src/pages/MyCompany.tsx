@@ -9,6 +9,7 @@ import { countryType } from "../types/ICountry";
 import { useAppDispatch, useAppSelector } from "../store";
 import convertUsStateAbbrAndName from "../services/state";
 import { on } from "events";
+import { updateIframeState } from "../store/features/companySlice";
 
 /*////////////////////////////////////////////////////*/
 
@@ -21,6 +22,9 @@ const MyCompany: React.FC = () => {
   const businessInfo = useAppSelector(
     (state) => state.company?.company_info?.data?.business_info
   );
+
+  const com_info = useAppSelector((state) => state.company?.company_info);
+  console.log("com_info", com_info);
 console.log("businessInfo", businessInfo);
   const [componentSize, setComponentSize] = useState<SizeType | "default">(
     "default"
@@ -56,6 +60,10 @@ const [validFields, setValidFields] = useState({
   });
 
   /*////////////////////////////////////////////////////*/
+
+  const openIframe = () => {
+    dispatch(updateIframeState({ iframeState: true }));
+  }
 
   const setStates = (value: string = "us") => {
     let states = getStates(value);
@@ -394,7 +402,8 @@ const [validFields, setValidFields] = useState({
           <p className="text-lg py-4 ">Optional logo </p>
           <img
             className="py-2 border-gray-300 border-2 rounded-lg "
-            src={uploadYourLogo}
+            src={com_info? com_info?.data?.logo_url : uploadYourLogo}
+            onClick={openIframe}
           />
           <p className="py-5">
             If provided, will appear on packing slips and <br /> shipping

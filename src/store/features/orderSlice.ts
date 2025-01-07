@@ -116,6 +116,28 @@ export const AddProductToOrder = createAsyncThunk(
   },
 );
 
+export const CreateOrder = createAsyncThunk(
+  "order/create",
+  async (postData: any, thunkAPI) => {
+
+  const SendData = {
+    ...postData?.data[0],
+    "recipient": postData?.recipient,
+    "shipping_code": "GD",
+    "accountId": 1556
+ }
+    const response = await fetch(BASE_URL + "create-new-order", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(SendData),
+    });
+    const data = await response.json();
+    return data;
+  },
+);
+
 
 
 
@@ -181,6 +203,11 @@ export const OrderSlice = createSlice({
     });
     builder.addCase(updateOrdersInfo.fulfilled, (state, action) => {
       state.productCode = action.payload;
+      state.orders = action.payload;
+    }
+    );
+
+    builder.addCase(CreateOrder.fulfilled, (state, action) => {
       state.orders = action.payload;
     }
     );

@@ -14,7 +14,7 @@ import ShippingSlice from "./features/shippingSlice";
 
 // Create a persist configuration
 const persistConfig = {
-  key: 'root', // key to store the persisted data
+  key: 'root',  // key to store the persisted data
   storage,
   blacklist: ['order'], // Exclude 'order' slice from persistence
 };
