@@ -55,12 +55,13 @@ console.log("shipping_option", shipping_option);
       const option = shipping_details?.options?.find(
         (opt) => `${opt.rate}-$${opt.shipping_method}` === value
       );
+      console.log("popo", option.calculated_total);
       if (option) {
         setSelectedOption(option);
         // Notify the parent about the updated shipping price
         onShippingOptionChange(
           poNumber,
-          option.calculated_total.order_grand_total
+          option?.calculated_total
         );
 
         dispatch(updateCurrentOption(option));
@@ -78,6 +79,10 @@ useEffect(() => {
         product_order_po: localOrder.order_po,
         product_qty: item.product_qty,
         product_sku: item.product_sku,
+        product_image: {
+          product_url_file: "https://inventory.finerworks.com/81de5dba-0300-4988-a1cb-df97dfa4e372/s173618563107067060__shutterstock_2554522269/thumbnail/200x200_s173618563107067060__shutterstock_2554522269.jpg",
+          product_url_thumbnail: "https://inventory.finerworks.com/81de5dba-0300-4988-a1cb-df97dfa4e372/s173618563107067060__shutterstock_2554522269/thumbnail/200x200_s173618563107067060__shutterstock_2554522269.jpg",
+        }
       })),
     };
 
@@ -115,6 +120,7 @@ console.log("shipping_details", shipping_details);
   const shipping = selectedOption?.calculated_total?.order_shipping_rate || 0;
   const salesTax = selectedOption?.calculated_total?.order_sales_tax || 0;
   const grandTotal = selectedOption?.calculated_total?.order_grand_total ||  0;
+  const accountCredit = selectedOption?.calculated_total?.order_credits_used || 0;
 
   return (
     <>
@@ -154,7 +160,8 @@ console.log("shipping_details", shipping_details);
       <div className="w-full text-sm">Discount: (${discount.toFixed(2)})</div>
       <div className="w-full text-sm">Shipping: ${shipping.toFixed(2)}</div>
       <div className="w-full text-sm">Sales Tax: ${salesTax.toFixed(2)}</div>
-      <div className="w-full text-sm">GrandTotal: {grandTotal}</div>
+      <div className="w-full text-sm">GrandTotal: ${grandTotal}</div>
+      {/* <div className="w-full text-sm text-amber-500">Account Credit: ${accountCredit}</div> */}
     </>
   );
 };

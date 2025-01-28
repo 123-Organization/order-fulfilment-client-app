@@ -11,7 +11,7 @@ import { PersistGate } from "redux-persist/integration/react"; // Import Persist
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );
-persistor.purge()// Clear the persisted state
+// persistor.purge()// Clear the persisted state
 root.render(
   <React.StrictMode>
     <Provider store={store}>

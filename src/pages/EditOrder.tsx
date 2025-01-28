@@ -189,7 +189,7 @@ const EditOrder: React.FC = () => {
       return order;
     });
 
-    dispatch(updateOrdersInfo(updatedOrders));
+     dispatch(updateOrdersInfo(updatedOrders));
     setLocalOrder(updatedLocalOrder);
 
     // Toggle productchange to ensure re-render
@@ -222,6 +222,7 @@ const EditOrder: React.FC = () => {
     if (product_details && product_details?.length) {
       product_details?.map((product, index) => {
         products[product.sku] = product;
+        products[product?.product_code] = product;
       });
 
       console.log("products", products);
@@ -236,6 +237,12 @@ const EditOrder: React.FC = () => {
         order_po: order.order_po,
         product_sku: item.product_sku,
         product_qty: item.product_qty,
+        product_image: {
+          product_url_file:
+            "https://inventory.finerworks.com/81de5dba-0300-4988-a1cb-df97dfa4e372/s173618563107067060__shutterstock_2554522269/thumbnail/200x200_s173618563107067060__shutterstock_2554522269.jpg",
+          product_url_thumbnail:
+            "https://inventory.finerworks.com/81de5dba-0300-4988-a1cb-df97dfa4e372/s173618563107067060__shutterstock_2554522269/thumbnail/200x200_s173618563107067060__shutterstock_2554522269.jpg",
+        },
       }));
 
       setOrderPostData(orderPostData1);
@@ -264,7 +271,7 @@ const EditOrder: React.FC = () => {
 
     // Exclude 'address_2' when checking for all fields filled
     const requiredFields = Object.keys(allValues).filter(
-      (key) => key !== "address_2" && key !== "company_name"
+      (key) => key !== "address_2" && key !== "company_name" 
     );
 
     const allFieldsFilled = requiredFields.every((key) => {
@@ -274,7 +281,7 @@ const EditOrder: React.FC = () => {
       );
     });
     console.log("allFieldsFilled:", allFieldsFilled);
-
+    
     dispatch(updateOrderStatus({ status: allFieldsFilled, clicked: false }));
 
     const updatedOrder = {
@@ -288,6 +295,7 @@ const EditOrder: React.FC = () => {
     dispatch(setUpdatedValues(updatedOrder));
     setIsModified(hasChanged);
   };
+  console.log("vol", updatedValues)
 
   const setStates = (value: string = "us") => {
     let states = getStates(value);
@@ -556,7 +564,7 @@ const EditOrder: React.FC = () => {
                   <div className="flex pt-8">
                     {productData[item.product_sku]?.image_url_1 ? (
                       <img
-                        src={productData[item.product_sku]?.image_url_1}
+                        src={item?.product_image?.product_url_thumbnail ? item?.product_image?.product_url_thumbnail : productData[item?.product_sku].image_url_1}
                         // src="https://images.unsplash.com/photo-1515955656352-a1fa3ffcd111?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1170&q=80"
                         alt="product"
                         className="rounded-lg max-md:w-20 w-40 h-[90px]"

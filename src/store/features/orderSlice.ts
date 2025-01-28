@@ -78,12 +78,13 @@ export const fetchSingleOrderDetails = createAsyncThunk(
 export const updateOrdersInfo = createAsyncThunk(
   "order/update",
   async (postData: any, thunkAPI) => {
+    console.log('pospos', postData)
     const Data = {
       "accountId": "1556",
       "orders":
         [...postData]
     }
-
+    console.log('Dataaa', Data)
     const response = await fetch(BASE_URL + "update-orders", {
       method: "PUT",
       headers: {
@@ -123,6 +124,7 @@ export const CreateOrder = createAsyncThunk(
   const SendData = {
     ...postData?.data[0],
     "recipient": postData?.recipient,
+    "thumbnailUrl": postData?.data[0].thumbnail_url,
     "shipping_code": "GD",
     "accountId": 1556
  }
@@ -171,6 +173,26 @@ export const saveUserProfile = createAsyncThunk(
   },
 );
 
+export const deleteOrder = createAsyncThunk(
+  "order/delete",
+  async (postData: any, thunkAPI) => {
+
+    const sendData = {
+      "orderFullFillmentId": postData,
+      "accountId": 1556
+    }
+    const response = await fetch(BASE_URL + "delete-order", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(sendData),
+    });
+    const data = await response.json();
+    return data;
+  },
+);
+
 
 export const OrderSlice = createSlice({
   name: "order",
@@ -195,17 +217,24 @@ export const OrderSlice = createSlice({
     },
     updateOrderStatus: (state: OrderState, action: PayloadAction<boolean>) => {
       state.orderEdited = action.payload;
+      console.log('state.orderEdited', state.orderEdited)
     },
   },
   extraReducers: (builder) => {
     builder.addCase(fetchOrder.fulfilled, (state, action) => {
       state.orders = action.payload;
     });
+    
     builder.addCase(updateOrdersInfo.fulfilled, (state, action) => {
+      console.log("updateOrdersInfo.fulfilled called with:", action.payload);
       state.productCode = action.payload;
       state.orders = action.payload;
     }
     );
+    builder.addCase(updateOrdersInfo.rejected, (state, action) => {
+      console.log("updateOrdersInfo.pending called with:", action.payload);
+    }
+  );
 
     builder.addCase(CreateOrder.fulfilled, (state, action) => {
       state.orders = action.payload;
@@ -226,6 +255,10 @@ export const OrderSlice = createSlice({
     });
     builder.addCase(fetchSingleOrderDetails.fulfilled, (state, action) => {
       state.order = action.payload;
+    }
+    );
+    builder.addCase(deleteOrder.fulfilled, (state, action) => {
+      state.orders = action.payload;
     }
     );
 

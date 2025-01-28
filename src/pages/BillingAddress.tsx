@@ -8,6 +8,7 @@ import type { CheckboxProps } from "antd";
 import { useAppDispatch, useAppSelector } from "../store";
 import { updateBilling } from "../store/features/companySlice";
 import convertUsStateAbbrAndName from "../services/state";
+import PaymentMethods from "../components/PaymentMethods";
 import { on } from "events";
 
 const countryList = require("../json/country.json");
@@ -440,10 +441,15 @@ console.log(stateCode, stateCodeShort)
       <div
         className="
           w-1/2  flex flex-col justify-center items-center h-[600px] max-md:w-full 
-          md:border-r-2 max-md:border-b-2 max-md:mb-8
+          md:border-r-2 max-md:border-b-2 max-md:mb-8 bg
         "
       >
-        <div className="text-left text-gray-400 pt-4">
+         <div className="w-full ml-20 p-8">
+          <PaymentMethods />
+         </div>
+       
+        <div className=" text-gray-400 pt-4text-center">
+          
           <p className="text-lg  font-bold">My Billing Address </p>
           <p className="pt-5">
             You can change this info later within your account.

@@ -2,13 +2,11 @@ import React, { useState, useEffect } from "react";
 import { useAppSelector, useAppDispatch } from "../store";
 import { Button, Form, Radio, Space, Select, Input } from "antd";
 
-import {
-  getCustomerInfo,
-
-} from "../store/features/customerSlice";
-import  { getPaymentMethods} from "../store/features/paymentSlice";
+import { getCustomerInfo } from "../store/features/customerSlice";
+import { getPaymentMethods } from "../store/features/paymentSlice";
 import type { RadioChangeEvent } from "antd";
 import PaymentAddressModal from "../components/PaymentAddressModal";
+import PaymentMethods from "../components/PaymentMethods";
 import style from "./Pgaes.module.css";
 const { Option } = Select;
 type SizeType = Parameters<typeof Form>[0]["size"];
@@ -23,11 +21,13 @@ const Checkout: React.FC = () => {
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
   const companyInfo = useAppSelector((state) => state.company.company_info);
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
-  const paymentMethods = useAppSelector((state) => state.Payment.payment_methods);
+  const paymentMethods = useAppSelector(
+    (state) => state.Payment.payment_methods
+  );
   console.log(paymentMethods);
 
   const dispatch = useAppDispatch();
-  const credit = 40;
+  const credit = customerInfo.data?.user_account_credits || 0;
   console.log("Checked Orders", checkedOrders);
   const [value, setValue] = useState(1);
   const [paymentPopupEnable, setPaymentPopupEnable] = useState(false);
@@ -51,13 +51,17 @@ const Checkout: React.FC = () => {
     option?: { label: string; value: string }
   ) => (option?.label ?? "").toLowerCase().includes(input.toLowerCase());
 
+  console.log(paymentMethods);
+
   useEffect(() => {
     if (checkedOrders.length > 0) {
       let newTotalPrice = 0;
       checkedOrders.forEach((order) => {
         const product = order;
         if (product) {
-          newTotalPrice += product.Product_price;
+          newTotalPrice += order.Product_price?.grand_total
+            ? order.Product_price?.grand_total
+            : order.Product_price?.credit_charge;
         }
       });
       setGrandTotal(newTotalPrice);
@@ -72,14 +76,6 @@ const Checkout: React.FC = () => {
       }
     }
   }, [checkedOrders, grandTotal, credit]);
-console.log(paymentMethods)
-  useEffect(() => {
-    dispatch(getCustomerInfo());
-  }, [dispatch]);
-
-  useEffect(() => {
-    dispatch(getPaymentMethods(companyInfo?.data?.payment_profile_id));
-  }, [companyInfo, dispatch]);
 
   const onChangePaymentMethod = (e: any) => {
     setValue(e.target.value);
@@ -151,7 +147,7 @@ console.log(paymentMethods)
             <span>Grand Total:</span>
             <span>${grandTotal.toFixed(2)}</span>
           </p>
-          <p className="text-sm border-b-2 pt-6 flex justify-between  font-bold">
+          <p className="text-sm border-b-2 pt-6 flex justify-between font-bold">
             <span>Account Credits:</span>
             <span>(${credit || 0})</span>
           </p>
@@ -163,7 +159,7 @@ console.log(paymentMethods)
           </p>
         </div>
       </div>
-      <div className="w-1/2 max-lg:w-9/12 max-md:w-full flex flex-col justify-start items-center md:ml-16">
+      {/* <div className="w-1/2 max-lg:w-9/12 max-md:w-full flex flex-col justify-start items-center md:ml-16">
         <Form layout="horizontal" className="w-full flex flex-col items-center">
           <p className="text-lg font-bold -ml-12 text-gray-400">
             My Payment Methods
@@ -208,7 +204,8 @@ console.log(paymentMethods)
         visible={paymentPopupEnable}
         onClose={() => setPaymentPopupEnable(false)}
         remainingTotal={remainingTotal}
-      />
+      /> */}
+      <PaymentMethods remainingTotal={remainingTotal} />
     </div>
   );
 };

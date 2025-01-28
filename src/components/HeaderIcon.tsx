@@ -20,7 +20,8 @@ import { useNavigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import FileManagementIframe from "./FileManagmentIframe";
 import UserAvatar from "./UserAvatar";
-import NewOrder from "./NewOrder";
+import StoresMenu from "./StoresMenu";
+
 
 import finerWorks from "../assets/images/finerworks_logo_icon.49c0d41a2f19011aa3ea27c47041d2ff.svg";
 // import UploadFileModal from "./UploadFileModal";
@@ -62,6 +63,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
   const [avatarShape, setAvatarShape] = useState<AvatarShapeType>("square");
   const [iframeVisible, setIframeVisible] = useState(false);
   const navigate = useNavigate();
+  const [myStores, setMyStores] = useState(false);
 
   const handleMenuClick: MenuProps["onClick"] = (e) => {};
 
@@ -81,7 +83,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
   const getLocation = () => true; // (window.location.href !== window.parent.location.href)
   const locationIsDiff = getLocation();
   console.log("locationIsDiff", locationIsDiff);
-  const logo = {finerWorks};
+  const logo = { finerWorks };
   const info = () => {
     Modal.info({
       title: "Print Acknowledgement",
@@ -112,33 +114,35 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
   return (
     <div className={`flex w-full ${!openDash ? addtional : ""}`}>
       <div className=" fixed left-0 z-50 w-full top-0 h-18 bg-white pt-3 pb-3  mb-2 border-gray-200 dark:bg-gray-700 dark:border-gray-600">
-        <div className="grid md:place-items-center max-md:grid-cols-3 max-md:grid-cols-10 max-md:grid-rows-1 max-w-[700px] grid-rows-1 grid-cols-6 font-medium max-md:font-normal">
-          
-            {!logo ? (
-              <div
-                className=" cursor-pointer "
-                onClick={() => {
-                  window.location.href = "/";
-                }}
-              >
-                <Skeleton.Avatar
-                  className="pt-4"
-                  active={active}
-                  size={size}
-                  shape={avatarShape}
-                />
-              </div>
-            ) : (
-              <img
-                src={finerWorks}
-                onClick={() => {
-                  window.location.reload();
-                }}
-                className="App-logo-icon cursor-pointer flex flex-row z-100 w-12 h-14"
-                alt="logo"
+        <div className="grid md:place-items-center max-md:grid-cols-4 max-md:grid-cols-10 max-md:grid-rows-1 max-w-[700px] grid-rows-1 grid-cols-6 font-medium max-md:font-normal ">
+          {!logo ? (
+            <div
+              className=" cursor-pointer "
+              onClick={() => {
+                window.location.href = "/";
+              }}
+            >
+              <Skeleton.Avatar
+                className="pt-4"
+                active={active}
+                size={size}
+                shape={avatarShape}
               />
-            )}
-          
+            </div>
+          ) : (
+            <img
+              src={finerWorks}
+              onClick={() => {
+                window.location.href = "/";
+              }}
+              className="App-logo-icon cursor-pointer flex flex-row z-100 w-12 h-14"
+              alt="logo"
+            />
+          )}
+
+          <div className="max-md:visible md:hidden ml-80 ">
+            <UserAvatar />
+          </div>
 
           {1 ? (
             <>
@@ -266,8 +270,22 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                   <span className="pt-0.5 ">Virtual Inventory</span>
                 </button>
               </div>
-              <button onClick={()=> setOpenModal(true)}>
-              </button>
+              <div className="max-md:hidden relative">
+                <button type="button" className="fw-icon-btn" onClick={()=>{setMyStores(!myStores)}}>
+                  <img
+                    src={store}
+                    className="mr-2"
+                    width={whPixel}
+                    height={whPixel}
+                  />
+                  <span className="mt-1">My Stores</span>
+                </button>
+                <div className={`absolute top-20 left flex items-center ${myStores ? 'visible' : 'hidden'}`} >
+                  <StoresMenu/>
+                </div>
+              </div>
+              
+              <button onClick={() => setOpenModal(true)}></button>
             </>
           ) : (
             <></>
@@ -299,7 +317,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
           )}
 
           {!openDash && (
-            <div className="md:hidden col-span-6" id="mobile-menu1">
+            <div className="md:hidden col-span-6" id="mobile-menu1 ">
               <div className="space-y-1 px-2 pb-3 pt-2">
                 {
                   //Current: "bg-gray-900 text-white", Default: "text-gray-300 hover:bg-gray-700 hover:text-white"
@@ -327,7 +345,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                 </button>  */}
                 <div className="middle-div border-t-2">
                   <a
-                    href="#"
+                    href="#/mycompany"
                     className="w-full middle-div text-gray-300 hover:bg-gray-700 hover:text-white block rounded-md px-3 py-2 text-sm font-medium"
                     aria-current="page"
                   >
@@ -342,7 +360,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                 </div>
                 <div className="middle-div border-t-2">
                   <a
-                    href="#"
+                    href="#/shippingpreference"
                     className="w-full middle-div text-gray-300 hover:bg-gray-700 hover:text-white block rounded-md px-3 py-2 text-sm font-medium"
                     aria-current="page"
                   >
@@ -357,7 +375,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                 </div>
                 <div className="middle-div border-t-2">
                   <a
-                    href="#"
+                    href="#/billingaddress"
                     className="w-full middle-div text-gray-300 hover:bg-gray-700 hover:text-white block rounded-md px-3 py-2 text-sm font-medium"
                     aria-current="page"
                   >
@@ -372,7 +390,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                 </div>
                 <div className="middle-div border-t-2">
                   <a
-                    href="#"
+                    href="#/virtualinventory"
                     className="w-full middle-div text-gray-300 hover:bg-gray-700 hover:text-white block rounded-md px-3 py-2 text-sm font-medium"
                     aria-current="page"
                   >
@@ -390,6 +408,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                   <a
                     href="#"
                     className="w-full middle-div text-gray-300 hover:bg-gray-700 hover:text-white block rounded-md px-3 py-2 text-sm font-medium"
+                    onClick={() => setIframeVisible(true)}
                   >
                     <img
                       src={image}

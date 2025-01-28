@@ -8,11 +8,11 @@ import {
   updateOrdersInfo,
 } from "../store/features/orderSlice";
 import { listVirtualInventory } from "../store/features/InventorySlice";
-import  {getImportOrders} from "../store/features/ecommerceSlice";
+import { getImportOrders } from "../store/features/ecommerceSlice";
 import ShippingPreference from "../pages/ShippingPreference";
 import UpdatePopup from "./UpdatePopup";
 import { loadavg } from "os";
-import { updateCompanyInfo} from "../store/features/companySlice";
+import { updateCompanyInfo } from "../store/features/companySlice";
 
 type NotificationType = "success" | "info" | "warning" | "error";
 interface NotificationAlertProps {
@@ -31,7 +31,6 @@ type bottomIconProps = {
 };
 
 const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
-  console.log("collapsed", collapsed);
   const orders = useAppSelector((state) => state.order.orders);
   const product_details = useAppSelector(
     (state) => state.ProductSlice.product_details
@@ -50,7 +49,9 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   let listVirtualInventoryDataCount = useAppSelector(
     (state) => state.Inventory.listVirtualInventory?.count
   );
-  const updatedValues = useAppSelector((state) => state.order.updatedValues);
+  const updatedValues =
+    useAppSelector((state) => state.order.updatedValues) || {};
+
   const { shipping_preferences } = useAppSelector(
     (state) => state.Shipping.shipping_preferences
   );
@@ -139,71 +140,84 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   };
 
   const onNextHandler = async () => {
-    if (location.pathname === "/mycompany") {
-      if (
-        myCompanyInfoFilled?.business_info &&
-        !isNaN(myCompanyInfoFilled?.business_info?.zip_postal_code) &&
-        !isNaN(myCompanyInfoFilled?.business_info?.phone)
-      ) {
-        setNextSpinning(true);
-        dispatch(updateCompanyInfo(myCompanyInfoFilled));
-        navigate("/billingaddress");
-      } else {
-        alert("Billing info missing");
+    try {
+      if (location.pathname === "/mycompany") {
+        if (
+          myCompanyInfoFilled?.business_info &&
+          !isNaN(myCompanyInfoFilled?.business_info?.zip_postal_code) &&
+          !isNaN(myCompanyInfoFilled?.business_info?.phone)
+        ) {
+          setNextSpinning(true);
+          await dispatch(updateCompanyInfo(myCompanyInfoFilled));
+          navigate("/billingaddress");
+        } else {
+          alert("Billing info missing");
+        }
       }
-    }
 
-    if (location.pathname === "/importfilter") {
-      if (myImport?.start_date || myImport?.end_date || myImport?.status) {
-        setNextSpinning(true);
-        // dispatch(updateCompanyInfo(myImport));
-        dispatch(
-          getImportOrders({
-            ...{
+      if (location.pathname === "/importfilter") {
+        if (myImport?.start_date || myImport?.end_date || myImport?.status) {
+          setNextSpinning(true);
+          await dispatch(
+            getImportOrders({
               account_key: "81de5dba-0300-4988-a1cb-df97dfa4e372",
-            },
-            ...myImport,
-          })
-        );
-      } else {
-        alert("Import info missing");
+              ...myImport,
+            })
+          );
+        } else {
+          alert("Import info missing");
+        }
       }
-    }
 
-    if (location.pathname === "/billingaddress") {
+      if (location.pathname === "/billingaddress") {
+        if (
+          myBillingInfoFilled.billing_info &&
+          !isNaN(myBillingInfoFilled.billing_info.zip_postal_code) &&
+          !isNaN(myBillingInfoFilled.billing_info.phone)
+        ) {
+          setNextSpinning(true);
+          await dispatch(updateCompanyInfo(myBillingInfoFilled));
+          navigate("/shippingpreference");
+        } else {
+          alert("Billing info missing");
+        }
+      }
+
+      if (location.pathname === "/shippingpreference") {
+        if (shipping_preferences?.length) {
+          setNextSpinning(true);
+          await dispatch(updateCompanyInfo({ shipping_preferences }));
+          notification.success({
+            message: "Success",
+            description: "Information has been saved",
+          });
+          navigate("/checkout");
+        } else {
+          alert("Shipping info missing");
+        }
+      }
+
+      if (location.pathname === "/importlist" && checkedOrders.length) {
+        navigate("/checkout");
+      }
+
       if (
-        myBillingInfoFilled.billing_info &&
-        !isNaN(myBillingInfoFilled.billing_info.zip_postal_code) &&
-        !isNaN(myBillingInfoFilled.billing_info.phone)
+        location.pathname.includes("/editorder") &&
+        !orderEdited.clicked &&
+        updatedValues
       ) {
-        setNextSpinning(true);
-        dispatch(updateCompanyInfo(myBillingInfoFilled));
-      } else {
-        alert("Billing info missing");
+        dispatch(updateOrderStatus({ status: true, clicked: true }));
+        await dispatch(updateOrdersInfo(updatedValues));
       }
+    } catch (error) {
+      console.error("Error in onNextHandler:", error);
+      notification.error({
+        message: "Error",
+        description: "An error occurred. Please try again.",
+      });
+    } finally {
+      setNextSpinning(false); // Ensure this is reset
     }
-    if (location.pathname === "/shippingpreference") {
-      if (shipping_preferences?.length) {
-        setNextSpinning(true);
-        dispatch(updateCompanyInfo({ shipping_preferences }));
-        notification.success({
-          message: "Success",
-          description: "Information has been saved",
-        });
-      } else {
-        alert("Shipping info missing");
-      }
-      navigate("/checkout");
-    }
-    if (location.pathname === "/importlist" && checkedOrders.length) {
-      navigate("/checkout");
-    }
-    if (location.pathname === "/editorder" && orderEdited.clicked === false) {
-      dispatch(updateOrderStatus({ status: true, clicked: true }));
-      dispatch(updateOrdersInfo(updatedValues));
-    }
-    // alert("next");
-    // navigate('/BillingAddress')
   };
 
   const onDeleteHandler = () => {};
@@ -327,7 +341,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
       companyInfo?.data?.account_id &&
       nextVisiable &&
       location.pathname !== "/shippingpreference" &&
-      location.pathname !== "/editorder" &&
+      !location.pathname.includes("/editorder") &&
       location.pathname !== "/importlist" &&
       location.pathname !== "/importfilter" &&
       location.pathname !== "/mycompany" &&
@@ -370,21 +384,30 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
           (product) => product?.order_po == order?.order_po
         );
         if (product) {
-          newTotalPrice += order.Product_price;
+          newTotalPrice += order.Product_price?.grand_total
+            ? order.Product_price?.grand_total
+            : order.Product_price?.credit_charge;
         }
       });
       setGrandtotal(newTotalPrice);
       console.log("Remaining Total Price", newTotalPrice);
     }
   }, [checkedOrders, orders]);
-
+  console.log("location", location.pathname.includes("/editorder"));
   useEffect(() => {
-    if (location.pathname === "/editorder" && orderEdited.status === true) {
+    if (
+      location.pathname.includes("/editorder") &&
+      orderEdited.status === true
+    ) {
       setNextVisiable(true);
-    } else {
+    } else if (
+      location.pathname.includes("/editorder") &&
+      orderEdited.status === false
+    ) {
       setNextVisiable(false);
     }
   }, [location.pathname, orderEdited.status]);
+
   useEffect(() => {
     if (location.pathname === "/importlist" && checkedOrders.length) {
       setNextVisiable(true);

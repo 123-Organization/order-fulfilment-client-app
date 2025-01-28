@@ -14,6 +14,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { ecommerceConnector } from "../store/features/ecommerceSlice";
 import { updateCompanyInfo} from "../store/features/companySlice";
 import { useAppDispatch, useAppSelector } from "../store";
+
 // import { connectAdvanced } from "react-redux";
 import { find } from "lodash";
 

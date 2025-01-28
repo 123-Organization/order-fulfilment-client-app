@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import { Button } from "antd";
+import { useLocation } from "react-router-dom";
 import dropin, { Dropin, PaymentMethodPayload } from "braintree-web-drop-in";
 import "./Braintree.css";
 import { useAppSelector } from "../../store";
@@ -17,11 +19,13 @@ const Braintree = ({
   show,
   checkout,
   addPaymentMethod,
-  remainingTotal
+  remainingTotal,
 }: BraintreeProps) => {
   const [braintreeInstance, setBraintreeInstance] = useState<
     Dropin | undefined
   >();
+
+  const location = useLocation();
 
   useEffect(() => {
     if (show) {
@@ -90,6 +94,9 @@ const Braintree = ({
     braintreeInstance && braintreeInstance.requestPaymentMethod(callback);
   };
 
+  const BbuttonName =
+    location.pathname === "/checkout" ? "Pay Now" : "Add Card";
+
   return (
     <div
       className="braintree w-full"
@@ -97,9 +104,17 @@ const Braintree = ({
     >
       <div id={"braintree-drop-in-div"} />
       {braintreeInstance && (
-        <button disabled={!braintreeInstance} onClick={requestPaymentMethod}>
-          Pay Now
-        </button>
+        <div className="flex justify-center  w-full">
+          <button
+            disabled={!braintreeInstance}
+            onClick={requestPaymentMethod}
+            color="danger"
+            className="btn-grad  "
+            
+          >
+            {BbuttonName}
+          </button>
+        </div>
       )}
     </div>
   );

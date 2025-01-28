@@ -1,13 +1,19 @@
 import React, { useEffect, useState } from "react";
-import { Button, Checkbox, Form, Input, Select, Skeleton } from "antd";
+import {
+  Button,
+  Checkbox,
+  Form,
+  Input,
+  Select,
+  Skeleton,
+  notification,
+} from "antd";
 import Spinner from "../components/Spinner";
 import shoppingCart from "../assets/images/shopping-cart-228.svg";
 import { updateCheckedOrders } from "../store/features/orderSlice";
 import locked_Shipment from "../assets/images/package-delivery-box-8-svgrepo-com.svg";
-import {
-  fetchOrder,
-} from "../store/features/orderSlice";
-import { fetchShippingOption} from "../store/features/shippingSlice";
+import { fetchOrder } from "../store/features/orderSlice";
+import { fetchShippingOption } from "../store/features/shippingSlice";
 import { fetchProductDetails } from "../store/features/productSlice";
 import { Link } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store";
@@ -15,20 +21,31 @@ import { useNavigate } from "react-router-dom";
 import parse from "html-react-parser";
 import SelectShippingOption from "../components/SelectShippingOption";
 import style from "./Pgaes.module.css";
+import DeleteMessage from "../components/DeleteMessage";
+import { deleteOrder } from "../store/features/orderSlice";
+import Loading from "../components/Loading";
+
 const { Option } = Select;
 type SizeType = Parameters<typeof Form>[0]["size"];
-
+type NotificationType = "success" | "info" | "warning" | "error";
 const ImportList: React.FC = () => {
   interface Product {
     sku: string;
     image_url_1: string;
     description_long: string;
   }
+  interface NotificationAlertProps {
+    type: NotificationType;
+    message: string;
+    description: string;
+  }
 
   const [productData, setProductData] = useState<{ [key: string]: Product }>(
     {}
   );
   const [orderPostData, setOrderPostData] = useState([]);
+  const [DeleteMessageVisible, setDeleteMessageVisible] = useState(false);
+  const [orderFullFillmentId, setOrderFullFillmentId] = useState("");
   const orders = useAppSelector((state) => state.order.orders);
   const product_details = useAppSelector(
     (state) => state.ProductSlice.product_details?.data?.product_list
@@ -38,9 +55,9 @@ const ImportList: React.FC = () => {
   console.log("product_details...", product_details);
   const dispatch = useAppDispatch();
   console.log("productdata", productData);
-   const shipping_option = useAppSelector(
-     (state) => state.Shipping.shippingOptions || []
-   );
+  const shipping_option = useAppSelector(
+    (state) => state.Shipping.shippingOptions || []
+  );
   console.log("shipping_option", shipping_option);
   const navigate = useNavigate();
 
@@ -64,24 +81,48 @@ const ImportList: React.FC = () => {
     );
   };
 
+  const openNotificationWithIcon = ({
+    type,
+    message,
+    description,
+  }: NotificationAlertProps) => {
+    notification[type]({
+      message,
+      description,
+    });
+  };
 
   useEffect(() => {
     if (orders && !orders?.data?.length) {
       dispatch(fetchOrder(1556));
     }
-  }, []);
+  }, [orders]);
 
   let products: any = {};
   useEffect(() => {
     if (product_details && product_details?.length) {
       product_details?.map((product, index) => {
         products[product.sku] = product;
+        products[product?.product_code] = product;
       });
 
       console.log("products", products);
       setProductData(products);
     }
   }, [product_details]);
+  console.log("productData", productData);
+
+  const onDeleteOrder = (orderFullFillmentId: string) => {
+    dispatch(deleteOrder(orderFullFillmentId));
+
+    setTimeout(() => {
+      openNotificationWithIcon({
+        type: "success",
+        message: "Order Deleted",
+        description: "Order has been successfully deleted",
+      });
+    }, 3000);
+  };
 
   useEffect(() => {
     if (orders?.data?.length && !orderPostData.length) {
@@ -95,6 +136,10 @@ const ImportList: React.FC = () => {
             product_order_po: item.product_order_po,
             product_qty: item.product_qty,
             product_sku: item.product_sku,
+            product_image: {
+              product_url_file: "https://via.placeholder.com/150",
+              product_url_thumbnail: "https://via.placeholder.com/150",
+            },
           })),
         }))
         ?.flat();
@@ -103,7 +148,11 @@ const ImportList: React.FC = () => {
         order.order_items?.map((item) => ({
           order_po: order.order_po,
           product_sku: item.product_sku, // One product SKU per object
-          product_qty: item.product_qty, // Corresponding quantity
+          product_qty: item.product_qty,
+          product_image: {
+            product_url_file: "https://via.placeholder.com/150",
+            product_url_thumbnail: "https://via.placeholder.com/150",
+          },
         }))
       );
 
@@ -133,36 +182,51 @@ const ImportList: React.FC = () => {
       (option) => option.order_po === order_po
     );
     if (shippingForOrder && shippingForOrder.options.length) {
-      const selectedOption = shippingForOrder?.preferred_option; // or apply logic to select a specific shipping option
-      return selectedOption?.calculated_total?.order_grand_total;
-    }else 
-
-    return 0; // Default value if no shipping option is found
+      const selectedOption = shippingForOrder?.preferred_option;
+      const charges = {
+        grand_total: selectedOption?.calculated_total?.order_grand_total,
+        credit_charge: selectedOption?.calculated_total?.order_credits_used,
+      }; // or apply logic to select a specific shipping option
+      return charges;
+    } else return 0; // Default value if no shipping option is found
   };
 
-  const handleShippingOptionChange = (order_po: string, updatedPrice: number) => {
+  const handleShippingOptionChange = (order_po: string, updatedPrice: any) => {
     let updatedOrders = [...checkedOrders];
-  
+
     // Check if the order is already in checkedOrders
-    const orderIndex = updatedOrders.findIndex((order) => order.order_po === order_po);
-  
+    const orderIndex = updatedOrders.findIndex(
+      (order) => order.order_po === order_po
+    );
+
     if (orderIndex !== -1) {
       // Update the shipping price for the existing order
       updatedOrders[orderIndex] = {
         ...updatedOrders[orderIndex],
-        Product_price: updatedPrice,
+        Product_price: {
+          grand_total: updatedPrice?.order_grand_total,
+          credit_charge: updatedPrice?.order_credits_used,
+        },
       };
     } else {
       // Add the order with the updated shipping price
       updatedOrders.push({
         order_po,
-        Product_price: updatedPrice,
+        Product_price: {
+          grand_total: updatedPrice?.order_grand_total,
+          credit_charge: updatedPrice?.order_credits_used,
+        },
       });
     }
-  
+
     dispatch(updateCheckedOrders(updatedOrders));
   };
-
+  console.log(
+    "orsors",
+    orders?.data?.map(
+      (order) => order.order_items[0]?.product_image?.product_url_thumbnail
+    )
+  );
   return (
     <div className="flex justify-end items-center  h-full p-8">
       <div className="h-auto bg-gray-100 pt-4 w-full">
@@ -176,7 +240,7 @@ const ImportList: React.FC = () => {
                   key={index}
                   className="justify-between mb-6  rounded-lg bg-white p-6 shadow-md sm:flex-row sm:justify-start space-y-2 "
                 >
-                  <ul className="grid w-8   md:grid-cols-1 ">
+                  <ul className="grid w-100  md:grid-cols-2 md:grid-rows-1 items-start ">
                     <li className="w-8">
                       {shipping_option.length > 0 &&
                       order?.order_items.length > 0 ? (
@@ -193,6 +257,34 @@ const ImportList: React.FC = () => {
                         />
                       ) : null}
                     </li>
+
+                    <div className="w-100%   text-end">
+                      <button
+                        data-tooltip-target="tooltip-document"
+                        type="button"
+                        className="max-md:pl-2  inline-flex  flex-col justify-start items-start  hover:bg-gray-50 dark:hover:bg-gray-800 group"
+                        onClick={() => {
+                          setDeleteMessageVisible(true);
+                          setOrderFullFillmentId(order?.orderFullFillmentId);
+                        }}
+                      >
+                        <svg
+                          className="w-5 h-5 mb-1 text-gray-500 dark:text-gray-400 group-hover:text-red-600 dark:group-hover:text-blue-500"
+                          aria-hidden="true"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 18 20"
+                        >
+                          <path
+                            stroke="currentColor"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M1 5h16M7 8v8m4-8v8M7 1h4a1 1 0 0 1 1 1v3H6V2a1 1 0 0 1 1-1ZM3 5h12v13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5Z"
+                          />
+                        </svg>
+                      </button>
+                    </div>
                   </ul>
 
                   <ul
@@ -235,9 +327,7 @@ const ImportList: React.FC = () => {
                               type="default"
                             >
                               <Link
-                                to={
-                                  "/editorder/" + order?.orderFullFillmentId
-                                }
+                                to={"/editorder/" + order?.orderFullFillmentId}
                               >
                                 Edit order
                               </Link>
@@ -265,8 +355,12 @@ const ImportList: React.FC = () => {
                                     ?.image_url_1 ? (
                                     <img
                                       src={
-                                        productData[order?.product_sku]
-                                          ?.image_url_1
+                                        order?.product_image
+                                          ?.product_url_thumbnail
+                                          ? order?.product_image
+                                              ?.product_url_thumbnail
+                                          : productData[order?.product_sku]
+                                              .image_url_1
                                       }
                                       alt="product"
                                       className="rounded-lg max-md:w-40 w-32 h-[120px] "
@@ -332,6 +426,17 @@ const ImportList: React.FC = () => {
                   </ul>
                 </div>
               ))}
+            {(!orders || !orders.data || orders.data.length === 0) && (
+              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 mt-20">
+                <Loading message="Loading, please wait..." size={50} />
+              </div>
+            )}
+            <DeleteMessage
+              visible={DeleteMessageVisible}
+              onClose={setDeleteMessageVisible}
+              onDeleteProduct={onDeleteOrder}
+              deleteItem={orderFullFillmentId}
+            />
           </div>
 
           {/* <div className="mt-6 h-full rounded-lg border bg-white p-6 shadow-md md:mt-0 md:w-1/3">

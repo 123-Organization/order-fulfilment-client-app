@@ -13,6 +13,7 @@ const DeleteMessage: React.FC<PopupModalProps> = ({ visible, onClose, onDeletePr
     onClose(false);
   };
   const DeleteProduct = () => {
+    console.log("deleteItem",deleteItem)
     onDeleteProduct(deleteItem);
     onClose(false);
   }

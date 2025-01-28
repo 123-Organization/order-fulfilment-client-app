@@ -7,7 +7,7 @@ interface PaymentAddressProps {
   remainingTotal: number;
 }
 
-const PaymentAddressModal: React.FC<PaymentAddressProps> = ({ visible, onClose, remainingTotal }) => {
+const PaymentAddressModal: React.FC<PaymentAddressProps> = ({ visible, onClose, remainingTotal= 0 }) => {
   return (
     <Modal
       title="Update Payment Method"

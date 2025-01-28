@@ -1,7 +1,19 @@
-import React, { Suspense, lazy } from "react";
-import { Route, Routes } from "react-router-dom";
+import React, { Suspense, lazy,useEffect, useState } from "react";
+import { Route, Routes,useLocation  } from "react-router-dom";
 import { routes } from "../config/routes";
 import ImportList from "../pages/ImportList";
+import { useAppSelector } from "../store";
+import { Navigate } from "react-router-dom";
+import {notification } from "antd";
+
+
+
+type NotificationType = "success" | "info" | "warning" | "error";
+interface NotificationAlertProps {
+  type: NotificationType;
+  message: string;
+  description: string;
+}
 
 const Login = lazy(() => import("../pages/Login"));
 const Landing = lazy(() => import("../pages/Landing"));
@@ -16,7 +28,19 @@ const Checkout = lazy(() => import("../pages/Checkout"));
 const ImportFilter = lazy(() => import("../pages/ImportFilter"));
 
 const Router: React.FC = (): JSX.Element  => {
-  
+  const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
+  const location = useLocation(); 
+  const [triggred, setTriggred] = useState(false);
+  const openNotificationWithIcon = ({
+    type,
+    message,
+    description,
+  }: NotificationAlertProps) => {
+    notification[type]({
+      message,
+      description,
+    });
+  };
   const userData = null;
   const initialRoute = () => {
     if(userData){ 
@@ -25,6 +49,16 @@ const Router: React.FC = (): JSX.Element  => {
       return Landing;
     }
   };
+
+  useEffect(() => {
+    if (location.pathname === routes.checkout && (!checkedOrders || checkedOrders.length === 0)) {
+      openNotificationWithIcon({
+        type: "warning",
+        message: "No Orders Selected",
+        description: "Please select orders to proceed to checkout."
+      });
+    }
+  }, [location.pathname, checkedOrders]);
 
   return (
       <Suspense
@@ -35,6 +69,19 @@ const Router: React.FC = (): JSX.Element  => {
         }
       >
         <Routes>
+        <Route
+          path={routes.checkout}
+          element={
+            checkedOrders?.length > 0 ? (
+              <Checkout />
+            ) : (
+              <>
+                <Navigate to={routes.importlist} replace />
+                setTriggred(true)
+              </>
+            )
+          }
+        />
           <Route path={routes.checkout} Component={Checkout} />
           <Route path={routes.shippingpreference} Component={ShippingPreference} />
           <Route path={routes.paymentaddress} Component={PaymentAddress} />
