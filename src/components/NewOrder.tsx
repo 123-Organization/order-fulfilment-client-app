@@ -12,18 +12,26 @@ export default function NewOrder({ iframe, setIframe, recipient }) {
   const dispatch = useAppDispatch();
   const notificationApi = useNotificationContext();
 
-  // Function to toggle full-screen mode
+  // Detect if the user is on iOS
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  // Function to enable "fullscreen"
   const toggleFullScreen = () => {
     if (!isFullScreen) {
-      iframeContainerRef.current?.requestFullscreen?.();
+      if (!isIOS) {
+        // On desktop/Android, use native fullscreen API
+        iframeContainerRef.current?.requestFullscreen?.();
+      }
       setIsFullScreen(true);
     } else {
-      document.exitFullscreen?.();
+      if (!isIOS) {
+        document.exitFullscreen?.();
+      }
       setIsFullScreen(false);
     }
   };
 
-  // Automatically enter full-screen if screen width < 1800px when modal opens
+  // Automatically enter "fullscreen" if screen width < 1800px when modal opens
   useEffect(() => {
     if (iframe) {
       if (window.innerWidth < 1800 && !isFullScreen) {
@@ -38,22 +46,40 @@ export default function NewOrder({ iframe, setIframe, recipient }) {
         title="File Management"
         open={iframe === true}
         onCancel={() => setIframe(false)}
-        width="80%"
+        width={isFullScreen ? "100%" : "80%"}
+        style={{
+          top: isFullScreen ? 0 : 50, // Move modal to top if fullscreen
+          left: 0,
+          height: isFullScreen ? "100vh" : "auto",
+          maxWidth: "100vw",
+        }}
         footer={null}
+        bodyStyle={{
+          padding: 0,
+          height: isFullScreen ? "100vh" : "550px",
+          overflow: "hidden",
+        }}
       >
         <div
           ref={iframeContainerRef}
           style={{
             position: "relative",
             width: "100%",
-            height: isFullScreen ? "100vh" : "550px",
+            height: "100%",
           }}
         >
           <iframe
             src="https://finerworks.com/apps/orderform/post3.aspx"
             width="100%"
             height="100%"
-            style={{ border: "none" }}
+            style={{
+              border: "none",
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+            }}
             title="File Management"
             sandbox="allow-scripts allow-forms allow-same-origin"
           />
