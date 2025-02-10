@@ -20,6 +20,7 @@ const NotificationAlert: React.FC<NotificationAlertProps> = ({ type, message, de
   return (
     <>
       {contextHolder}
+    
     </>
   )
 }

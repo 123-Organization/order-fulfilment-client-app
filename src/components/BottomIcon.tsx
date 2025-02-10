@@ -9,6 +9,7 @@ import {
 } from "../store/features/orderSlice";
 import { listVirtualInventory } from "../store/features/InventorySlice";
 import { getImportOrders } from "../store/features/ecommerceSlice";
+import NotificationAlert from "./notification";
 import ShippingPreference from "../pages/ShippingPreference";
 import UpdatePopup from "./UpdatePopup";
 import { loadavg } from "os";
@@ -277,6 +278,8 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
               description:
                 "We couldn’t find any records matching your search criteria. Please check the information you’ve entered and try again.",
             });
+
+            
             setNextSpinning(false);
             !nextVisiable && setNextVisiable(true);
           } else {

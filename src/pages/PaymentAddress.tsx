@@ -177,6 +177,7 @@ const PaymentAddress: React.FC <PaymentAddressProps> = ({remainingTotal}) => {
       );
     }
   }, [companyInfo, dispatch]);
+  
   return (
     <div className="flex justify-end items-center w-full h-full p-8 max-md:flex-col max-md:mt-12">
       <div

@@ -1,64 +1,18 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Modal, Button } from "antd";
 import { FullscreenOutlined, CompressOutlined } from "@ant-design/icons";
-import { useAppDispatch, useAppSelector } from "../store";
+import { useAppDispatch } from "../store";
 import { CreateOrder } from "../store/features/orderSlice";
+import { useNotificationContext } from "../context/NotificationContext";
 
 export default function NewOrder({ iframe, setIframe, recipient }) {
   const [addedProducts, setAddedProducts] = useState([]);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const iframeContainerRef = useRef(null);
   const dispatch = useAppDispatch();
-  console.log("addedProducts...", addedProducts);
+  const notificationApi = useNotificationContext();
 
-  // Listen for messages from iframe
-  useEffect(() => {
-    const handleMessage = (event) => {
-      console.log("Message event:", event.data);
-
-      // Check if the message is coming from the expected origin
-      if (event.origin !== "https://finerworks.com") return;
-
-      try {
-        const data = JSON.parse(event.data);
-              
-        if (Array.isArray(data)) {
-          setAddedProducts(data);
-          setIframe(false);
-          const postData = {
-           data,
-          recipient,
-        }
-          dispatch(CreateOrder(postData));
-      }
-      } catch (error) {
-        console.error("Error parsing message data:", error);
-      }
-    };
-
-    window.addEventListener("message", handleMessage);
-
-    return () => {
-      window.removeEventListener("message", handleMessage);
-    };
-  }, [setIframe]);
-
-  // Handle full-screen change event
-  useEffect(() => {
-    const handleFullScreenChange = () => {
-      if (!document.fullscreenElement) {
-        setIsFullScreen(false);
-      }
-    };
-
-    document.addEventListener("fullscreenchange", handleFullScreenChange);
-
-    return () => {
-      document.removeEventListener("fullscreenchange", handleFullScreenChange);
-    };
-  }, []);
-
-  // Toggle full-screen mode
+  // Function to toggle full-screen mode
   const toggleFullScreen = () => {
     if (!isFullScreen) {
       iframeContainerRef.current?.requestFullscreen?.();
@@ -69,12 +23,20 @@ export default function NewOrder({ iframe, setIframe, recipient }) {
     }
   };
 
+  // Automatically enter full-screen if screen width < 1800px when modal opens
+  useEffect(() => {
+    if (iframe) {
+      if (window.innerWidth < 1800 && !isFullScreen) {
+        toggleFullScreen();
+      }
+    }
+  }, [iframe]);
+
   return (
     <div>
       <Modal
         title="File Management"
-        visible={iframe === true}
-        onOk={() => setIframe(false)}
+        open={iframe === true}
         onCancel={() => setIframe(false)}
         width="80%"
         footer={null}
@@ -84,7 +46,7 @@ export default function NewOrder({ iframe, setIframe, recipient }) {
           style={{
             position: "relative",
             width: "100%",
-            height: isFullScreen ? "100vh" : "550px", // Adjust height dynamically
+            height: isFullScreen ? "100vh" : "550px",
           }}
         >
           <iframe
@@ -100,15 +62,13 @@ export default function NewOrder({ iframe, setIframe, recipient }) {
             style={{
               position: "absolute",
               border: "none",
-              top:  isFullScreen ?10 : -39,
-              right:  isFullScreen? 100: 20,
+              top: isFullScreen ? 10 : -39,
+              right: isFullScreen ? 100 : 20,
               zIndex: 1000,
             }}
-            icon={isFullScreen ? <CompressOutlined  /> : <FullscreenOutlined className="text-gray-800" />}
+            icon={isFullScreen ? <CompressOutlined /> : <FullscreenOutlined className="text-gray-800" />}
             onClick={toggleFullScreen}
-          >
-            
-          </Button>
+          />
         </div>
       </Modal>
     </div>

@@ -1,5 +1,5 @@
 import React from "react";
-import { Modal, Button, Input } from "antd";
+import { Modal, Button, Input, Tag } from "antd";
 
 import bigcommerce from "../assets/images/store-bigcommerce.svg";
 import etsy from "../assets/images/store-etsy.svg";
@@ -66,13 +66,19 @@ const ExportModal: React.FC<ExportModalProps> = ({ visible, onClose }) => {
           <div className="-m-1 mx-4 flex flex-wrap md:-m-2">
                 {  
                 images.map((image) => (
-                <div className="flex w-1/3 max-sm:w-1/2 max-[400px]:w-full flex-wrap">
+                  <div className="flex w-1/3 max-sm:w-1/2 max-[400px]:w-full flex-wrap">
                   <div
-                    className="w-full p-6 m-4  md:p-2 flex flex-col items-center"
+                    className="w-full   md:p-2 flex flex-col items-center "
                     onClick={() => importData(image.name)}
                   >
+                    {
+                    (image.name === "WooCommerce" ) &&
+                    <Tag className="absolute ml-12 -mt-3" color="#52c41a">
+                      Connected
+                    </Tag>
+                    }
                     <img
-                      className="block h-[100px] w-[100px] border-2 cursor-pointer rounded-lg object-cover object-center"
+                      className={`block h-[100px] w-[100px] border-2 cursor-pointer rounded-lg object-cover object-center ${image.name === "WooCommerce" ? "grayscale-100": "grayscale"}`}
                       src={image.img}
                     />
                     <p className="text-center pt-2 font-bold text-gray-400">{image.name}</p>

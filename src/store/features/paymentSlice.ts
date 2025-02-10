@@ -5,11 +5,13 @@ const BASE_URL = config.SERVER_BASE_URL;
 interface PaymentState {
         payment_methods: any;
         createCustomerInfo: any;
+        selectedCard: any;
 }
 
 const initialState: PaymentState = {
         payment_methods: {},
         createCustomerInfo: {},
+        selectedCard: {},
 }
 
 export const createCustomer = createAsyncThunk(
@@ -78,6 +80,9 @@ export const PaymentSlice = createSlice({
         name: "payment",
         initialState: initialState,
         reducers: {
+                setSelectedCard: (state, action: PayloadAction<any>) => {
+                        state.selectedCard = action.payload;
+                },
         },
         extraReducers: (builder) => {
                 builder.addCase(getPaymentMethods.fulfilled, (state, action) => {
@@ -92,3 +97,5 @@ export const PaymentSlice = createSlice({
 });
 
 export default PaymentSlice;
+
+export const { setSelectedCard } = PaymentSlice.actions;

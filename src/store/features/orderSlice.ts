@@ -25,6 +25,8 @@ interface OrderState {
   saveOrderInfo: any;
   checkedOrders: any;
   orderEdited: any;
+  status: "idle" | "loading" | "succeeded" | "failed"; // ✅ Add status here
+  error: string | null;
 
 }
 
@@ -33,11 +35,13 @@ const initialState: OrderState = {
   orders: [],
   order: [],
   productCode: [],
-  updatedValues: [],
+updatedValues: [],
   checkedOrders: [],
   saveOrderInfo: {},
   myImport: {},
   orderEdited: { status: false, clicked: false, },
+  status: "idle",
+  error: null,
 
 };
 
@@ -242,9 +246,17 @@ export const OrderSlice = createSlice({
     );
 
     builder.addCase(AddProductToOrder.fulfilled, (state, action) => {
+      state.status = 'succeeded';
       state.orders = action.payload;
     }
     );
+
+  builder.addCase(AddProductToOrder.rejected, (state, action) => {
+      state.status = 'failed';
+      state.error = action.payload as string;
+    }
+  );
+
 
     builder.addCase(saveOrder.fulfilled, (state, action) => {
       state.saveOrderInfo = action.payload;
@@ -258,9 +270,16 @@ export const OrderSlice = createSlice({
     }
     );
     builder.addCase(deleteOrder.fulfilled, (state, action) => {
+      state.status = 'succeeded';
       state.orders = action.payload;
     }
     );
+
+    builder.addCase(deleteOrder.rejected, (state, action) => {
+      state.status = 'failed';
+      state.error = action.payload as string;
+    }
+  );
 
   }
 

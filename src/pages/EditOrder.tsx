@@ -30,7 +30,7 @@ import FilesGallery from "../components/FilesGallery";
 import NewOrder from "../components/NewOrder";
 import { setUpdatedValues } from "../store/features/orderSlice";
 import DeleteMessage from "../components/DeleteMessage";
-import { fetchShippingOption } from "../store/features/shippingSlice";
+import { useNotificationContext } from "../context/NotificationContext";
 
 type productType = {
   name?: string; // Optional because not all entries have 'name'
@@ -59,6 +59,7 @@ const EditOrder: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
+  const notificationApi = useNotificationContext();
   const updatedValues =
     useAppSelector((state) => state.order.updatedValues) || {};
   const orders = useAppSelector((state) => state.order.orders);
@@ -194,6 +195,11 @@ const EditOrder: React.FC = () => {
 
     // Toggle productchange to ensure re-render
     setProductChange((prev) => !prev);
+
+    notificationApi.success({
+      message: "Product Deleted",
+      description: "Product has been successfully deleted.",
+    });
   };
 
   const initialValues = React.useMemo(

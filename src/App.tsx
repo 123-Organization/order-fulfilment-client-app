@@ -6,7 +6,9 @@ import { useState } from "react";
 import HeaderIcon from "./components/HeaderIcon";
 import BottomIcon from "./components/BottomIcon";
 import { useLocation } from "react-router-dom";
+import { notification } from "antd";
 import FileManagementIframe from "./components/FileManagmentIframe";
+import { NotificationProvider } from "./context/NotificationContext";
 
 const { Header, Footer, Content } = Layout;
 
@@ -21,7 +23,9 @@ function App() {
   } = theme.useToken();
 
   return (
+    
     <Layout className="layout ">
+     
       <Header
         style={{
           display: "flex",
@@ -36,7 +40,9 @@ function App() {
           className="site-layout-content sm:min-h-[600px] max-sm:min-h-screen"
           style={{ background: colorBgContainer }}
         >
+          <NotificationProvider>
           <Router />
+          </NotificationProvider>
         </div>
         
       </Content>

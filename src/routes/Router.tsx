@@ -28,6 +28,9 @@ const Checkout = lazy(() => import("../pages/Checkout"));
 const ImportFilter = lazy(() => import("../pages/ImportFilter"));
 
 const Router: React.FC = (): JSX.Element  => {
+  const [api, contextHolder] = notification.useNotification();
+  
+  
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
   const location = useLocation(); 
   const [triggred, setTriggred] = useState(false);
@@ -82,7 +85,7 @@ const Router: React.FC = (): JSX.Element  => {
             )
           }
         />
-          <Route path={routes.checkout} Component={Checkout} />
+          <Route path={routes.checkout} Component={Checkout}  />
           <Route path={routes.shippingpreference} Component={ShippingPreference} />
           <Route path={routes.paymentaddress} Component={PaymentAddress} />
           <Route path={routes.mycompany} Component={MyCompany} />

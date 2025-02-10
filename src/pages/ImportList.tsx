@@ -24,6 +24,7 @@ import style from "./Pgaes.module.css";
 import DeleteMessage from "../components/DeleteMessage";
 import { deleteOrder } from "../store/features/orderSlice";
 import Loading from "../components/Loading";
+import { useNotificationContext } from "../context/NotificationContext";
 
 const { Option } = Select;
 type SizeType = Parameters<typeof Form>[0]["size"];
@@ -47,9 +48,11 @@ const ImportList: React.FC = () => {
   const [DeleteMessageVisible, setDeleteMessageVisible] = useState(false);
   const [orderFullFillmentId, setOrderFullFillmentId] = useState("");
   const orders = useAppSelector((state) => state.order.orders);
+  const ordersStatus = useAppSelector((state) => state.order.status);
   const product_details = useAppSelector(
     (state) => state.ProductSlice.product_details?.data?.product_list
   );
+  const notificationApi = useNotificationContext();
   console.log(orderPostData);
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
   console.log("product_details...", product_details);
@@ -81,17 +84,6 @@ const ImportList: React.FC = () => {
     );
   };
 
-  const openNotificationWithIcon = ({
-    type,
-    message,
-    description,
-  }: NotificationAlertProps) => {
-    notification[type]({
-      message,
-      description,
-    });
-  };
-
   useEffect(() => {
     if (orders && !orders?.data?.length) {
       dispatch(fetchOrder(1556));
@@ -114,15 +106,22 @@ const ImportList: React.FC = () => {
 
   const onDeleteOrder = (orderFullFillmentId: string) => {
     dispatch(deleteOrder(orderFullFillmentId));
-
-    setTimeout(() => {
-      openNotificationWithIcon({
-        type: "success",
-        message: "Order Deleted",
-        description: "Order has been successfully deleted",
-      });
-    }, 3000);
   };
+
+  useEffect(() => {
+    if (ordersStatus === "succeeded") {
+      notificationApi.success({
+        message: "Order Deleted",
+        description: "Order has been successfully deleted.",
+      });
+    } else if (ordersStatus === "failed") {
+      notificationApi.error({
+        message: "Failed to Delete Order",
+        description: "An error occurred while deleting the order.",
+      });
+
+    }
+  }, [ordersStatus, notificationApi]);
 
   useEffect(() => {
     if (orders?.data?.length && !orderPostData.length) {

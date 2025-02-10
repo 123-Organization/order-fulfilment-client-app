@@ -7,28 +7,45 @@ import { useLocation } from "react-router-dom";
 import PaymentAddressModal from "../components/PaymentAddressModal";
 import { getCustomerInfo } from "../store/features/customerSlice";
 import { getPaymentMethods } from "../store/features/paymentSlice";
+import { setSelectedCard } from "../store/features/paymentSlice";
 
 export default function PaymentMethods(remainingTotal: any = 0) {
   const [value, setValue] = useState(1);
   const [paymentPopupEnable, setPaymentPopupEnable] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const credit = 40;
-  
+
   const companyInfo = useAppSelector((state) => state.company.company_info);
   const location = useLocation();
   const paymentMethods = useAppSelector(
     (state) => state.Payment.payment_methods
   );
-  const showPaymentMethod = location.pathname === "/checkout" &&  (remainingTotal?.remainingTotal === 0);
-  console.log("rere",remainingTotal?.remainingTotal)
+  const showPaymentMethod =
+  location.pathname === "/checkout" && remainingTotal?.remainingTotal === 0
+  console.log("rere", remainingTotal?.remainingTotal);
   const dispatch = useAppDispatch();
+  console.log("Car",value)
+
   const onChangePaymentMethod = (e: any) => {
     setValue(e.target.value);
+  };
+
+  const maskNumber = (number) => {
+    if (!number) return "";
+    return number.slice(-4).padStart(number.length, "*");
   };
 
   useEffect(() => {
     dispatch(getCustomerInfo());
   }, [dispatch]);
+
+  useEffect(() => {
+    if (paymentMethods?.data?.paymentMethods?.length > 0) {
+      
+      const defaultPaymentMethod = paymentMethods.data.paymentMethods[0].maskedNumber;
+      setValue(defaultPaymentMethod);
+    }
+  }, [paymentMethods]);
 
   useEffect(() => {
     console.log("comp", companyInfo?.data?.payment_profile_id);
@@ -48,9 +65,7 @@ export default function PaymentMethods(remainingTotal: any = 0) {
     <div className="w-full flex flex-start flex-col justify-self-start ">
       {location.pathname === "/checkout" &&
       remainingTotal?.remainingTotal === 0 ? (
-        <>
-        
-        </>
+        <></>
       ) : (
         <>
           <p className="w-full text-center pt-4">
@@ -101,37 +116,39 @@ export default function PaymentMethods(remainingTotal: any = 0) {
           </p>
           <div className="w-full m">
             {showPaymentMethod ? (
-
               <div></div>
-              ) : (
-                paymentMethods?.data?.paymentMethods 
+            ) : (
+              paymentMethods?.data?.paymentMethods
                 ?.filter(
                   (method, index, self) =>
                     self.findIndex(
                       (m) => m.maskedNumber === method.maskedNumber
                     ) === index
-                ) // Filters out duplicates based on maskedNumber
+                ) // Filters out duplicates
                 ?.map((method) => (
                   <Radio.Group
                     className="text-gray-400 flex w-full justify-center"
                     onChange={onChange1}
                     value={value}
-                    key={method?.maskedNumber} // Use maskedNumber as a unique key
+                    key={method?.maskedNumber}
                   >
                     <Radio
                       value={method?.maskedNumber}
                       className="text-gray-400 align-text-top pt-3 flex justify-center items-center"
                     >
                       <strong className="flex justify-center items-center gap-4">
-                        {method?.maskedNumber} - {method?.expirationDate}
-                        <img src={method?.imageUrl} alt="" className="w-[40px]" />
+                        {maskNumber(method?.maskedNumber)} -{" "}
+                        {method?.expirationDate}
+                        <img
+                          src={method?.imageUrl}
+                          alt=""
+                          className="w-[40px]"
+                        />
                       </strong>
                     </Radio>
                   </Radio.Group>
-                
-              )))
-              
-              }
+                ))
+            )}
           </div>
           <Radio.Group
             onChange={onChangePaymentMethod}

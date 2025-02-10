@@ -3,13 +3,14 @@ import { Modal, Button, Input, Spin } from "antd";
 import { LoadingOutlined } from "@ant-design/icons";
 import { useAppDispatch, useAppSelector } from "../store";
 import { AddProductToOrder } from "../store/features/orderSlice";
+import { useNotificationContext } from "../context/NotificationContext";
 
 interface PopupModalProps {
   visible: boolean;
   onClose: () => void;
   setProductCode: (productCode: boolean) => void;
   orderFullFillmentId: string;
- onProductCodeUpdate: () => void;
+  onProductCodeUpdate: () => void;
 }
 
 const PopupModal: React.FC<PopupModalProps> = ({
@@ -22,12 +23,13 @@ const PopupModal: React.FC<PopupModalProps> = ({
   const dispatch = useAppDispatch();
   // const code = useAppSelector((state) => state.order.productCode);
   // Access the productCode from the Redux store
+  const notificationApi = useNotificationContext();
   const productCode = useAppSelector((state) => state.order.productCode);
 
   // State to track the input value
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-
+  const ordersStatus = useAppSelector((state) => state.order.status);
   // Update state when the input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value);
@@ -50,18 +52,34 @@ const PopupModal: React.FC<PopupModalProps> = ({
     }
 
     dispatch(AddProductToOrder(data));
-   
+    console.log("stat", ordersStatus);
+
     setTimeout(() => {
       setInputValue("");
-      
+
       onProductCodeUpdate();
       setIsLoading(false);
       onClose();
     }, 1000);
-
-   
-    
   };
+
+  useEffect(() => {
+    if (ordersStatus === "succeeded") {
+      notificationApi.success({
+        message: "Product Added",
+        description: "Product has been successfully added to the order.",
+      });
+
+    
+    } else if (ordersStatus === "failed") {
+      notificationApi.error({
+        message: "Failed to Add Product",
+        description: "An error occurred while adding the product.",
+      });
+
+      setIsLoading(false);
+    }
+  }, [ordersStatus, notificationApi]);
 
   // UseEffect to handle changes in productCode
   useEffect(() => {

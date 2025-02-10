@@ -437,18 +437,18 @@ console.log(stateCode, stateCodeShort)
   );
 
   return (
-    <div className="flex justify-end items-center w-full h-full p-8 max-md:flex-col max-md:mt-12">
+    <div className="flex justify-end items-center w-full h-full p-8 max-md:flex-col max-md:mt-12 ">
       <div
         className="
-          w-1/2  flex flex-col justify-center items-center h-[600px] max-md:w-full 
-          md:border-r-2 max-md:border-b-2 max-md:mb-8 bg
+          w-[900px] flex flex-row justify-center items-center h-[600px] max-md:w-full 
+          md:border-r-2 max-md:border-b-2 max-md:mb-8 relative
         "
       >
-         <div className="w-full ml-20 p-8">
+         <div className="w-[700px]">
           <PaymentMethods />
          </div>
        
-        <div className=" text-gray-400 pt-4text-center">
+        <div className=" text-gray-400  text-center absolute top-36 right-10 ">
           
           <p className="text-lg  font-bold">My Billing Address </p>
           <p className="pt-5">
@@ -456,7 +456,7 @@ console.log(stateCode, stateCodeShort)
           </p>
           <p>
             <Checkbox
-              className="py-10 align-text-top  text-gray-400 "
+              className="py-4 align-text-top  text-gray-400 "
               onChange={checkboxClick}
               // checked
             >
