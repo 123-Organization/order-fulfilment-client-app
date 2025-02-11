@@ -7,57 +7,79 @@ import { useNotificationContext } from "../context/NotificationContext";
 
 export default function NewOrder({ iframe, setIframe, recipient }) {
   const [addedProducts, setAddedProducts] = useState([]);
-  const [isFullScreen, setIsFullScreen] = useState(false);
+  const [isMaximized, setIsMaximized] = useState(false);
+  const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 1200);
   const iframeContainerRef = useRef(null);
   const dispatch = useAppDispatch();
   const notificationApi = useNotificationContext();
 
-  // Detect if the user is on iOS
-  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-  // Function to enable "fullscreen"
-  const toggleFullScreen = () => {
-    if (!isFullScreen) {
-      if (!isIOS) {
-        // On desktop/Android, use native fullscreen API
-        iframeContainerRef.current?.requestFullscreen?.();
-      }
-      setIsFullScreen(true);
+  const toggleMaximize = () => {
+    if (isSmallScreen) {
+      // If on small screen, reset the size to a normal modal
+      setIsSmallScreen(false);
+      setIsMaximized(false); // Reset full-screen state
     } else {
-      if (!isIOS) {
-        document.exitFullscreen?.();
-      }
-      setIsFullScreen(false);
+      // Otherwise toggle the maximize state
+      setIsMaximized(!isMaximized);
     }
   };
-
-  // Automatically enter "fullscreen" if screen width < 1800px when modal opens
+  console.log("nono", isMaximized, isSmallScreen);
+  // Listen for messages from iframe
   useEffect(() => {
-    if (iframe) {
-      if (window.innerWidth < 1800 && !isFullScreen) {
-        toggleFullScreen();
-      }
-    }
-  }, [iframe]);
+    const handleMessage = (event) => {
+      console.log("Message event:", event.data);
 
+      // Check if the message is coming from the expected origin
+      if (event.origin !== "https://finerworks.com") return;
+
+      try {
+        const data = JSON.parse(event.data);
+
+        if (Array.isArray(data)) {
+          setAddedProducts(data);
+          setIframe(false);
+          const postData = {
+            data,
+            recipient,
+          };
+          dispatch(CreateOrder(postData));
+          notificationApi.success({
+            message: "New Order Created",
+            description: "Order has been successfully Created",
+          });
+        }
+      } catch (error) {
+        console.error("Error parsing message data:", error);
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+
+    return () => {
+      window.removeEventListener("message", handleMessage);
+    };
+  }, [setIframe]);
+  const small = isMaximized && isSmallScreen 
+  const large = isMaximized && !isSmallScreen
   return (
     <div>
       <Modal
         title="File Management"
         open={iframe === true}
         onCancel={() => setIframe(false)}
-        width={isFullScreen ? "100%" : "80%"}
+        width={isMaximized || isSmallScreen ? "100vw" : "80%"}
+      
         style={{
-          top: isFullScreen ? 0 : 50, // Move modal to top if fullscreen
+          top: isMaximized || isSmallScreen ? 0 : 50,
           left: 0,
-          height: isFullScreen ? "100vh" : "auto",
+          height: isMaximized || isSmallScreen ? "100vh" : "auto",
           maxWidth: "100vw",
+          background: isMaximized || isSmallScreen ? "transparent" : "initial", // Remove background when maximizing
         }}
         footer={null}
         bodyStyle={{
           padding: 0,
-          height: isFullScreen ? "100vh" : "550px",
-          overflow: "hidden",
+          height: isMaximized || isSmallScreen ? "100vh" : "550px",
         }}
       >
         <div
@@ -88,12 +110,18 @@ export default function NewOrder({ iframe, setIframe, recipient }) {
             style={{
               position: "absolute",
               border: "none",
-              top: isFullScreen ? 10 : -39,
-              right: isFullScreen ? 100 : 20,
+              top: isMaximized ? -40 : -39,
+              right: isMaximized ? 30 : 20,
               zIndex: 1000,
             }}
-            icon={isFullScreen ? <CompressOutlined /> : <FullscreenOutlined className="text-gray-800" />}
-            onClick={toggleFullScreen}
+            icon={
+              isMaximized || isSmallScreen ? (
+                <CompressOutlined />
+              ) : (
+                <FullscreenOutlined className="text-gray-800 " />
+              )
+            }
+            onClick={toggleMaximize}
           />
         </div>
       </Modal>
