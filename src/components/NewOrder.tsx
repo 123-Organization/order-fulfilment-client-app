@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Modal, Button } from "antd";
 import { FullscreenOutlined, CompressOutlined } from "@ant-design/icons";
-import { useAppDispatch } from "../store";
+import { useAppDispatch, useAppSelector } from "../store";
 import { CreateOrder } from "../store/features/orderSlice";
 import { useNotificationContext } from "../context/NotificationContext";
 
@@ -12,6 +12,8 @@ export default function NewOrder({ iframe, setIframe, recipient }) {
   const iframeContainerRef = useRef(null);
   const dispatch = useAppDispatch();
   const notificationApi = useNotificationContext();
+
+  console.log("ee", recipient);
 
   const toggleMaximize = () => {
     if (isSmallScreen) {
@@ -34,19 +36,20 @@ export default function NewOrder({ iframe, setIframe, recipient }) {
 
       try {
         const data = JSON.parse(event.data);
-
-        if (Array.isArray(data)) {
-          setAddedProducts(data);
-          setIframe(false);
-          const postData = {
-            data,
-            recipient,
-          };
-          dispatch(CreateOrder(postData));
-          notificationApi.success({
-            message: "New Order Created",
-            description: "Order has been successfully Created",
-          });
+        if (recipient) {
+          if (Array.isArray(data)) {
+            setAddedProducts(data);
+            setIframe(false);
+            const postData = {
+              data,
+              recipient,
+            };
+            dispatch(CreateOrder(postData));
+            notificationApi.success({
+              message: "New Order Created",
+              description: "Order has been successfully Created",
+            });
+          }
         }
       } catch (error) {
         console.error("Error parsing message data:", error);
@@ -58,17 +61,16 @@ export default function NewOrder({ iframe, setIframe, recipient }) {
     return () => {
       window.removeEventListener("message", handleMessage);
     };
-  }, [setIframe]);
-  const small = isMaximized && isSmallScreen 
-  const large = isMaximized && !isSmallScreen
+  }, [setIframe, recipient]);
+  const small = isMaximized && isSmallScreen;
+  const large = isMaximized && !isSmallScreen;
   return (
-    <div>
+    <div className="z-100">
       <Modal
         title="File Management"
         open={iframe === true}
         onCancel={() => setIframe(false)}
         width={isMaximized || isSmallScreen ? "100vw" : "80%"}
-      
         style={{
           top: isMaximized || isSmallScreen ? 0 : 50,
           left: 0,

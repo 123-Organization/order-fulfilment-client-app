@@ -12,6 +12,7 @@ type BraintreeProps = {
   checkout: (nonce: string) => void;
   addPaymentMethod: (payload: any) => void;
   remainingTotal: number;
+  
 };
 
 const Braintree = ({
@@ -26,6 +27,8 @@ const Braintree = ({
   >();
 
   const location = useLocation();
+  const SelectedCard = useAppSelector((state) => state.Payment.selectedCard);
+  console.log("SelectedCard", SelectedCard);
 
   useEffect(() => {
     if (show) {

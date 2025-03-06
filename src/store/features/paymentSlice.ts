@@ -6,12 +6,18 @@ interface PaymentState {
         payment_methods: any;
         createCustomerInfo: any;
         selectedCard: any;
+        paymentToken: any;
+        status: "idle" | "loading" | "succeeded" | "failed"; // ✅ Add status here
+        error: string | null;
 }
 
 const initialState: PaymentState = {
         payment_methods: {},
         createCustomerInfo: {},
         selectedCard: {},
+        paymentToken: {},
+        status: "idle",
+        error: null,
 }
 
 export const createCustomer = createAsyncThunk(
@@ -44,7 +50,7 @@ export const getPaymentMethods = createAsyncThunk(
                 const state = await thunkAPI.getState() as any;
 
                 // Access company_info from the current state, not from initialState
-                const companyInfo = state.company.company_info 
+                const companyInfo = state.company.company_info
 
                 // If companyInfo is not available, handle it (e.g., return a default value or throw an error)
                 if (!companyInfo) {
@@ -76,6 +82,46 @@ export const getPaymentMethods = createAsyncThunk(
         }
 );
 
+
+
+export const getPaymentToken = createAsyncThunk(
+
+
+        "payment/token",
+        async (postData: any, thunkAPI) => {
+                const paymentProfileId = postData.paymentProfileId;
+                const response = await fetch(BASE_URL + `get-user-payment-tokens?payment_profile_id=${paymentProfileId}`, {
+                        method: "GET",
+                        headers: {
+                                "Content-Type": "application/json",
+                        },
+
+                });
+                const data = await response.json();
+                return data;
+        },
+);
+
+export const processVaultedPayment = createAsyncThunk(
+        "payment/process",
+        async (postData: any, thunkAPI) => {
+                const Data = {
+                        paymentToken: postData.paymentToken,
+                        amount: postData.amount.toFixed(2),
+                        customerId: postData.customerId,
+                }
+                const response = await fetch(BASE_URL + "process-vaulted-payment", {
+                        method: "POST",
+                        headers: {
+                                "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(Data)
+                });
+                const data = await response.json();
+                return data;
+        },
+);
+
 export const PaymentSlice = createSlice({
         name: "payment",
         initialState: initialState,
@@ -83,6 +129,10 @@ export const PaymentSlice = createSlice({
                 setSelectedCard: (state, action: PayloadAction<any>) => {
                         state.selectedCard = action.payload;
                 },
+                resetPaymentStatus: (state) => {
+                        state.status = "idle"; // ✅ Reset status
+                        state.error = null;
+                    },
         },
         extraReducers: (builder) => {
                 builder.addCase(getPaymentMethods.fulfilled, (state, action) => {
@@ -92,10 +142,25 @@ export const PaymentSlice = createSlice({
                 builder.addCase(createCustomer.fulfilled, (state, action) => {
                         state.createCustomerInfo = action.payload;
                 });
+                builder.addCase(getPaymentToken.fulfilled, (state, action) => {
+                        state.paymentToken = action.payload;
+                }
+                );
+                builder.addCase(processVaultedPayment.fulfilled, (state, action) => {
+                        state.status = "succeeded";
+                        state.paymentToken = action.payload;
+                }
+               
+                );
+                builder.addCase(processVaultedPayment.rejected, (state, action) => {
+                        state.status = 'failed';
+                        state.error = action.payload as string;
+                }
+                );
 
         },
 });
 
 export default PaymentSlice;
 
-export const { setSelectedCard } = PaymentSlice.actions;
+export const { setSelectedCard, resetPaymentStatus } = PaymentSlice.actions;

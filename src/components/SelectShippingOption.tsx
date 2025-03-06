@@ -11,9 +11,10 @@ const SelectShippingOption: React.FC<{
   orderItems: any;
   localOrder: any;
   productchange: any;
+  clicking : boolean;
   
   onShippingOptionChange: (poNumber: string, total: number) => void;
-}> = ({ poNumber, orderItems, onShippingOptionChange, localOrder, productchange }) => {
+}> = ({ poNumber, orderItems, onShippingOptionChange, localOrder, productchange, clicking }) => {
   console.log("localOrder", localOrder);
   const dispatch = useAppDispatch();
   const [ship, setShip] = useState<any>(null);
@@ -106,7 +107,7 @@ useEffect(() => {
 }, [shipping_details, currentOption, productchange]);
 console.log("shipping_details", shipping_details);
 
-  if (!shipping_details) {
+  if (!shipping_details || clicking) {
     return (
       <div className="flex-col items-center text-center p-12">
         {" "}
@@ -119,7 +120,7 @@ console.log("shipping_details", shipping_details);
   const discount = selectedOption?.calculated_total?.order_discount || 0;
   const shipping = selectedOption?.calculated_total?.order_shipping_rate || 0;
   const salesTax = selectedOption?.calculated_total?.order_sales_tax || 0;
-  const grandTotal = selectedOption?.calculated_total?.order_grand_total ||  0;
+  const grandTotal = selectedOption?.calculated_total?.order_grand_total || 0;
   const accountCredit = selectedOption?.calculated_total?.order_credits_used || 0;
 
   return (

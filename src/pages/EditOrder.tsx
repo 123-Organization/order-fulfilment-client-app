@@ -1,18 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { Button, Form, Input, Select, Skeleton } from "antd";
+import { Button, Form, Input, Select, Skeleton, List } from "antd";
 import { useLocation } from "react-router-dom";
 import { useParams, useNavigate } from "react-router-dom";
-import shoppingCart from "../assets/images/shopping-cart-228.svg";
-import uploadYourLogo from "../assets/images/upload-your-logo.svg";
 import { getStates } from "country-state-picker";
-import type { SelectProps } from "antd";
 import { countryType } from "../types/ICountry";
-import PopupModal from "../components/PopupModal";
-import VirtualInvModal from "../components/VirtualInvModal";
+import ProductOptions from "../components/ProductOptions";
 import { useAppDispatch, useAppSelector } from "../store";
 import SelectShippingOption from "../components/SelectShippingOption";
 import { updateCheckedOrders } from "../store/features/orderSlice";
-
 import {
   updateOrderStatus,
   updateOrdersInfo,
@@ -21,40 +16,34 @@ import {
 } from "../store/features/orderSlice";
 import { getInventoryImages } from "../store/features/InventorySlice";
 import { fetchProductDetails } from "../store/features/productSlice";
-import { persistor } from "../store";
 import UpdateButton from "../components/UpdateButton";
 import UpdatePopup from "../components/UpdatePopup";
 import style from "./Pgaes.module.css";
-import { get } from "http";
 import FilesGallery from "../components/FilesGallery";
 import NewOrder from "../components/NewOrder";
 import { setUpdatedValues } from "../store/features/orderSlice";
 import DeleteMessage from "../components/DeleteMessage";
 import { useNotificationContext } from "../context/NotificationContext";
+import { LoadingOutlined } from "@ant-design/icons";
+import { Flex, Spin } from "antd";
 
-type productType = {
-  name?: string; // Optional because not all entries have 'name'
-  value: string;
-  options?: any;
-};
+import Quantity from "../components/Quantitiy";
 
 // Define the array directly
 
 const countryList = require("../json/country.json");
 const { TextArea } = Input;
-
-const { Option } = Select;
 type SizeType = Parameters<typeof Form>[0]["size"];
 
 const EditOrder: React.FC = () => {
   const [openModal, setOpenModal] = useState(false);
-  const [popupVisible, setPopupVisible] = useState(false);
-  const [PostModalVisible, setPostModalVisible] = useState(false);
+
   const [productChanged, setProductChanged] = useState(false);
   const [UpdatePopupVisible, setUpdatePopupVisible] = useState(false);
   const [DeleteMessageVisible, setDeleteMessageVisible] = useState(false);
   const [productchange, setProductChange] = useState(false);
   const [skuCode, setSkuCode] = useState("");
+  const [clicking, setclicking] = useState(false);
   const [productCode, setProductCode] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -88,27 +77,6 @@ const EditOrder: React.FC = () => {
     );
   }, [dispatch]);
 
-  console.log("order", order);
-
-  console.log("order", order);
-  const newProductList: productType[] = [
-    {
-      name: "Create New",
-      value: "/NewProduct",
-      options: () => setPostModalVisible(true),
-    },
-    {
-      name: "Enter Product code",
-      value: "",
-      options: () => setPopupVisible(true),
-    },
-    {
-      name: "Select from Inventory",
-      value: "/Inventory",
-      options: () => setVirtualInv(true),
-    },
-  ];
-
   const [productData, setProductData] = useState({});
   const [orderPostData, setOrderPostData] = useState([]);
   const [form] = Form.useForm(); // Create form instance
@@ -135,13 +103,6 @@ const EditOrder: React.FC = () => {
     }
   }, [dispatch, orders]);
   console.log("ord", orders);
-
-  const handleProductCodeUpdate = () => {
-    // Refresh logic (e.g., re-fetch order details)
-    dispatch(
-      fetchSingleOrderDetails({ accountId: "1556", orderFullFillmentId: id })
-    );
-  };
 
   console.log("locals", localOrder);
   const handleShippingOptionChange = (
@@ -190,7 +151,7 @@ const EditOrder: React.FC = () => {
       return order;
     });
 
-     dispatch(updateOrdersInfo(updatedOrders));
+    dispatch(updateOrdersInfo(updatedOrders));
     setLocalOrder(updatedLocalOrder);
 
     // Toggle productchange to ensure re-render
@@ -226,15 +187,20 @@ const EditOrder: React.FC = () => {
   console.log("changedvalues", changedValues);
   useEffect(() => {
     if (product_details && product_details?.length) {
-      product_details?.map((product, index) => {
-        products[product.sku] = product;
-        products[product?.product_code] = product;
+      const productsMap = {};
+      product_details.forEach((product) => {
+        productsMap[product.sku] = {
+          ...product,
+          quantity: localOrder?.order_items?.find(item => item.product_sku === product.sku)?.product_qty || 0
+        };
+        productsMap[product?.product_code] = {
+          ...product,
+          quantity: localOrder?.order_items?.find(item => item.product_sku === product.sku)?.product_qty || 0
+        };
       });
-
-      console.log("products", products);
-      setProductData(products);
+      setProductData(productsMap);
     }
-  }, [product_details]);
+  }, [product_details, localOrder]);
   console.log("productData", productData);
 
   useEffect(() => {
@@ -258,15 +224,21 @@ const EditOrder: React.FC = () => {
       }
     }
     dispatch(getInventoryImages());
-  }, [orderData]);
+  }, [orderData, dispatch]);
+
+  const handleProductCodeUpdate = () => {
+    // Refresh logic (e.g., re-fetch order details)
+    dispatch(
+      fetchSingleOrderDetails({ accountId: "1556", orderFullFillmentId: id })
+    );
+  };
+
   const [componentSize, setComponentSize] = useState<SizeType | "default">(
     "default"
   );
   const [stateData, setStateData] = useState<
     { label: string; value: string }[]
   >([]);
-  const [listVisble, SetListVisble] = useState(false);
-  const [virtualINv, setVirtualInv] = useState(false);
 
   const handleValuesChange = (changedValues: any, allValues: any) => {
     // Check if values have changed
@@ -277,7 +249,7 @@ const EditOrder: React.FC = () => {
 
     // Exclude 'address_2' when checking for all fields filled
     const requiredFields = Object.keys(allValues).filter(
-      (key) => key !== "address_2" && key !== "company_name" 
+      (key) => key !== "address_2" && key !== "company_name"
     );
 
     const allFieldsFilled = requiredFields.every((key) => {
@@ -287,7 +259,7 @@ const EditOrder: React.FC = () => {
       );
     });
     console.log("allFieldsFilled:", allFieldsFilled);
-    
+
     dispatch(updateOrderStatus({ status: allFieldsFilled, clicked: false }));
 
     const updatedOrder = {
@@ -301,7 +273,7 @@ const EditOrder: React.FC = () => {
     dispatch(setUpdatedValues(updatedOrder));
     setIsModified(hasChanged);
   };
-  console.log("vol", updatedValues)
+  console.log("vol", updatedValues);
 
   const setStates = (value: string = "us") => {
     let states = getStates(value);
@@ -560,20 +532,28 @@ const EditOrder: React.FC = () => {
 
       <div className="w-1/2 max-md:w-full flex flex-col justify-start md:border-r-2  max-md:border-b-2 max-md:pb-6  items-center h-[800px] max-md:h-auto">
         <div
-          className={`text-left w-full px-4 text-gray-400 pt-4 ${style.inner_card}`}
+          className={`text-left w-full px-4 text-gray-400 pt-4 overflow-y-auto scrollbar-thin ${style.customscrollbar} ${style.inner_card} `}
         >
-          <p className="text-lg pb-4 text-gray-400  font-bold">Cart</p>
+          <div className="w-full flex justify-between items-center relative ">
+            <p className="text-lg pb-4 text-gray-400  font-bold bg-slate-50 w-9/12">
+              Cart
+            </p>
+            <ProductOptions id={id} onProductCodeUpdate={handleProductCodeUpdate} />
+          </div>
           {localOrder?.order_items?.map((item) => (
-            <label className="h-[200px] mt-2 hover:border-gray-500 max-md:h-auto inline-flex  justify-between w-full px-3 text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700">
+            <div className="h-[200px] mt-2 hover:border-gray-500 max-md:h-auto inline-flex  justify-between w-full px-3 text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700">
               <div className="block relative pb-4 w-full">
-                <div className="justify-around  pt-4  rounded-lg flex">
+                <div className="justify-around pt-4 rounded-lg flex">
                   <div className="flex pt-8">
                     {productData[item.product_sku]?.image_url_1 ? (
                       <img
-                        src={item?.product_image?.product_url_thumbnail ? item?.product_image?.product_url_thumbnail : productData[item?.product_sku].image_url_1}
-                        // src="https://images.unsplash.com/photo-1515955656352-a1fa3ffcd111?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1170&q=80"
+                        src={
+                          item?.product_image?.product_url_thumbnail
+                            ? item?.product_image?.product_url_thumbnail
+                            : productData[item?.product_sku].image_url_1
+                        }
                         alt="product"
-                        className="rounded-lg max-md:w-20 w-40 h-[90px]"
+                        className="rounded-lg max-md:w-20 w-40 h-[100px] "
                         width={116}
                         height={26}
                       />
@@ -583,45 +563,35 @@ const EditOrder: React.FC = () => {
 
                     <div className="sm:ml-4 flex flex-col w-full sm:justify-between">
                       {(Object.keys(productData)?.length && (
-                        <div
-                          className={`w-8/12 text-sm  ${style.product_decription}`}
-                        >
+                        <div className={`w-12/12 text-sm ${style.product_decription}`}>
                           {filterDescription(
                             productData[item.product_sku]?.description_long
-                          )}
+                          )?.substring(0, 130)}
                         </div>
                       )) || <Skeleton active />}
-                      {/* <div className="w-full text-sm">1234 Elm Street</div>
-                   <div className="w-full text-sm">Suite 567</div>
-                   <div className="w-full text-sm">
-                     Cityvile, Statevile 98567
-                   </div> */}
                     </div>
                   </div>
-                  <div className="border-gray-400 border  rounded-md h-1/2 px-1 ">
-                    <p className="text-center text-gray-400 text-xs ">
-                      Quantity <br />
-                      <label className="text-center w-40  text-black">
-                        {productData[item.product_sku]?.quantity}
-                      </label>
-                    </p>
+                  <div className="h-9">
+                    <Quantity
+                      quantity={productData[item.product_sku]?.quantity || item.product_qty}
+                      clicking={clicking}
+                      setclicking={setclicking}
+                    />
                   </div>
                 </div>
-                <div
-                  className={`flex justify-start w-full  ${style.bottom_icons} `}
-                >
-                  <div className="w-20 mt-6 ">
+                <div className="flex justify-between items-center w-full absolute bottom-0 left-0 px-3 py-2 border-t border-gray-100">
+                  <div className="flex items-center gap-2">
                     <button
                       data-tooltip-target="tooltip-document"
                       type="button"
-                      className="max-md:pl-2 mt-2 inline-flex  flex-col justify-start items-start  hover:bg-gray-50 dark:hover:bg-gray-800 group"
+                      className="inline-flex items-center justify-center p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 group"
                       onClick={() => {
                         setSkuCode(item.product_sku);
                         setDeleteMessageVisible(true);
                       }}
                     >
                       <svg
-                        className="w-5 h-5 mb-1 text-gray-500 dark:text-gray-400 group-hover:text-red-600 dark:group-hover:text-blue-500"
+                        className="w-5 h-5 text-gray-500 dark:text-gray-400 group-hover:text-red-600 dark:group-hover:text-blue-500"
                         aria-hidden="true"
                         xmlns="http://www.w3.org/2000/svg"
                         fill="none"
@@ -642,13 +612,11 @@ const EditOrder: React.FC = () => {
                       onDeleteProduct={onDeleteProduct}
                       deleteItem={skuCode}
                     />
-                  </div>
-                  <div className=" mt-6  w-8/12 text-center">
                     {productCode && (
                       <Button
                         key="submit"
-                        className=" text-gray-500 border w-52 border-gray-400 rounded-lg text-center font-semibold  "
-                        size={"small"}
+                        className="text-gray-500 border border-gray-400 rounded-lg text-center font-semibold"
+                        size="small"
                         onClick={() => setOpenModal(true)}
                         style={{ backgroundColor: "#f5f4f4" }}
                         type="link"
@@ -661,59 +629,21 @@ const EditOrder: React.FC = () => {
                       setOpenModal={setOpenModal}
                       productImage={productData[item.product_sku]?.image_url_1}
                     />
-                    <NewOrder
-                      iframe={PostModalVisible}
-                      setIframe={setPostModalVisible}
-                      recipient={order.recipient}
-                    />
                   </div>
-                  <div className=" text-sm w-40 text-right mt-8">
-                    ${product_details[0]?.per_item_price}
+                  <div className="text-sm font-medium">
+                    {clicking ? (
+                      <div className="flex items-center gap-2">
+                        <p className="text-red-400 text-xs">Calculating price...</p>
+                        <Spin indicator={<LoadingOutlined spin />} size="default" />
+                      </div>
+                    ) : (
+                      `$${productData[item.product_sku]?.per_item_price}`
+                    )}
                   </div>
                 </div>
               </div>
-            </label>
+            </div>
           ))}
-        </div>
-        <div className={`mt-4 w-full ml-10 bg-transparent`}>
-          <Button
-            key="submit"
-            className=" flex-col w-[130px] text-white bg-green-600 rounded-lg text-center font-semibold border-gray-500"
-            size={"small"}
-            style={{ backgroundColor: "#6fc64f" }}
-            type="default"
-            onClick={() => SetListVisble(!listVisble)}
-          >
-            + Add Product
-          </Button>
-          <div className={`ml-4 $ }`}>
-            {newProductList.map((product, index) => (
-              <ul className={listVisble ? "block " : "hidden"}>
-                <li key={index}>
-                  <Button
-                    key="submit"
-                    className={`${style.product_list}   w-4/12 text-gray-500 `}
-                    size={"small"}
-                    type="default"
-                    onClick={product.options}
-                  >
-                    {product.name}
-                  </Button>
-                </li>
-              </ul>
-            ))}
-            <PopupModal
-              visible={popupVisible}
-              onClose={() => setPopupVisible(false)}
-              setProductCode={setProductCode}
-              orderFullFillmentId={id}
-              onProductCodeUpdate={handleProductCodeUpdate}
-            />
-            <VirtualInvModal
-              visible={virtualINv}
-              onClose={() => setVirtualInv(false)}
-            />
-          </div>
         </div>
 
         {(
@@ -740,14 +670,9 @@ const EditOrder: React.FC = () => {
                   onShippingOptionChange={handleShippingOptionChange}
                   localOrder={localOrder}
                   productchange={productChanged}
+                  clicking={clicking}
                 />
               )}
-              {/* <div className="w-full text-sm pt-11"></div>
-              <div className="w-full text-sm">Sub Total: $75.00</div>
-              <div className="w-full text-sm">Discount: ($0.00)</div>
-              <div className="w-full text-sm">Shipping : $14.95</div>
-              <div className="w-full text-sm">Sales Tax : $5.25</div>
-              <div className="w-full text-sm">Grand Total : $95.25</div> */}
             </div>
           </div>
         </div>

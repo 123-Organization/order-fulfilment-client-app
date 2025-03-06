@@ -10,5 +10,6 @@ export const routes = {
   mycompany: "/mycompany",
   checkout: "/checkout",
   thumbnail: "/thumbnail",
+  confirmation: "/confirmation",
   landingPage: "/",
 };

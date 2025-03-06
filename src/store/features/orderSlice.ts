@@ -124,6 +124,7 @@ export const AddProductToOrder = createAsyncThunk(
 export const CreateOrder = createAsyncThunk(
   "order/create",
   async (postData: any, thunkAPI) => {
+    console.log('postData...', postData)
 
   const SendData = {
     ...postData?.data[0],

@@ -26,6 +26,7 @@ const PaymentAddress = lazy(() => import("../pages/PaymentAddress"));
 const ShippingPreference = lazy(() => import("../pages/ShippingPreference"));
 const Checkout = lazy(() => import("../pages/Checkout"));
 const ImportFilter = lazy(() => import("../pages/ImportFilter"));
+const Confirmation = lazy(() => import("../pages/Confirmation"));
 
 const Router: React.FC = (): JSX.Element  => {
   const [api, contextHolder] = notification.useNotification();
@@ -95,6 +96,7 @@ const Router: React.FC = (): JSX.Element  => {
           <Route path={routes.importlist} Component={ImportList} />
           <Route path={routes.importfilter} Component={ImportFilter} />
           <Route path={routes.virtualinventory} Component={VirtualInventory} />
+          <Route path={routes.confirmation} Component={Confirmation} />
           <Route path="*" Component={initialRoute()} />
         </Routes>
       </Suspense>

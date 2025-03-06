@@ -247,6 +247,11 @@ const ImportList: React.FC = () => {
                           value={{
                             order_po: order?.order_po,
                             Product_price: getShippingPrice(order?.order_po),
+                            productData : order?.order_items,
+                            productImage: productData[order?.order_items[0]?.product_sku]
+                            ?.image_url_1
+                          
+
                           }}
                           onChange={(e) => handleCheckboxChange(e)}
                           checked={checkedOrders.some(
@@ -348,21 +353,17 @@ const ImportList: React.FC = () => {
                           <label className="h-[220px] inline-flex mb-2 justify-between w-full hover:border-gray-600 transition-all duration-75 pt-5 pb-5 px-2 text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700">
                             <div className="block relative pb-4 w-full">
                               <img src={shoppingCart} width="26" height="26" />
-                              <div className="justify-between pt-4  rounded-lg  sm:flex sm:justify-start flex">
-                                <div className="w-[50%] ">
-                                  {productData[order?.product_sku]
-                                    ?.image_url_1 ? (
+                              <div className="justify-between pt-4 rounded-lg sm:flex sm:justify-start flex">
+                                <div className="w-[50%]">
+                                  {productData[order?.product_sku]?.image_url_1 ? (
                                     <img
                                       src={
-                                        order?.product_image
-                                          ?.product_url_thumbnail
-                                          ? order?.product_image
-                                              ?.product_url_thumbnail
-                                          : productData[order?.product_sku]
-                                              .image_url_1
+                                        order?.product_image?.product_url_thumbnail
+                                          ? order?.product_image?.product_url_thumbnail
+                                          : productData[order?.product_sku].image_url_1
                                       }
                                       alt="product"
-                                      className="rounded-lg max-md:w-40 w-32 h-[120px] "
+                                      className="rounded-lg max-md:w-40 w-32 h-[120px]"
                                       width={125}
                                       height={26}
                                     />
@@ -371,25 +372,20 @@ const ImportList: React.FC = () => {
                                   )}
                                 </div>
 
-                                <div className="w-[90%]  ">
+                                <div className="w-[90%]">
                                   {(Object.keys(productData)?.length && (
-                                    <div className=" flex flex-col w-full sm:justify-between p-2 ">
-                                      <div
-                                        className={`w-full text-sm ${style.order_description} font-seri `}
-                                      >
+                                    <div className="flex flex-col w-full sm:justify-between p-2">
+                                      <div className={`w-full text-sm ${style.order_description} font-seri`}>
                                         {parse(
-                                          productData[order?.product_sku]
-                                            ?.description_long || ""
+                                          productData[order?.product_sku]?.description_long || ""
                                         )}
                                       </div>
                                     </div>
                                   )) || <Skeleton active />}
                                 </div>
                               </div>
-                              <div className=" text-sm  absolute right-2 -bottom-3">
-                                {order?.product_qty} @ $
-                                {productData[order?.product_sku]?.total_price ||
-                                  ""}
+                              <div className="text-sm absolute right-2 -bottom-3">
+                                {order?.product_qty} @ ${productData[order?.product_sku]?.total_price || ""}
                               </div>
                             </div>
                           </label>

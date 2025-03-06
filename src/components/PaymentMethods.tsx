@@ -8,11 +8,13 @@ import PaymentAddressModal from "../components/PaymentAddressModal";
 import { getCustomerInfo } from "../store/features/customerSlice";
 import { getPaymentMethods } from "../store/features/paymentSlice";
 import { setSelectedCard } from "../store/features/paymentSlice";
+import VaultedCardPayment from "./VaultedCardPayment";
 
 export default function PaymentMethods(remainingTotal: any = 0) {
   const [value, setValue] = useState(1);
   const [paymentPopupEnable, setPaymentPopupEnable] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
+  const [modalVisble, setModalVisble] = useState(false);
   const credit = 40;
 
   const companyInfo = useAppSelector((state) => state.company.company_info);
@@ -21,10 +23,10 @@ export default function PaymentMethods(remainingTotal: any = 0) {
     (state) => state.Payment.payment_methods
   );
   const showPaymentMethod =
-  location.pathname === "/checkout" && remainingTotal?.remainingTotal === 0
+    location.pathname === "/checkout" && remainingTotal?.remainingTotal === 0;
   console.log("rere", remainingTotal?.remainingTotal);
   const dispatch = useAppDispatch();
-  console.log("Car",value)
+  console.log("Car", value);
 
   const onChangePaymentMethod = (e: any) => {
     setValue(e.target.value);
@@ -41,8 +43,8 @@ export default function PaymentMethods(remainingTotal: any = 0) {
 
   useEffect(() => {
     if (paymentMethods?.data?.paymentMethods?.length > 0) {
-      
-      const defaultPaymentMethod = paymentMethods.data.paymentMethods[0].maskedNumber;
+      const defaultPaymentMethod =
+        paymentMethods.data.paymentMethods[0].maskedNumber;
       setValue(defaultPaymentMethod);
     }
   }, [paymentMethods]);
@@ -58,6 +60,7 @@ export default function PaymentMethods(remainingTotal: any = 0) {
 
   const onChange1 = (e: RadioChangeEvent) => {
     console.log("radio checked", e.target.value);
+    setSelectedCard(e.target.value);
     setValue(e.target.value);
   };
 
@@ -95,14 +98,11 @@ export default function PaymentMethods(remainingTotal: any = 0) {
 
       {location.pathname === "/checkout" && (
         <p className="w-full text-center pt-4 b">
-          <Button
-            key="submit"
-            className={`max-md:w-full w-[170px] md:mx-8 mt-2 ${style.pay_button} `}
-            size={"large"}
-            onClick={() => setPaymentPopupEnable(true)}
-          >
-            Pay
-          </Button>
+          <VaultedCardPayment
+            visble={modalVisble}
+            setVisble={setModalVisble}
+            Amount={remainingTotal?.remainingTotal}
+          />
         </p>
       )}
     </div>
