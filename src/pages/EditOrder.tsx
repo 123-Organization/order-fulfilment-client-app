@@ -637,7 +637,7 @@ const EditOrder: React.FC = () => {
                         <Spin indicator={<LoadingOutlined spin />} size="default" />
                       </div>
                     ) : (
-                      `$${productData[item.product_sku]?.per_item_price}`
+                      `$${productData[item.product_sku]?.total_price}`
                     )}
                   </div>
                 </div>

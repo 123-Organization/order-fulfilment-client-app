@@ -385,7 +385,7 @@ const ImportList: React.FC = () => {
                                 </div>
                               </div>
                               <div className="text-sm absolute right-2 -bottom-3">
-                                {order?.product_qty} @ ${productData[order?.product_sku]?.total_price || ""}
+                                 ${productData[order?.product_sku]?.total_price || ""}
                               </div>
                             </div>
                           </label>
