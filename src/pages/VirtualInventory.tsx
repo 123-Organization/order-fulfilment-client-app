@@ -4,17 +4,23 @@ import { Typography } from "antd";
 import FilterSortModal from "../components/FilterSortModal";
 import { FileSearchOutlined, SortDescendingOutlined } from "@ant-design/icons";
 import { useAppDispatch, useAppSelector } from "../store";
-import {remove, find} from "lodash";
+import { remove, find } from "lodash";
+import wordpress from "../assets/images/wordpress-svgrepo-com (1).svg";
+import {
+  exportOrders,
+  updateVirtualInventory,
+} from "../store/features/InventorySlice";
 import {
   listVirtualInventory,
   inventorySelectionUpdate,
   inventorySelectionDelete,
-  inventorySelectionClean
+  inventorySelectionClean,
 } from "../store/features/InventorySlice";
 import { ecommerceConnectorExport } from "../store/features/ecommerceSlice";
 import HTMLReactParser from "html-react-parser";
 import { useLocation } from "react-router-dom";
 import ExportModal from "../components/ExportModal";
+import { AddProductToOrder } from "../store/features/orderSlice";
 let userInfoMultiselectOptions = true;
 const images = [
   {
@@ -122,7 +128,7 @@ const images = [
 const { Text } = Typography;
 const IMAGE_STYLES: CSSProperties = {
   width: 300,
-  height: 300
+  height: 300,
 };
 
 interface ImageType {
@@ -136,22 +142,35 @@ interface ImageType {
  * ****************************************************************** Function Components *******************************************************
  */
 
-const VirtualInventory: React.FC = (): JSX.Element => {
+interface VirtualInventoryProps {
+  onClose: () => void;
+}
+
+const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Element => { 
   const location = useLocation();
   console.log("location", location.pathname);
   const [open, setOpen] = useState(false);
   const [spinLoader, setSpinLoader] = useState(false);
   const [openFilter, setOpenFilter] = useState(false);
   const [openExport, setOpenExport] = useState(false);
-  let listVirtualInventoryData = useAppSelector((state) => state.Inventory.listVirtualInventory?.data)
-  ?.map(data =>{
-    return {...data,...{isSelected:false}}
-   } 
+  let listVirtualInventoryData = useAppSelector(
+    (state) => state.Inventory.listVirtualInventory?.data
+  )?.map((data) => {
+    return { ...data, ...{ isSelected: false } };
+  });
+  const currentOrderFullFillmentId = useAppSelector(
+    (state) => state.order.currentOrderFullFillmentId
   );
-  const listVirtualInventoryLoader = useAppSelector((state) => state.Inventory.listVirtualInventoryLoader);
-  const ecommerceConnectorExportInfo = useAppSelector((state) => state.Ecommerce.ecommerceConnectorExportInfo);
-  console.log('listVirtualInventoryData',listVirtualInventoryData)
-  const inventorySelection = useAppSelector((state) => state.Inventory.inventorySelection);
+  const listVirtualInventoryLoader = useAppSelector(
+    (state) => state.Inventory.listVirtualInventoryLoader
+  );
+  const ecommerceConnectorExportInfo = useAppSelector(
+    (state) => state.Ecommerce.ecommerceConnectorExportInfo
+  );
+  console.log("listVirtualInventoryData", listVirtualInventoryData);
+  const inventorySelection = useAppSelector(
+    (state) => state.Inventory.inventorySelection
+  );
   const dispatch = useAppDispatch();
   // const [images, setImages] = useState<Array<ImageType>>([]);
   const [imgData, setImgData] = useState({});
@@ -161,16 +180,20 @@ const VirtualInventory: React.FC = (): JSX.Element => {
   const [images, setImages] = useState<Array<ImageType>>([]);
   // const [messageApi, contextHolder] = message.useMessage();
   const [api, contextHolder] = notification.useNotification();
-  const openNotificationWithIcon = ({ type, message, description }: NotificationAlertProps) => {
+  const openNotificationWithIcon = ({
+    type,
+    message,
+    description,
+  }: NotificationAlertProps) => {
     api[type]({
       message,
-      description
+      description,
     });
   };
 
   const exportToWPInv = () => {
-    setOpenExport(true)
-  }
+    setOpenExport(true);
+  };
 
   const exportToWP = () => {
     if (spinLoader) return false;
@@ -179,79 +202,93 @@ const VirtualInventory: React.FC = (): JSX.Element => {
     // printImagesDataFn({guids});
     // // window.open(`https://finerworks.com/apps/orderform/post.aspx?guids=${guids}`, "_blank")
   };
+  console.log("currentOrderFullFillmentId", currentOrderFullFillmentId);
 
-  const handleSelect = (skuObj:any) => {
-    
-    console.log('inventorySelection',inventorySelection)
-    console.log('sku',skuObj)
-    console.log('referrerImages',referrerImages)
-    
-    listVirtualInventoryData = listVirtualInventoryData.map(data =>{
-      if(data.sku===skuObj.sku) {
-        
-        if(
-          find(inventorySelection, {sku: skuObj?.sku})
-        )
+  const handleSelect = (skuObj: any) => {
+    console.log("inventorySelection", inventorySelection);
+    console.log("sku", skuObj);
+    console.log("referrerImages", referrerImages);
+
+    listVirtualInventoryData = listVirtualInventoryData.map((data) => {
+      if (data.sku === skuObj.sku) {
+        if (find(inventorySelection, { sku: skuObj?.sku }))
           dispatch(inventorySelectionDelete(skuObj));
-        else 
-          dispatch(inventorySelectionUpdate(skuObj));
+        else dispatch(inventorySelectionUpdate(skuObj));
+        setProductData({
+          skuCode: skuObj.sku,
+          productCode: "",
+          orderFullFillmentId: currentOrderFullFillmentId,
+        });
 
-        return {...data,...{isSelected:!data.isSelected}}
+        return { ...data, ...{ isSelected: !data.isSelected } };
+      } else return data;
+    });
 
-      } else
-      return data
-     });
-
-     console.log('handleSelect listVirtualInventoryData',listVirtualInventoryData)
-   
+    console.log(
+      "handleSelect listVirtualInventoryData",
+      listVirtualInventoryData
+    );
   };
 
   const exportInventoryFn = () => {
-
-    if(inventorySelection.length){
-
+    if (inventorySelection.length) {
       dispatch(
         ecommerceConnectorExport({
-          "products": inventorySelection
+          products: inventorySelection,
         })
       );
     }
-
-  }
+  };
 
   const exportInventory = () => {
-
-    setOpenExport(true)
-
-  }
+    setOpenExport(true);
+  };
 
   const listInventory = () => {
-
     dispatch(
       listVirtualInventory({
-        "search_filter":"",
-        'sort_field':'id',
-        'sort_direction':'DESC',
-        'per_page':12
+        search_filter: "",
+        sort_field: "id",
+        sort_direction: "DESC",
+        per_page: 12,
       })
-    )
-  }  
+    );
+    // dispatch(
+    //   updateVirtualInventory({
+    //     data: listVirtualInventoryData,
+    //   })
+    // );
+  };
+  const [productData, setProductData] = useState({
+    skuCode: "",
+    productCode: "",
+    orderFullFillmentId: "",
+  });
+  const AddProduct = () => {
+    dispatch(AddProductToOrder(productData));
+    dispatch(inventorySelectionClean());
+    onClose();
+  };
 
   useEffect(() => {
     listInventory();
   }, []);
 
   useEffect(() => {
-    if(ecommerceConnectorExportInfo.status===200 && spinLoader){
+    if (ecommerceConnectorExportInfo.status === 200 && spinLoader) {
       // ecommerceConnectorExportInfo.status=300
-      openNotificationWithIcon( {type:'success', message:'Success',description:`Import to Wordpress have been done successfully`})
+      openNotificationWithIcon({
+        type: "success",
+        message: "Success",
+        description: `Import to Wordpress have been done successfully`,
+      });
       setSpinLoader(false);
       //  window.location.reload()
-      dispatch(inventorySelectionClean())
+      dispatch(inventorySelectionClean());
       listInventory();
     }
-
   }, [ecommerceConnectorExportInfo]);
+  console.log("listVirtualInventoryData", listVirtualInventoryData);
   /**
    * ****************************************************************** JSX  ***************************************************************************
    */
@@ -298,7 +335,7 @@ const VirtualInventory: React.FC = (): JSX.Element => {
           </div>
           {!!inventorySelection.length && (
             <div
-              onClick={exportToWPInv}
+              // onClick={exportToWPInv}
               className="fw-sky-btn mr-4 basis-1/12 max-md:row-1 max-md:col-span-4 max-md:relative"
             >
               <Spin spinning={spinLoader} size="small">
@@ -314,7 +351,7 @@ const VirtualInventory: React.FC = (): JSX.Element => {
                 ) : (
                   <button
                     type="button"
-                    onClick={() => exportInventory()}
+                    onClick={() => AddProduct()}
                     className="  
                             "
                   >
@@ -357,26 +394,31 @@ const VirtualInventory: React.FC = (): JSX.Element => {
                 key={i}
                 className={`border rounded-lg shadow-lg   border-gray-100 ${
                   image?.isSelected ||
-                  ( 
-                    inventorySelection?.length &&
-                    find(inventorySelection, {sku: image?.sku})
-                    // inventorySelection.includes(image?.sku)
-                  )
-                    ? "isSelectedImg"
+                  (inventorySelection?.length &&
+                    find(inventorySelection, { sku: image?.sku }))
+                    ? // inventorySelection.includes(image?.sku)
+                      "isSelectedImg"
                     : ""
                 }`}
               >
                 <div
                   onClick={() => handleSelect(image)}
-                  className="min-h-[300px] flex justify-center items-center"
+                  className="min-h-[300px] flex justify-center items-center relative"
                 >
-                  <div>
+                  <div className="">
                     <img
                       className={`m-2 min-h-[200px] cursor-pointer  max-w-[200px]   object-contain    `}
                       src={image.image_url_1}
                       alt=""
                     />
                   </div>
+                  {image?.third_party_integrations?.woocommerce_product_id ? (
+                    <img
+                      src={wordpress}
+                      alt=""
+                      className="absolute top-0 right-0 w-8 h-8"
+                    />
+                  ) : null}
                 </div>
                 <div className="flex relative w-full justify-center pb-2">
                   <div className="text-sm pt-2">
@@ -400,7 +442,9 @@ const VirtualInventory: React.FC = (): JSX.Element => {
                   <div>
                     <h2 className="px-4">{image.name}</h2>
                     <h2 className="px-4">SKU - {image.sku}</h2>
-                    <div className="px-4">{HTMLReactParser(image.description_long)}</div>
+                    <div className="px-4">
+                      {HTMLReactParser(image.description_long)}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -411,9 +455,11 @@ const VirtualInventory: React.FC = (): JSX.Element => {
         )}
         <FilterSortModal openModel={openFilter} setOpen={setOpenFilter} />
         <ExportModal
-            visible={openExport}
-            onClose={() => setOpenExport(false)} 
-         />
+          visible={openExport}
+          onClose={() => setOpenExport(false)}
+          inventorySelection={inventorySelection}
+          listInventory={listInventory}
+        />
       </div>
     </div>
   );

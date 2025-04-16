@@ -4,6 +4,10 @@ import { LoadingOutlined } from "@ant-design/icons";
 import { useAppDispatch, useAppSelector } from "../store";
 import { AddProductToOrder } from "../store/features/orderSlice";
 import { useNotificationContext } from "../context/NotificationContext";
+import { updateIframeState } from "../store/features/companySlice";
+import { getAllImages, setSelectedImage, setProductData, clearSelectedImage } from "../store/features/productSlice";
+import { resetOrderStatus } from "../store/features/orderSlice";
+
 
 interface PopupModalProps {
   visible: boolean;
@@ -25,61 +29,122 @@ const PopupModal: React.FC<PopupModalProps> = ({
   // Access the productCode from the Redux store
   const notificationApi = useNotificationContext();
   const productCode = useAppSelector((state) => state.order.productCode);
+  const images = useAppSelector((state) => state.ProductSlice.images);
+  console.log("images", images);
 
   // State to track the input value
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const ordersStatus = useAppSelector((state) => state.order.status);
+  const productDataStatus = useAppSelector((state) => state.order.productDataStatus);
+  
+  const SelectedImage = useAppSelector(
+    (state) => state.ProductSlice.SelectedImage
+  );
+  console.log("SelectedImage", SelectedImage);
   // Update state when the input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value);
   };
 
-  // Handle submission of the product code
+  const filterImages = (data: any) => {
+    return data?.data?.fileSelected.map(
+      (image: any) => image?.public_thumbnail_uri
+    );
+  };
+
+  const handleMessage = (event: any) => {
+    console.log("Message event:", event.type);
+
+    try {
+      const data = event.data;
+      console.log("dataaa", data);
+      const filteredImages = filterImages(data);
+      console.log("filteredImages", filteredImages);
+      dispatch(setSelectedImage(filteredImages));
+    } catch (error) {
+      console.error("Error parsing message data:", error);
+    }
+  }
+  ;
+
   const handleProductCodeChange = () => {
     setIsLoading(true);
 
-    const data = {
+    
+    if (inputValue.startsWith("AP")) {
+      const data = {
       skuCode: "",
       productCode: "",
       orderFullFillmentId,
+      product_url_file: [],
+      product_url_thumbnail: [],
     };
 
-    if (inputValue.startsWith("AP")) {
       data.skuCode = inputValue;
+      dispatch(AddProductToOrder(data));
+      setTimeout(() => {
+        setInputValue("");
+
+        onProductCodeUpdate();
+        setIsLoading(false);
+        onClose();
+      }, 1000);
     } else {
-      data.productCode = inputValue;
+     
+      
+      
+      dispatch(updateIframeState({ iframeState: true }));
     }
 
-    dispatch(AddProductToOrder(data));
-    console.log("stat", ordersStatus);
-
-    setTimeout(() => {
-      setInputValue("");
-
-      onProductCodeUpdate();
-      setIsLoading(false);
-      onClose();
-    }, 1000);
+    console.log("stat", productDataStatus); 
   };
 
   useEffect(() => {
-    if (ordersStatus === "succeeded") {
+    if (SelectedImage) {
+      const data = {
+        skuCode: "",
+        productCode: inputValue,
+        orderFullFillmentId,
+        pixel_width: 1200,
+        pixel_height: 900,
+        product_url_file: SelectedImage,
+        product_url_thumbnail: SelectedImage,
+      };
+      dispatch(setProductData(data));
+    }
+  }, [SelectedImage, inputValue, orderFullFillmentId]);
+
+  useEffect(() => {
+    window.addEventListener("message", handleMessage);
+    window.addEventListener("message", (event) => {
+      if (event.data.type === "REFERRER_UPDATE") {
+        console.log("Received referrer update:", event.data.data);
+      }
+    });
+    dispatch(getAllImages());
+    return () => {
+      window.removeEventListener("message", handleMessage);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (productDataStatus === "succeeded") {
       notificationApi.success({
         message: "Product Added",
         description: "Product has been successfully added to the order.",
       });
-
-    
-    } else if (ordersStatus === "failed") {
+      onClose();
+      onProductCodeUpdate();
+      dispatch(resetOrderStatus());
+    } else if (productDataStatus === "failed") {
       notificationApi.error({
         message: "Failed to Add Product",
         description: "An error occurred while adding the product.",
       });
-
+  
       setIsLoading(false);
     }
-  }, [ordersStatus, notificationApi]);
+  }, [productDataStatus, notificationApi]);
 
   // UseEffect to handle changes in productCode
   useEffect(() => {

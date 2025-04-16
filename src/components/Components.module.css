@@ -1,0 +1,43 @@
+.btngrad {background-image: linear-gradient(to right, #00c6ff 0%, #0072ff  51%, #00c6ff  100%)} 
+.btngrad {
+   margin: 8px;
+   padding: 10px 26px;
+   text-align: center;
+   font-weight: 600;
+   text-transform: capitalize;
+   transition: 0.5s;
+   background-size: 200% auto;
+   color: white;            
+   box-shadow: 0 0 20px #eee;
+   border-radius: 10px;
+   display: block;
+ }
+
+ .btngrad:hover {
+   background-position: right center; /* change the direction of the change here */
+   color: #fff;
+   text-decoration: none;
+ }
+
+ /*----------------------------------------------------------------*/
+
+ .btnPay {background-image: linear-gradient(to right, #fe8c00 0%, #f83600  51%, #fe8c00  100%)}
+ .btnPay {
+    margin: 10px;
+    padding: 16px 45px;
+    text-align: center;
+    text-transform: uppercase;
+    transition: 0.5s;
+    background-size: 200% auto;
+    color: white;            
+    box-shadow: 0 0 20px #eee;
+    border-radius: 10px;
+    display: block;
+  }
+
+  .btnPay:hover {
+    background-position: right center; /* change the direction of the change here */
+    color: #fff;
+    text-decoration: none;
+  }
+ 

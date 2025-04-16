@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Modal, Button } from "antd";
 import { FullscreenOutlined, CompressOutlined } from "@ant-design/icons";
 import { useAppDispatch, useAppSelector } from "../store";
-import { CreateOrder } from "../store/features/orderSlice";
+import { AddProductToOrder, CreateOrder } from "../store/features/orderSlice";
 import { useNotificationContext } from "../context/NotificationContext";
 
 export default function NewOrder({ iframe, setIframe, recipient }) {
@@ -12,6 +12,7 @@ export default function NewOrder({ iframe, setIframe, recipient }) {
   const iframeContainerRef = useRef(null);
   const dispatch = useAppDispatch();
   const notificationApi = useNotificationContext();
+  const  currentOrderFullFillmentId= useAppSelector((state) => state.order.currentOrderFullFillmentId);
 
   console.log("ee", recipient);
 
@@ -36,15 +37,21 @@ export default function NewOrder({ iframe, setIframe, recipient }) {
 
       try {
         const data = JSON.parse(event.data);
+        console.log("daaaaa", data);
         if (recipient) {
           if (Array.isArray(data)) {
             setAddedProducts(data);
             setIframe(false);
             const postData = {
-              data,
-              recipient,
+                productCode: data[0].product_code,
+                product_url_file: [data[0].thumbnail_url],
+                product_url_thumbnail: [data[0].thumbnail_url],
+                skuCode: "",
+                pixel_width: 1200,
+                pixel_height: 900,
+                orderFullFillmentId: currentOrderFullFillmentId,
             };
-            dispatch(CreateOrder(postData));
+            dispatch(AddProductToOrder(postData));
             notificationApi.success({
               message: "New Order Created",
               description: "Order has been successfully Created",

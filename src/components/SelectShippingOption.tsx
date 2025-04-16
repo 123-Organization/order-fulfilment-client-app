@@ -6,6 +6,7 @@ import { updateCurrentOption } from "../store/features/shippingSlice";
 import { useAppDispatch } from "../store";
 import { fetchShippingOption } from "../store/features/shippingSlice";
 
+
 const SelectShippingOption: React.FC<{
   poNumber: string;
   orderItems: any;
@@ -15,9 +16,13 @@ const SelectShippingOption: React.FC<{
   
   onShippingOptionChange: (poNumber: string, total: number) => void;
 }> = ({ poNumber, orderItems, onShippingOptionChange, localOrder, productchange, clicking }) => {
+  console.log("popo", poNumber);
   console.log("localOrder", localOrder);
   const dispatch = useAppDispatch();
   const [ship, setShip] = useState<any>(null);
+  const quantityUpdated = useAppSelector(
+    (state) => state.ProductSlice.quantityUpdated
+  );
 
   const shipping_option = useAppSelector(
     (state) => state.Shipping.shippingOptions || []
@@ -33,21 +38,22 @@ console.log("shipping_option", shipping_option);
     [shipping_option, poNumber]
   );
 
-  const [selectedOption, setSelectedOption] = useState<any>(null);
-
+  const [selectedOption, setSelectedOption] = useState<any>(null)
   // Set initial preferred option if available
   useEffect(() => {
     if (
       currentOption?.calculated_total?.order_po !== poNumber &&
       shipping_details?.preferred_option
     ) {
-      setSelectedOption(shipping_details.preferred_option);
+      
+      setSelectedOption(shipping_details?.preferred_option
+      );
     } else {
       setSelectedOption(
-        shipping_details?.options.find((opt) => opt.rate === currentOption.rate)
+        shipping_details?.options.find((opt) => opt?.rate === currentOption?.rate)
       );
     }
-  }, [shipping_details, currentOption]);
+  }, [shipping_details, currentOption, poNumber]);
 
 
 

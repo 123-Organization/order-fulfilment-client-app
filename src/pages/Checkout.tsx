@@ -54,7 +54,7 @@ const Checkout: React.FC = () => {
 
   return (
     <div className="flex justify-end items-center w-full h-full p-8 max-lg:p-4 max-md:flex-col max-md:mt-12">
-      <div className="w-7/12 flex flex-col justify-center items-center h-[600px] max-md:h-[400px] md:border-r-2 max-md:border-b-2 max-md:mb-8 max-xl:px-8">
+      <div className="w-7/12 flex flex-col justify-center items-center h-[600px] max-md:h-[400px] md:border-r-2 max-md:border-b-2 max-md:mb-8 max-xl:px-8 max-md:w-full">
         <div className="text-left text-gray-400 -mt-6 bg">
           <p className="text-lg pb-4 font-bold">Summary</p>
           <p className="pt-6 pb-3 text-gray-400 font-bold">
@@ -80,7 +80,9 @@ const Checkout: React.FC = () => {
           </p>
         </div>
       </div>
-      <PaymentMethods remainingTotal={remainingTotal} />
+      <div className="w-6/12 flex flex-col justify-center items-center h-[600px] max-md:h-[400px] max-md:w-full ">
+        <PaymentMethods remainingTotal={remainingTotal} />
+      </div>
     </div>
   );
 };

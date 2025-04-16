@@ -14,7 +14,7 @@ import ShippingPreference from "../pages/ShippingPreference";
 import UpdatePopup from "./UpdatePopup";
 import { loadavg } from "os";
 import { updateCompanyInfo } from "../store/features/companySlice";
-
+import { resetRecipientStatus } from "../store/features/orderSlice";
 type NotificationType = "success" | "info" | "warning" | "error";
 interface NotificationAlertProps {
   type: NotificationType;
@@ -39,6 +39,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
 
   const orderEdited = useAppSelector((state) => state.order.orderEdited);
   console.log("orderEdited", orderEdited);
+  const recipientStatus = useAppSelector((state) => state.order.recipientStatus);
 
   const { product_list } = product_details?.data || {};
   console.log("product_list", product_list);
@@ -207,8 +208,14 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
         !orderEdited.clicked &&
         updatedValues
       ) {
-        dispatch(updateOrderStatus({ status: true, clicked: true }));
-        await dispatch(updateOrdersInfo(updatedValues));
+         console.log("About to dispatch updateOrdersInfo with:", updatedValues);
+         try {
+            await dispatch(updateOrdersInfo([updatedValues]));
+           console.log("Successfully dispatched updateOrdersInfo");
+           dispatch(updateOrderStatus({ status: true, clicked: true }));
+         } catch (error) {
+           console.error("Error dispatching updateOrdersInfo:", error);
+         }
       }
     } catch (error) {
       console.error("Error in onNextHandler:", error);
@@ -221,11 +228,26 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
     }
   };
 
+  useEffect(() => {
+    if (recipientStatus === "succeeded") {
+      openNotificationWithIcon({
+        type: "success",
+        message: "Success",
+        description: "Information has been updated",
+      });
+      dispatch(resetRecipientStatus());
+      setNextVisiable(false);
+    }
+  }, [recipientStatus]);
+
+  
+
   const onDeleteHandler = () => {};
 
   const onBackHandler = () => {
     if (location.pathname === "/billingaddress") navigate("/mycompany");
     if (location.pathname === "/paymentaddress") navigate("/billingaddress");
+    if (location.pathname.includes("/editorder")) navigate("/importlist");
   };
 
   const onDownloadHandler = () => {};
@@ -558,7 +580,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                 size="large"
               >
                 {location.pathname === "/shippingpreference" ||
-                location.pathname === "/editorder"
+                location.pathname.includes("/editorder")
                   ? "Update"
                   : "Next"}
               </Button>

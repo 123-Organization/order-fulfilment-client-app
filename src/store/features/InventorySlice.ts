@@ -18,6 +18,8 @@ interface InventoryState {
         inventorySelection: any;
         referrer: IFileExport;
         inventoryImages: any;
+        status: "idle" | "loading" | "success" | "error"
+        exportResponse: any;
 
 }
 
@@ -34,12 +36,15 @@ const initialState: InventoryState = {
         filterVirtualInventoryOption: {},
         inventorySelection: [],
         referrer: referrer,
-        inventoryImages: {}
+        inventoryImages: {},
+        status: "idle",
+        exportResponse: {},
 };
 
 export const OrderAddSlice = createSlice({
         name: "order",
         initialState,
+
         reducers: (create) => ({
                 updateFilterVirtualInventoryOption: create.preparedReducer(
                         (requestPayload: any) => {
@@ -110,6 +115,58 @@ export const getInventoryImages = createAsyncThunk(
                 return data;
         },
 );
+//export orders from virtual inv https://v59dq0jx2e.execute-api.us-east-1.amazonaws.com/Prod/api/export-to-woocommerce
+export const exportOrders = createAsyncThunk(
+        "export/orders",
+        async (args: { data: any }, thunkAPI: any) => {
+                const state = await thunkAPI.getState() as any;
+                args.data = {
+
+                        "domainName": "artsafenet.com",
+                        "auth_code": "f8df5ecd-6c85-4d2c-a402-676b0556c156",
+                        "productsList": args.data
+                }
+                const response = await fetch(`https://v59dq0jx2e.execute-api.us-east-1.amazonaws.com/Prod/api/export-to-woocommerce`, {
+                        method: "POST",
+                        headers: {
+                                "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(args.data)
+                });
+                const data = await response.json();
+                return data;
+        },
+);
+
+export const updateVirtualInventory = createAsyncThunk(
+        "update/virtual/inventory",
+        async (args: { data: any }, thunkAPI: any) => {
+                console.log('args...', args)
+                const info = {
+                    virtual_inventory: args.data.map((data) => ({
+                        "sku": data.sku,
+                        "asking_price": data.asking_price,
+                                "name": data.name,
+                                "description": data.description,
+                                "quantity_in_stock": data.quantity_in_stock,
+                                "track_inventory": true,
+                                "third_party_integrations": {
+                                }
+                        }
+                ))
+                
+        }
+                const response = await fetch(BASE_URL + "update-virtual-inventory", {
+                        method: "PUT",
+                        headers: {
+                                "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(info)
+                });
+                const data = await response.json();
+                return data;
+        },
+);
 
 export const InventorySlice = createSlice({
         name: "inventory",
@@ -150,8 +207,25 @@ export const InventorySlice = createSlice({
                 builder.addCase(getInventoryImages.pending, (state, action) => {
                         state.inventoryImages = { loading: true }
                 });
+                builder.addCase(exportOrders.fulfilled, (state, action) => {
+                        state.status = "success"
+                        state.inventorySelection = action.payload
+                        state.exportResponse = action.payload
+                });
+                builder.addCase(exportOrders.pending, (state, action) => {
+                        state.status = "loading"
+                });
+                builder.addCase(exportOrders.rejected, (state, action) => {
+                        state.status = "error"
+                        state.exportResponse = action.payload
+                });
+                builder.addCase(updateVirtualInventory.fulfilled, (state, action) => {
+                        state.exportResponse = action.payload
+                });
         },
 });
+
+
 
 export default InventorySlice;
 export const { inventorySelectionUpdate, inventorySelectionClean, inventorySelectionDelete, updateFilterVirtualInventory } = InventorySlice.actions;

@@ -78,7 +78,7 @@ export const getImportOrders = createAsyncThunk(
         async (postData: any, thunkAPI) => {
                 console.log('postData...', postData)
 
-                const response = await fetch(ECOMMERCE_CONNCET_URL + "get-orders", {
+                const response = await fetch(" https://artsafenet.com/wp-json/finerworks-media/v1/get-orders", {
                         method: "POST",
                         headers: {
                                 "Content-Type": "application/json",

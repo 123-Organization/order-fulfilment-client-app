@@ -3,12 +3,29 @@ import { Modal, Button } from "antd";
 import { FullscreenOutlined, CompressOutlined } from "@ant-design/icons";
 import { useAppSelector, useAppDispatch } from "../store";
 import { updateIframeState } from "../store/features/companySlice";
+import  styles  from "./Components.module.css";   
+import {
+  setSelectedImage,
+  setSendProduct,
+} from "../store/features/productSlice";
+import { AddProductToOrder, resetProductDataStatus } from "../store/features/orderSlice";
+import { clearProductData } from "../store/features/productSlice";
+import { clearSelectedImage } from "../store/features/productSlice";
 
 export default function FileManagementIframe({ iframe, setIframe }) {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const iframeContainerRef = useRef(null);
   const dispatch = useAppDispatch();
+  const SelectedImage = useAppSelector(
+    (state) => state.ProductSlice.SelectedImage
+  );
+  console.log("SelectedImage", SelectedImage);
   const { iframeState } = useAppSelector((state) => state.company.iframeState);
+  const productData = useAppSelector((state) => state.ProductSlice.productData);
+  const ordersStatus = useAppSelector((state) => state.order.status);
+  const productDataStatus = useAppSelector(
+    (state) => state.order.productDataStatus
+  );
   console.log("iframeState...", iframeState);
   // Handle full-screen change event
   useEffect(() => {
@@ -35,6 +52,27 @@ export default function FileManagementIframe({ iframe, setIframe }) {
       setIsFullScreen(false);
     }
   };
+  console.log("dada", productData);
+
+  const handleAddProduct = () => {
+    console.log("dada", productData);
+  
+      // Process images one by one with sequential delays
+      const data = {
+        ...productData,
+        product_url_file: productData?.product_url_file,
+        product_url_thumbnail: productData?.product_url_file,
+      };
+      dispatch(AddProductToOrder(data));
+    
+  };
+  useEffect(() => {
+    if (productDataStatus === "succeeded") {
+      dispatch(updateIframeState({ iframeState: false }));
+      dispatch(clearSelectedImage());
+      dispatch(resetProductDataStatus());
+    }
+  }, [productDataStatus]);
 
   return (
     <div>
@@ -58,12 +96,25 @@ export default function FileManagementIframe({ iframe, setIframe }) {
           }}
         >
           <iframe
-            src="https://dev1-filemanger-app.finerworks.com/#/thumbnail"
+            src="https://prod1-filemanger-app.finerworks.com/#/thumbnail"
             width="100%"
             height="100%"
             style={{ border: "none" }}
             title="File Management"
           />
+        {productData?.product_url_file?.length &&  <button
+            style={{
+              position: "absolute",
+              border: "none",
+              top: isFullScreen ? 10 : 15,
+              right: isFullScreen ? 100 : 200,
+              zIndex: 1000,
+            }}
+            className={`${styles.btngrad}`}
+            onClick={handleAddProduct}
+          >
+            Add product
+          </button>}
           <Button
             type="default"
             style={{

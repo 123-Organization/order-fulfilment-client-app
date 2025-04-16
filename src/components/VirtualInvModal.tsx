@@ -15,7 +15,7 @@ const VirtualInvModal: React.FC<VirtualInvProps> = ({ visible, onClose }) => {
       onCancel={onClose}
       footer={[]}
     >
-      <VirtualInventory />
+      <VirtualInventory onClose={onClose} />
     </Modal>
   );
 };

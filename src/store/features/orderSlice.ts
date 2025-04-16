@@ -25,8 +25,11 @@ interface OrderState {
   saveOrderInfo: any;
   checkedOrders: any;
   orderEdited: any;
+  currentOrderFullFillmentId: any;
   status: "idle" | "loading" | "succeeded" | "failed"; // ✅ Add status here
   error: string | null;
+  productDataStatus: "idle" | "loading" | "succeeded" | "failed";
+  recipientStatus: "idle" | "loading" | "succeeded" | "failed";
 
 }
 
@@ -35,14 +38,16 @@ const initialState: OrderState = {
   orders: [],
   order: [],
   productCode: [],
-updatedValues: [],
+  updatedValues: [],
   checkedOrders: [],
   saveOrderInfo: {},
   myImport: {},
   orderEdited: { status: false, clicked: false, },
   status: "idle",
   error: null,
-
+  currentOrderFullFillmentId: null,
+  productDataStatus: "idle",
+  recipientStatus: "idle",
 };
 
 export const fetchOrder = createAsyncThunk(
@@ -88,7 +93,7 @@ export const updateOrdersInfo = createAsyncThunk(
       "orders":
         [...postData]
     }
-    console.log('Dataaa', Data)
+    console.log('dedeee', Data)
     const response = await fetch(BASE_URL + "update-orders", {
       method: "PUT",
       headers: {
@@ -107,8 +112,13 @@ export const AddProductToOrder = createAsyncThunk(
     postData = {
       "orderFullFillmentId": postData.orderFullFillmentId,
       "productCode": postData.productCode,
-      "skuCode": postData.skuCode
+      "skuCode": postData.skuCode,
+      "pixel_width": postData.pixel_width,
+      "pixel_height": postData.pixel_height,
+      "product_url_file": postData.product_url_file,
+      "product_url_thumbnail": postData.product_url_thumbnail
     }
+    console.log('pepee', postData)
     const response = await fetch(BASE_URL + "update-order-by-product", {
       method: "POST",
       headers: {
@@ -126,13 +136,13 @@ export const CreateOrder = createAsyncThunk(
   async (postData: any, thunkAPI) => {
     console.log('postData...', postData)
 
-  const SendData = {
-    ...postData?.data[0],
-    "recipient": postData?.recipient,
-    "thumbnailUrl": postData?.data[0].thumbnail_url,
-    "shipping_code": "GD",
-    "accountId": 1556
- }
+    const SendData = {
+      ...postData?.data[0],
+      "recipient": postData?.recipient,
+      "thumbnailUrl": postData?.data[0].thumbnail_url,
+      "shipping_code": "GD",
+      "accountId": 1556
+    }
     const response = await fetch(BASE_URL + "create-new-order", {
       method: "POST",
       headers: {
@@ -209,7 +219,18 @@ export const OrderSlice = createSlice({
         name: action.payload.name,
       })
     },
-
+    setCurrentOrderFullFillmentId: (state, action: PayloadAction<string>) => {
+      state.currentOrderFullFillmentId = action.payload;
+    },
+    resetOrderStatus: (state) => {
+      state.status = "idle";
+    },
+    resetProductDataStatus: (state) => {
+      state.productDataStatus = "idle";
+    },
+    resetRecipientStatus: (state) => {
+      state.recipientStatus = "idle";
+    },
     setUpdatedValues: (state, action: PayloadAction) => {
       state.updatedValues = action.payload;
     },
@@ -229,17 +250,19 @@ export const OrderSlice = createSlice({
     builder.addCase(fetchOrder.fulfilled, (state, action) => {
       state.orders = action.payload;
     });
-    
+
     builder.addCase(updateOrdersInfo.fulfilled, (state, action) => {
       console.log("updateOrdersInfo.fulfilled called with:", action.payload);
       state.productCode = action.payload;
       state.orders = action.payload;
+      state.recipientStatus = "succeeded";
     }
     );
     builder.addCase(updateOrdersInfo.rejected, (state, action) => {
       console.log("updateOrdersInfo.pending called with:", action.payload);
+      state.recipientStatus = "failed";
     }
-  );
+    );
 
     builder.addCase(CreateOrder.fulfilled, (state, action) => {
       state.orders = action.payload;
@@ -247,16 +270,16 @@ export const OrderSlice = createSlice({
     );
 
     builder.addCase(AddProductToOrder.fulfilled, (state, action) => {
-      state.status = 'succeeded';
+      state.productDataStatus = 'succeeded';
       state.orders = action.payload;
     }
     );
 
-  builder.addCase(AddProductToOrder.rejected, (state, action) => {
-      state.status = 'failed';
+    builder.addCase(AddProductToOrder.rejected, (state, action) => {
+      state.productDataStatus = 'failed';
       state.error = action.payload as string;
     }
-  );
+    );
 
 
     builder.addCase(saveOrder.fulfilled, (state, action) => {
@@ -280,11 +303,11 @@ export const OrderSlice = createSlice({
       state.status = 'failed';
       state.error = action.payload as string;
     }
-  );
+    );
 
   }
 
 });
 
 export default OrderSlice.reducer;
-export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues } = OrderSlice.actions;
+export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus } = OrderSlice.actions;

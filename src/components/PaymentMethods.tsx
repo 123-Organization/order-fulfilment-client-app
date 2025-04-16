@@ -74,7 +74,7 @@ export default function PaymentMethods(remainingTotal: any = 0) {
           <p className="w-full text-center pt-4">
             <Button
               key="submit"
-              className=" max-md:w-full w-[170px] md:mx-8 mt-2  text-gray-500"
+              className=" max-md:w-6/12 w-[170px] md:mx-8 mt-2  text-gray-500"
               size={"large"}
               type="default"
             >
@@ -85,7 +85,7 @@ export default function PaymentMethods(remainingTotal: any = 0) {
           <p className=" w-full text-center pt-4">
             <Button
               key="submit"
-              className="max-md:w-full  w-[170px]  md:mx-8 mt-2 "
+              className="max-md:w-6/12  w-[170px]  md:mx-8 mt-2 "
               size={"large"}
               type="primary"
               onClick={() => setPaymentPopupEnable(true)}
@@ -109,7 +109,7 @@ export default function PaymentMethods(remainingTotal: any = 0) {
   );
   return (
     <>
-      <div className="w-1/2 max-lg:w-9/12 max-md:w-full flex flex-col justify-start items-center md:ml-16">
+      <div className="w-[300px] max-lg:w-12/12 max-md:w-full flex flex-col justify-start items-center md:ml-16 ">
         <Form layout="horizontal" className="w-full flex flex-col items-center">
           <p className="text-lg font-bold -ml-12 text-gray-400">
             My Payment Methods

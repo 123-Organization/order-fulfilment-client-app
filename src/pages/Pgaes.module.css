@@ -4,6 +4,13 @@
     width: 100%;
   }
 }
+@media (max-width: 1200px) {
+  .product_decription {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 17px;
+  }
+}
 @media (max-width: 1040px) {
   .product_decription {
     font-size: 12px;
@@ -11,6 +18,18 @@
     line-height: 16px;
   }
 }
+
+@media (max-width: 885px) {
+  .product_decription {
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 15px;
+  }
+  .product_image {
+    width: 100px;
+  }
+}
+
 @media (max-width: 340px) {
   .product_decription {
     font-size: 10px;
@@ -29,7 +48,7 @@
     width: 0%;
   }
 }
-@media (max-width: 320px) {
+@media (max-width: 1200px) {
   .card {
     padding: 0px;
   }
@@ -38,6 +57,11 @@
   .inner_card {
     padding: 0px;
   }
+}
+@media (max-width: 1071px) {
+ .edit_order_card {
+  width: 100%;
+ }
 }
 
 /*----------------------------------------------------------------*/
@@ -58,7 +82,15 @@
   .order_description {
     font-size: 12px;
     font-weight: 600;
-    line-height: 16px;
+    line-height: 15px;
+  }
+}
+@media (max-width: 957px) {
+  .order_description {
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 13px;
+    text-overflow: ellipsis;
   }
 }
 
@@ -70,6 +102,51 @@
     max-height: 2.4em;
   }
 }
+.description_box {
+  width: 100%;
+}
+
+
+
+.overAll_box {
+ width: 100%;
+}
+.orderes_box {
+  width: 100%;
+}
+.orderes_lable {
+  width: 100%;
+}
+
+@media (max-width: 832px) {
+  .overAll_box {
+    width: 100%;
+    padding: 0px;
+  }
+}
+@media (max-width: 969px) {
+  .description_box {
+    width: 100%;
+    padding: 10px 0px;
+  }
+  .orderes_box {
+    width: 100%;
+    padding: 0px;
+  }
+  .orderes_lable {
+    width: 100%;
+    height: 250px;
+  }
+}
+
+@media (max-width: 730px) {
+  
+  .orderes_lable {
+    width: 100%;
+    height: 220px;
+  }
+}
+
 
 /*----------------------------Checkout------------------------------------*/
 
@@ -141,3 +218,47 @@
       text-decoration: none;
     }
    
+   /*----------------------------------------------------------------*/
+
+   
+   .btn-pay {background-image: linear-payient(to right, #fe8c00 0%, #f83600  51%, #fe8c00  100%)}
+   .btn-pay {
+      margin: 10px;
+      padding: 15px 45px;
+      text-align: center;
+      text-transform: uppercase;
+      transition: 0.5s;
+      background-size: 200% auto;
+      color: white;            
+      box-shadow: 0 0 20px #eee;
+      border-radius: 10px;
+      display: block;
+    }
+
+    .btn-pay:hover {
+      background-position: right center; /* change the direction of the change here */
+      color: #fff;
+      text-decoration: none;
+    }
+   
+    
+    .btn-paymentMethod {background-image: linear-paymentMethodient(to right, #56CCF2 0%, #2F80ED  51%, #56CCF2  100%)}
+    .btn-paymentMethod {
+       margin: 10px;
+       padding: 15px 45px;
+       text-align: center;
+       text-transform: uppercase;
+       transition: 0.5s;
+       background-size: 200% auto;
+       color: white;            
+       box-shadow: 0 0 20px #eee;
+       border-radius: 10px;
+       display: block;
+     }
+
+     .btn-paymentMethod:hover {
+       background-position: right center; /* change the direction of the change here */
+       color: #fff;
+       text-decoration: none;
+     }
+    

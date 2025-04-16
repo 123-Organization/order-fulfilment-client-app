@@ -444,11 +444,11 @@ console.log(stateCode, stateCodeShort)
           md:border-r-2 max-md:border-b-2 max-md:mb-8 relative
         "
       >
-         <div className="w-[700px]">
+         <div className="w-[400px] ">
           <PaymentMethods />
          </div>
        
-        <div className=" text-gray-400  text-center absolute top-36 right-10 ">
+        <div className=" text-gray-400  text-center ">
           
           <p className="text-lg  font-bold">My Billing Address </p>
           <p className="pt-5">

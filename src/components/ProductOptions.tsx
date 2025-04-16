@@ -18,9 +18,10 @@ interface ProductOptionsProps {
   id: string;
   recipient?: any;
   onProductCodeUpdate: () => void;
+  setOpenModal: (value: boolean) => void;
 }
 
-export default function ProductOptions({ id, recipient, onProductCodeUpdate }: ProductOptionsProps) {
+export default function ProductOptions({ id, recipient, onProductCodeUpdate , setOpenModal}: ProductOptionsProps) {
   const [popupVisible, setPopupVisible] = useState(false);
   const [PostModalVisible, setPostModalVisible] = useState(false);
   const [virtualINv, setVirtualInv] = useState(false);

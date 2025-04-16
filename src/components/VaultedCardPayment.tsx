@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import { useAppSelector, useAppDispatch } from "../store";
 import { Modal, Button } from "antd";
 import Datalist from "./DataList";
@@ -21,9 +22,12 @@ export default function VaultedCardPayment({
   const paymentToken = useAppSelector((state) => state.Payment.paymentToken);
   const paymentStatus = useAppSelector((state) => state.Payment.status);
   console.log("paymentToken", paymentToken);
+  console.log("paymentStatus", paymentStatus);
   const payment_profile_id = companyInfo?.data?.payment_profile_id;
   const notificationApi = useNotificationContext();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isFirstRender = useRef(true);
 
   useEffect(() => {
     if (companyInfo?.data?.payment_profile_id) {
@@ -38,17 +42,28 @@ export default function VaultedCardPayment({
   const proccessPayment = () => {
     dispatch(
       processVaultedPayment({
-        paymentToken: paymentToken?.payment_tokens[0]?.token,
+        paymentToken: paymentToken?.payment_tokens?.token,
         amount: Amount,
         customerId: companyInfo?.data?.payment_profile_id,
       })
     );
-    navigate("/confirmation");
+    setTimeout(() => {
+      navigate("/confirmation");
+    }, 1000);
+   
   };
 
-  useEffect(() => {
-    dispatch(resetPaymentStatus()); // ✅ Reset status when modal opens
-  }, []);
+  // useEffect(() => {
+  //   if (paymentStatus === "idle") {
+  //     dispatch(resetPaymentStatus()); // ✅ Reset status when modal opens
+  //   }
+  // }, []);
+
+  // useEffect(() => {
+  //   if ((paymentStatus === "succeeded" || paymentStatus === "failed") && isFirstRender.current) {
+  //     navigate("/confirmation");
+  //   } 
+  // }, [paymentStatus]);
 
   useEffect(() => {
     if (paymentStatus === "succeeded") {
@@ -56,20 +71,22 @@ export default function VaultedCardPayment({
         message: "Payment Successful",
         description: "Payment has been successfully processed.",
       });
+      dispatch(resetPaymentStatus());
     } else if (paymentStatus === "failed") {
       notificationApi.error({
         message: "Payment Failed",
         description: "An error occurred while processing the payment.",
       });
+      dispatch(resetPaymentStatus());
     }
-  }, [paymentStatus]); // ✅ Remove visble from dependencies
+  }, []); // ✅ Remove visble from dependencies
 
 
   return (
     <div>
       <Button
         key="submit"
-        className={`max-md:w-full w-[170px] md:mx-8 mt-2 ${style.pay_button} `}
+        className={`max-md:w-6/12 w-[170px] md:mx-8 mt-2 ${style.pay_button} `}
         size={"large"}
         onClick={proccessPayment}
       >

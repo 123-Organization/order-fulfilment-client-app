@@ -16,13 +16,13 @@ import ShippingSlice from "./features/shippingSlice";
 const persistConfig = {
   key: 'root',  // key to store the persisted data
   storage,
-  blacklist: ['order'], // Exclude 'order' slice from persistence
+  blacklist: ['order', 'Shipping', "Inventory",], // Exclude 'order' slice from persistence
 };
 
 // Combine your reducers (if you have multiple slices)
 const rootReducer = combineReducers({
   order: OrderSlice.reducer,
-  company : Company.reducer,
+  company: Company.reducer,
   ProductSlice: ProductSlice.reducer,
   Ecommerce: EcommerceSlice.reducer,
   Payment: PaymentSlice.reducer,

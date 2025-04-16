@@ -7,7 +7,7 @@ import { countryType } from "../types/ICountry";
 import ProductOptions from "../components/ProductOptions";
 import { useAppDispatch, useAppSelector } from "../store";
 import SelectShippingOption from "../components/SelectShippingOption";
-import { updateCheckedOrders } from "../store/features/orderSlice";
+import { setCurrentOrderFullFillmentId, updateCheckedOrders } from "../store/features/orderSlice";
 import {
   updateOrderStatus,
   updateOrdersInfo,
@@ -26,6 +26,7 @@ import DeleteMessage from "../components/DeleteMessage";
 import { useNotificationContext } from "../context/NotificationContext";
 import { LoadingOutlined } from "@ant-design/icons";
 import { Flex, Spin } from "antd";
+import { setQuantityUpdated } from "../store/features/productSlice";
 
 import Quantity from "../components/Quantitiy";
 
@@ -55,12 +56,16 @@ const EditOrder: React.FC = () => {
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
   console.log("updatedValues", updatedValues);
   const orderData = useAppSelector((state) => state.order.order) || {};
+  console.log("orderData", orderData);
   const order = orderData.data ? orderData.data[0] : {};
   const { id } = useParams<{ orderFullFillmentId: string }>();
   const code = useAppSelector((state) => state.order.productCode) || {};
   console.log("full", id);
-
+  const quantityUpdated = useAppSelector(
+    (state) => state.ProductSlice.quantityUpdated
+  );
   const { order_items, order_key, order_status, recipient } = order || {};
+  const product_status = useAppSelector((state) => state.ProductSlice.status);
 
   const InventoryImages =
     useAppSelector((state) => state.Inventory.inventoryImages) || [];
@@ -120,13 +125,14 @@ const EditOrder: React.FC = () => {
       // Update the shipping price for the existing order
       updatedOrders[orderIndex] = {
         ...updatedOrders[orderIndex],
-        Product_price: updatedPrice,
+        Product_price: {grand_total: updatedPrice?.order_grand_total},
       };
     } else {
       // Add the order with the updated shipping price
+      console.log("updatedPrice", updatedPrice);
       updatedOrders.push({
         order_po,
-        Product_price: updatedPrice,
+        Product_price: {grand_total: updatedPrice?.order_grand_total},
       });
     }
 
@@ -153,7 +159,7 @@ const EditOrder: React.FC = () => {
 
     dispatch(updateOrdersInfo(updatedOrders));
     setLocalOrder(updatedLocalOrder);
-
+    
     // Toggle productchange to ensure re-render
     setProductChange((prev) => !prev);
 
@@ -191,16 +197,22 @@ const EditOrder: React.FC = () => {
       product_details.forEach((product) => {
         productsMap[product.sku] = {
           ...product,
-          quantity: localOrder?.order_items?.find(item => item.product_sku === product.sku)?.product_qty || 0
+          quantity:
+            localOrder?.order_items?.find(
+              (item) => item.product_sku === product.sku
+            )?.product_qty || 0,
         };
         productsMap[product?.product_code] = {
           ...product,
-          quantity: localOrder?.order_items?.find(item => item.product_sku === product.sku)?.product_qty || 0
+          quantity:
+            localOrder?.order_items?.find(
+              (item) => item.product_sku === product.sku
+            )?.product_qty || 0,
         };
       });
       setProductData(productsMap);
     }
-  }, [product_details, localOrder]);
+  }, [product_details, localOrder])
   console.log("productData", productData);
 
   useEffect(() => {
@@ -208,12 +220,13 @@ const EditOrder: React.FC = () => {
       const orderPostData1 = order.order_items.map((item) => ({
         order_po: order.order_po,
         product_sku: item.product_sku,
+        product_guid: item.product_guid,
         product_qty: item.product_qty,
         product_image: {
           product_url_file:
-            "https://inventory.finerworks.com/81de5dba-0300-4988-a1cb-df97dfa4e372/s173618563107067060__shutterstock_2554522269/thumbnail/200x200_s173618563107067060__shutterstock_2554522269.jpg",
+            "https://",
           product_url_thumbnail:
-            "https://inventory.finerworks.com/81de5dba-0300-4988-a1cb-df97dfa4e372/s173618563107067060__shutterstock_2554522269/thumbnail/200x200_s173618563107067060__shutterstock_2554522269.jpg",
+            "https://",
         },
       }));
 
@@ -222,6 +235,7 @@ const EditOrder: React.FC = () => {
         dispatch(fetchProductDetails(orderPostData1));
         setLocalOrder(order);
       }
+      dispatch(setCurrentOrderFullFillmentId(id));
     }
     dispatch(getInventoryImages());
   }, [orderData, dispatch]);
@@ -252,6 +266,7 @@ const EditOrder: React.FC = () => {
       (key) => key !== "address_2" && key !== "company_name"
     );
 
+    console.log("requiredFields:", requiredFields);
     const allFieldsFilled = requiredFields.every((key) => {
       const fieldValue = allValues[key];
       return (
@@ -271,6 +286,10 @@ const EditOrder: React.FC = () => {
     };
 
     dispatch(setUpdatedValues(updatedOrder));
+    setChangedValues(prevChangedValues => ({
+      ...prevChangedValues,
+      ...changedValues
+    }));
     setIsModified(hasChanged);
   };
   console.log("vol", updatedValues);
@@ -305,14 +324,39 @@ const EditOrder: React.FC = () => {
     setStates();
   }, []);
 
+  useEffect(() => {
+    if (quantityUpdated) {
+      setTimeout(() => {
+        dispatch(
+          fetchSingleOrderDetails({
+            accountId: "1556",
+            orderFullFillmentId: id,
+          })
+        );
+        dispatch(setQuantityUpdated(false));
+        setclicking(false);
+      }, 1500);
+    }
+  }, [quantityUpdated, orderPostData, dispatch, id]);
+  console.log("quantityUpdated", quantityUpdated);
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   const displayTurtles = (
     <Form
       labelCol={{ span: 4 }}
-      wrapperCol={{ span: 14 }}
+      wrapperCol={{ span: windowWidth > 1080 ? 14 : 24 }}
       layout="horizontal"
       initialValues={initialValues}
       onValuesChange={handleValuesChange}
-      className="w-full flex flex-col items-center"
+      className="w-full flex flex-col items-center  "
       form={form}
     >
       <Form.Item
@@ -470,11 +514,7 @@ const EditOrder: React.FC = () => {
       </div>
 
       <TextArea rows={4} maxLength={6} />
-      {isModified && (
-        <div className="w-full text-sm">
-          <UpdateButton />
-        </div>
-      )}
+
     </Form>
   );
 
@@ -530,7 +570,7 @@ const EditOrder: React.FC = () => {
         </div>
       </div>
 
-      <div className="w-1/2 max-md:w-full flex flex-col justify-start md:border-r-2  max-md:border-b-2 max-md:pb-6  items-center h-[800px] max-md:h-auto">
+      <div className={`w-1/2 max-md:w-full flex flex-col justify-start md:border-r-2  max-md:border-b-2 max-md:pb-6  items-center h-[800px] max-md:h-auto ${style.edit_order_card}`}>
         <div
           className={`text-left w-full px-4 text-gray-400 pt-4 overflow-y-auto scrollbar-thin ${style.customscrollbar} ${style.inner_card} `}
         >
@@ -538,22 +578,25 @@ const EditOrder: React.FC = () => {
             <p className="text-lg pb-4 text-gray-400  font-bold bg-slate-50 w-9/12">
               Cart
             </p>
-            <ProductOptions id={id} onProductCodeUpdate={handleProductCodeUpdate} />
+            <ProductOptions
+              id={id}
+              onProductCodeUpdate={handleProductCodeUpdate}
+            />
           </div>
-          {localOrder?.order_items?.map((item) => (
-            <div className="h-[200px] mt-2 hover:border-gray-500 max-md:h-auto inline-flex  justify-between w-full px-3 text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700">
+          {localOrder?.order_items?.map((item, index) => (
+            <div className="h-[230px] mt-2 hover:border-gray-500 max-md:h-[230px] inline-flex overflow-y-auto scrollbar-thin justify-between w-full px-3 text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700">
               <div className="block relative pb-4 w-full">
-                <div className="justify-around pt-4 rounded-lg flex">
-                  <div className="flex pt-8">
+                <div className="justify-around pt-4 rounded-lg flex ">
+                  <div className="flex pt-8 ">
                     {productData[item.product_sku]?.image_url_1 ? (
                       <img
                         src={
-                          item?.product_image?.product_url_thumbnail
-                            ? item?.product_image?.product_url_thumbnail
+                          item?.product_url_thumbnail
+                            ? item?.product_url_thumbnail
                             : productData[item?.product_sku].image_url_1
                         }
                         alt="product"
-                        className="rounded-lg max-md:w-20 w-40 h-[100px] "
+                        className={`rounded-lg max-md:w-20 w-40 h-[100px] ${style.product_image} `}
                         width={116}
                         height={26}
                       />
@@ -561,9 +604,11 @@ const EditOrder: React.FC = () => {
                       <Skeleton.Image active className="mr-40" />
                     )}
 
-                    <div className="sm:ml-4 flex flex-col w-full sm:justify-between">
+                    <div className="sm:ml-4 flex flex-col w-full sm:justify-between max-md:px-2">
                       {(Object.keys(productData)?.length && (
-                        <div className={`w-12/12 text-sm ${style.product_decription}`}>
+                        <div
+                          className={`w-12/12 text-sm ${style.product_decription} `}
+                        >
                           {filterDescription(
                             productData[item.product_sku]?.description_long
                           )?.substring(0, 130)}
@@ -573,9 +618,14 @@ const EditOrder: React.FC = () => {
                   </div>
                   <div className="h-9">
                     <Quantity
-                      quantity={productData[item.product_sku]?.quantity || item.product_qty}
+                      quantity={
+                        productData[item.product_sku]?.quantity ||
+                        item.product_qty
+                      }
                       clicking={clicking}
                       setclicking={setclicking}
+                      orderFullFillmentId={id}
+                      product_guid={item?.product_guid }
                     />
                   </div>
                 </div>
@@ -631,13 +681,26 @@ const EditOrder: React.FC = () => {
                     />
                   </div>
                   <div className="text-sm font-medium">
-                    {clicking ? (
+                    {clicking ||
+                    product_status === "loading" ||
+                    !product_details?.find(
+                      (product) => product.sku  === item.product_sku || product.product_code === item.product_sku
+                    )?.total_price ? (
                       <div className="flex items-center gap-2">
-                        <p className="text-red-400 text-xs">Calculating price...</p>
-                        <Spin indicator={<LoadingOutlined spin />} size="default" />
+                        <p className="text-red-400 text-xs">
+                          Calculating price...
+                        </p>
+                        <Spin
+                          indicator={<LoadingOutlined spin />}
+                          size="default"
+                        />
                       </div>
                     ) : (
-                      `$${productData[item.product_sku]?.total_price}`
+                      `$${
+                        product_details?.find((element) => {
+                          return element.product_guid === item.product_guid
+                        })?.total_price
+                      }`
                     )}
                   </div>
                 </div>
@@ -662,17 +725,15 @@ const EditOrder: React.FC = () => {
               Shippings & Totals
             </p>
             <div className="block w-full text-gray-400 text-right">
-              {localOrder && (
-                <SelectShippingOption
-                  key={productchange}
-                  poNumber={localOrder?.order_po}
-                  orderItesm={localOrder?.order_items}
-                  onShippingOptionChange={handleShippingOptionChange}
-                  localOrder={localOrder}
-                  productchange={productChanged}
-                  clicking={clicking}
-                />
-              )}
+              <SelectShippingOption
+                key={productchange}
+                poNumber={localOrder?.order_po}
+                orderItesm={localOrder?.order_items}
+                onShippingOptionChange={handleShippingOptionChange}
+                localOrder={localOrder}
+                productchange={productChanged}
+                clicking={clicking}
+              />
             </div>
           </div>
         </div>
