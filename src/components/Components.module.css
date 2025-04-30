@@ -40,4 +40,21 @@
     color: #fff;
     text-decoration: none;
   }
- 
+
+  /*----------------------------Bottom Icon------------------------------------*/
+
+ @media(max-width: 560px){
+  .bottomIcon{
+    width: 80%;
+  }
+  .bottomDescription{
+    font-size: 12px;
+    font-weight: 700;
+    
+  }
+  .backButton{
+   
+    width: 120px;
+    margin-left: 8px;
+  }
+ }

@@ -28,6 +28,7 @@ import { LoadingOutlined } from "@ant-design/icons";
 import { Flex, Spin } from "antd";
 import { setQuantityUpdated } from "../store/features/productSlice";
 
+
 import Quantity from "../components/Quantitiy";
 
 // Define the array directly

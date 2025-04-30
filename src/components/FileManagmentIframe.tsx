@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect,  } from "react";
+import { useLocation } from "react-router-dom"; 
 import { Modal, Button } from "antd";
 import { FullscreenOutlined, CompressOutlined } from "@ant-design/icons";
 import { useAppSelector, useAppDispatch } from "../store";
-import { updateIframeState } from "../store/features/companySlice";
+import { updateCompanyInfo, updateIframeState } from "../store/features/companySlice";
 import  styles  from "./Components.module.css";   
 import {
   setSelectedImage,
@@ -14,11 +15,13 @@ import { clearSelectedImage } from "../store/features/productSlice";
 
 export default function FileManagementIframe({ iframe, setIframe }) {
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [logo, setLogo] = useState("");
   const iframeContainerRef = useRef(null);
   const dispatch = useAppDispatch();
   const SelectedImage = useAppSelector(
     (state) => state.ProductSlice.SelectedImage
   );
+  const location = useLocation();
   console.log("SelectedImage", SelectedImage);
   const { iframeState } = useAppSelector((state) => state.company.iframeState);
   const productData = useAppSelector((state) => state.ProductSlice.productData);
@@ -34,6 +37,7 @@ export default function FileManagementIframe({ iframe, setIframe }) {
         setIsFullScreen(false);
       }
     };
+  
 
     document.addEventListener("fullscreenchange", handleFullScreenChange);
 
@@ -52,7 +56,32 @@ export default function FileManagementIframe({ iframe, setIframe }) {
       setIsFullScreen(false);
     }
   };
-  console.log("dada", productData);
+
+  const filterImages = (data: any) => {
+    return data?.data?.fileSelected.map(
+      (image: any) => image?.public_thumbnail_uri
+    );
+  };
+  
+  const handleMessage = (event: any) => {
+    try {
+      const data = event.data;
+      console.log("dataaa", data);
+      const filteredImages = filterImages(data);
+      console.log("filteredImages", filteredImages);
+      setLogo(filteredImages[0]);
+    } catch (error) {
+      console.error("Error parsing message data:", error);
+    }
+  }
+  console.log("logo", logo);
+
+  useEffect(() => {
+    window.addEventListener("message", handleMessage);
+    return () => {
+      window.removeEventListener("message", handleMessage);
+    };
+  }, []);
 
   const handleAddProduct = () => {
     console.log("dada", productData);
@@ -73,6 +102,11 @@ export default function FileManagementIframe({ iframe, setIframe }) {
       dispatch(resetProductDataStatus());
     }
   }, [productDataStatus]);
+  const handleUpdateLogo = () => {
+    dispatch(updateCompanyInfo({
+      logo_url: logo,
+    }));
+  }
 
   return (
     <div>
@@ -102,7 +136,7 @@ export default function FileManagementIframe({ iframe, setIframe }) {
             style={{ border: "none" }}
             title="File Management"
           />
-        {productData?.product_url_file?.length &&  <button
+        {productData?.product_url_file?.length  &&  <button
             style={{
               position: "absolute",
               border: "none",
@@ -114,6 +148,19 @@ export default function FileManagementIframe({ iframe, setIframe }) {
             onClick={handleAddProduct}
           >
             Add product
+          </button>}
+          {location.pathname === "/mycompany" &&  <button
+            style={{
+              position: "absolute",
+              border: "none",
+              top: isFullScreen ? 10 : 15,
+              right: isFullScreen ? 100 : 200,
+              zIndex: 1000,
+            }}
+            className={`${styles.btngrad}`}
+            onClick={handleUpdateLogo}
+          >
+            Update Logo
           </button>}
           <Button
             type="default"

@@ -1,9 +1,11 @@
 import { Button, Result, ConfigProvider, Card, Col, Row } from "antd";
 import { useEffect, useState } from "react";
-import { useAppSelector } from "../store";
+import { useAppSelector, useAppDispatch } from "../store";
 import style from "./Pgaes.module.css";
 import { Steps } from "antd";
-
+import { useNavigate } from "react-router-dom";
+import { updateCheckedOrders } from "../store/features/orderSlice";
+import { resetPaymentStatus } from "../store/features/paymentSlice";
 export default function Confirmation() {
   const [isLoadeing, setIsLoading] = useState(false);
   const [icon, setIcon] = useState<"success" | "error" | "info" | "warning">(
@@ -13,14 +15,16 @@ export default function Confirmation() {
   const [subTitle, setSubTitle] = useState(
     "Order number: 201718281882818288 Confirmation takes 1-10 seconds"
   );
+  const dispatch = useAppDispatch();
   const paymentStatus = useAppSelector((state) => state.Payment.status);
   const [confirmation, setConfirmation] = useState({first:"Finished", second:"Finished"});
   const [step , setStep] = useState(3);
   const [stepStatus, setStepStatus] = useState<"error" | "finish" | "wait" | "process" | undefined>("finish");
-
+  const navigate = useNavigate();
   useEffect(() => {
     if (paymentStatus === "succeeded") {
       setIsLoading(false);
+      dispatch(updateCheckedOrders([] as any));
     } else if (paymentStatus === "failed") {
       setIsLoading(true);
       setIcon("error");
@@ -36,6 +40,14 @@ export default function Confirmation() {
   const step2_description = "Make A payment";
   const step3_description = " Order Confirmation";
   const ButtonName = confirmation.first === "Finished" ? "Continue Shopping" : "Back to payment";
+  const handleBackToPage = () => {
+    if(ButtonName === "Back to payment"){
+      navigate("/checkout");
+    }else{
+      navigate("/");
+      dispatch(resetPaymentStatus());
+    }
+  }
   return (
     <div>
       <div className="p-4 mb-2  ">
@@ -74,7 +86,7 @@ export default function Confirmation() {
           className=""
           extra={[
             <div className="w-full flex justify-center">
-              <button color="danger" className={`${ confirmation.first === "Finished"? style.btn : style.btnError} bg-black  ` } style={{textTransform: "uppercase"}}>
+              <button color="danger" className={`${ confirmation.first === "Finished"? style.btn : style.btnError} bg-black  ` } style={{textTransform: "uppercase"}} onClick={handleBackToPage} >
                 {ButtonName}
               </button>
             </div>,

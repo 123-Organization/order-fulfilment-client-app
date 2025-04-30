@@ -8,15 +8,17 @@ interface PaymentState {
         selectedCard: any;
         paymentToken: any;
         status: "idle" | "loading" | "succeeded" | "failed"; // ✅ Add status here
+        tokenStatus: "idle" | "loading" | "succeeded" | "failed";
         error: string | null;
 }
 
 const initialState: PaymentState = {
         payment_methods: {},
         createCustomerInfo: {},
-        selectedCard: {},
+        selectedCard: "",
         paymentToken: {},
         status: "idle",
+        tokenStatus: "idle",
         error: null,
 }
 
@@ -99,8 +101,9 @@ export const getPaymentToken = createAsyncThunk(
                 });
                 const data = await response.json();
                 return data;         
-        },
-);
+        },              
+);      
+
 
 export const processVaultedPayment = createAsyncThunk(
         "payment/process",
@@ -118,7 +121,30 @@ export const processVaultedPayment = createAsyncThunk(
                         body: JSON.stringify(Data)
                 });
                 const data = await response.json();
-                return data;
+                if(data.success){
+                        return data;
+                }else{
+                        return thunkAPI.rejectWithValue(data.message);
+                }
+        },
+);
+
+export const removeSelectedCard = createAsyncThunk(
+        "payment/remove",
+        async (postData: any, thunkAPI) => {
+                const response = await fetch(BASE_URL + "remove-card", {
+                        method: "POST",
+                        headers: {
+                                "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(postData)
+                });
+                const data = await response.json();
+                if(data.success){
+                        return data;
+                }else{
+                        return thunkAPI.rejectWithValue(data.message);
+                }
         },
 );
 
@@ -142,21 +168,35 @@ export const PaymentSlice = createSlice({
                 builder.addCase(createCustomer.fulfilled, (state, action) => {
                         state.createCustomerInfo = action.payload;
                 });
+                
                 builder.addCase(getPaymentToken.fulfilled, (state, action) => {
                         state.paymentToken = action.payload;
-                }
-                );
+                        state.tokenStatus = "succeeded";
+                });
+                
+                builder.addCase(processVaultedPayment.pending, (state) => {
+                        state.status = "loading";
+                });
+                
                 builder.addCase(processVaultedPayment.fulfilled, (state, action) => {
                         state.status = "succeeded";
-                        state.paymentToken = action.payload;
-                }
+                        console.log("action.payload", action.payload);
+                        // state.paymentToken = action.payload;
+                });
                
-                );
                 builder.addCase(processVaultedPayment.rejected, (state, action) => {
                         state.status = 'failed';
                         state.error = action.payload as string;
-                }
-                );
+                });
+                
+                builder.addCase(removeSelectedCard.fulfilled, (state, action) => {
+                        // state.status = "succeeded";
+                        // console.log("action.payload", action.payload);
+                });
+                
+                builder.addCase(removeSelectedCard.rejected, (state, action) => {
+                        state.error = action.payload as string;
+                });
 
         },
 });

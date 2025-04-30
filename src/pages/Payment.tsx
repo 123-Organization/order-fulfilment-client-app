@@ -1,16 +1,22 @@
 import React, { useEffect, useState } from 'react';
+import { useAppDispatch, useAppSelector } from '../store';
 import PaymentHttpClient, {
   IBraintreeToken,
   ITransactionRequest,
   ITransactionResponse,
 } from '../services/payments';
 import Braintree from '../components/braintree/Braintree';
+import { getCustomerInfo } from '../store/features/customerSlice';
+import { updateCompanyInfo } from '../store/features/companySlice';
+import { getPaymentMethods } from '../store/features/paymentSlice';
 type PaymentProps = { 
   remainingTotal: number;
 };
 export default function Payment({ remainingTotal }: PaymentProps) {
   const [clientToken, setClientToken] = useState('');
   const [showBraintreeDropIn, setShowBraintreeDropIn] = useState(false);
+  const dispatch = useAppDispatch();
+  const companyInfo = useAppSelector((state) => state.company.company_info);
 
   useEffect(() => {
     PaymentHttpClient.generateToken()
@@ -61,6 +67,7 @@ export default function Payment({ remainingTotal }: PaymentProps) {
       .then((result: ITransactionResponse) => {
         alert('Payment successfully completed');
         console.log(result);
+        dispatch(getPaymentMethods(companyInfo?.data?.payment_profile_id))
       })
       .catch((error: Error) => {
         alert('Payment Failed');

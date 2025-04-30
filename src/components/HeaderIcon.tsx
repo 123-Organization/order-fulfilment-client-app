@@ -22,7 +22,6 @@ import FileManagementIframe from "./FileManagmentIframe";
 import UserAvatar from "./UserAvatar";
 import StoresMenu from "./StoresMenu";
 
-
 import finerWorks from "../assets/images/finerworks_logo_icon.49c0d41a2f19011aa3ea27c47041d2ff.svg";
 // import UploadFileModal from "./UploadFileModal";
 
@@ -113,11 +112,11 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
    */
   return (
     <div className={`flex w-full ${!openDash ? addtional : ""}`}>
-      <div className=" fixed left-0 z-50 w-full top-0 h-18 bg-white pt-3 pb-3  mb-2 border-gray-200 dark:bg-gray-700 dark:border-gray-600">
-        <div className="grid md:place-items-center max-md:grid-cols-4 max-md:grid-cols-10 max-md:grid-rows-1 max-w-[700px] grid-rows-1 grid-cols-6 font-medium max-md:font-normal ">
+      <div className=" fixed left-0 z-50 w-full top-0 h-18 bg-white pt-3 pb-3  mb-2 border-gray-200 dark:bg-gray-700 dark:border-gray-600 flex justify-between items-center">
+        <div className="grid  md:place-items-center  max-md:grid-cols-10  max-md:grid-rows-1 max-w-[700px] grid-rows-1 grid-cols-6 font-medium max-md:font-normal ">
           {!logo ? (
             <div
-              className=" cursor-pointer "
+              className=" cursor-pointer  "
               onClick={() => {
                 window.location.href = "/";
               }}
@@ -140,12 +139,11 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
             />
           )}
 
-          <div className="max-md:visible md:hidden ml-80 ">
-            <UserAvatar />
-          </div>
-
           {1 ? (
             <>
+              <div className="max-md:visible md:hidden  ">
+                <UserAvatar />
+              </div>
               <div className="max-md:hidden">
                 <button
                   data-tooltip-target="tooltip-document"
@@ -196,11 +194,11 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                   <div className="relative flex h-16 items-center justify-between md:hidden">
                     <div className="absolute inset-y-0 left-0 flex items-center ">
                       <button
-                        onClick={() => setDash(!openDash)}
+                        onClick={() => setDash(!openDash)}  
                         type="button"
                         className="relative inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-gray-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
                         aria-controls="mobile-menu11"
-                        aria-expanded={false}
+                        aria-expanded={false} 
                       >
                         <span className="absolute -inset-0.5"></span>
                         <span className="sr-only">Open main menu</span>
@@ -271,7 +269,13 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                 </button>
               </div>
               <div className="max-md:hidden relative">
-                <button type="button" className="fw-icon-btn" onClick={()=>{setMyStores(!myStores)}}>
+                <button
+                  type="button"
+                  className="fw-icon-btn"
+                  onClick={() => {
+                    setMyStores(!myStores);
+                  }}
+                >
                   <img
                     src={store}
                     className="mr-2"
@@ -280,44 +284,23 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                   />
                   <span className="mt-1">My Stores</span>
                 </button>
-                <div className={`absolute top-20 left flex items-center ${myStores ? 'visible' : 'hidden'}`} >
-                  <StoresMenu/>
+                <div
+                  className={`absolute top-20 left flex items-center ${
+                    myStores ? "visible" : "hidden"
+                  }`}
+                >
+                  <StoresMenu />
                 </div>
               </div>
-              
+
               <button onClick={() => setOpenModal(true)}></button>
             </>
           ) : (
             <></>
           )}
-          {1 && (
-            <div
-              onClick={createPrints}
-              className="fw-sky-btn1 absolute max-md:row-1  max-md:col-span-6 max-md:relative max-md:hidden flex"
-            >
-              <div>
-                <UserAvatar />
-              </div>
-              <Spin spinning={spinLoader} size="small">
-                <button
-                  data-tooltip-target="tooltip-document"
-                  type="button"
-                  className="fw-icon-btn -mt-2"
-                  onClick={() => setIframeVisible(true)}
-                >
-                  <img src={image} width={whPixel} height={whPixel} />
-                  <span className="">My Files</span>
-                </button>
-              </Spin>
-              <FileManagementIframe
-                iframe={iframeVisible}
-                setIframe={setIframeVisible}
-              />
-            </div>
-          )}
 
           {!openDash && (
-            <div className="md:hidden col-span-6" id="mobile-menu1 ">
+            <div className="md:hidden col-span-6" id="mobile-menu1 " >
               <div className="space-y-1 px-2 pb-3 pt-2">
                 {
                   //Current: "bg-gray-900 text-white", Default: "text-gray-300 hover:bg-gray-700 hover:text-white"
@@ -427,6 +410,32 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
         {
           // Mobile menu, show/hide based on menu state.
         }
+
+        {1 && (
+          <div
+            onClick={createPrints}
+            className="fw-sky-btn1  max-md:row-1  max-md:col-span-6 max-md:relative max-md:hidden flex"
+          >
+            <div>
+              <UserAvatar />
+            </div>
+            <Spin spinning={spinLoader} size="small">
+              <button
+                data-tooltip-target="tooltip-document"
+                type="button"
+                className="fw-icon-btn -mt-2"
+                onClick={() => setIframeVisible(true)}
+              >
+                <img src={image} width={whPixel} height={whPixel} />
+                <span className="">My Files</span>
+              </button>
+            </Spin>
+            <FileManagementIframe
+              iframe={iframeVisible}
+              setIframe={setIframeVisible}
+            />
+          </div>
+        )}
       </div>
       {/* <UploadFileModal    openModel={open} setOpen={setOpen}  /> */}
     </div>

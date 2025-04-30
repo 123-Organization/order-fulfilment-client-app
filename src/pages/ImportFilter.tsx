@@ -230,7 +230,7 @@ const ImportFilter: React.FC = () => {
             
           />
           <label htmlFor="floating_outlined" className="fw-label">
-            Order Number/ ID
+            Order Number OR ID
           </label>
         </div>
       </Form.Item>

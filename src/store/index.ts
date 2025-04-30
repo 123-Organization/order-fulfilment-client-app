@@ -2,7 +2,7 @@ import { OrderSlice } from "./features/orderSlice";
 import { configureStore } from "@reduxjs/toolkit";
 import { TypedUseSelectorHook, useDispatch, useSelector } from "react-redux";
 import storage from "redux-persist/lib/storage"; // defaults to localStorage for web
-import { persistReducer, persistStore } from "redux-persist";
+import { persistReducer, persistStore, FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER } from "redux-persist";
 import { combineReducers } from "redux";
 import { Company } from "./features/companySlice";
 import ProductSlice from "./features/productSlice";
@@ -12,16 +12,27 @@ import customerSlice from "./features/customerSlice";
 import InventorySlice from "./features/InventorySlice";
 import ShippingSlice from "./features/shippingSlice";
 
-// Create a persist configuration
-const persistConfig = {
-  key: 'root',  // key to store the persisted data
+// Create a more selective persist configuration for the order slice
+const orderPersistConfig = {
+  key: 'order',
   storage,
-  blacklist: ['order', 'Shipping', "Inventory",], // Exclude 'order' slice from persistence
+  // Only persist the checkedOrders, not all orders data
+  whitelist: ['checkedOrders'],
 };
 
-// Combine your reducers (if you have multiple slices)
+// Create a persist configuration for the root
+const rootPersistConfig = {
+  key: 'root',
+  storage,
+  blacklist: ['order', 'Shipping', "Inventory", ""],
+};
+
+// Apply the nested persist config to the order slice
+const persistedOrderReducer = persistReducer(orderPersistConfig, OrderSlice.reducer);
+
+// Combine your reducers with the persisted order reducer
 const rootReducer = combineReducers({
-  order: OrderSlice.reducer,
+  order: persistedOrderReducer,
   company: Company.reducer,
   ProductSlice: ProductSlice.reducer,
   Ecommerce: EcommerceSlice.reducer,
@@ -31,12 +42,18 @@ const rootReducer = combineReducers({
   Shipping: ShippingSlice.reducer,
 });
 
-// Create a persisted reducer
-const persistedReducer = persistReducer(persistConfig, rootReducer);
+// Create a persisted reducer for the root
+const persistedReducer = persistReducer(rootPersistConfig, rootReducer);
 
 // Configure the store with the persisted reducer
 export const store = configureStore({
   reducer: persistedReducer,
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
+      },
+    }),
 });
 
 // Persistor

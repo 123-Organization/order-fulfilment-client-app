@@ -401,7 +401,7 @@ const [validFields, setValidFields] = useState({
           </p>
           <p className="text-lg py-4 ">Optional logo </p>
           <img
-            className="py-2 border-gray-300 border-2 rounded-lg "
+            className="py-2 border-gray-300 border-2 rounded-lg cursor-pointer "
             src={com_info? com_info?.data?.logo_url : uploadYourLogo}
             onClick={openIframe}
           />

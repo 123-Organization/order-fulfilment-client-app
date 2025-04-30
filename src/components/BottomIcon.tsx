@@ -15,6 +15,7 @@ import UpdatePopup from "./UpdatePopup";
 import { loadavg } from "os";
 import { updateCompanyInfo } from "../store/features/companySlice";
 import { resetRecipientStatus } from "../store/features/orderSlice";
+import style from "./Components.module.css"
 type NotificationType = "success" | "info" | "warning" | "error";
 interface NotificationAlertProps {
   type: NotificationType;
@@ -484,9 +485,9 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
       </Spin>
     </div>
   ) : (
-    <div className="flex">
+    <div className="flex ">
       <div>{contextHolder}</div>
-      <div className="flex fixed bottom-0 left-0  w-full h-16 bg-white  border-b mt-2 border-gray-200 dark:bg-gray-700 dark:border-gray-600">
+      <div className={`flex fixed bottom-0 left-0  w-full h-16 bg-white  border-b mt-2 border-gray-200 dark:bg-gray-700 dark:border-gray-600 z-50 `}>
         <div className="grid h-full max-w-lg grid-cols-2 font-medium basis-1/2">
           {false && (
             <>
@@ -548,7 +549,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
           {backVisiable && (
             <Button
               key="submit"
-              className="  w-44 mx-8 mt-2  text-gray-500"
+              className={`  w-44 mx-8 mt-2  text-gray-500 ${style.backButton} `}
               size={"large"}
               type="default"
               onClick={onBackHandler}
@@ -557,9 +558,9 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
             </Button>
           )}
         </div>
-        <div className="grid h-full max-w-lg grid-cols-1 font-medium basis-1/2">
+        <div className="grid h-full max-w-lg grid-cols-1 font-medium basis-1/2 ">
           {totalVisiable && (
-            <div className="flex flex-col font-bold text-gray-400 pt-2">
+            <div className={`flex flex-col font-bold text-gray-400 pt-2 ${style.bottomDescription}`}>
               <span>
                 Selected orders: {checkedOrders.length} /{orders?.data?.length}
               </span>
@@ -575,7 +576,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
             <Spin tip="Updating..." spinning={nextSpinning}>
               <Button
                 onClick={onNextHandler}
-                className="my-2 w-44 absolute right-2 z-50"
+                className={`my-2 w-44 absolute right-2 z-50 ${style.bottomIcon}`}
                 type="primary"
                 size="large"
               >

@@ -7,7 +7,10 @@ import {
   Select,
   Skeleton,
   notification,
+  Tooltip,
+  Modal,
 } from "antd";
+import { InfoCircleOutlined, FullscreenOutlined } from '@ant-design/icons';
 import Spinner from "../components/Spinner";
 import shoppingCart from "../assets/images/shopping-cart-228.svg";
 import { updateCheckedOrders } from "../store/features/orderSlice";
@@ -25,6 +28,7 @@ import DeleteMessage from "../components/DeleteMessage";
 import { deleteOrder } from "../store/features/orderSlice";
 import Loading from "../components/Loading";
 import { useNotificationContext } from "../context/NotificationContext";
+import styles from "../components/ToggleButtons.module.css";
 
 const { Option } = Select;
 type SizeType = Parameters<typeof Form>[0]["size"];
@@ -41,12 +45,37 @@ const ImportList: React.FC = () => {
     description: string;
   }
 
+  // Utility function to truncate text with character count control
+  const truncateText = (htmlString: string, maxLength: number): string => {
+    if (!htmlString) return "";
+    
+    // Create a temporary div to parse HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlString;
+    
+    // Get the text content without HTML tags
+    const textContent = tempDiv.textContent || tempDiv.innerText || "";
+    
+    // Return the full HTML if text is shorter than max length
+    if (textContent.length <= maxLength) {
+      return htmlString;
+    }
+    
+    // For longer content, return truncated text with ellipsis
+    // Strip HTML tags for consistent display
+    return textContent.substring(0, maxLength) + "...";
+  };
+
   const [productData, setProductData] = useState<{ [key: string]: Product }>(
     {}
   );
   const [orderPostData, setOrderPostData] = useState([]);
   const [DeleteMessageVisible, setDeleteMessageVisible] = useState(false);
   const [orderFullFillmentId, setOrderFullFillmentId] = useState("");
+  const [descriptionCharLimit, setDescriptionCharLimit] = useState(100);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalContent, setModalContent] = useState("");
+  const [modalTitle, setModalTitle] = useState("");
   const orders = useAppSelector((state) => state.order.orders);
   const ordersStatus = useAppSelector((state) => state.order.status);
   const product_details = useAppSelector(
@@ -90,6 +119,37 @@ const ImportList: React.FC = () => {
     }
   }, [orders]);
 
+  // Add responsive character limit based on screen size
+  useEffect(() => {
+    const adjustCharLimit = () => {
+      const width = window.innerWidth;
+      if (width > 1200) {
+        setDescriptionCharLimit(200);
+      } else if (width > 992) {
+        setDescriptionCharLimit(120);
+      } else if (width > 768) {
+        setDescriptionCharLimit(200);
+      } else if (width > 576) {
+        setDescriptionCharLimit(200);
+      } else {
+        setDescriptionCharLimit(200);
+      }
+    };
+
+    console.log("descriptionCharLimit", descriptionCharLimit);
+
+    // Set initial value
+    adjustCharLimit();
+
+    // Add event listener
+    window.addEventListener('resize', adjustCharLimit);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('resize', adjustCharLimit);
+    };
+  }, []);
+
   let products: any = {};
   useEffect(() => {
     if (product_details && product_details?.length) {
@@ -120,7 +180,6 @@ const ImportList: React.FC = () => {
         message: "Failed to Delete Order",
         description: "An error occurred while deleting the order.",
       });
-
     }
   }, [ordersStatus, notificationApi]);
 
@@ -163,16 +222,17 @@ const ImportList: React.FC = () => {
     }
   }, [orders, product_details, orderPostData, dispatch]);
 
-  const handleCheckboxChange = (e) => {
+  const handleCheckboxChange = (e: any) => {
     const { value, checked } = e.target;
-    console.log("value", value);
+    const parsedValue = JSON.parse(value);
+    console.log("vava", parsedValue);
 
     if (checked) {
-      dispatch(updateCheckedOrders([...checkedOrders, value]));
+      dispatch(updateCheckedOrders([...checkedOrders, parsedValue]));
     } else {
       dispatch(
         updateCheckedOrders(
-          checkedOrders.filter((order) => order.order_po !== value.order_po)
+          checkedOrders.filter((order) => order.order_po !== parsedValue.order_po)
         )
       );
     }
@@ -228,11 +288,39 @@ const ImportList: React.FC = () => {
       (order) => order.order_items[0]?.product_image?.product_url_thumbnail
     )
   );
+
+  // Function to show modal with full description
+  const showFullDescription = (title: string, content: string, sku?: string): void => {
+    setModalTitle(title || "Product Description");
+    setModalContent(content || "");
+    setModalVisible(true);
+  };
+
   return (
-    <div className={`flex justify-end items-center  h-full p-8 ${style.overAll_box}`}>
+    <div
+      className={`flex justify-end items-center  h-full p-8 ${style.overAll_box}`}
+    >
       <div className={`h-auto bg-gray-100 pt-4 w-full ${style.overAll_box}`}>
-        <h1 className="mb-10 text-left pl-9 text-2xl font-bold">Orders</h1>
-        <div className={`mx-auto max-w-7xl justify-center px-6 md:flex md:space-x-6 xl:px-0 ${style.orderes_box}`}>
+        <div className="flex justify-between items-center mb-10 px-9">
+          <h1 className="text-left text-2xl font-bold">Orders</h1>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">Description Length:</span>
+            <Select 
+              defaultValue={descriptionCharLimit.toString()}
+              size="small"
+              style={{ width: 100 }}
+              onChange={(value) => setDescriptionCharLimit(Number(value))}
+            >
+              <Option value="50">Short</Option>
+              <Option value="100">Medium</Option>
+              <Option value="150">Long</Option>
+              <Option value="1000">Full</Option>
+            </Select>
+          </div>
+        </div>
+        <div
+          className={`mx-auto max-w-7xl justify-center px-6 md:flex md:space-x-6 xl:px-0 ${style.orderes_box}`}
+        >
           <div className="rounded-lg md:w-full">
             {orders &&
               orders?.data?.length &&
@@ -245,22 +333,57 @@ const ImportList: React.FC = () => {
                     <li className="w-8">
                       {shipping_option.length > 0 &&
                       order?.order_items.length > 0 ? (
-                        <Checkbox
-                          value={{
-                            order_po: order?.order_po,
-                            Product_price: getShippingPrice(order?.order_po),
-                            productData : order?.order_items,
-                            productImage: productData[order?.order_items[0]?.product_sku]
-                            ?.image_url_1
-                          
-
-                          }}
-                          onChange={(e) => handleCheckboxChange(e)}
-                          checked={checkedOrders.some(
-                            (checkedOrder) =>
-                              checkedOrder.order_po == order.order_po
-                          )}
-                        />
+                        <fieldset id="switch" className={`${styles.radio} flex`}>
+                          <input
+                            name={`switch-${order.order_po}`}
+                            id={`on-${order.order_po}`}
+                            type="radio"
+                            value={JSON.stringify({
+                                order_po: order?.order_po,
+                                Product_price: getShippingPrice(
+                                  order?.order_po
+                                ),
+                                productData: order?.order_items,
+                                productImage:
+                                  productData[order?.order_items[0]?.product_sku]
+                                    ?.image_url_1
+                            })}
+                            onChange={(e) => handleCheckboxChange(e)} 
+                            checked={checkedOrders.some(
+                              (checkedOrder: {order_po: string}) =>
+                                checkedOrder.order_po == order.order_po
+                            )}
+                          />
+                          <label htmlFor={`on-${order.order_po}`}>Include</label>
+                          <input
+                            name={`switch-${order.order_po}`}
+                            id={`off-${order.order_po}`}
+                            type="radio"
+                            value="disclude"
+                           className="off"
+                           style={{display: "none"}}
+                            onChange={() => {
+                              // Remove the order from checked orders if it exists
+                              if (checkedOrders.some(
+                                (checkedOrder: {order_po: string}) =>
+                                  checkedOrder.order_po == order.order_po
+                              )) {
+                                dispatch(
+                                  updateCheckedOrders(
+                                    checkedOrders.filter((checkedOrder) => 
+                                      checkedOrder.order_po !== order.order_po
+                                    )
+                                  )
+                                );
+                              }
+                            }}
+                            checked={!checkedOrders.some(
+                              (checkedOrder: {order_po: string}) =>
+                                checkedOrder.order_po == order.order_po
+                            )}
+                          />
+                          <label htmlFor={`off-${order.order_po}`} className="off">Exclude</label>
+                        </fieldset>
                       ) : null}
                     </li>
 
@@ -352,17 +475,74 @@ const ImportList: React.FC = () => {
                       />
                       {order?.order_items.length > 0 ? (
                         order?.order_items?.map((order) => (
-                          <label className={`h-[220px] inline-flex mb-2 justify-between w-full hover:border-gray-600 transition-all duration-75 pt-5 pb-5 px-2 text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700  ${style.orderes_lable}`}>
-                            <div className="block relative pb-4 w-full">
+                          <label
+                            className={`h-[220px] inline-flex mb-2 justify-between w-full hover:border-gray-600 transition-all duration-75 pt-5 pb-5 px-2 text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700 overflow-hidden ${style.orderes_lable}`}
+                          >
+                            <div className="block relative pb-4 w-full overflow-hidden">
                               <img src={shoppingCart} width="26" height="26" />
-                              <div className={`justify-between pt-4 rounded-lg sm:flex sm:justify-start flex  ${style.description_box}`}>
-                                <div className="w-[50%]">
-                                  {productData[order?.product_sku]?.image_url_1 ? (
+                              {productData[order?.product_sku]?.description_long && (
+                                <Tooltip 
+                                  title={
+                                    <div>
+                                      <div className="text-right mb-2">
+                                        <span 
+                                          className="cursor-pointer text-blue-600 hover:text-blue-800 flex items-center justify-end" 
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            showFullDescription(
+                                              "Product Details", 
+                                              productData[order?.product_sku]?.description_long || "",
+                                              order?.product_sku
+                                            );
+                                          }}
+                                        >
+                                          <FullscreenOutlined className="mr-1" /> View full description
+                                        </span>
+                                      </div>
+                                      <div>{parse(productData[order?.product_sku]?.description_long || "")}</div>
+                                    </div>
+                                  } 
+                                  color="#fff" 
+                                  overlayInnerStyle={{ 
+                                    color: '#333', 
+                                    maxWidth: '400px', 
+                                    maxHeight: '300px', 
+                                    overflow: 'auto', 
+                                    padding: '12px',
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                    borderRadius: '8px' 
+                                  }}
+                                  placement="rightTop"
+                                  overlayClassName="description-tooltip"
+                                  mouseEnterDelay={0.3}
+                                >
+                                  <div 
+                                    className={`absolute top-1 right-2 w-6 h-6 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center cursor-help text-white shadow-md hover:shadow-lg transition-all duration-300 hover:scale-110 z-10 ${style['info-button-pulse']}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      showFullDescription(
+                                        "Product Details", 
+                                        productData[order?.product_sku]?.description_long || "",
+                                        order?.product_sku
+                                      );
+                                    }}
+                                  >
+                                    <InfoCircleOutlined style={{ fontSize: '16px' }} />
+                                  </div>
+                                </Tooltip>
+                              )}
+                              <div
+                                className={`justify-between pt-4 rounded-lg sm:flex sm:justify-start flex  ${style.description_box}`}
+                              >
+                                <div className={`w-[50%] ${style.importlist_pic}`}>
+                                  {productData[order?.product_sku]
+                                    ?.image_url_1 ? (
                                     <img
                                       src={
                                         order?.product_url_thumbnail
                                           ? order?.product_url_thumbnail
-                                          : productData[order?.product_sku].image_url_1
+                                          : productData[order?.product_sku]
+                                              .image_url_1
                                       }
                                       alt="product"
                                       className="rounded-lg max-md:w-40 w-32 h-[120px]"
@@ -377,17 +557,22 @@ const ImportList: React.FC = () => {
                                 <div className="w-[100%]">
                                   {(Object.keys(productData)?.length && (
                                     <div className="flex flex-col w-full sm:justify-between p-2 max-lg:p-2">
-                                      <div className={`w-full text-sm ${style.order_description} font-seri `}>
-                                        {parse(
-                                          productData[order?.product_sku]?.description_long || ""
-                                        )}
+                                      <div
+                                        className={`w-full text-sm ${style.order_description} font-seri `}
+                                      >
+                                        {parse(truncateText(
+                                          productData[order?.product_sku]?.description_long || "",
+                                          descriptionCharLimit
+                                        ))}
                                       </div>
                                     </div>
                                   )) || <Skeleton active />}
                                 </div>
                               </div>
                               <div className="text-sm text-right  h-4 ">
-                                ${productData[order?.product_guid]?.total_price || ""} 
+                                $
+                                {productData[order?.product_guid]
+                                  ?.total_price || ""}
                               </div>
                             </div>
                           </label>
@@ -402,7 +587,7 @@ const ImportList: React.FC = () => {
                           {order.order_items.length > 0 ? (
                             <SelectShippingOption
                               poNumber={order?.order_po}
-                              orderItesm={order?.order_items}
+                              orderItems={order?.order_items}
                               onShippingOptionChange={
                                 handleShippingOptionChange
                               }
@@ -435,9 +620,37 @@ const ImportList: React.FC = () => {
               deleteItem={orderFullFillmentId}
             />
           </div>
-              
         </div>
       </div>
+      <Modal 
+        title={
+          <div className="text-lg text-blue-700 font-medium border-b pb-2">
+            {modalTitle}
+          </div>
+        }
+        open={modalVisible}
+        onCancel={() => setModalVisible(false)}
+        footer={[
+          <Button 
+            key="close" 
+            onClick={() => setModalVisible(false)}
+            type="primary"
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            Close
+          </Button>
+        ]}
+        width={800}
+        centered
+        bodyStyle={{ padding: '20px' }}
+        className="product-description-modal"
+      >
+        <div className="max-h-[60vh] overflow-auto p-4 bg-gray-50 rounded-lg">
+          <div className="bg-white p-4 rounded-lg shadow-sm mb-4">
+            {parse(modalContent)}
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
