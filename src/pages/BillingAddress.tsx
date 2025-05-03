@@ -440,17 +440,17 @@ console.log(stateCode, stateCodeShort)
     <div className="flex justify-end items-center w-full h-full p-8 max-md:flex-col max-md:mt-12 ">
       <div
         className="
-          w-[900px] flex flex-row justify-center items-center h-[600px] max-md:w-full 
-          md:border-r-2 max-md:border-b-2 max-md:mb-8 relative
+          w-[900px] flex max-md:flex-col justify-center items-center h-[600px] max-md:w-full 
+          md:border-r-2 max-md:border-b-2 max-md:mb-8 relative gap-0 max-md:gap-6
         "
       >
          <div className="w-[400px] ">
           <PaymentMethods />
          </div>
        
-        <div className=" text-gray-400  text-center ">
+        <div className=" text-gray-400  text-center mb-24 max-md:mb-0">
           
-          <p className="text-lg  font-bold">My Billing Address </p>
+          <p className="text-lg  font-bold ">My Billing Address  </p>
           <p className="pt-5">
             You can change this info later within your account.
           </p>

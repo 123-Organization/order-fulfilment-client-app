@@ -25,6 +25,7 @@ export default function Confirmation() {
     if (paymentStatus === "succeeded") {
       setIsLoading(false);
       dispatch(updateCheckedOrders([] as any));
+      dispatch(resetPaymentStatus());
     } else if (paymentStatus === "failed") {
       setIsLoading(true);
       setIcon("error");

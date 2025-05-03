@@ -114,6 +114,7 @@ export default function FileManagementIframe({ iframe, setIframe }) {
         title="File Management"
         visible={iframe === true || iframeState === true}
         onOk={() => setIframe(false)}
+        className="z-50"
         onCancel={() => {
           setIframe(false);
           dispatch(updateIframeState({ iframeState: false }));

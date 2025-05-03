@@ -113,10 +113,10 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
   return (
     <div className={`flex w-full ${!openDash ? addtional : ""}`}>
       <div className=" fixed left-0 z-50 w-full top-0 h-18 bg-white pt-3 pb-3  mb-2 border-gray-200 dark:bg-gray-700 dark:border-gray-600 flex justify-between items-center">
-        <div className="grid  md:place-items-center  max-md:grid-cols-10  max-md:grid-rows-1 max-w-[700px] grid-rows-1 grid-cols-6 font-medium max-md:font-normal ">
+        <div className="grid  md:place-items-center  max-md:grid-cols-10  max-md:grid-rows-1 w-[650px] max-md:w-full grid-rows-1 grid-cols-6 font-medium max-md:font-normal ">
           {!logo ? (
             <div
-              className=" cursor-pointer  "
+              className=" cursor-pointer   "
               onClick={() => {
                 window.location.href = "/";
               }}
@@ -134,21 +134,21 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
               onClick={() => {
                 window.location.href = "/";
               }}
-              className="App-logo-icon cursor-pointer flex flex-row z-100 w-12 h-14"
+              className="App-logo-icon cursor-pointer flex flex-row z-100 w-12 h-14 max-md:mx-2"
               alt="logo"
             />
           )}
 
           {1 ? (
-            <>
-              <div className="max-md:visible md:hidden  ">
+            <div className="flex flex-row  w-full col-span-5 max-md:col-span-8 justify-end">
+              <div className="max-md:visible md:hidden mx-2 ">
                 <UserAvatar />
               </div>
-              <div className="max-md:hidden">
+              <div className="max-md:hidden ">
                 <button
                   data-tooltip-target="tooltip-document"
                   type="button"
-                  className="fw-icon-btn"
+                  className="fw-icon-btn "
                   onClick={() => {
                     navigate("/mycompany");
                   }}
@@ -294,7 +294,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
               </div>
 
               <button onClick={() => setOpenModal(true)}></button>
-            </>
+            </div >
           ) : (
             <></>
           )}
@@ -326,7 +326,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                         My Files
                   </span>
                 </button>  */}
-                <div className="middle-div border-t-2">
+                <div className="middle-div border-t-2 ">
                   <a
                     href="#/mycompany"
                     className="w-full middle-div text-gray-300 hover:bg-gray-700 hover:text-white block rounded-md px-3 py-2 text-sm font-medium"

@@ -6,11 +6,12 @@ import type { SelectProps } from "antd";
 import { countryType } from "../types/ICountry";
 import type { CheckboxProps } from "antd";
 import { useAppDispatch, useAppSelector } from "../store";
-import {  updateImport } from "../store/features/orderSlice";
+import {  fetchWporder, updateImport } from "../store/features/orderSlice";
 import convertUsStateAbbrAndName from "../services/state";
 import { useLocation } from "react-router-dom";
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
+import { updateWporder } from "../store/features/orderSlice";
 
 const countryList = require("../json/order_status_same_label.json");
 const { RangePicker } = DatePicker; 
@@ -69,6 +70,8 @@ const ImportFilter: React.FC = () => {
       // form1.resetFields();
     }
   };
+  const wporder = useAppSelector((state) => state.order.Wporder);
+  console.log('wporder',wporder)
 
   const onChangeState = (value: string) => {
     let state_code = value?.toLowerCase();
@@ -145,6 +148,10 @@ const ImportFilter: React.FC = () => {
     }
   }, [billingInfo]);
 
+  const getWporder = (orderId) => {
+    dispatch(updateWporder(orderId))
+  }
+
   const displayTurtles = (
     <Form
       form={form1}
@@ -220,10 +227,7 @@ const ImportFilter: React.FC = () => {
           <Input
             onBlur={onValid}
             onChange={(e) =>
-              setCompanyAddress({
-                ...companyAddress,
-                ...{ order_id: e?.target?.value }
-              })
+             getWporder(e?.target?.value)
             }
             value={copyCompanyAddress ? businessInfo?.order_id : companyAddress?.order_id}
             className="fw-input"

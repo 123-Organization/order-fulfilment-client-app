@@ -67,6 +67,14 @@ const PopupModal: React.FC<PopupModalProps> = ({
   }
   ;
 
+  // Handler for modal close
+  const handleClose = () => {
+    // Clear selected image when modal is closed
+    dispatch(clearSelectedImage());
+    setInputValue("");
+    onClose();
+  };
+
   const handleProductCodeChange = () => {
     setIsLoading(true);
 
@@ -84,7 +92,7 @@ const PopupModal: React.FC<PopupModalProps> = ({
       dispatch(AddProductToOrder(data));
       setTimeout(() => {
         setInputValue("");
-
+        dispatch(clearSelectedImage());
         onProductCodeUpdate();
         setIsLoading(false);
         onClose();
@@ -95,6 +103,11 @@ const PopupModal: React.FC<PopupModalProps> = ({
       
       dispatch(updateIframeState({ iframeState: true }));
     }
+
+    notificationApi.success({
+      message: "Choose A Product Image",
+      description: "Please choose the product image want to add to the order.",
+    });
 
     console.log("stat", productDataStatus); 
   };
@@ -133,7 +146,11 @@ const PopupModal: React.FC<PopupModalProps> = ({
         message: "Product Added",
         description: "Product has been successfully added to the order.",
       });
+      // Clear selected image on successful add
+      dispatch(clearSelectedImage());
       onClose();
+      setInputValue("");
+      setIsLoading(false);
       onProductCodeUpdate();
       dispatch(resetOrderStatus());
     } else if (productDataStatus === "failed") {
@@ -158,13 +175,21 @@ const PopupModal: React.FC<PopupModalProps> = ({
     }
   }, [productCode, setProductCode]);
 
+  // Clear selected image when modal becomes visible or invisible
+  useEffect(() => {
+    if (!visible) {
+      dispatch(clearSelectedImage());
+    }
+  }, [visible, dispatch]);
+
   return (
     <Modal
+    className="z-40"
       title="Enter Product Code"
       visible={visible}
-      onCancel={onClose}
+      onCancel={handleClose}
       footer={[
-        <Button key="cancel" onClick={onClose}>
+        <Button key="cancel" onClick={handleClose}>
           Cancel
         </Button>,
         <Button

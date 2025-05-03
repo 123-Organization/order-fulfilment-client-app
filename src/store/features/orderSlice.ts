@@ -25,9 +25,11 @@ interface OrderState {
   saveOrderInfo: any;
   checkedOrders: any;
   orderEdited: any;
+  Wporder: any;
   currentOrderFullFillmentId: any;
   status: "idle" | "loading" | "succeeded" | "failed"; // ✅ Add status here
   error: string | null;
+  deleteOrderStatus: "idle" | "loading" | "succeeded" | "failed";
   productDataStatus: "idle" | "loading" | "succeeded" | "failed";
   recipientStatus: "idle" | "loading" | "succeeded" | "failed";
 
@@ -41,6 +43,7 @@ const initialState: OrderState = {
   updatedValues: [],
   checkedOrders: [],
   saveOrderInfo: {},
+  Wporder: [],
   myImport: {},
   orderEdited: { status: false, clicked: false, },
   status: "idle",
@@ -48,6 +51,7 @@ const initialState: OrderState = {
   currentOrderFullFillmentId: null,
   productDataStatus: "idle",
   recipientStatus: "idle",
+  deleteOrderStatus: "idle",
 };
 
 export const fetchOrder = createAsyncThunk(
@@ -207,6 +211,21 @@ export const deleteOrder = createAsyncThunk(
     return data;
   },
 );
+  
+export const fetchWporder = createAsyncThunk(
+  "order/fetch/wporder",
+  async (postData: any, thunkAPI) => {
+    const response = await fetch(BASE_URL + `get-order-details-by-id?orderId=${postData.orderId}&platformName=${postData.platformName}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      }
+    });
+    const data = await response.json();
+    return data;
+  },
+);
+
 
 
 export const OrderSlice = createSlice({
@@ -241,10 +260,16 @@ export const OrderSlice = createSlice({
     updateCheckedOrders: (state, action: PayloadAction) => {
       state.checkedOrders = action.payload;
     },
-    updateOrderStatus: (state: OrderState, action: PayloadAction<boolean>) => {
+    updateOrderStatus: (state: OrderState, action: PayloadAction<{status: boolean, clicked: boolean}>) => {
       state.orderEdited = action.payload;
       console.log('state.orderEdited', state.orderEdited)
     },
+    updateWporder: (state, action: PayloadAction) => {
+      state.Wporder = action.payload;
+    },
+    resetDeleteOrderStatus: (state) => {
+      state.deleteOrderStatus = "idle";
+    }
   },
   extraReducers: (builder) => {
     builder.addCase(fetchOrder.fulfilled, (state, action) => {
@@ -293,13 +318,28 @@ export const OrderSlice = createSlice({
       state.order = action.payload;
     }
     );
+    builder.addCase(deleteOrder.pending, (state, action) => {
+      state.deleteOrderStatus = 'loading';
+    }
+    );
     builder.addCase(deleteOrder.fulfilled, (state, action) => {
-      state.status = 'succeeded';
+      state.deleteOrderStatus = 'succeeded';
       state.orders = action.payload;
     }
     );
 
     builder.addCase(deleteOrder.rejected, (state, action) => {
+      state.deleteOrderStatus = 'failed';
+      state.error = action.payload as string;
+    }
+    );
+
+    builder.addCase(fetchWporder.fulfilled, (state, action) => {
+      state.Wporder = action.payload;
+    }
+    );
+
+    builder.addCase(fetchWporder.rejected, (state, action) => {
       state.status = 'failed';
       state.error = action.payload as string;
     }
@@ -310,4 +350,4 @@ export const OrderSlice = createSlice({
 });
 
 export default OrderSlice.reducer;
-export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus } = OrderSlice.actions;
+export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus } = OrderSlice.actions;

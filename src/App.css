@@ -62,7 +62,7 @@
 }
 
 .middle-div{
-  @apply flex items-start justify-start flex-row whitespace-nowrap
+  @apply flex items-start justify-start flex-row whitespace-nowrap 
  }
 
 .center-div{

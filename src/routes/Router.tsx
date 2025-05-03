@@ -63,7 +63,7 @@ const Router: React.FC = (): JSX.Element  => {
       });
     }
   }, [location.pathname, checkedOrders]);
-
+console.log("checked", checkedOrders.length);
   return (
       <Suspense
         fallback={

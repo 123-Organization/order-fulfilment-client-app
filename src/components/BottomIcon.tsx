@@ -16,6 +16,7 @@ import { loadavg } from "os";
 import { updateCompanyInfo } from "../store/features/companySlice";
 import { resetRecipientStatus } from "../store/features/orderSlice";
 import style from "./Components.module.css"
+import { fetchWporder } from "../store/features/orderSlice";
 type NotificationType = "success" | "info" | "warning" | "error";
 interface NotificationAlertProps {
   type: NotificationType;
@@ -55,17 +56,17 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const updatedValues =
     useAppSelector((state) => state.order.updatedValues) || {};
 
-  const { shipping_preferences } = useAppSelector(
+  const shipping_preferences = useAppSelector(
     (state) => state.Shipping.shipping_preferences
   );
   console.log("shipping_preferences", shipping_preferences);
 
   console.log("product_details ....", product_details);
 
-  const [backVisiable, setBackVisiable] = useState<Boolean>(true);
-  const [nextVisiable, setNextVisiable] = useState<Boolean>(false);
-  const [totalVisiable, setTotalVisiable] = useState<Boolean>(false);
-  const [nextSpinning, setNextSpinning] = useState<Boolean>(false);
+  const [backVisiable, setBackVisiable] = useState<boolean>(true);
+  const [nextVisiable, setNextVisiable] = useState<boolean>(false);
+  const [totalVisiable, setTotalVisiable] = useState<boolean>(false);
+  const [nextSpinning, setNextSpinning] = useState<boolean>(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [current, setCurrent] = useState(1);
   const [pageSize, setPageSize] = useState(12);
@@ -90,7 +91,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
     "/paymentaddress",
   ];
   const pathNameAvoidUpdateProfile = ["/importfilter"];
-
+  const wporder = useAppSelector((state) => state.order.Wporder);
   const myCompanyInfoFilled = useAppSelector(
     (state) => state.company.myCompanyInfoFilled
   );
@@ -159,7 +160,26 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
       }
 
       if (location.pathname === "/importfilter") {
-        if (myImport?.start_date || myImport?.end_date || myImport?.status) {
+        if (wporder.length > 0) {
+          setNextSpinning(true);
+          console.log("Calling fetchWporder with:", wporder);
+          try {
+            const result = await dispatch(
+              fetchWporder({orderId:wporder, platformName:"woocommerce"})
+            );
+            console.log("fetchWporder result:", result);
+            if (result.payload) {
+              dispatch(saveOrder(result.payload?.order_details));
+              notification.success({
+                message: "Success",
+                description: "Order imported successfully",
+              });
+              navigate("/importlist");
+            }
+          } catch (error) {
+            console.error("Error fetching WP order:", error);
+          }
+        }else if (myImport?.start_date || myImport?.end_date || myImport?.status) {
           setNextSpinning(true);
           await dispatch(
             getImportOrders({
@@ -167,9 +187,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
               ...myImport,
             })
           );
-        } else {
-          alert("Import info missing");
-        }
+        } 
       }
 
       if (location.pathname === "/billingaddress") {
@@ -299,7 +317,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
               type: "error",
               message: "Error",
               description:
-                "We couldn’t find any records matching your search criteria. Please check the information you’ve entered and try again.",
+                "We couldn't find any records matching your search criteria. Please check the information you've entered and try again.",
             });
 
             
@@ -371,7 +389,8 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
       location.pathname !== "/importlist" &&
       location.pathname !== "/importfilter" &&
       location.pathname !== "/mycompany" &&
-      location.pathname !== "/billingaddress"
+      location.pathname !== "/billingaddress" &&
+      location.pathname !== "/confirmation"
     ) {
       // if (location.pathname === "/paymentaddress")
       //   navigate('/')
@@ -405,9 +424,9 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
     if (orders && checkedOrders) {
       let newTotalPrice = 0;
 
-      checkedOrders?.forEach((order) => {
+      checkedOrders?.forEach((order: any) => {
         const product = orders?.data?.find(
-          (product) => product?.order_po == order?.order_po
+          (product: any) => product?.order_po == order?.order_po
         );
         if (product) {
           newTotalPrice += order.Product_price?.grand_total

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   Button,
   Checkbox,
@@ -10,10 +10,13 @@ import {
   Tooltip,
   Modal,
 } from "antd";
-import { InfoCircleOutlined, FullscreenOutlined } from '@ant-design/icons';
+import { InfoCircleOutlined, FullscreenOutlined } from "@ant-design/icons";
 import Spinner from "../components/Spinner";
 import shoppingCart from "../assets/images/shopping-cart-228.svg";
-import { updateCheckedOrders } from "../store/features/orderSlice";
+import {
+  resetOrderStatus,
+  updateCheckedOrders,
+} from "../store/features/orderSlice";
 import locked_Shipment from "../assets/images/package-delivery-box-8-svgrepo-com.svg";
 import { fetchOrder } from "../store/features/orderSlice";
 import { fetchShippingOption } from "../store/features/shippingSlice";
@@ -29,6 +32,7 @@ import { deleteOrder } from "../store/features/orderSlice";
 import Loading from "../components/Loading";
 import { useNotificationContext } from "../context/NotificationContext";
 import styles from "../components/ToggleButtons.module.css";
+import { resetDeleteOrderStatus } from "../store/features/orderSlice";
 
 const { Option } = Select;
 type SizeType = Parameters<typeof Form>[0]["size"];
@@ -48,19 +52,19 @@ const ImportList: React.FC = () => {
   // Utility function to truncate text with character count control
   const truncateText = (htmlString: string, maxLength: number): string => {
     if (!htmlString) return "";
-    
+
     // Create a temporary div to parse HTML
-    const tempDiv = document.createElement('div');
+    const tempDiv = document.createElement("div");
     tempDiv.innerHTML = htmlString;
-    
+
     // Get the text content without HTML tags
     const textContent = tempDiv.textContent || tempDiv.innerText || "";
-    
+
     // Return the full HTML if text is shorter than max length
     if (textContent.length <= maxLength) {
       return htmlString;
     }
-    
+
     // For longer content, return truncated text with ellipsis
     // Strip HTML tags for consistent display
     return textContent.substring(0, maxLength) + "...";
@@ -76,11 +80,23 @@ const ImportList: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [modalContent, setModalContent] = useState("");
   const [modalTitle, setModalTitle] = useState("");
+  
+  // Add ref to track if notification has been shown
+  const deleteNotificationShown = useRef({
+    succeeded: false,
+    failed: false
+  });
+  
   const orders = useAppSelector((state) => state.order.orders);
   const ordersStatus = useAppSelector((state) => state.order.status);
+  const deleteOrderStatus = useAppSelector(
+    (state) => state.order.deleteOrderStatus
+  );
   const product_details = useAppSelector(
     (state) => state.ProductSlice.product_details?.data?.product_list
   );
+  const myImport = useAppSelector((state) => state.order.myImport);
+  const wporder = useAppSelector((state) => state.order.Wporder);
   const notificationApi = useNotificationContext();
   console.log(orderPostData);
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
@@ -112,12 +128,18 @@ const ImportList: React.FC = () => {
       </div>
     );
   };
+  console.log("myImport", myImport);
+  console.log("wporder", wporder);
 
   useEffect(() => {
     if (orders && !orders?.data?.length) {
       dispatch(fetchOrder(1556));
     }
   }, [orders]);
+
+  useEffect(() => {
+    dispatch(fetchOrder(1556));
+  }, []);
 
   // Add responsive character limit based on screen size
   useEffect(() => {
@@ -142,11 +164,11 @@ const ImportList: React.FC = () => {
     adjustCharLimit();
 
     // Add event listener
-    window.addEventListener('resize', adjustCharLimit);
+    window.addEventListener("resize", adjustCharLimit);
 
     // Cleanup
     return () => {
-      window.removeEventListener('resize', adjustCharLimit);
+      window.removeEventListener("resize", adjustCharLimit);
     };
   }, []);
 
@@ -167,21 +189,32 @@ const ImportList: React.FC = () => {
 
   const onDeleteOrder = (orderFullFillmentId: string) => {
     dispatch(deleteOrder(orderFullFillmentId));
+    // Reset notification tracking when initiating a new delete
+    deleteNotificationShown.current = {
+      succeeded: false,
+      failed: false
+    };
   };
 
   useEffect(() => {
-    if (ordersStatus === "succeeded") {
+    if (deleteOrderStatus === "succeeded" && !deleteNotificationShown.current.succeeded) {
       notificationApi.success({
         message: "Order Deleted",
         description: "Order has been successfully deleted.",
       });
-    } else if (ordersStatus === "failed") {
+      deleteNotificationShown.current.succeeded = true;
+      // Reset status after showing notification
+      dispatch(resetDeleteOrderStatus());
+    } else if (deleteOrderStatus === "failed" && !deleteNotificationShown.current.failed) {
       notificationApi.error({
         message: "Failed to Delete Order",
         description: "An error occurred while deleting the order.",
       });
+      deleteNotificationShown.current.failed = true;
+      // Reset status after showing notification
+      dispatch(resetDeleteOrderStatus());
     }
-  }, [ordersStatus, notificationApi]);
+  }, [deleteOrderStatus, notificationApi, dispatch]);
 
   useEffect(() => {
     if (orders?.data?.length && !orderPostData.length) {
@@ -232,7 +265,9 @@ const ImportList: React.FC = () => {
     } else {
       dispatch(
         updateCheckedOrders(
-          checkedOrders.filter((order) => order.order_po !== parsedValue.order_po)
+          checkedOrders.filter(
+            (order) => order.order_po !== parsedValue.order_po
+          )
         )
       );
     }
@@ -290,7 +325,11 @@ const ImportList: React.FC = () => {
   );
 
   // Function to show modal with full description
-  const showFullDescription = (title: string, content: string, sku?: string): void => {
+  const showFullDescription = (
+    title: string,
+    content: string,
+    sku?: string
+  ): void => {
     setModalTitle(title || "Product Description");
     setModalContent(content || "");
     setModalVisible(true);
@@ -305,7 +344,7 @@ const ImportList: React.FC = () => {
           <h1 className="text-left text-2xl font-bold">Orders</h1>
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600">Description Length:</span>
-            <Select 
+            <Select
               defaultValue={descriptionCharLimit.toString()}
               size="small"
               style={{ width: 100 }}
@@ -333,56 +372,69 @@ const ImportList: React.FC = () => {
                     <li className="w-8">
                       {shipping_option.length > 0 &&
                       order?.order_items.length > 0 ? (
-                        <fieldset id="switch" className={`${styles.radio} flex`}>
+                        <fieldset
+                          id="switch"
+                          className={`${styles.radio} flex`}
+                        >
                           <input
                             name={`switch-${order.order_po}`}
                             id={`on-${order.order_po}`}
                             type="radio"
                             value={JSON.stringify({
-                                order_po: order?.order_po,
-                                Product_price: getShippingPrice(
-                                  order?.order_po
-                                ),
-                                productData: order?.order_items,
-                                productImage:
-                                  productData[order?.order_items[0]?.product_sku]
-                                    ?.image_url_1
+                              order_po: order?.order_po,
+                              Product_price: getShippingPrice(order?.order_po),
+                              productData: order?.order_items,
+                              productImage:
+                                productData[order?.order_items[0]?.product_sku]
+                                  ?.image_url_1,
                             })}
-                            onChange={(e) => handleCheckboxChange(e)} 
+                            onChange={(e) => handleCheckboxChange(e)}
                             checked={checkedOrders.some(
-                              (checkedOrder: {order_po: string}) =>
+                              (checkedOrder: { order_po: string }) =>
                                 checkedOrder.order_po == order.order_po
                             )}
                           />
-                          <label htmlFor={`on-${order.order_po}`}>Include</label>
+                          <label htmlFor={`on-${order.order_po}`}>
+                            Include
+                          </label>
                           <input
                             name={`switch-${order.order_po}`}
                             id={`off-${order.order_po}`}
                             type="radio"
                             value="disclude"
-                           className="off"
-                           style={{display: "none"}}
+                            className="off"
+                            style={{ display: "none" }}
                             onChange={() => {
                               // Remove the order from checked orders if it exists
-                              if (checkedOrders.some(
-                                (checkedOrder: {order_po: string}) =>
-                                  checkedOrder.order_po == order.order_po
-                              )) {
+                              if (
+                                checkedOrders.some(
+                                  (checkedOrder: { order_po: string }) =>
+                                    checkedOrder.order_po == order.order_po
+                                )
+                              ) {
                                 dispatch(
                                   updateCheckedOrders(
-                                    checkedOrders.filter((checkedOrder) => 
-                                      checkedOrder.order_po !== order.order_po
+                                    checkedOrders.filter(
+                                      (checkedOrder) =>
+                                        checkedOrder.order_po !== order.order_po
                                     )
                                   )
                                 );
                               }
                             }}
-                            checked={!checkedOrders.some(
-                              (checkedOrder: {order_po: string}) =>
-                                checkedOrder.order_po == order.order_po
-                            )}
+                            checked={
+                              !checkedOrders.some(
+                                (checkedOrder: { order_po: string }) =>
+                                  checkedOrder.order_po == order.order_po
+                              )
+                            }
                           />
-                          <label htmlFor={`off-${order.order_po}`} className="off">Exclude</label>
+                          <label
+                            htmlFor={`off-${order.order_po}`}
+                            className="off"
+                          >
+                            Exclude
+                          </label>
                         </fieldset>
                       ) : null}
                     </li>
@@ -480,61 +532,74 @@ const ImportList: React.FC = () => {
                           >
                             <div className="block relative pb-4 w-full overflow-hidden">
                               <img src={shoppingCart} width="26" height="26" />
-                              {productData[order?.product_sku]?.description_long && (
-                                <Tooltip 
+                              {productData[order?.product_sku]
+                                ?.description_long && (
+                                <Tooltip
                                   title={
                                     <div>
                                       <div className="text-right mb-2">
-                                        <span 
-                                          className="cursor-pointer text-blue-600 hover:text-blue-800 flex items-center justify-end" 
+                                        <span
+                                          className="cursor-pointer text-blue-600 hover:text-blue-800 flex items-center justify-end"
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             showFullDescription(
-                                              "Product Details", 
-                                              productData[order?.product_sku]?.description_long || "",
+                                              "Product Details",
+                                              productData[order?.product_sku]
+                                                ?.description_long || "",
                                               order?.product_sku
                                             );
                                           }}
                                         >
-                                          <FullscreenOutlined className="mr-1" /> View full description
+                                          <FullscreenOutlined className="mr-1" />{" "}
+                                          View full description
                                         </span>
                                       </div>
-                                      <div>{parse(productData[order?.product_sku]?.description_long || "")}</div>
+                                      <div>
+                                        {parse(
+                                          productData[order?.product_sku]
+                                            ?.description_long || ""
+                                        )}
+                                      </div>
                                     </div>
-                                  } 
-                                  color="#fff" 
-                                  overlayInnerStyle={{ 
-                                    color: '#333', 
-                                    maxWidth: '400px', 
-                                    maxHeight: '300px', 
-                                    overflow: 'auto', 
-                                    padding: '12px',
-                                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                                    borderRadius: '8px' 
+                                  }
+                                  color="#fff"
+                                  overlayInnerStyle={{
+                                    color: "#333",
+                                    maxWidth: "400px",
+                                    maxHeight: "300px",
+                                    overflow: "auto",
+                                    padding: "12px",
+                                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                                    borderRadius: "8px",
                                   }}
                                   placement="rightTop"
                                   overlayClassName="description-tooltip"
                                   mouseEnterDelay={0.3}
                                 >
-                                  <div 
-                                    className={`absolute top-1 right-2 w-6 h-6 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center cursor-help text-white shadow-md hover:shadow-lg transition-all duration-300 hover:scale-110 z-10 ${style['info-button-pulse']}`}
+                                  <div
+                                    className={`absolute top-1 right-2 w-6 h-6 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center cursor-help text-white shadow-md hover:shadow-lg transition-all duration-300 hover:scale-110 z-10 ${style["info-button-pulse"]}`}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       showFullDescription(
-                                        "Product Details", 
-                                        productData[order?.product_sku]?.description_long || "",
+                                        "Product Details",
+                                        productData[order?.product_sku]
+                                          ?.description_long || "",
                                         order?.product_sku
                                       );
                                     }}
                                   >
-                                    <InfoCircleOutlined style={{ fontSize: '16px' }} />
+                                    <InfoCircleOutlined
+                                      style={{ fontSize: "16px" }}
+                                    />
                                   </div>
                                 </Tooltip>
                               )}
                               <div
                                 className={`justify-between pt-4 rounded-lg sm:flex sm:justify-start flex  ${style.description_box}`}
                               >
-                                <div className={`w-[50%] ${style.importlist_pic}`}>
+                                <div
+                                  className={`w-[50%] ${style.importlist_pic}`}
+                                >
                                   {productData[order?.product_sku]
                                     ?.image_url_1 ? (
                                     <img
@@ -560,10 +625,13 @@ const ImportList: React.FC = () => {
                                       <div
                                         className={`w-full text-sm ${style.order_description} font-seri `}
                                       >
-                                        {parse(truncateText(
-                                          productData[order?.product_sku]?.description_long || "",
-                                          descriptionCharLimit
-                                        ))}
+                                        {parse(
+                                          truncateText(
+                                            productData[order?.product_sku]
+                                              ?.description_long || "",
+                                            descriptionCharLimit
+                                          )
+                                        )}
                                       </div>
                                     </div>
                                   )) || <Skeleton active />}
@@ -622,7 +690,7 @@ const ImportList: React.FC = () => {
           </div>
         </div>
       </div>
-      <Modal 
+      <Modal
         title={
           <div className="text-lg text-blue-700 font-medium border-b pb-2">
             {modalTitle}
@@ -631,18 +699,18 @@ const ImportList: React.FC = () => {
         open={modalVisible}
         onCancel={() => setModalVisible(false)}
         footer={[
-          <Button 
-            key="close" 
+          <Button
+            key="close"
             onClick={() => setModalVisible(false)}
             type="primary"
             className="bg-blue-600 hover:bg-blue-700"
           >
             Close
-          </Button>
+          </Button>,
         ]}
         width={800}
         centered
-        bodyStyle={{ padding: '20px' }}
+        bodyStyle={{ padding: "20px" }}
         className="product-description-modal"
       >
         <div className="max-h-[60vh] overflow-auto p-4 bg-gray-50 rounded-lg">

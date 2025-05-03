@@ -27,6 +27,7 @@ import { useNotificationContext } from "../context/NotificationContext";
 import { LoadingOutlined } from "@ant-design/icons";
 import { Flex, Spin } from "antd";
 import { setQuantityUpdated } from "../store/features/productSlice";
+import convertUsStateAbbrAndName from "../services/state";
 
 
 import Quantity from "../components/Quantitiy";
@@ -44,7 +45,7 @@ const EditOrder: React.FC = () => {
   const [UpdatePopupVisible, setUpdatePopupVisible] = useState(false);
   const [DeleteMessageVisible, setDeleteMessageVisible] = useState(false);
   const [productchange, setProductChange] = useState(false);
-  const [skuCode, setSkuCode] = useState("");
+  const [product_guid, setProductGuid] = useState("");
   const [clicking, setclicking] = useState(false);
   const [productCode, setProductCode] = useState(false);
   const navigate = useNavigate();
@@ -89,6 +90,7 @@ const EditOrder: React.FC = () => {
   const [isModified, setIsModified] = useState(false); // Track if values are modified
   const [changedValues, setChangedValues] = useState<any>({});
   const [localOrder, setLocalOrder] = useState(order);
+  const[stateCodeShort, setStateCodeShort] = useState(recipient?.state)
   const product_details =
     useAppSelector(
       (state) => state.ProductSlice.product_details?.data?.product_list
@@ -141,9 +143,9 @@ const EditOrder: React.FC = () => {
   };
 
   //send the orders array without the dedeleted product object
-  const onDeleteProduct = (product_sku) => {
+  const onDeleteProduct = (product_guid) => {
     const updatedOrderItems = localOrder?.order_items?.filter(
-      (item) => item.product_sku !== product_sku
+      (item) => item.product_guid !== product_guid
     );
 
     const updatedLocalOrder = {
@@ -179,13 +181,19 @@ const EditOrder: React.FC = () => {
       address_1: recipient?.address_1 || "",
       address_2: recipient?.address_2 || "",
       city: recipient?.city || "",
-      state: recipient?.state || "",
+      state: recipient?.state || stateCodeShort,
       zip_postal_code: recipient?.zip_postal_code || "",
       phone: recipient?.phone || "",
     }),
     [order, recipient]
   );
+  // console.log("initialValues",convertUsStateAbbrAndName(recipient?.state ))
 
+  useEffect(() => {
+    if(recipient?.state_code){
+    const stateCode = recipient?.state_code?.toLowerCase()
+    setStateCodeShort(convertUsStateAbbrAndName(stateCode))}
+  }, [recipient])
   useEffect(() => {
     form.setFieldsValue(initialValues);
   }, [form, initialValues]);
@@ -296,6 +304,7 @@ const EditOrder: React.FC = () => {
   console.log("vol", updatedValues);
 
   const setStates = (value: string = "us") => {
+    console.log("vav", value)
     let states = getStates(value);
     let data: countryType[] = (states || []).map((d: string) => ({
       label: d,
@@ -637,7 +646,7 @@ const EditOrder: React.FC = () => {
                       type="button"
                       className="inline-flex items-center justify-center p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 group"
                       onClick={() => {
-                        setSkuCode(item.product_sku);
+                        setProductGuid(item.product_guid);
                         setDeleteMessageVisible(true);
                       }}
                     >
@@ -661,7 +670,7 @@ const EditOrder: React.FC = () => {
                       visible={DeleteMessageVisible}
                       onClose={setDeleteMessageVisible}
                       onDeleteProduct={onDeleteProduct}
-                      deleteItem={skuCode}
+                      deleteItem={product_guid}
                     />
                     {productCode && (
                       <Button
