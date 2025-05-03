@@ -141,10 +141,14 @@ console.log("shipping_details", shipping_details);
           <div className="relative w-full text-gray-500">
             <Select
               className="w-full"
-              showSearch
+              showSearch={false} 
               placeholder="Select Shipping Method"
               optionFilterProp="children"
               onChange={handleOptionChange}
+              dropdownStyle={{ touchAction: 'manipulation' }}
+              getPopupContainer={(trigger) => trigger.parentNode}
+              listHeight={250}
+              dropdownMatchSelectWidth={false}
               value={
                 selectedOption
                   ? `${selectedOption.rate}-$${selectedOption.shipping_method}`
@@ -169,6 +173,8 @@ console.log("shipping_details", shipping_details);
       <div className="w-full text-sm">Sales Tax: ${salesTax.toFixed(2)}</div>
       <div className="w-full text-sm">GrandTotal: ${grandTotal}</div>
       {/* <div className="w-full text-sm text-amber-500">Account Credit: ${accountCredit}</div> */}
+      
+
     </>
   );
 };
