@@ -1,4 +1,5 @@
 import gear from "../assets/images/gear-settings-svgrepo-com.svg";
+import style from "./Components.module.css";
 
 const Loading = ({
   message = "Loading, please wait...",
@@ -9,14 +10,7 @@ const Loading = ({
 }) => {
   return (
     <div className="flex flex-col items-center justify-center h-full w-full">
-      <div className="animate-spin">
-        <img
-          src={gear}
-          alt="Loading icon"
-          width={size}
-          height={size}
-        />
-      </div>
+      <span className={`${style.loader}`}></span>
       {message && <p className="mt-4 text-gray-600 text-sm">{message}</p>}
     </div>
   );

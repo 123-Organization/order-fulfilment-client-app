@@ -80,13 +80,13 @@ const ImportList: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [modalContent, setModalContent] = useState("");
   const [modalTitle, setModalTitle] = useState("");
-  
+  const customerInfo = useAppSelector((state) => state.Customer.customer_info);
   // Add ref to track if notification has been shown
   const deleteNotificationShown = useRef({
     succeeded: false,
-    failed: false
+    failed: false,
   });
-  
+
   const orders = useAppSelector((state) => state.order.orders);
   const ordersStatus = useAppSelector((state) => state.order.status);
   const deleteOrderStatus = useAppSelector(
@@ -95,6 +95,7 @@ const ImportList: React.FC = () => {
   const product_details = useAppSelector(
     (state) => state.ProductSlice.product_details?.data?.product_list
   );
+  const product_status = useAppSelector((state) => state.ProductSlice.status);
   const myImport = useAppSelector((state) => state.order.myImport);
   const wporder = useAppSelector((state) => state.order.Wporder);
   const notificationApi = useNotificationContext();
@@ -133,12 +134,12 @@ const ImportList: React.FC = () => {
 
   useEffect(() => {
     if (orders && !orders?.data?.length) {
-      dispatch(fetchOrder(1556));
+      dispatch(fetchOrder(customerInfo?.data?.account_id));
     }
   }, [orders]);
 
   useEffect(() => {
-    dispatch(fetchOrder(1556));
+    dispatch(fetchOrder(customerInfo?.data?.account_id));
   }, []);
 
   // Add responsive character limit based on screen size
@@ -192,12 +193,15 @@ const ImportList: React.FC = () => {
     // Reset notification tracking when initiating a new delete
     deleteNotificationShown.current = {
       succeeded: false,
-      failed: false
+      failed: false,
     };
   };
 
   useEffect(() => {
-    if (deleteOrderStatus === "succeeded" && !deleteNotificationShown.current.succeeded) {
+    if (
+      deleteOrderStatus === "succeeded" &&
+      !deleteNotificationShown.current.succeeded
+    ) {
       notificationApi.success({
         message: "Order Deleted",
         description: "Order has been successfully deleted.",
@@ -205,7 +209,10 @@ const ImportList: React.FC = () => {
       deleteNotificationShown.current.succeeded = true;
       // Reset status after showing notification
       dispatch(resetDeleteOrderStatus());
-    } else if (deleteOrderStatus === "failed" && !deleteNotificationShown.current.failed) {
+    } else if (
+      deleteOrderStatus === "failed" &&
+      !deleteNotificationShown.current.failed
+    ) {
       notificationApi.error({
         message: "Failed to Delete Order",
         description: "An error occurred while deleting the order.",
@@ -339,31 +346,18 @@ const ImportList: React.FC = () => {
     <div
       className={`flex justify-end items-center  h-full p-8 ${style.overAll_box}`}
     >
-      <div className={`h-auto bg-gray-100 pt-4 w-full ${style.overAll_box}`}>
+      <div
+        className={`h-auto bg-gray-100 pt-4 mt-10 w-full ${style.overAll_box}`}
+      >
         <div className="flex justify-between items-center mb-10 px-9">
-          <h1 className="text-left text-2xl font-bold">Orders</h1>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">Description Length:</span>
-            <Select
-              defaultValue={descriptionCharLimit.toString()}
-              size="small"
-              style={{ width: 100 }}
-              onChange={(value) => setDescriptionCharLimit(Number(value))}
-            >
-              <Option value="50">Short</Option>
-              <Option value="100">Medium</Option>
-              <Option value="150">Long</Option>
-              <Option value="1000">Full</Option>
-            </Select>
-          </div>
+          <h1 className="text-left text-2xl font-bold mt-2">Orders</h1>
         </div>
         <div
           className={`mx-auto max-w-7xl justify-center px-6 md:flex md:space-x-6 xl:px-0 ${style.orderes_box}`}
         >
           <div className="rounded-lg md:w-full">
-            {orders &&
-              orders?.data?.length &&
-              orders?.data?.map((order, index) => (
+            {orders?.data && orders.data.length > 0 ? (
+              orders.data.map((order, index) => (
                 <div
                   key={index}
                   className="justify-between mb-6  rounded-lg bg-white p-6 shadow-md sm:flex-row sm:justify-start space-y-2 "
@@ -675,8 +669,32 @@ const ImportList: React.FC = () => {
                     </li>
                   </ul>
                 </div>
-              ))}
-            {(!orders || !orders.data || orders.data.length === 0) && (
+              ))
+            ) : (
+              
+              <div className="flex flex-col items-center justify-center h-64 bg-white rounded-lg shadow-md p-6 mb-20">
+                <img
+                  src={shoppingCart}
+                  alt="Empty Orders"
+                  className="w-20 h-20 mb-4 opacity-40"
+                />
+                <h3 className="text-xl font-medium text-gray-500 mb-2">
+                  No Orders Found
+                </h3>
+                <p className="text-gray-400 text-center mb-4">
+                  There are currently no orders to display.
+                </p>
+                <Button
+                  type="primary"
+                  onClick={() => navigate("/import")}
+                  className="bg-blue-500 hover:bg-blue-600"
+                >
+                  Import Orders
+                </Button>
+              </div>
+              
+            )}
+            {ordersStatus === "loading" && (
               <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 mt-20">
                 <Loading message="Loading, please wait..." size={50} />
               </div>

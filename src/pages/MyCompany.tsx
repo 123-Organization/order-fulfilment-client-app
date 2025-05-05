@@ -170,7 +170,7 @@ const [validFields, setValidFields] = useState({
       layout="horizontal"
       initialValues={{ size: componentSize }}
       onFinish={onFinish}
-      className="w-full flex flex-col items-center"
+      className="w-full flex flex-col items-center "
     >
       <Form.Item name="country_code" className="w-full sm:ml-[200px]">
         <div className="relative">
@@ -198,7 +198,7 @@ const [validFields, setValidFields] = useState({
           <Input
             value={companyAddress?.company_name}
             onChange={(e) => handleInputChange(e, "company_name")}
-            className="fw-input"
+            className="fw-input "
           />
           <label htmlFor="floating_outlined" className="fw-label">
             My Company Name

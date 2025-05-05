@@ -17,13 +17,19 @@ const initialState: CompanyState = {
         iframeState: false,
 };
 
+const getCookie = (name: string) => {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop()?.split(';').shift();
+    return null;
+};
 
 export const updateCompanyInfo = createAsyncThunk(
         "company/update",
         async (postData: any, thunkAPI) => {
 
                 let accountKey = {
-                        "account_key": "81de5dba-0300-4988-a1cb-df97dfa4e372",
+                        "account_key": getCookie("AccountGUID") || "default-key",
                         // "business_info": {
                         //   "first_name": "Jamess",
                         //   "last_name": "Theopistos",

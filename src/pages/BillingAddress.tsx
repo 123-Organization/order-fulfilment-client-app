@@ -100,17 +100,14 @@ console.log(stateCode, stateCodeShort)
     };
   
     console.log("Payload to dispatch:", payload);
-    form1.validateFields.then = (values) => {
+    form1.validateFields().then((values) => {
       console.log("values", values);
-    }
-
-
-
-    if (Object.values(payload).every(Boolean)) {
-      dispatch(updateBilling({ billing_info: payload }));
-    } else {
-      form1.submit(); // Handle incomplete form
-    }
+      if (Object.values(payload).every(Boolean)) {
+        dispatch(updateBilling({ billing_info: payload }));
+      }
+    }).catch(error => {
+      console.error("Validation failed:", error);
+    });
   };
 
   const onSearch = (value: string) => {
@@ -124,12 +121,8 @@ console.log(stateCode, stateCodeShort)
   ) => (option?.label ?? "").toLowerCase().includes(input.toLowerCase());
 
   useEffect(() => {
-    // if(orders && !orders?.data?.length) {
-    //dispatch(updateCompanyInfo(21));
-    // }
-    // onChange(countryCode);
-    // setTimeout(() => {
-    // }, 3000);
+    // Initialize country
+    onChange(countryCode);
   }, []);
 
   useEffect(() => {
@@ -149,26 +142,21 @@ console.log(stateCode, stateCodeShort)
         });
       }, 1000);
     }
-  }, [billingInfo, onchange, stateCode, stateCodeShort, form1]);
+  }, [billingInfo, dispatch, stateCode, stateCodeShort, form1]);
 
   const handleInputChange = (e, field) => {
     const { value } = e?.target || "";
     setCompanyAddress((prev) => ({ ...prev, [field]: value }));
     form1.setFieldsValue({ [field]: value });
    form1.validateFields().then(() => {
-
     dispatch(updateBilling({ billing_info: { ...companyAddress } }));
     }).catch((errorInfo) => {
-
       const errors = errorInfo.errorFields.reduce((acc, field) => {
         acc[field.name[0]] = field.errors;
         return acc;
       }, {});
-      dispatch(updateBilling({ billing_info: { ...companyAddress },  validFields: errors }));
-    }
-    );
-  
-    
+      dispatch(updateBilling({ billing_info: { ...companyAddress }, validFields: errors }));
+    });
   };
   
 
@@ -178,13 +166,11 @@ console.log(stateCode, stateCodeShort)
       labelCol={{ span: 4 }}
       wrapperCol={{ span: 14 }}
       layout="horizontal"
-      // initialValues={companyAddress}
       className="w-full flex flex-col items-center"
     >
       <Form.Item name="country_code" className="w-full sm:ml-[200px]">
         <div className="relative">
           <Select
-            // allowClear
             showSearch
             defaultValue={"US"}
             placeholder="Select a country"
@@ -194,9 +180,6 @@ console.log(stateCode, stateCodeShort)
             filterOption={filterOption}
             options={countryList}
             onBlur={onValid}
-            // value={
-            //   convertUsStateAbbrAndName(countryCode.toUpperCase())
-            // }
           ></Select>
           <label htmlFor="floating_outlined" className="fw-label">
             Country
@@ -358,7 +341,6 @@ console.log(stateCode, stateCodeShort)
       </Form.Item>
 
       <Form.Item
-        // rules={[{ required: true, message: 'Please enter your state!' }]}
         name="state_code"
         className="w-full sm:ml-[200px]"
       >
@@ -437,37 +419,36 @@ console.log(stateCode, stateCodeShort)
   );
 
   return (
-    <div className="flex justify-end items-center w-full h-full p-8 max-md:flex-col max-md:mt-12 ">
-      <div
-        className="
-          w-[900px] flex max-md:flex-col justify-center items-center h-[600px] max-md:w-full 
-          md:border-r-2 max-md:border-b-2 max-md:mb-8 relative gap-0 max-md:gap-6
-        "
-      >
-         <div className="w-[400px] ">
-          <PaymentMethods />
-         </div>
-       
-        <div className=" text-gray-400  text-center mb-24 max-md:mb-0">
-          
-          <p className="text-lg  font-bold ">My Billing Address  </p>
-          <p className="pt-5">
-            You can change this info later within your account.
-          </p>
-          <p>
-            <Checkbox
-              className="py-4 align-text-top  text-gray-400 "
-              onChange={checkboxClick}
-              // checked
-            >
-              Check if same as company address
-            </Checkbox>
-          </p>
+    <div className="flex flex-wrap justify-center w-full h-full p-4 md:p-8">
+      {/* Payment Methods Section */}
+      <div className="w-full lg:w-1/2 mb-8 lg:mb-0 lg:pr-0 pt-20">
+        <div className="bg-white p-6 rounded-lg shadow-sm border-2 border-dashed border-gray-200">
+          <div className="flex flex-col items-center">
+            <div className="w-full max-w-md bg-white rounded-lg mt-12">
+              <PaymentMethods />
+            </div>
+          </div>
         </div>
       </div>
-      <div className="w-1/2 max-md:w-full">
-        <div className="container mx-auto px-5 py-2 lg:px-8 md:px-4 justify-center items-center">
-          <div className="-m-1 mx-4 flex flex-wrap md:-m-2">
+
+      {/* Billing Address Section */}
+      <div className="w-full lg:w-1/2">
+        <div className="bg-white p-6 rounded-lg shadow-sm">
+          <div className="mb-6 text-center mr-12">
+            <h2 className="text-lg font-bold text-gray-600">My Billing Address</h2>
+            <p className="text-gray-500 mt-2">
+              You can change this info later within your account.
+            </p>
+            <div className="mt-4">
+              <Checkbox
+                className="text-gray-500"
+                onChange={checkboxClick}
+              >
+                Check if same as company address
+              </Checkbox>
+            </div>
+          </div>
+          <div className="w-full">
             {displayTurtles}
           </div>
         </div>

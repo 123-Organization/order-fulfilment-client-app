@@ -172,7 +172,7 @@ const PaymentAddress: React.FC <PaymentAddressProps> = ({remainingTotal}) => {
           email: companyInfo?.email,
           company: companyInfo?.company_name,
           phone: companyInfo?.phone,
-          account_key: "81de5dba-0300-4988-a1cb-df97dfa4e372",
+          account_key: customerInfo?.data?.account_key,
         })
       );
     }

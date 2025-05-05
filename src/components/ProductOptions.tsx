@@ -30,6 +30,7 @@ export default function ProductOptions({ id, recipient, onProductCodeUpdate , se
   const orderData = useAppSelector((state) => state.order.order) || {};
   const order = orderData?.data ? orderData?.data[0] : {};
   const dispatch = useAppDispatch();
+  const customerInfo = useAppSelector((state) => state.Customer.customer_info);
 
   const items: MenuProps["items"] = [
     {
@@ -81,7 +82,7 @@ export default function ProductOptions({ id, recipient, onProductCodeUpdate , se
   const handleProductCodeUpdate = () => {
     // Refresh logic (e.g., re-fetch order details)
     dispatch(
-      fetchSingleOrderDetails({ accountId: "1556", orderFullFillmentId: id })
+      fetchSingleOrderDetails({ accountId: customerInfo?.data?.account_id, orderFullFillmentId: id })
     );
   };
 

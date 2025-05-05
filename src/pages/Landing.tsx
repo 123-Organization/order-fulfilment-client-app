@@ -54,7 +54,8 @@ const Landing: React.FC = (): JSX.Element => {
 
   const [openExcel, setOpenExcel] = useState<Boolean>(false);
   const [openBtnConnected, setOpenBtnConnected] = useState(false);
-
+  const customerInfo = useAppSelector((state) => state.Customer.customer_info);
+  console.log("customerInfo", customerInfo);
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const typeValue = queryParams.get("type");
@@ -213,7 +214,7 @@ const Landing: React.FC = (): JSX.Element => {
       if (!openBtnConnected) {
         dispatch(
           ecommerceConnector({
-            account_key: "81de5dba-0300-4988-a1cb-df97dfa4e372"
+            account_key: customerInfo?.data?.account_key
           })
         );
       }

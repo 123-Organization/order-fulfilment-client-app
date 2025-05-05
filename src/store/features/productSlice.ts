@@ -21,6 +21,13 @@ const initialState: ProductState = {
         productData: null
 };
 
+const getCookie = (name: string) => {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop()?.split(';').shift();
+    return null;
+};
+
 export const fetchProductDetails = createAsyncThunk(
         "product/details",
         async (postData: any, thunkAPI) => {
@@ -65,7 +72,7 @@ export const getAllImages = createAsyncThunk(
 
                         "libraryName": "temporary",
                         "librarySessionId": "vhgetkqbwatywv3fucs4z2xk",
-                        "libraryAccountKey": "81de5dba-0300-4988-a1cb-df97dfa4e372",
+                        "libraryAccountKey": getCookie("AccountGUID") || "default-key",
                         "librarySiteId": "2",
                         "filterSearchFilter": "",
                         "filterPageNumber": "1",
@@ -88,7 +95,8 @@ export const getAllImages = createAsyncThunk(
                         "account_id": 12
 
                 }
-                const response = await fetch("https://prod3-api.finerworks.com/api/getallimages?libraryAccountKey=81de5dba-0300-4988-a1cb-df97dfa4e372", {
+                const accountKey = getCookie("AccountGUID") || "default-key";
+                const response = await fetch("https://prod3-api.finerworks.com/api/getallimages?libraryAccountKey="+accountKey, {
                         method: "POST",
                         headers: {
                                 "Content-Type": "application/json",
@@ -118,6 +126,9 @@ export const ProductSlice = createSlice({
                 },
                 clearProductData: (state) => {
                         state.productData = null;
+                },
+                resetProductStatus: (state) => {
+                        state.status = "idle";
                 }
         },
         extraReducers: (builder) => {
@@ -135,6 +146,7 @@ export const ProductSlice = createSlice({
                 });
                 builder.addCase(increaseProductQuantity.fulfilled, (state, action) => {
                         state.product_details = action.payload;
+                        
                         state.status = "succeeded";
                 });
                 builder.addCase(increaseProductQuantity.rejected, (state, action) => {
@@ -147,5 +159,5 @@ export const ProductSlice = createSlice({
         },
 });
 
-export const { setQuantityUpdated, setSelectedImage, setProductData, clearProductData, clearSelectedImage } = ProductSlice.actions;
+export const { setQuantityUpdated, setSelectedImage, setProductData, clearProductData, clearSelectedImage , resetProductStatus} = ProductSlice.actions;
 export default ProductSlice;

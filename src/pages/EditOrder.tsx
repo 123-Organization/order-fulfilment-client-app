@@ -40,7 +40,7 @@ type SizeType = Parameters<typeof Form>[0]["size"];
 
 const EditOrder: React.FC = () => {
   const [openModal, setOpenModal] = useState(false);
-
+  const customerInfo = useAppSelector((state) => state.Customer.customer_info);
   const [productChanged, setProductChanged] = useState(false);
   const [UpdatePopupVisible, setUpdatePopupVisible] = useState(false);
   const [DeleteMessageVisible, setDeleteMessageVisible] = useState(false);
@@ -68,7 +68,7 @@ const EditOrder: React.FC = () => {
   );
   const { order_items, order_key, order_status, recipient } = order || {};
   const product_status = useAppSelector((state) => state.ProductSlice.status);
-
+  
   const InventoryImages =
     useAppSelector((state) => state.Inventory.inventoryImages) || [];
 
@@ -80,7 +80,7 @@ const EditOrder: React.FC = () => {
 
   useEffect(() => {
     dispatch(
-      fetchSingleOrderDetails({ accountId: "1556", orderFullFillmentId: id })
+      fetchSingleOrderDetails({ accountId: customerInfo?.data?.account_id, orderFullFillmentId: id })
     );
   }, [dispatch]);
 
@@ -107,7 +107,7 @@ const EditOrder: React.FC = () => {
   console.log(orderPostData);
   useEffect(() => {
     if (!orders?.data?.length) {
-      dispatch(fetchOrder(1556)); // Ensure you're using the most up-to-date orders
+      dispatch(fetchOrder(customerInfo?.data?.account_id)); // Ensure you're using the most up-to-date orders
     }
   }, [dispatch, orders]);
   console.log("ord", orders);
@@ -160,16 +160,42 @@ const EditOrder: React.FC = () => {
       return order;
     });
 
-    dispatch(updateOrdersInfo(updatedOrders));
-    setLocalOrder(updatedLocalOrder);
+    // Format the data properly for the API
+    const postData = {
+      updatedValues: updatedOrders,
+      customerId: customerInfo?.data?.account_id  // Fallback to a default if missing
+    };
     
-    // Toggle productchange to ensure re-render
-    setProductChange((prev) => !prev);
+    console.log("Sending updated orders:", postData);
+    
+    // Dispatch with the properly formatted data
+    dispatch(updateOrdersInfo(postData))
+      .then((result) => {
+        if (updateOrdersInfo.fulfilled.match(result)) {
+          console.log("Product successfully deleted from order");
+          setLocalOrder(updatedLocalOrder);
+          // Toggle productchange to ensure re-render
+          setProductChange((prev) => !prev);
 
-    notificationApi.success({
-      message: "Product Deleted",
-      description: "Product has been successfully deleted.",
-    });
+          notificationApi.success({
+            message: "Product Deleted",
+            description: "Product has been successfully deleted from the order.",
+          });
+        } else {
+          console.error("Failed to delete product:", result.payload);
+          notificationApi.error({
+            message: "Error",
+            description: "Failed to delete product from order.",
+          });
+        }
+      })
+      .catch((error) => {
+        console.error("Error deleting product:", error);
+        notificationApi.error({
+          message: "Error",
+          description: "An error occurred while deleting the product.",
+        });
+      });
   };
 
   const initialValues = React.useMemo(
@@ -252,10 +278,10 @@ const EditOrder: React.FC = () => {
   const handleProductCodeUpdate = () => {
     // Refresh logic (e.g., re-fetch order details)
     dispatch(
-      fetchSingleOrderDetails({ accountId: "1556", orderFullFillmentId: id })
+      fetchSingleOrderDetails({ accountId: customerInfo?.data?.account_id, orderFullFillmentId: id })
     );
   };
-
+const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
   const [componentSize, setComponentSize] = useState<SizeType | "default">(
     "default"
   );
@@ -339,7 +365,7 @@ const EditOrder: React.FC = () => {
       setTimeout(() => {
         dispatch(
           fetchSingleOrderDetails({
-            accountId: "1556",
+            accountId: customerInfo?.data?.account_id, 
             orderFullFillmentId: id,
           })
         );
@@ -566,6 +592,8 @@ const EditOrder: React.FC = () => {
       </Form.Item>
     </Form>
   );
+  
+  console.log("changeStatus", changeStatus);
 
   return (
     <div

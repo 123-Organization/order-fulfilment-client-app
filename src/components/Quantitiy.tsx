@@ -4,7 +4,7 @@ import { useAppDispatch, useAppSelector } from "../store";
 import { increaseProductQuantity } from "../store/features/productSlice";
 import { setQuantityUpdated } from "../store/features/productSlice";
 import { useNotificationContext } from "../context/NotificationContext";
-
+import { fetchOrder } from "../store/features/orderSlice";
 type QuantityInputProps = {
   quantity: number;
   clicking: boolean;
@@ -30,6 +30,7 @@ const QuantityInput: React.FC<QuantityInputProps> = ({
   const { status, error } = useAppSelector((state) => state.ProductSlice);
   const notificationApi = useNotificationContext();
   const product_status = useAppSelector((state) => state.ProductSlice.status);
+  const customerInfo = useAppSelector((state) => state.Customer.customer_info);
   const updateQuantity = (newValue: number) => {
     setValue(newValue);
 
@@ -55,6 +56,7 @@ const QuantityInput: React.FC<QuantityInputProps> = ({
             message: "Quantity Updated",
             description: "Quantity has been successfully updated.",
           });
+          dispatch(fetchOrder(customerInfo?.data?.account_id));
         }, 3000);
       });
     }, 1000); // Reduced timeout for better UX

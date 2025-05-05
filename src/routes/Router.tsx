@@ -1,12 +1,10 @@
-import React, { Suspense, lazy,useEffect, useState } from "react";
-import { Route, Routes,useLocation  } from "react-router-dom";
+import React, { Suspense, lazy, useEffect, useState } from "react";
+import { Route, Routes, useLocation, Navigate } from "react-router-dom";
 import { routes } from "../config/routes";
 import ImportList from "../pages/ImportList";
 import { useAppSelector } from "../store";
-import { Navigate } from "react-router-dom";
-import {notification } from "antd";
-
-
+import { notification } from "antd";
+import { useCookies } from "react-cookie";
 
 type NotificationType = "success" | "info" | "warning" | "error";
 interface NotificationAlertProps {
@@ -28,9 +26,26 @@ const Checkout = lazy(() => import("../pages/Checkout"));
 const ImportFilter = lazy(() => import("../pages/ImportFilter"));
 const Confirmation = lazy(() => import("../pages/Confirmation"));
 
-const Router: React.FC = (): JSX.Element  => {
-  const [api, contextHolder] = notification.useNotification();
+// ProtectedRoute component to check for authentication
+interface ProtectedRouteProps {
+  component: React.ComponentType<any>;
+  path?: string;
+}
+
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ component: Component }) => {
+  const [cookies] = useCookies(["Session", "AccountGUID"]);
   
+  if (!cookies.AccountGUID || !cookies.Session) {
+    // Redirect to landing page if cookies don't exist
+    return <Navigate to={routes.landingPage} replace />;
+  }
+  
+  return <Component />;
+};
+
+const Router: React.FC = (): JSX.Element => {
+  const [api, contextHolder] = notification.useNotification();
+  const [cookies] = useCookies(["Session", "AccountGUID"]);
   
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
   const location = useLocation(); 
@@ -63,43 +78,47 @@ const Router: React.FC = (): JSX.Element  => {
       });
     }
   }, [location.pathname, checkedOrders]);
-console.log("checked", checkedOrders.length);
+
+  console.log("checked", checkedOrders.length);
   return (
-      <Suspense
-        fallback={
-          <div className="main-loading flex flex-col items-center justify-center w-full h-[100vh]">
-            <p>Order Fulfilment Loading...</p>
-          </div>
-        }
-      >
-        <Routes>
+    <Suspense
+      fallback={
+        <div className="main-loading flex flex-col items-center justify-center w-full h-[100vh]">
+          <p>Order Fulfilment Loading...</p>
+        </div>
+      }
+    >
+      <Routes>
+        {/* Public routes */}
+        <Route path="/" element={<Landing />} />
+        <Route path={routes.landingPage} element={<Landing />} />
+        
+        {/* Protected routes */}
         <Route
           path={routes.checkout}
           element={
-            checkedOrders?.length > 0 ? (
+            !cookies.AccountGUID || !cookies.Session ? (
+              <Navigate to={routes.landingPage} replace />
+            ) : checkedOrders?.length > 0 ? (
               <Checkout />
             ) : (
-              <>
-                <Navigate to={routes.importlist} replace />
-                setTriggred(true)
-              </>
+              <Navigate to={routes.importlist} replace />
             )
           }
         />
-          <Route path={routes.checkout} Component={Checkout}  />
-          <Route path={routes.shippingpreference} Component={ShippingPreference} />
-          <Route path={routes.paymentaddress} Component={PaymentAddress} />
-          <Route path={routes.mycompany} Component={MyCompany} />
-          <Route path={routes.editorder} Component={EditOrder}   />
-          <Route path={routes.billingaddress} Component={BillingAddress} />
-          <Route path={routes.import} Component={Import} />
-          <Route path={routes.importlist} Component={ImportList} />
-          <Route path={routes.importfilter} Component={ImportFilter} />
-          <Route path={routes.virtualinventory} Component={VirtualInventory} />
-          <Route path={routes.confirmation} Component={Confirmation} />
-          <Route path="*" Component={initialRoute()} />
-        </Routes>
-      </Suspense>
+        <Route path={routes.shippingpreference} element={<ProtectedRoute component={ShippingPreference} />} />
+        <Route path={routes.paymentaddress} element={<ProtectedRoute component={PaymentAddress} />} />
+        <Route path={routes.mycompany} element={<ProtectedRoute component={MyCompany} />} />
+        <Route path={routes.editorder} element={<ProtectedRoute component={EditOrder} />} />
+        <Route path={routes.billingaddress} element={<ProtectedRoute component={BillingAddress} />} />
+        <Route path={routes.import} element={<ProtectedRoute component={Import} />} />
+        <Route path={routes.importlist} element={<ProtectedRoute component={ImportList} />} />
+        <Route path={routes.importfilter} element={<ProtectedRoute component={ImportFilter} />} />
+        <Route path={routes.virtualinventory} element={<ProtectedRoute component={VirtualInventory} />} />
+        <Route path={routes.confirmation} element={<ProtectedRoute component={Confirmation} />} />
+        <Route path="*" element={<Landing />} />
+      </Routes>
+    </Suspense>
   );
 };
 

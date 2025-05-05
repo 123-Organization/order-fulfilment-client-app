@@ -103,7 +103,7 @@ export default function PaymentMethods(remainingTotal: any = 0) {
       remainingTotal?.remainingTotal === 0 ? (
         <></>
       ) : (
-        <>
+        <div className=" ">
           <p className="w-full text-center pt-4">
             <Button
               key="submit"
@@ -116,7 +116,7 @@ export default function PaymentMethods(remainingTotal: any = 0) {
             </Button>
           </p>
 
-          <p className=" w-full text-center pt-4">
+          <p className=" w-full text-center pt-2">
             <Button
               key="submit"
               className="max-md:w-6/12  w-[170px]  md:mx-8 mt-2 "
@@ -127,7 +127,7 @@ export default function PaymentMethods(remainingTotal: any = 0) {
               Add Payment Method
             </Button>
           </p>
-        </>
+        </div>
       )}
 
       {location.pathname === "/checkout" && (
@@ -144,12 +144,12 @@ export default function PaymentMethods(remainingTotal: any = 0) {
   );
   return (
     <>
-      <div className="w-[3x00px] max-lg:w-12/12 max-md:w-full flex flex-col justify-start items-center md:ml-16 bg-black ">
+      <div className="w-[3x00px] max-lg:w-12/12 max-md:w-full flex flex-col justify-start items-center md:ml-16">
         <Form layout="horizontal" className="w-full flex flex-col items-center">
-          <p className="text-lg font-bold -ml-12 text-gray-400">
+          <p className="text-lg font-bold  text-gray-600 mr-2">
             My Payment Methods
           </p>
-          <div className="w-full m">
+          <div className="w-full ">
             {showPaymentMethod ? (
               <div></div>
             ) : (
@@ -190,7 +190,7 @@ export default function PaymentMethods(remainingTotal: any = 0) {
             value={value}
             className="w-full flex flex-start flex-col justify-self-start"
           >
-            <Space direction="vertical" className="text-gray-400">
+            <Space direction="vertical" className="text-gray-400 ">
               {!showPayment ? (
                 displayTurtles
               ) : (

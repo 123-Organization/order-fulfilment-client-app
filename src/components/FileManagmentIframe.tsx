@@ -29,6 +29,19 @@ export default function FileManagementIframe({ iframe, setIframe }) {
   const productDataStatus = useAppSelector(
     (state) => state.order.productDataStatus
   );
+
+  const [isMaximized, setIsMaximized] = useState(false);
+  const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 1200);
+  const toggleMaximize = () => {
+    if (isSmallScreen) {
+      // If on small screen, reset the size to a normal modal
+      setIsSmallScreen(false);
+      setIsMaximized(false); // Reset full-screen state
+    } else {
+      // Otherwise toggle the maximize state
+      setIsMaximized(!isMaximized);
+    }
+  };
   console.log("iframeState...", iframeState);
   // Handle full-screen change event
   useEffect(() => {
@@ -37,6 +50,7 @@ export default function FileManagementIframe({ iframe, setIframe }) {
         setIsFullScreen(false);
       }
     };
+    
   
 
     document.addEventListener("fullscreenchange", handleFullScreenChange);
@@ -109,17 +123,29 @@ export default function FileManagementIframe({ iframe, setIframe }) {
   }
 
   return (
-    <div>
+    <div className="z-50">
       <Modal
         title="File Management"
         visible={iframe === true || iframeState === true}
         onOk={() => setIframe(false)}
+        width={isMaximized || isSmallScreen ? "100vw" : "80%"}
+        style={{
+          top: isMaximized || isSmallScreen ? 0 : 50,
+          left: 0,
+          height: isMaximized || isSmallScreen ? "100vh" : "auto",
+          maxWidth: "100vw",
+          background: isMaximized || isSmallScreen ? "transparent" : "initial", // Remove background when maximizing
+        }}
+        bodyStyle={{
+          padding: 0,
+          height: isMaximized || isSmallScreen ? "100vh" : "550px",
+        }}
         className="z-50"
         onCancel={() => {
           setIframe(false);
           dispatch(updateIframeState({ iframeState: false }));
         }}
-        width="80%"
+        
         footer={null}
       >
         <div
@@ -127,8 +153,9 @@ export default function FileManagementIframe({ iframe, setIframe }) {
           style={{
             position: "relative",
             width: "100%",
-            height: isFullScreen ? "100vh" : "550px",
+            height: "100%",
           }}
+          className="z-50"
         >
           <iframe
             src="https://prod1-filemanger-app.finerworks.com/#/thumbnail"
@@ -165,6 +192,7 @@ export default function FileManagementIframe({ iframe, setIframe }) {
           </button>}
           <Button
             type="default"
+            className="z-50"
             style={{
               position: "absolute",
               border: "none",

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Button, PaginationProps, Spin, notification, Pagination } from "antd";
+import { Button, PaginationProps, Spin, notification, Pagination,Skeleton } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store";
 import {
@@ -38,6 +38,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const product_details = useAppSelector(
     (state) => state.ProductSlice.product_details
   );
+  const customerInfo = useAppSelector((state) => state.Customer.customer_info);
 
   const orderEdited = useAppSelector((state) => state.order.orderEdited);
   console.log("orderEdited", orderEdited);
@@ -183,7 +184,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
           setNextSpinning(true);
           await dispatch(
             getImportOrders({
-              account_key: "81de5dba-0300-4988-a1cb-df97dfa4e372",
+              account_key: customerInfo?.data?.account_id,
               ...myImport,
             })
           );
@@ -229,11 +230,47 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
       ) {
          console.log("About to dispatch updateOrdersInfo with:", updatedValues);
          try {
-            await dispatch(updateOrdersInfo([updatedValues]));
-           console.log("Successfully dispatched updateOrdersInfo");
-           dispatch(updateOrderStatus({ status: true, clicked: true }));
+           // Log customer info for debugging
+           console.log("Customer Info account_id:", customerInfo?.data?.account_id);
+           
+           // Make sure updatedValues is proper format
+           if (!updatedValues.recipient && Object.keys(updatedValues).length === 0) {
+             console.error("No updated values to send");
+             openNotificationWithIcon({
+               type: "error",
+               message: "Error",
+               description: "No data to update. Please make changes first."
+             });
+             return;
+           }
+           
+           // Create a properly formatted data object
+           const result = await dispatch(
+             updateOrdersInfo([
+               updatedValues, // The order with updates
+               { customerId: customerInfo?.data?.account_id  } // Customer ID in expected format
+             ])
+           );
+           
+           // Check if successful
+           if (result.meta.requestStatus === 'fulfilled') {
+             console.log("Successfully dispatched updateOrdersInfo:", result.payload);
+             dispatch(updateOrderStatus({ status: true, clicked: true }));
+           } else {
+             console.error("Failed to update order:", result.payload);
+             openNotificationWithIcon({
+               type: "error",
+               message: "Error",
+               description: "Failed to update order information"
+             });
+           }
          } catch (error) {
            console.error("Error dispatching updateOrdersInfo:", error);
+           openNotificationWithIcon({
+             type: "error",
+             message: "Error",
+             description: "An error occurred while updating order"
+           });
          }
       }
     } catch (error) {
@@ -247,17 +284,17 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
     }
   };
 
-  useEffect(() => {
-    if (recipientStatus === "succeeded") {
-      openNotificationWithIcon({
-        type: "success",
-        message: "Success",
-        description: "Information has been updated",
-      });
-      dispatch(resetRecipientStatus());
-      setNextVisiable(false);
-    }
-  }, [recipientStatus]);
+  // useEffect(() => {
+  //   if (recipientStatus === "succeeded") {
+  //     openNotificationWithIcon({
+  //       type: "success",
+  //       message: "Success",
+  //       description: "Information has been updated",
+  //     });
+  //     dispatch(resetRecipientStatus());
+  //     setNextVisiable(false);
+  //   }
+  // }, [recipientStatus]);
 
   
 
@@ -396,11 +433,11 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
       //   navigate('/')
       setNextSpinning(false);
       setNextVisiable(false);
-      openNotificationWithIcon({
-        type: "success",
-        message: "Success",
-        description: "Information has been saved",
-      });
+      // openNotificationWithIcon({
+      //   type: "success",
+      //   message: "Success",
+      //   description: "Information has been saved",
+      // });
     } else if (companyInfo?.statusCode === 400) {
       setNextSpinning(false);
       setNextVisiable(false);
@@ -580,12 +617,12 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
         <div className="grid h-full max-w-lg grid-cols-1 font-medium basis-1/2 ">
           {totalVisiable && (
             <div className={`flex flex-col font-bold text-gray-400 pt-2 ${style.bottomDescription}`}>
-              <span>
+              <span className="w-full block ">
                 Selected orders: {checkedOrders.length} /{orders?.data?.length}
               </span>
-              <span>
+              <span className="flex  justify-center ">
                 Grand Total :{" "}
-                {product_details?.totalPrice && "$" + grandTotal.toFixed(2)}
+                {(product_details?.totalPrice && "$" + grandTotal.toFixed(2)) }
               </span>
             </div>
           )}

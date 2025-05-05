@@ -102,6 +102,7 @@ const PopupModal: React.FC<PopupModalProps> = ({
       
       
       dispatch(updateIframeState({ iframeState: true }));
+      onClose();
     }
 
     notificationApi.success({
@@ -184,7 +185,7 @@ const PopupModal: React.FC<PopupModalProps> = ({
 
   return (
     <Modal
-    className="z-40"
+    className="z-20"
       title="Enter Product Code"
       visible={visible}
       onCancel={handleClose}

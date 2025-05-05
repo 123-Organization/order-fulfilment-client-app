@@ -11,6 +11,14 @@ const initialState: CustomerState = {
         customer_info: {},
 }
 
+// Helper function to get cookie value by name
+const getCookie = (name: string) => {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop()?.split(';').shift();
+    return null;
+};
+
 export const getCustomerInfo = createAsyncThunk(
         "customer/info",
         async (_, thunkAPI) => {
@@ -26,13 +34,13 @@ export const getCustomerInfo = createAsyncThunk(
                         return thunkAPI.rejectWithValue("Company info is missing.");
                 }
 
-                // Use the account_key from company info
-                const accountKey = companyInfo?.account_key || "default-key";
+                // Get cookie value directly instead of using the hook
+                const accountKey = getCookie("AccountGUID") || "default-key";
                 console.log("Company Info:", companyInfo);
                 console.log("Account Key:", accountKey);
 
                 // Fetch customer info using the account key
-                const response = await fetch(BASE_URL + `get-info?account_key=${"81de5dba-0300-4988-a1cb-df97dfa4e372"}`, {
+                const response = await fetch(BASE_URL + `get-info?account_key=${accountKey}`, {
                         method: "GET",
                         headers: {
                                 "Content-Type": "application/json",

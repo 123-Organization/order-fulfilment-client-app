@@ -92,21 +92,75 @@ export const updateOrdersInfo = createAsyncThunk(
   "order/update",
   async (postData: any, thunkAPI) => {
     console.log('pospos', postData)
-    const Data = {
-      "accountId": "1556",
-      "orders":
-        [...postData]
+    
+    // Fix the data structure to properly handle the input format
+    let Data;
+    
+    // Check what format the data is coming in
+    if (Array.isArray(postData) && postData.length > 1 && postData[1].customerId) {
+      // Format from BottomIcon.tsx: [updatedValues, {customerId: id}]
+      const orderData = postData[0];
+      const customerId = postData[1].customerId;
+      
+      // If orderData is already an array of orders
+      if (Array.isArray(orderData)) {
+        Data = {
+          "accountId": customerId,
+          "orders": orderData
+        };
+      } 
+      // If orderData is a single order object
+      else {
+        Data = {
+          "accountId": customerId,
+          "orders": [orderData]
+        };
+      }
+    } 
+    // Format from EditOrder.tsx where we send {updatedValues: [...], customerId: ...}
+    else if (postData.updatedValues && postData.customerId) {
+      Data = {
+        "accountId": postData.customerId,
+        "orders": postData.updatedValues
+      };
     }
-    console.log('dedeee', Data)
-    const response = await fetch(BASE_URL + "update-orders", {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(Data),
-    });
-    const data = await response.json();
-    return data;
+    // If the format doesn't match any expected pattern, log an error and use as is
+    else {
+      console.error("Unexpected data format for updateOrdersInfo:", postData);
+      // Try to adapt to whatever format is provided
+      if (Array.isArray(postData) && postData.length > 0) {
+        Data = {
+          "accountId": postData[1]?.customerId ,
+          "orders": Array.isArray(postData[0]) ? postData[0] : [postData[0]]
+        };
+      } else {
+        Data = postData;
+      }
+    }
+    
+    console.log('Sending to API:', Data);
+    
+    try {
+      const response = await fetch(BASE_URL + "update-orders", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(Data),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('API error:', errorData);
+        return thunkAPI.rejectWithValue(errorData);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('API call failed:', error);
+      return thunkAPI.rejectWithValue('Failed to update orders');
+    }
   },
 );
 
@@ -274,6 +328,14 @@ export const OrderSlice = createSlice({
   extraReducers: (builder) => {
     builder.addCase(fetchOrder.fulfilled, (state, action) => {
       state.orders = action.payload;
+      state.status = 'succeeded';
+    });
+    builder.addCase(fetchOrder.pending, (state, action) => {
+      state.status = 'loading';
+    });
+    builder.addCase(fetchOrder.rejected, (state, action) => {
+      state.status = 'failed';
+      state.error = action.payload as string;
     });
 
     builder.addCase(updateOrdersInfo.fulfilled, (state, action) => {

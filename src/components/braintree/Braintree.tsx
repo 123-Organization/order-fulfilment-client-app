@@ -83,7 +83,7 @@ const Braintree = ({
         const finalPayload = {
           nonceFromClient,
           customerId,
-          amount: remainingTotal.toFixed(2),
+          amount: 0,
           vault: true,
         };
         console.log("finalPayload", finalPayload);
@@ -98,7 +98,7 @@ const Braintree = ({
   };
 
   const BbuttonName =
-    location.pathname === "/checkout" ? "Pay Now" : "Add Card";
+    location.pathname === "/checkout" ? "Add Card" : "Add Card";
 
   return (
     <div
