@@ -25,6 +25,7 @@ interface OrderState {
   saveOrderInfo: any;
   checkedOrders: any;
   orderEdited: any;
+  submitedOrders: any;
   Wporder: any;
   currentOrderFullFillmentId: any;
   status: "idle" | "loading" | "succeeded" | "failed"; // ✅ Add status here
@@ -47,6 +48,7 @@ const initialState: OrderState = {
   myImport: {},
   orderEdited: { status: false, clicked: false, },
   status: "idle",
+  submitedOrders: [],
   error: null,
   currentOrderFullFillmentId: null,
   productDataStatus: "idle",
@@ -92,23 +94,23 @@ export const updateOrdersInfo = createAsyncThunk(
   "order/update",
   async (postData: any, thunkAPI) => {
     console.log('pospos', postData)
-    
+
     // Fix the data structure to properly handle the input format
     let Data;
-    
+
     // Check what format the data is coming in
     if (Array.isArray(postData) && postData.length > 1 && postData[1].customerId) {
       // Format from BottomIcon.tsx: [updatedValues, {customerId: id}]
       const orderData = postData[0];
       const customerId = postData[1].customerId;
-      
+
       // If orderData is already an array of orders
       if (Array.isArray(orderData)) {
         Data = {
           "accountId": customerId,
           "orders": orderData
         };
-      } 
+      }
       // If orderData is a single order object
       else {
         Data = {
@@ -116,7 +118,7 @@ export const updateOrdersInfo = createAsyncThunk(
           "orders": [orderData]
         };
       }
-    } 
+    }
     // Format from EditOrder.tsx where we send {updatedValues: [...], customerId: ...}
     else if (postData.updatedValues && postData.customerId) {
       Data = {
@@ -130,16 +132,16 @@ export const updateOrdersInfo = createAsyncThunk(
       // Try to adapt to whatever format is provided
       if (Array.isArray(postData) && postData.length > 0) {
         Data = {
-          "accountId": postData[1]?.customerId ,
+          "accountId": postData[1]?.customerId,
           "orders": Array.isArray(postData[0]) ? postData[0] : [postData[0]]
         };
       } else {
         Data = postData;
       }
     }
-    
+
     console.log('Sending to API:', Data);
-    
+
     try {
       const response = await fetch(BASE_URL + "update-orders", {
         method: "PUT",
@@ -148,13 +150,13 @@ export const updateOrdersInfo = createAsyncThunk(
         },
         body: JSON.stringify(Data),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         console.error('API error:', errorData);
         return thunkAPI.rejectWithValue(errorData);
       }
-      
+
       const data = await response.json();
       return data;
     } catch (error) {
@@ -265,21 +267,57 @@ export const deleteOrder = createAsyncThunk(
     return data;
   },
 );
-  
+
 export const fetchWporder = createAsyncThunk(
   "order/fetch/wporder",
   async (postData: any, thunkAPI) => {
-    const response = await fetch(BASE_URL + `get-order-details-by-id?orderId=${postData.orderId}&platformName=${postData.platformName}`, {
-      method: "GET",
+    const sendData = {
+     "orderIds": Array.isArray(postData?.orderId) ? postData?.orderId : [postData?.orderId],
+     "accountId": postData?.accountId
+    }
+    console.log('Sending to API for fetchWporder:', sendData, 'platformName:', postData.platformName);
+    try {
+      const response = await fetch(BASE_URL + `get-order-details-by-id?platformName=${postData.platformName}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(sendData)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('API error in fetchWporder:', errorData);
+        return thunkAPI.rejectWithValue(errorData);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('API call failed in fetchWporder:', error);
+      return thunkAPI.rejectWithValue('Failed to fetch WP order');
+    }
+  },
+);
+
+export const DeleteAllOrders = createAsyncThunk(
+  "order/delete/all",
+  async (postData: any, thunkAPI) => {
+    postData = {
+      "accountId": postData.accountId
+    }
+    const response = await fetch(BASE_URL + "soft-delete-after-payment", {
+      method: "POST",
       headers: {
         "Content-Type": "application/json",
-      }
+      },
+      body: JSON.stringify(postData),
     });
     const data = await response.json();
     return data;
   },
-);
 
+);
 
 
 export const OrderSlice = createSlice({
@@ -310,19 +348,29 @@ export const OrderSlice = createSlice({
     updateImport: (state, action: PayloadAction) => {
       state.myImport = action.payload;
     },
+    resetImport: (state) => {
+      state.myImport = {};
+    },
 
     updateCheckedOrders: (state, action: PayloadAction) => {
       state.checkedOrders = action.payload;
     },
-    updateOrderStatus: (state: OrderState, action: PayloadAction<{status: boolean, clicked: boolean}>) => {
+    updateOrderStatus: (state: OrderState, action: PayloadAction<{ status: boolean, clicked: boolean }>) => {
       state.orderEdited = action.payload;
       console.log('state.orderEdited', state.orderEdited)
     },
     updateWporder: (state, action: PayloadAction) => {
       state.Wporder = action.payload;
+      
     },
     resetDeleteOrderStatus: (state) => {
       state.deleteOrderStatus = "idle";
+    },
+    updateSubmitedOrders: (state, action: PayloadAction) => {
+      state.submitedOrders = action.payload;
+    },
+    resetSubmitedOrders: (state) => {
+      state.submitedOrders = [];
     }
   },
   extraReducers: (builder) => {
@@ -406,10 +454,14 @@ export const OrderSlice = createSlice({
       state.error = action.payload as string;
     }
     );
+    builder.addCase(DeleteAllOrders.fulfilled, (state, action) => {
+      state.orders = action.payload;
+    }
+    );
 
   }
 
 });
 
 export default OrderSlice.reducer;
-export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus } = OrderSlice.actions;
+export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport } = OrderSlice.actions;

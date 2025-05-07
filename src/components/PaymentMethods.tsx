@@ -26,6 +26,7 @@ export default function PaymentMethods(remainingTotal: any = 0) {
   const paymentMethods = useAppSelector(
     (state) => state.Payment.payment_methods
   );
+  console.log("paymentMethods", paymentMethods);
   const showPaymentMethod =
     location.pathname === "/checkout" && remainingTotal?.remainingTotal === 0;
   console.log("rere", remainingTotal?.remainingTotal);
@@ -45,7 +46,7 @@ export default function PaymentMethods(remainingTotal: any = 0) {
 
   useEffect(() => {
     dispatch(getCustomerInfo());
-  }, [dispatch]);
+  }, []);
 
   useEffect(() => {
     if (paymentMethods?.data?.paymentMethods?.length > 0) {

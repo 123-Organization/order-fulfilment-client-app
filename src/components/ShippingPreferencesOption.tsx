@@ -1,15 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Radio, Space, Form } from 'antd';
 import type { RadioChangeEvent } from 'antd';
 
 interface ShippingPreferencesOptionProps {
-  onChange: (value: number) => void; 
+  onChange: (value: number) => void;
+  initialValue?: string; 
 }
 
-const ShippingPreferencesOption: React.FC<ShippingPreferencesOptionProps> = ({ onChange }) => {
-  const [value, setValue] = useState<number>(1);
+const ShippingPreferencesOption: React.FC<ShippingPreferencesOptionProps> = ({ 
+  onChange, 
+  initialValue = "1"
+}) => {
+  const [value, setValue] = useState<number>(parseInt(initialValue) || 1);
 
-  const onChange1 = (e: RadioChangeEvent) => {
+  // Update value if initialValue changes
+  useEffect(() => {
+    if (initialValue) {
+      setValue(parseInt(initialValue) || 1);
+    }
+  }, [initialValue]);
+
+  const handleChange = (e: RadioChangeEvent) => {
     console.log('radio checked', e.target.value);
     setValue(e.target.value);
     onChange(e.target.value);
@@ -17,44 +28,46 @@ const ShippingPreferencesOption: React.FC<ShippingPreferencesOptionProps> = ({ o
 
   return (
     <Form
-      labelCol={{ span: 4 }}
-      wrapperCol={{ span: 14 }}
-      layout="horizontal"
-      className="w-full "
+      layout="vertical"
+      className="w-full"
     >
-      <Radio.Group className="text-gray-400" onChange={onChange1} value={value}>
-        <Space direction="vertical" className="text-gray-400">
-          <Radio value={1} className="text-gray-400 align-text-top">
-            <strong>Most Economical</strong>
-            <br />
-            <span>
-              It is usually used to let the browser see your Radio.Group as a real "group" and
-              keep the default behavior.
-            </span>
+      <Radio.Group className="w-full" onChange={handleChange} value={value}>
+        <Space direction="vertical" className="w-full" size={16}>
+          <Radio value={1} className="w-full">
+            <div className="flex flex-col text-gray-400">
+              <strong className="text-base md:text-base">Most Economical</strong>
+              <span className="text-sm md:text-base mt-1">
+                It is usually used to let the browser see your Radio.Group as a real "group" and
+                keep the default behavior.
+              </span>
+            </div>
           </Radio>
-          <Radio className="text-gray-400" value={2}>
-            <strong>Ship Prints Rolled</strong>
-            <br />
-            <span>
-              It is usually used to let the browser see your Radio.Group as a real "group" and
-              keep the default behavior.
-            </span>
+          <Radio value={2} className="w-full">
+            <div className="flex flex-col text-gray-400">
+              <strong className="text-base md:text-base">Ship Prints Rolled</strong>
+              <span className="text-sm md:text-base mt-1">
+                It is usually used to let the browser see your Radio.Group as a real "group" and
+                keep the default behavior.
+              </span>
+            </div>
           </Radio>
-          <Radio className="text-gray-400" value={3}>
-            <strong>Ship Prints Flat</strong>
-            <br />
-            <span>
-              It is usually used to let the browser see your Radio.Group as a real "group" and
-              keep the default behavior.
-            </span>
+          <Radio value={3} className="w-full">
+            <div className="flex flex-col text-gray-400">
+              <strong className="text-base md:text-base">Ship Prints Flat</strong>
+              <span className="text-sm md:text-base mt-1">
+                It is usually used to let the browser see your Radio.Group as a real "group" and
+                keep the default behavior.
+              </span>
+            </div>
           </Radio>
-          <Radio className="text-gray-400" value={4}>
-            <strong>Fastest</strong>
-            <br />
-            <span>
-              It is usually used to let the browser see your Radio.Group as a real "group" and
-              keep the default behavior.
-            </span>
+          <Radio value={4} className="w-full">
+            <div className="flex flex-col text-gray-400">
+              <strong className="text-base md:text-base">Fastest</strong>
+              <span className="text-sm md:text-base mt-1">
+                It is usually used to let the browser see your Radio.Group as a real "group" and
+                keep the default behavior.
+              </span>
+            </div>
           </Radio>
         </Space>
       </Radio.Group>

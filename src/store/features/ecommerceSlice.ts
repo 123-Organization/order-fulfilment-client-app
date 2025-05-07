@@ -1,6 +1,6 @@
 import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import config from "../../config/configs";
-const ECOMMERCE_CONNCET_URL = "https://artsafenet.com/wp-json/finerworks-med/";
+const ECOMMERCE_CONNCET_URL = "https://artsafenet.com/wp-json/finerworks-media/v1/";
 
 interface EcommerceState {
         ecommerceConnectorgetOrderWoocommerce: any;
@@ -27,7 +27,7 @@ export const ecommerceConnector = createAsyncThunk(
         async (postData: any, thunkAPI) => {
                 console.log('postData...', postData)
 
-                const response = await fetch(ECOMMERCE_CONNCET_URL + "authorize?client_id=" + postData.account_key, {
+                const response = await fetch(ECOMMERCE_CONNCET_URL + `authorize?client_id=${postData.account_key}&redirect_uri=${"artsafenet.com"}`, {
                         headers: {
                                 "Content-Type": "application/json",
                         },

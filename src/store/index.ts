@@ -17,14 +17,14 @@ const orderPersistConfig = {
   key: 'order',
   storage,
   // Only persist the checkedOrders, not all orders data
-  whitelist: ['checkedOrders'],
+  whitelist: ['checkedOrders', 'submitedOrders'],
 };
 
 // Create a persist configuration for the root
 const rootPersistConfig = {
   key: 'root',
   storage,
-  blacklist: ['order', 'Shipping', "Inventory", "company"],
+  blacklist: ['order', 'Shipping', "Inventory", "company", "Customer","Payment","Ecommerce"],
 };
 
 // Apply the nested persist config to the order slice

@@ -14,7 +14,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { ecommerceConnector } from "../store/features/ecommerceSlice";
 import { updateCompanyInfo} from "../store/features/companySlice";
 import { useAppDispatch, useAppSelector } from "../store";
-
+import { useNotificationContext } from "../context/NotificationContext";
 // import { connectAdvanced } from "react-redux";
 import { find } from "lodash";
 
@@ -59,6 +59,7 @@ const Landing: React.FC = (): JSX.Element => {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const typeValue = queryParams.get("type");
+  const notificationApi = useNotificationContext();
 
   console.log(location.pathname,typeValue);
   // const [isOpen, setOpenExcel] = useState<Boolean>(true);
@@ -211,15 +212,28 @@ const Landing: React.FC = (): JSX.Element => {
     }
 
     if (imgname === "WooCommerce") {
-      if (!openBtnConnected) {
+      // Check if user is logged in first
+      if (!customerInfo?.data?.account_key) {
+        notificationApi.warning({
+          message: "Login Required",
+          description: "Please login to your account to continue",
+        });
+        return;
+      }
+
+      // If already connected, navigate to import filter
+      // Otherwise connect to ecommerce
+      if (openBtnConnected) {
+        navigate("/importfilter?type=WooCommerce");
+      } else {
+        // Log the parameters to verify they're correct
+        console.log("Connecting to WooCommerce with key:", customerInfo?.data?.account_key);
+        
         dispatch(
           ecommerceConnector({
             account_key: customerInfo?.data?.account_key
           })
         );
-      }
-      else{
-        navigate("/importfilter?type=WooCommerce")
       }
     }
   };

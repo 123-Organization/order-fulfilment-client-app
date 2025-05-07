@@ -25,7 +25,7 @@ const Braintree = ({
   const [braintreeInstance, setBraintreeInstance] = useState<
     Dropin | undefined
   >();
-
+const [dropped, setDropped] = useState(false);
   const location = useLocation();
   const SelectedCard = useAppSelector((state) => state.Payment.selectedCard);
   console.log("SelectedCard", SelectedCard);
@@ -105,14 +105,14 @@ const Braintree = ({
       className="braintree w-full"
       style={{ display: `${show ? "block" : "none"}` }}
     >
-      <div id={"braintree-drop-in-div"} />
+      <div id={"braintree-drop-in-div"} onClick={() => setDropped(!dropped)} />
       {braintreeInstance && (
-        <div className="flex justify-center  w-full">
+        <div className={`flex justify-center  w-full ${dropped ? 'block' : "hidden"}`}>
           <button
             disabled={!braintreeInstance}
             onClick={requestPaymentMethod}
             color="danger"
-            className="btn-grad  "
+            className={`btn-grad `}
             
           >
             {BbuttonName}

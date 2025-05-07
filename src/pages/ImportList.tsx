@@ -33,6 +33,8 @@ import Loading from "../components/Loading";
 import { useNotificationContext } from "../context/NotificationContext";
 import styles from "../components/ToggleButtons.module.css";
 import { resetDeleteOrderStatus } from "../store/features/orderSlice";
+import { resetSubmitedOrders } from "../store/features/orderSlice";
+import SkeletonOrderCard from "../components/SkeletonOrderCard";
 
 const { Option } = Select;
 type SizeType = Parameters<typeof Form>[0]["size"];
@@ -129,18 +131,22 @@ const ImportList: React.FC = () => {
       </div>
     );
   };
-  console.log("myImport", myImport);
-  console.log("wporder", wporder);
+ useEffect(() => {
+  dispatch(resetSubmitedOrders());
+ }, []);
+
+  // useEffect(() => {
+  //   if (orders && !orders?.data?.length) {
+  //     dispatch(fetchOrder(customerInfo?.data?.account_id));
+  //   }
+  // }, [orders]);
 
   useEffect(() => {
-    if (orders && !orders?.data?.length) {
+    setTimeout(() => {
       dispatch(fetchOrder(customerInfo?.data?.account_id));
-    }
-  }, [orders]);
-
-  useEffect(() => {
-    dispatch(fetchOrder(customerInfo?.data?.account_id));
-  }, []);
+    }, 1000);
+  }, [customerInfo?.data?.account_id, dispatch]);
+  console.log("oo", customerInfo?.data?.account_id);
 
   // Add responsive character limit based on screen size
   useEffect(() => {
@@ -209,6 +215,7 @@ const ImportList: React.FC = () => {
       deleteNotificationShown.current.succeeded = true;
       // Reset status after showing notification
       dispatch(resetDeleteOrderStatus());
+      dispatch(fetchOrder(customerInfo?.data?.account_id));
     } else if (
       deleteOrderStatus === "failed" &&
       !deleteNotificationShown.current.failed
@@ -228,6 +235,7 @@ const ImportList: React.FC = () => {
       const validOrders = orders?.data?.filter(
         (order) => order?.order_items && order?.order_items?.length > 0
       );
+      console.log("validOrders", validOrders);
       const orderPostDataList = validOrders
         ?.map((order) => ({
           order_po: order?.order_po,
@@ -670,8 +678,8 @@ const ImportList: React.FC = () => {
                   </ul>
                 </div>
               ))
-            ) : (
-              
+            ) : 
+              ( (orders?.data && orders.data.length === 0 ) ? (
               <div className="flex flex-col items-center justify-center h-64 bg-white rounded-lg shadow-md p-6 mb-20">
                 <img
                   src={shoppingCart}
@@ -686,19 +694,17 @@ const ImportList: React.FC = () => {
                 </p>
                 <Button
                   type="primary"
-                  onClick={() => navigate("/import")}
+                  onClick={() => navigate("/importfilter?type=WooCommerce")}
                   className="bg-blue-500 hover:bg-blue-600"
                 >
                   Import Orders
                 </Button>
               </div>
-              
+              ) : (
+                <SkeletonOrderCard count={3} />
+              )
             )}
-            {ordersStatus === "loading" && (
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 mt-20">
-                <Loading message="Loading, please wait..." size={50} />
-              </div>
-            )}
+
             <DeleteMessage
               visible={DeleteMessageVisible}
               onClose={setDeleteMessageVisible}

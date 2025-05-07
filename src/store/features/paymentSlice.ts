@@ -159,6 +159,13 @@ export const PaymentSlice = createSlice({
                         state.status = "idle"; // ✅ Reset status
                         state.error = null;
                     },
+                    clearPaymentMethods: (state) => {
+                        state.payment_methods = {};
+                        state.createCustomerInfo = {};
+                        state.paymentToken = {};
+                        state.status = "idle";
+                        state.tokenStatus = "idle";
+                    },
         },
         extraReducers: (builder) => {
                 builder.addCase(getPaymentMethods.fulfilled, (state, action) => {
@@ -169,9 +176,17 @@ export const PaymentSlice = createSlice({
                         state.createCustomerInfo = action.payload;
                 });
                 
+                builder.addCase(getPaymentToken.pending, (state) => {
+                        state.tokenStatus = "loading";
+                });
+                
                 builder.addCase(getPaymentToken.fulfilled, (state, action) => {
                         state.paymentToken = action.payload;
                         state.tokenStatus = "succeeded";
+                });
+                
+                builder.addCase(getPaymentToken.rejected, (state) => {
+                        state.tokenStatus = "failed";
                 });
                 
                 builder.addCase(processVaultedPayment.pending, (state) => {
@@ -203,4 +218,4 @@ export const PaymentSlice = createSlice({
 
 export default PaymentSlice;
 
-export const { setSelectedCard, resetPaymentStatus } = PaymentSlice.actions;
+export const { setSelectedCard, resetPaymentStatus, clearPaymentMethods } = PaymentSlice.actions;

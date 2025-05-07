@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "../store";
-import { Checkbox, Form, Input, Select, Tabs, Radio, Space,notification } from "antd";
-import {  updateShipping } from "../store/features/shippingSlice";
+import { Checkbox, Form, Input, Select, Tabs, Radio, Space, notification } from "antd";
+import { updateShipping } from "../store/features/shippingSlice";
 import type { TabsProps } from "antd";
 import ShippingPreferencesOption from "../components/ShippingPreferencesOption";
-import { updateLanguageServiceSourceFile } from "typescript";
 
 type NotificationType = "success" | "info" | "warning" | "error";
 interface NotificationAlertProps {
@@ -35,7 +34,25 @@ const ShippingPreference: React.FC = () => {
   const ecommerceConnectorInfo = useAppSelector(
     (state) => state.Ecommerce.ecommerceConnectorInfo
   );
-  const [selectedPreferences, setSelectedPreferences] = useState<string[]>([1, 1, 1]);
+  const companyInfo = useAppSelector((state) => state.company.company_info);
+  const shippingPreferences = companyInfo?.data?.shipping_preferences;
+
+  console.log("shippingPreferences:", shippingPreferences);
+  
+  // Initialize with default values
+  const [selectedPreferences, setSelectedPreferences] = useState<string[]>(["1", "1", "1"]);
+  const [optionClicked, setOptionClicked] = useState<boolean>(false);
+  console.log("selectedPreferences", selectedPreferences);
+
+  useEffect(() => {
+    // Only update if shippingPreferences exists and is an array
+    if (Array.isArray(shippingPreferences) && shippingPreferences.length > 0) {
+      setSelectedPreferences([...shippingPreferences]);
+    } else if (shippingPreferences === undefined || shippingPreferences === null) {
+      // If no preferences exist yet, keep using the default values
+      console.log("No shipping preferences found, using defaults");
+    }
+  }, [shippingPreferences]);
 
   useEffect(() => {
     if (isFirstRender) {
@@ -43,24 +60,37 @@ const ShippingPreference: React.FC = () => {
       return; // Exit early on the first render
     }
 
-    if (selectedPreferences.length > 0) {
+    if (selectedPreferences && selectedPreferences.length > 0) {
+      // Update shipping preferences
       dispatch(
-        updateShipping({
-          shipping_preferences: [...selectedPreferences],
-        })
+        updateShipping(selectedPreferences)
       );
-      openNotificationWithIcon({
-        type: "success",
-        message: "Shipping Preferences Updated",
-        description: "Your shipping preferences have been updated successfully.",
-      });
+      if (optionClicked) {
+        openNotificationWithIcon({
+          type: "success",
+          message: "Shipping Preferences Updated",
+          description: "Your shipping preferences have been updated successfully.",
+        });
+      }
     }
-  }, [selectedPreferences, dispatch]); // Removed ecommerceConnectorInfo if unnecessary
+  }, [selectedPreferences, dispatch]);
 
   const handlePreferenceChange = (preference: string, index: number) => {
     const updatedPreferences = [...selectedPreferences];
+    // Ensure the array is at least as long as the index we're trying to set
+    while (updatedPreferences.length <= index) {
+      updatedPreferences.push("1"); // Add default value if needed
+    }
     updatedPreferences[index] = preference;
     setSelectedPreferences(updatedPreferences);
+    setOptionClicked(true);
+  };
+
+  // Function to safely get preference value
+  const getPreferenceValue = (index: number): string => {
+    return selectedPreferences && selectedPreferences.length > index 
+      ? selectedPreferences[index] 
+      : "1";
   };
 
   const { Option } = Select;
@@ -70,40 +100,61 @@ const ShippingPreference: React.FC = () => {
     {
       key: "1",
       label: <strong className="text-gray-400">Preference 1</strong>,
-      children: <ShippingPreferencesOption onChange={(pref) => handlePreferenceChange(pref, 0)} />,
+      children: (
+        <ShippingPreferencesOption 
+          onChange={(pref) => handlePreferenceChange(String(pref), 0)} 
+          initialValue={getPreferenceValue(0)}
+          
+        />
+      ),
     },
     {
       key: "2",
       label: <strong className="text-gray-400">Preference 2</strong>,
-      children: <ShippingPreferencesOption onChange={(pref) => handlePreferenceChange(pref, 1)} />, 
+      children: (
+        <ShippingPreferencesOption 
+          onChange={(pref) => handlePreferenceChange(String(pref), 1)} 
+          initialValue={getPreferenceValue(1)}
+        />
+      ), 
     },
     {
       key: "3",
       label: <strong className="text-gray-400">Preference 3</strong>,
-      children: <ShippingPreferencesOption onChange={(pref) => handlePreferenceChange(pref, 2)} />, 
+      children: (
+        <ShippingPreferencesOption 
+          onChange={(pref) => handlePreferenceChange(String(pref), 2)} 
+          initialValue={getPreferenceValue(2)}
+        />
+      ), 
     },
   ];
 
   return (
-    <div className="flex max-md:flex-col justify-end items-center  w-full h-full p-8 max-md:py-8 max-md:px-4 max-sm:-ml-[30px]">
-      <div className="w-1/2 flex flex-col justify-start md:border-r-2 items-center md:h-[600px]">
-        <div className="container mx-auto  py-2 md:px-32 justify-center items-center w-full text-gray-400 ">
-          <p className="text-lg  font-bold">Shipping Preferences </p>
-          <p className="pt-5">
-            You can have up to 3 shipping preferences. In the rare instance a{" "}
-            <br />
-            option is not available, the option in your next "preference" <br />
+    <div className="flex flex-col md:flex-row justify-center items-start w-full min-h-screen p-4 md:p-8">
+      {/* Left side - Info */}
+      <div className="w-full md:w-1/2 flex flex-col justify-start items-center md:border-r-2 md:pr-6 pb-8 md:pb-0">
+        <div className="w-full max-w-md px-4 py-2 text-gray-400">
+          <h2 className="text-xl font-bold mb-4">Shipping Preferences</h2>
+          <p className="mb-2">
+            You can have up to 3 shipping preferences. In the rare instance a
+            option is not available, the option in your next "preference"
             will be used.
           </p>
         </div>
       </div>
-      <div className="w-1/2 flex justify-start h-screen max-md:-ml-[30px]">
-        <div className="container mx-auto md:px-5 py-2  justify-start items-center">
-          <div className="mt-4 mx-4 flex flex-wrap md:-m-2 justify-start items-center">
+      
+      {/* Right side - Tabs */}
+      <div className="w-full md:w-1/2 flex justify-start items-start md:pl-6">
+        <div className="w-full max-w-lg">
+          <div className="mt-4 md:mt-0">
             <Tabs
               defaultActiveKey="1"
               items={items}
               onChange={onChange}
+              className="w-full"
+              size="large"
+              tabBarGutter={24}
             />
           </div>
         </div>

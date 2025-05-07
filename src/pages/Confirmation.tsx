@@ -1,31 +1,53 @@
-import { Button, Result, ConfigProvider, Card, Col, Row } from "antd";
+import { Button, Result, ConfigProvider, Card, Col, Row, Tooltip, Badge } from "antd";
 import { useEffect, useState } from "react";
 import { useAppSelector, useAppDispatch } from "../store";
 import style from "./Pgaes.module.css";
 import { Steps } from "antd";
 import { useNavigate } from "react-router-dom";
-import { updateCheckedOrders } from "../store/features/orderSlice";
+import { updateCheckedOrders, resetImport, DeleteAllOrders } from "../store/features/orderSlice";
 import { resetPaymentStatus } from "../store/features/paymentSlice";
+import { InfoCircleOutlined } from "@ant-design/icons";
+
 export default function Confirmation() {
   const [isLoadeing, setIsLoading] = useState(false);
   const [icon, setIcon] = useState<"success" | "error" | "info" | "warning">(
     "success"
   );
-  const [title, setTitle] = useState("All Orderes Successfully Purchased ");
+  const submitedOrders = useAppSelector((state) => state.order.submitedOrders);
+  
+  // Format orders for display, showing the first 3 directly
+  const MAX_ORDERS_TO_DISPLAY = 3;
+  const hasMoreOrders = submitedOrders.length > MAX_ORDERS_TO_DISPLAY;
+  let displayedOrders = submitedOrders.slice(0, MAX_ORDERS_TO_DISPLAY).map((order: any) => order.order_po).join(", ");
+  
+  if (hasMoreOrders) {
+    displayedOrders += "...";
+  }
+  
+  const allOrderNumbers = submitedOrders.map((order: any) => order.order_po).join(", ");
+  
+  const [title, setTitle] = useState("All Orders Successfully Purchased ");
   const [subTitle, setSubTitle] = useState(
-    "Order number: 201718281882818288 Confirmation takes 1-10 seconds"
+    `Order number: ${displayedOrders} ${hasMoreOrders ? '' : '- Confirmation takes 1-10 seconds'}`
   );
+  
   const dispatch = useAppDispatch();
   const paymentStatus = useAppSelector((state) => state.Payment.status);
   const [confirmation, setConfirmation] = useState({first:"Finished", second:"Finished"});
   const [step , setStep] = useState(3);
   const [stepStatus, setStepStatus] = useState<"error" | "finish" | "wait" | "process" | undefined>("finish");
   const navigate = useNavigate();
+  const customerInfo = useAppSelector((state) => state.Customer.customer_info);
+  
+  console.log("submitedOrders", submitedOrders);
+ 
   useEffect(() => {
     if (paymentStatus === "succeeded") {
       setIsLoading(false);
       dispatch(updateCheckedOrders([] as any));
       dispatch(resetPaymentStatus());
+      dispatch(resetImport());
+      dispatch(DeleteAllOrders({accountId: customerInfo?.data?.account_id}));
     } else if (paymentStatus === "failed") {
       setIsLoading(true);
       setIcon("error");
@@ -49,6 +71,17 @@ export default function Confirmation() {
       dispatch(resetPaymentStatus());
     }
   }
+  
+  // Generate order list items for tooltip
+  const orderListItems = submitedOrders?.map((order: any, index: number) => (
+    <div key={index} className="flex justify-between border-b pb-1 mb-1 last:border-b-0">
+      <span className="font-medium">{order.order_po}</span>
+      {order.Product_price?.grand_total && (
+        <span className="text-green-600">${order.Product_price.grand_total}</span>
+      )}
+    </div>
+  ));
+  
   return (
     <div>
       <div className="p-4 mb-2  ">
@@ -83,7 +116,36 @@ export default function Confirmation() {
         <Result
           status={icon}
           title={title}
-          subTitle={subTitle}
+          subTitle={
+            <div className="flex items-center justify-center">
+              <span>Order number: {displayedOrders}</span>
+              {hasMoreOrders && (
+                <Tooltip 
+                  title={
+                    <div>
+                      <div className="font-semibold mb-2 border-b pb-1">All Orders ({submitedOrders.length})</div>
+                      <div className="max-h-40 overflow-auto pr-1">
+                        {orderListItems}
+                      </div>
+                    </div>
+                  }
+                  color="#fff"
+                  overlayInnerStyle={{
+                    color: "#333",
+                    width: "300px",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                    borderRadius: "8px",
+                  }}
+                  placement="bottom"
+                >
+                  <Badge count={submitedOrders.length - MAX_ORDERS_TO_DISPLAY} className="ml-2 cursor-pointer">
+                    <InfoCircleOutlined className="text-blue-500 hover:text-blue-600 cursor-pointer text-lg ml-2" />
+                  </Badge>
+                </Tooltip>
+              )}
+              <span className="ml-1">- Confirmation takes 1-10 seconds</span>
+            </div>
+          }
           className=""
           extra={[
             <div className="w-full flex justify-center">

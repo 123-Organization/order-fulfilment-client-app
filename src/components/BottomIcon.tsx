@@ -99,6 +99,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   console.log("myCompanyInfoFilled", myCompanyInfoFilled);
 
   const myImport = useAppSelector((state) => state.order.myImport);
+  console.log("myImport", myImport);
 
   const saveOrderInfo = useAppSelector((state) => state.order.saveOrderInfo);
 
@@ -159,28 +160,71 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
           alert("Billing info missing");
         }
       }
-
+      
       if (location.pathname === "/importfilter") {
         if (wporder.length > 0) {
           setNextSpinning(true);
-          console.log("Calling fetchWporder with:", wporder);
+          const orderIds = wporder.split(',');
+          console.log('orderIds', orderIds);
           try {
+            console.log('About to dispatch fetchWporder with:', {
+              orderId: orderIds,
+              platformName: "woocommerce",
+              accountId: customerInfo?.data?.account_id
+            });
+            
             const result = await dispatch(
-              fetchWporder({orderId:wporder, platformName:"woocommerce"})
+              fetchWporder({
+                orderId: orderIds,
+                platformName: "woocommerce",
+                accountId: customerInfo?.data?.account_id
+              })
             );
+            
             console.log("fetchWporder result:", result);
+            
             if (result.payload) {
-              dispatch(saveOrder(result.payload?.order_details));
-              notification.success({
-                message: "Success",
-                description: "Order imported successfully",
+              if (result.payload.orderDetails) {
+                const orderDetails = result.payload.orderDetails.map((order: any) => ({
+                  orders: order.orders.map((order: any) => ({
+                    order:order
+                  })),
+                }));
+
+                const sendData = {
+                  orders: orderDetails.map((order: any) => order.orders[0]?.order),
+                  accountId: result.payload.orderDetails[0].accountId,
+                  payment_token:result.payload.orderDetails[0].payment_token
+                }
+                dispatch(saveOrder(sendData)); 
+                notification.success({
+                  message: "Success",
+                  description: "Order imported successfully",
+                });
+                navigate("/importlist");
+              } else {
+                notification.error({
+                  message: "Error",
+                  description: "Invalid response format from server",
+                });
+                console.error("Invalid payload format:", result.payload);
+              }
+            } else {
+              notification.error({
+                message: "Error",
+                description: "Failed to fetch order details",
               });
-              navigate("/importlist");
             }
           } catch (error) {
             console.error("Error fetching WP order:", error);
+            notification.error({
+              message: "Error",
+              description: "An error occurred while fetching order details",
+            });
+          } finally {
+            setNextSpinning(false);
           }
-        }else if (myImport?.start_date || myImport?.end_date || myImport?.status) {
+        } else if (myImport?.start_date || myImport?.end_date || myImport?.status) {
           setNextSpinning(true);
           await dispatch(
             getImportOrders({
@@ -188,7 +232,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
               ...myImport,
             })
           );
-        } 
+        }
       }
 
       if (location.pathname === "/billingaddress") {
@@ -204,16 +248,16 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
           alert("Billing info missing");
         }
       }
-
       if (location.pathname === "/shippingpreference") {
         if (shipping_preferences?.length) {
+          
           setNextSpinning(true);
           await dispatch(updateCompanyInfo({ shipping_preferences }));
           notification.success({
             message: "Success",
             description: "Information has been saved",
           });
-          navigate("/checkout");
+          navigate("/importlist");
         } else {
           alert("Shipping info missing");
         }
@@ -335,14 +379,14 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
 
   useEffect(() => {
     if (location.pathname === "/importfilter") {
-      if (myImport?.start_date || myImport?.end_date || myImport?.status) {
+      if (wporder.length > 0 || myImport?.start_date || myImport?.end_date || myImport?.status) {
         !nextVisiable && setNextVisiable(true);
       } else {
         nextVisiable && setNextVisiable(false);
       }
       console.log("nextVisiable", nextVisiable);
     }
-  }, [myImport]);
+  }, [myImport, wporder]);
 
   useEffect(() => {
     if (location.pathname === "/importfilter") {
@@ -475,6 +519,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
       console.log("Remaining Total Price", newTotalPrice);
     }
   }, [checkedOrders, orders]);
+  
   console.log("location", location.pathname.includes("/editorder"));
   useEffect(() => {
     if (

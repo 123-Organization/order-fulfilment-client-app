@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Checkbox, Form, Input, DatePicker, Select } from "antd";
+import { Checkbox, Form, Input, DatePicker, Select, notification } from "antd";
 
 import { getStates } from "country-state-picker";
 import type { SelectProps } from "antd";
@@ -148,9 +148,14 @@ const ImportFilter: React.FC = () => {
     }
   }, [billingInfo]);
 
-  const getWporder = (orderId) => {
-    dispatch(updateWporder(orderId))
-  }
+  const [orderIds, setOrderIds] = useState<string[]>([]);
+
+  const getWporder = (values: string[]) => {
+    console.log('getWporder', values);
+    if (values && values.length > 0) {
+      dispatch(updateWporder(values.join(',')));
+    }
+  };
 
   const displayTurtles = (
     <Form
@@ -224,17 +229,16 @@ const ImportFilter: React.FC = () => {
         className="w-full sm:ml-[200px]"
       >
         <div className="relative">
-          <Input
-            onBlur={onValid}
-            onChange={(e) =>
-             getWporder(e?.target?.value)
-            }
-            value={copyCompanyAddress ? businessInfo?.order_id : companyAddress?.order_id}
-            className="fw-input"
-            
+          <Select
+            mode="tags"
+            style={{ width: '100%' }}
+            placeholder="Enter order numbers"
+            onChange={getWporder}
+            tokenSeparators={[',']}
+            className="fw-input-importfilter"
           />
-          <label htmlFor="floating_outlined" className="fw-label">
-            Order Number OR ID
+          <label htmlFor="floating_outlined" className="fw-label-importfilter">
+            Order Numbers (separate with comma or Enter key)
           </label>
         </div>
       </Form.Item>

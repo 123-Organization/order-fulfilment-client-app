@@ -13,6 +13,7 @@ import style from "../pages/Pgaes.module.css";
 import { useNavigate } from "react-router-dom";
 import { updateCheckedOrders } from "../store/features/orderSlice";
 import LoadingOverlay from "./LoadingOverlay";
+import { updateSubmitedOrders } from "../store/features/orderSlice";
 
 export default function VaultedCardPayment({
   Amount,
@@ -25,10 +26,12 @@ export default function VaultedCardPayment({
   const companyInfo = useAppSelector((state) => state.company.company_info);
   const paymentToken = useAppSelector((state) => state.Payment.paymentToken);
   const paymentStatus = useAppSelector((state) => state.Payment.status);
+  const paymentTokenStatus = useAppSelector((state) => state.Payment.tokenStatus);
   const selectedCard = useAppSelector((state) => state.Payment.selectedCard);
   const [isLoading, setIsLoading] = useState(false);
-  console.log("paymentToken", paymentToken);
-  console.log("paymentStatus", paymentStatus);
+  const [isTokenLoading, setIsTokenLoading] = useState(false);
+  const [isPayButtonDisabled, setIsPayButtonDisabled] = useState(false);
+  
   const payment_profile_id = companyInfo?.data?.payment_profile_id;
   const notificationApi = useNotificationContext();
   const [token, setToken] = useState<any>(null);
@@ -36,9 +39,58 @@ export default function VaultedCardPayment({
   const location = useLocation();
   const isFirstRender = useRef(true);
   const notificationShownRef = useRef(false);
+  const tokenRetryCount = useRef(0);
+  const maxRetries = 3;
+  const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
+  
+  // Track token loading state
+  useEffect(() => {
+    if (paymentTokenStatus === "loading") {
+      setIsTokenLoading(true);
+      setIsPayButtonDisabled(true);
+    } else if (paymentTokenStatus === "succeeded") {
+      setIsTokenLoading(false);
+      // Only enable the button if we have a valid token
+      if (paymentToken?.payment_tokens && selectedCard) {
+        const foundToken = paymentToken.payment_tokens.find(
+          (t: any) => t?.associated_payment_method?.slice(-4) === selectedCard?.slice(-4)
+        );
+        setIsPayButtonDisabled(!foundToken);
+      } else {
+        setIsPayButtonDisabled(true);
+      }
+      tokenRetryCount.current = 0;  // Reset retry counter on success
+    } else if (paymentTokenStatus === "failed" && tokenRetryCount.current < maxRetries) {
+      // If token retrieval failed, retry a few times
+      tokenRetryCount.current += 1;
+      const timer = setTimeout(() => {
+        if (companyInfo?.data?.payment_profile_id) {
+          dispatch(
+            getPaymentToken({
+              paymentProfileId: companyInfo.data.payment_profile_id,
+            })
+          );
+        }
+      }, 2000); // Wait 2 seconds before retrying
+      
+      return () => clearTimeout(timer);
+    } else if (paymentTokenStatus === "failed") {
+      setIsTokenLoading(false);
+      setIsPayButtonDisabled(false); // Enable the button even if token failed, we'll show error on click
+      
+      if (!notificationShownRef.current) {
+        notificationApi.warning({
+          message: "Payment Setup Issue",
+          description: "There was a problem retrieving your payment details. You may need to retry payment.",
+        });
+        notificationShownRef.current = true;
+      }
+    }
+  }, [paymentTokenStatus, paymentToken, selectedCard, companyInfo, dispatch, notificationApi]);
 
   useEffect(() => {
     if (companyInfo?.data?.payment_profile_id) {
+      setIsTokenLoading(true);
       dispatch(
         getPaymentToken({
           paymentProfileId: companyInfo.data.payment_profile_id,
@@ -46,50 +98,51 @@ export default function VaultedCardPayment({
       );
       dispatch(resetPaymentStatus());
     }
-  }, [companyInfo, Card]);
+  }, [companyInfo, Card, dispatch]);
 
   useEffect(() => {
     if (paymentToken?.payment_tokens && selectedCard) {
       const Token = paymentToken?.payment_tokens?.find(
         (token: any) => token?.associated_payment_method?.slice(-4) === selectedCard?.slice(-4)
       );
-      console.log("Card", selectedCard);
-      console.log("Token", Token);
       setToken(Token);
     }
   }, [paymentToken, selectedCard]);
-  console.log("selectedCard", selectedCard);
-
-  console.log("token", token);
 
   const proccessPayment = () => {
+    // If still loading tokens or no token available, show notification and prevent processing
+    if (isTokenLoading) {
+      notificationApi.warning({
+        message: "Payment Setup In Progress",
+        description: "Please wait while we set up your payment details.",
+      });
+      return;
+    }
+
+    if (!token?.token) {
+      notificationApi.error({
+        message: "Payment Setup Error",
+        description: "Your payment method isn't properly configured. Please select a different payment method or try again later.",
+      });
+      return;
+    }
+
     notificationShownRef.current = false;
     setIsLoading(true);
-    
+
     dispatch(
       processVaultedPayment({
-        paymentToken: token?.token || "", 
+        paymentToken: token.token, 
         amount: Amount,
         customerId: companyInfo?.data?.payment_profile_id,
       })
     );
     
+    dispatch(updateSubmitedOrders(checkedOrders));
     setTimeout(() => {
       navigate("/confirmation");
     }, 1000);
   };
-
-  // useEffect(() => {
-  //   if (paymentStatus === "idle") {
-  //     dispatch(resetPaymentStatus()); // ✅ Reset status when modal opens
-  //   }
-  // }, []);
-
-  // useEffect(() => {
-  //   if ((paymentStatus === "succeeded" || paymentStatus === "failed") && isFirstRender.current) {
-  //     navigate("/confirmation");
-  //   } 
-  // }, [paymentStatus]);
 
   useEffect(() => {
     // Only show notification if we haven't shown it already for this status
@@ -109,7 +162,6 @@ export default function VaultedCardPayment({
           message: "Payment Failed",
           description: "An error occurred while processing the payment.",
         });
-        // dispatch(resetPaymentStatus());
         notificationShownRef.current = true;
       }
     }
@@ -119,13 +171,15 @@ export default function VaultedCardPayment({
   return (
     <div>
       <LoadingOverlay isLoading={isLoading} message="Processing Payment..." />
+      <LoadingOverlay isLoading={isTokenLoading && !isLoading} message="Setting up payment details..." />
       <Button
         key="submit"
-        className={`max-md:w-6/12 w-[170px] md:mx-8 mt-2 ${style.pay_button} `}
+        className={`max-md:w-6/12 w-[170px] md:mx-8 mt-2 ${style.pay_button} ${isTokenLoading || isPayButtonDisabled ? style.disabled_button || 'opacity-50' : ''}`}
         size={"large"}
         onClick={proccessPayment}
+        disabled={isTokenLoading || isPayButtonDisabled}
       >
-        Pay
+        {isTokenLoading ? "Setting Up..." : "Pay"}
       </Button>
     </div>
   );
