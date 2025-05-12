@@ -13,10 +13,10 @@ const initialState: CustomerState = {
 
 // Helper function to get cookie value by name
 const getCookie = (name: string) => {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop()?.split(';').shift();
-    return null;
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop()?.split(';').shift();
+        return null;
 };
 
 export const getCustomerInfo = createAsyncThunk(
@@ -63,6 +63,9 @@ export const CustomerSlice = createSlice({
         name: "customer",
         initialState,
         reducers: {
+                clearCustomerInfo: (state) => {
+                        state.customer_info = {};
+                }
         },
         extraReducers: (builder) => {
                 builder.addCase(getCustomerInfo.fulfilled, (state, action) => {
@@ -72,3 +75,4 @@ export const CustomerSlice = createSlice({
 });
 
 export default CustomerSlice;
+export const { clearCustomerInfo } = CustomerSlice.actions;

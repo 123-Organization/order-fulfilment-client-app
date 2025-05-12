@@ -33,6 +33,7 @@ interface OrderState {
   deleteOrderStatus: "idle" | "loading" | "succeeded" | "failed";
   productDataStatus: "idle" | "loading" | "succeeded" | "failed";
   recipientStatus: "idle" | "loading" | "succeeded" | "failed";
+  importStatus: "idle" | "loading" | "succeeded" | "failed";
 
 }
 
@@ -54,6 +55,7 @@ const initialState: OrderState = {
   productDataStatus: "idle",
   recipientStatus: "idle",
   deleteOrderStatus: "idle",
+  importStatus: "idle",
 };
 
 export const fetchOrder = createAsyncThunk(
@@ -446,11 +448,12 @@ export const OrderSlice = createSlice({
 
     builder.addCase(fetchWporder.fulfilled, (state, action) => {
       state.Wporder = action.payload;
+      state.importStatus = 'succeeded';
     }
     );
 
     builder.addCase(fetchWporder.rejected, (state, action) => {
-      state.status = 'failed';
+      state.importStatus = 'failed';
       state.error = action.payload as string;
     }
     );

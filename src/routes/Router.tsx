@@ -1,10 +1,12 @@
 import React, { Suspense, lazy, useEffect, useState } from "react";
 import { Route, Routes, useLocation, Navigate } from "react-router-dom";
+import { useAppDispatch } from "../store";
 import { routes } from "../config/routes";
 import ImportList from "../pages/ImportList";
 import { useAppSelector } from "../store";
 import { notification } from "antd";
 import { useCookies } from "react-cookie";
+import { clearCustomerInfo } from "../store/features/customerSlice";
 
 type NotificationType = "success" | "info" | "warning" | "error";
 interface NotificationAlertProps {
@@ -34,9 +36,11 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ component: Component }) => {
   const [cookies] = useCookies(["Session", "AccountGUID"]);
+  const dispatch = useAppDispatch();
   
   if (!cookies.AccountGUID || !cookies.Session) {
     // Redirect to landing page if cookies don't exist
+    dispatch(clearCustomerInfo())
     return <Navigate to={routes.landingPage} replace />;
   }
   

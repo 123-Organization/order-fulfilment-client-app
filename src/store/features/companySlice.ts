@@ -70,7 +70,7 @@ export const Company = createSlice({
                         console.log('updateCompanyAction', state)
                         state.myCompanyInfoFilled = action.payload;
                 },
-                updateBilling: (state, action: PayloadAction) => {
+                updateBilling: (state, action: PayloadAction<any>) => {
                         state.myBillingInfoFilled = action.payload;
                 },
                 updateIframeState: (state, action: PayloadAction) => {

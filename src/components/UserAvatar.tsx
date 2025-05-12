@@ -3,7 +3,7 @@ import { Avatar, Dropdown } from "antd";
 import type { MenuProps } from "antd";
 import { useCookies } from "react-cookie";
 import { useAppSelector, useAppDispatch } from "../store";
-import { getCustomerInfo } from "../store/features/customerSlice";
+import { clearCustomerInfo, getCustomerInfo } from "../store/features/customerSlice";
 import credit from "../../src/assets/images/credit-card-svgrepo-com.svg";
 import email from "../../src/assets/images/email-svgrepo-com.svg";
 import user_icon from "../../src/assets/images/user-svgrepo-com.svg";
@@ -73,6 +73,7 @@ export default function UserAvatar() {
           onClick={() => {
             persistor.purge();
             dispatch(clearPaymentMethods());
+            dispatch(clearCustomerInfo())
           }}
         >
           <img className="text-black" src={log_out} width={18} alt="credit" />

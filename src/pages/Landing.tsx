@@ -43,7 +43,7 @@ const Landing: React.FC = (): JSX.Element => {
   const companyInfo = useAppSelector(
     (state) => state.company?.company_info?.data 
   );
-
+ const order = useAppSelector((state)=>state.order.orders)
   console.log('companyInfo',companyInfo)
   console.log('ecommerceGetImportOrders',ecommerceGetImportOrders)
 
@@ -65,6 +65,7 @@ const Landing: React.FC = (): JSX.Element => {
   // const [isOpen, setOpenExcel] = useState<Boolean>(true);
   // Determines if modal is visible.
   const isOpen: boolean = true;
+  console.log('order',order)
 
   // Called when flow is closed without reaching submit.
   function onClose() {

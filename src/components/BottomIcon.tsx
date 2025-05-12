@@ -1,5 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { Button, PaginationProps, Spin, notification, Pagination,Skeleton } from "antd";
+import {
+  Button,
+  PaginationProps,
+  Spin,
+  notification,
+  Pagination,
+  Skeleton,
+} from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store";
 import {
@@ -15,7 +22,7 @@ import UpdatePopup from "./UpdatePopup";
 import { loadavg } from "os";
 import { updateCompanyInfo } from "../store/features/companySlice";
 import { resetRecipientStatus } from "../store/features/orderSlice";
-import style from "./Components.module.css"
+import style from "./Components.module.css";
 import { fetchWporder } from "../store/features/orderSlice";
 type NotificationType = "success" | "info" | "warning" | "error";
 interface NotificationAlertProps {
@@ -42,7 +49,9 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
 
   const orderEdited = useAppSelector((state) => state.order.orderEdited);
   console.log("orderEdited", orderEdited);
-  const recipientStatus = useAppSelector((state) => state.order.recipientStatus);
+  const recipientStatus = useAppSelector(
+    (state) => state.order.recipientStatus
+  );
 
   const { product_list } = product_details?.data || {};
   console.log("product_list", product_list);
@@ -100,6 +109,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
 
   const myImport = useAppSelector((state) => state.order.myImport);
   console.log("myImport", myImport);
+  const importStatus = useAppSelector((state) => state.order.importStatus);
 
   const saveOrderInfo = useAppSelector((state) => state.order.saveOrderInfo);
 
@@ -160,52 +170,56 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
           alert("Billing info missing");
         }
       }
-      
+
       if (location.pathname === "/importfilter") {
         if (wporder.length > 0) {
           setNextSpinning(true);
-          const orderIds = wporder.split(',');
-          console.log('orderIds', orderIds);
+          const orderIds = wporder.split(",");
+          console.log("orderIds", orderIds);
           try {
-            console.log('About to dispatch fetchWporder with:', {
+            console.log("About to dispatch fetchWporder with:", {
               orderId: orderIds,
               platformName: "woocommerce",
-              accountId: customerInfo?.data?.account_id
+              accountId: customerInfo?.data?.account_id,
             });
-            
+
             const result = await dispatch(
               fetchWporder({
                 orderId: orderIds,
                 platformName: "woocommerce",
-                accountId: customerInfo?.data?.account_id
+                accountId: customerInfo?.data?.account_id,
               })
             );
-            
+
             console.log("fetchWporder result:", result);
-            
+
             if (result.payload) {
               if (result.payload.orderDetails) {
-                const orderDetails = result.payload.orderDetails.map((order: any) => ({
-                  orders: order.orders.map((order: any) => ({
-                    order:order
-                  })),
-                }));
+                const orderDetails = result.payload.orderDetails.map(
+                  (order: any) => ({
+                    orders: order.orders.map((order: any) => ({
+                      order: order,
+                    })),
+                  })
+                );
 
                 const sendData = {
-                  orders: orderDetails.map((order: any) => order.orders[0]?.order),
+                  orders: orderDetails.map(
+                    (order: any) => order.orders[0]?.order
+                  ),
                   accountId: result.payload.orderDetails[0].accountId,
-                  payment_token:result.payload.orderDetails[0].payment_token
-                }
-                dispatch(saveOrder(sendData)); 
+                  payment_token: result.payload.orderDetails[0].payment_token,
+                };
+                dispatch(saveOrder(sendData));
                 notification.success({
                   message: "Success",
                   description: "Order imported successfully",
                 });
                 navigate("/importlist");
               } else {
-                notification.error({
-                  message: "Error",
-                  description: "Invalid response format from server",
+                notification.warning({
+                  message: "Warning",
+                  description: result.payload.message,
                 });
                 console.error("Invalid payload format:", result.payload);
               }
@@ -224,7 +238,11 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
           } finally {
             setNextSpinning(false);
           }
-        } else if (myImport?.start_date || myImport?.end_date || myImport?.status) {
+        } else if (
+          myImport?.start_date ||
+          myImport?.end_date ||
+          myImport?.status
+        ) {
           setNextSpinning(true);
           await dispatch(
             getImportOrders({
@@ -250,7 +268,6 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
       }
       if (location.pathname === "/shippingpreference") {
         if (shipping_preferences?.length) {
-          
           setNextSpinning(true);
           await dispatch(updateCompanyInfo({ shipping_preferences }));
           notification.success({
@@ -272,50 +289,59 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
         !orderEdited.clicked &&
         updatedValues
       ) {
-         console.log("About to dispatch updateOrdersInfo with:", updatedValues);
-         try {
-           // Log customer info for debugging
-           console.log("Customer Info account_id:", customerInfo?.data?.account_id);
-           
-           // Make sure updatedValues is proper format
-           if (!updatedValues.recipient && Object.keys(updatedValues).length === 0) {
-             console.error("No updated values to send");
-             openNotificationWithIcon({
-               type: "error",
-               message: "Error",
-               description: "No data to update. Please make changes first."
-             });
-             return;
-           }
-           
-           // Create a properly formatted data object
-           const result = await dispatch(
-             updateOrdersInfo([
-               updatedValues, // The order with updates
-               { customerId: customerInfo?.data?.account_id  } // Customer ID in expected format
-             ])
-           );
-           
-           // Check if successful
-           if (result.meta.requestStatus === 'fulfilled') {
-             console.log("Successfully dispatched updateOrdersInfo:", result.payload);
-             dispatch(updateOrderStatus({ status: true, clicked: true }));
-           } else {
-             console.error("Failed to update order:", result.payload);
-             openNotificationWithIcon({
-               type: "error",
-               message: "Error",
-               description: "Failed to update order information"
-             });
-           }
-         } catch (error) {
-           console.error("Error dispatching updateOrdersInfo:", error);
-           openNotificationWithIcon({
-             type: "error",
-             message: "Error",
-             description: "An error occurred while updating order"
-           });
-         }
+        console.log("About to dispatch updateOrdersInfo with:", updatedValues);
+        try {
+          // Log customer info for debugging
+          console.log(
+            "Customer Info account_id:",
+            customerInfo?.data?.account_id
+          );
+
+          // Make sure updatedValues is proper format
+          if (
+            !updatedValues.recipient &&
+            Object.keys(updatedValues).length === 0
+          ) {
+            console.error("No updated values to send");
+            openNotificationWithIcon({
+              type: "error",
+              message: "Error",
+              description: "No data to update. Please make changes first.",
+            });
+            return;
+          }
+
+          // Create a properly formatted data object
+          const result = await dispatch(
+            updateOrdersInfo([
+              updatedValues, // The order with updates
+              { customerId: customerInfo?.data?.account_id }, // Customer ID in expected format
+            ])
+          );
+
+          // Check if successful
+          if (result.meta.requestStatus === "fulfilled") {
+            console.log(
+              "Successfully dispatched updateOrdersInfo:",
+              result.payload
+            );
+            dispatch(updateOrderStatus({ status: true, clicked: true }));
+          } else {
+            console.error("Failed to update order:", result.payload);
+            openNotificationWithIcon({
+              type: "error",
+              message: "Error",
+              description: "Failed to update order information",
+            });
+          }
+        } catch (error) {
+          console.error("Error dispatching updateOrdersInfo:", error);
+          openNotificationWithIcon({
+            type: "error",
+            message: "Error",
+            description: "An error occurred while updating order",
+          });
+        }
       }
     } catch (error) {
       console.error("Error in onNextHandler:", error);
@@ -339,8 +365,6 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   //     setNextVisiable(false);
   //   }
   // }, [recipientStatus]);
-
-  
 
   const onDeleteHandler = () => {};
 
@@ -379,15 +403,10 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
 
   useEffect(() => {
     if (location.pathname === "/importfilter") {
-      if (wporder.length > 0 || myImport?.start_date || myImport?.end_date || myImport?.status) {
-        !nextVisiable && setNextVisiable(true);
-      } else {
-        nextVisiable && setNextVisiable(false);
-      }
-      console.log("nextVisiable", nextVisiable);
+      !nextVisiable && setNextVisiable(true);
     }
-  }, [myImport, wporder]);
-
+  }, [myImport, wporder, nextVisiable, location]);
+  console.log("impo", ecommerceGetImportOrders);
   useEffect(() => {
     if (location.pathname === "/importfilter") {
       if (myImport?.start_date || myImport?.end_date || myImport?.status) {
@@ -401,11 +420,54 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                 "We couldn't find any records matching your search criteria. Please check the information you've entered and try again.",
             });
 
-            
             setNextSpinning(false);
             !nextVisiable && setNextVisiable(true);
           } else {
-            dispatch(saveOrder(ecommerceGetImportOrders));
+            // Check if any of the new orders are already imported
+            const alreadyImportedOrders = ecommerceGetImportOrders?.orders?.filter((importOrder:any) => {
+              return orders?.data?.some((existingOrder:any) => {
+                return existingOrder.order_po === importOrder.order_po
+              })
+            });
+            
+            // Get only new orders that aren't already imported
+            const newOrders = ecommerceGetImportOrders?.orders?.filter((importOrder:any) => {
+              return !orders?.data?.some((existingOrder:any) => {
+                return existingOrder.order_po === importOrder.order_po
+              })
+            });
+            
+            console.log('Already imported orders count:', alreadyImportedOrders?.length);
+            console.log('New orders count:', newOrders?.length);
+
+            if(alreadyImportedOrders?.length > 0 && newOrders?.length > 0) {
+              // Some orders already imported, but we have new ones to import
+              openNotificationWithIcon({
+                type: "info",
+                message: "Partial Import",
+                description: `${alreadyImportedOrders.length} order(s) already exist in the system. Importing ${newOrders.length} new order(s).`,
+              });
+              
+              // Create a modified version of ecommerceGetImportOrders with only the new orders
+              const filteredImportData = {
+                ...ecommerceGetImportOrders,
+                orders: newOrders
+              };
+              
+              // Import only the new orders
+              dispatch(saveOrder(filteredImportData));
+            } else if(alreadyImportedOrders?.length > 0 && newOrders?.length === 0) {
+              // All orders are already imported
+              openNotificationWithIcon({
+                type: "warning",
+                message: "Already Imported",
+                description: "All selected orders are already imported into the system.",
+              });
+              navigate("/importlist");
+            } else {
+              // No duplicates found, proceed with normal import
+              dispatch(saveOrder(ecommerceGetImportOrders));
+            }
           }
         } else if (
           ecommerceGetImportOrders?.data?.status === 400 ||
@@ -501,6 +563,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
 
   console.log("next", nextVisiable);
   console.log("orders", orders);
+
   useEffect(() => {
     if (orders && checkedOrders) {
       let newTotalPrice = 0;
@@ -519,7 +582,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
       console.log("Remaining Total Price", newTotalPrice);
     }
   }, [checkedOrders, orders]);
-  
+
   console.log("location", location.pathname.includes("/editorder"));
   useEffect(() => {
     if (
@@ -588,7 +651,9 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   ) : (
     <div className="flex ">
       <div>{contextHolder}</div>
-      <div className={`flex fixed bottom-0 left-0  w-full h-16 bg-white  border-b mt-2 border-gray-200 dark:bg-gray-700 dark:border-gray-600 z-50 `}>
+      <div
+        className={`flex fixed bottom-0 left-0  w-full h-16 bg-white  border-b mt-2 border-gray-200 dark:bg-gray-700 dark:border-gray-600 z-50 `}
+      >
         <div className="grid h-full max-w-lg grid-cols-2 font-medium basis-1/2">
           {false && (
             <>
@@ -661,13 +726,15 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
         </div>
         <div className="grid h-full max-w-lg grid-cols-1 font-medium basis-1/2 ">
           {totalVisiable && (
-            <div className={`flex flex-col font-bold text-gray-400 pt-2 ${style.bottomDescription}`}>
+            <div
+              className={`flex flex-col font-bold text-gray-400 pt-2 ${style.bottomDescription}`}
+            >
               <span className="w-full block ">
                 Selected orders: {checkedOrders.length} /{orders?.data?.length}
               </span>
               <span className="flex  justify-center ">
                 Grand Total :{" "}
-                {(product_details?.totalPrice && "$" + grandTotal.toFixed(2)) }
+                {product_details?.totalPrice && "$" + grandTotal.toFixed(2)}
               </span>
             </div>
           )}

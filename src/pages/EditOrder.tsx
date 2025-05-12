@@ -99,7 +99,8 @@ const EditOrder: React.FC = () => {
   const orderEdited = useAppSelector((state) => state.order.orderEdited) || [];
   console.log("product_details...", product_details);
   // parse the string to html
-
+const {phone} = useAppSelector((state) => state.company.company_info?.data?.billing_info) || {};
+console.log("company_info", phone);
   const filterDescription = (descriptionLong: string): string => {
     return descriptionLong?.replace(/<[^>]*>?/gm, "");
   };
@@ -209,7 +210,7 @@ const EditOrder: React.FC = () => {
       city: recipient?.city || "",
       state: recipient?.state || stateCodeShort,
       zip_postal_code: recipient?.zip_postal_code || "",
-      phone: recipient?.phone || "",
+      phone: phone || "",
     }),
     [order, recipient]
   );
@@ -539,10 +540,19 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
           name="phone"
           className="w-full "
           rules={[
-            { required: true, message: "Please enter Your Phone Number" },
+            { required: false, message: "Please enter Your Phone Number" },
           ]}
         >
-          <Input className="fw-input" value={recipient?.phone} />
+          <Input 
+            className="fw-input" 
+            value={phone} 
+            disabled={true}
+            style={{ 
+              backgroundColor: "#f5f5f5", 
+              color: "#999", 
+              cursor: "not-allowed" 
+            }} 
+          />
         </Form.Item>
         <label htmlFor="floating_outlined" className="fw-label">
           Phone
@@ -554,44 +564,6 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
     </Form>
   );
 
-  const displayTurtlesTotal = (
-    <Form
-      labelCol={{ span: 4 }}
-      wrapperCol={{ span: 14 }}
-      layout="horizontal"
-      initialValues={{ size: componentSize }}
-      className="w-full text-left text-400 country_code_importlist_form"
-    >
-      <Form.Item name="country_code_importlist">
-        <div className="relative w-full text-gray-500">
-          <Select
-            // allowClear
-            className="w-full  "
-            showSearch
-            placeholder="Order status"
-            optionFilterProp="children"
-            onChange={onChange}
-            onSearch={onSearch}
-            filterOption={filterOption}
-            value={"economy"}
-            options={[
-              {
-                value: "economy",
-                label: "Economy Parcel - $14.95",
-              },
-              {
-                value: "shipped",
-                label: "Shipped Parcel - $18.95",
-              },
-            ]}
-          ></Select>
-          <label htmlFor="floating_outlined" className="fw-label ">
-            Shipping Method
-          </label>
-        </div>
-      </Form.Item>
-    </Form>
-  );
   
   console.log("changeStatus", changeStatus);
 

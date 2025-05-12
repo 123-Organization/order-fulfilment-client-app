@@ -48,16 +48,6 @@ console.log("businessInfo", businessInfo);
     zip_postal_code: "",
     phone: "",
   });
-const [validFields, setValidFields] = useState({
-    company_name: false,
-    first_name: false,
-    last_name: false,
-    address_1: false,
-    city: false,
-    state_code: false,
-    zip_postal_code: false,
-    phone: false,
-  });
 
   /*////////////////////////////////////////////////////*/
 
@@ -97,7 +87,8 @@ const [validFields, setValidFields] = useState({
     const updatedValues = { ...companyAddress, ...values };
     updatedValues.country_code = countryCode;
     updatedValues.state_code = countryCode === "us" ? stateCodeShort : stateCode;
-  
+    updatedValues.phone = updatedValues?.phone?.toString();
+    updatedValues.zip_postal_code = updatedValues?.zip_postal_code?.toString();
     // Get form validation errors
     form.validateFields()
       .then(() => {
@@ -134,8 +125,8 @@ const [validFields, setValidFields] = useState({
   }, []);
 
   useEffect(() => {
-    onFinish(companyAddress);
-  }, [stateCode, stateCodeShort]);
+    setCompanyAddress({...companyAddress, state_code:countryCode === "us" ? stateCodeShort : stateCode });
+  }, [stateCode, stateCodeShort,]);
 
   useEffect(() => {
     form.setFieldsValue(businessInfo);
@@ -154,10 +145,10 @@ const [validFields, setValidFields] = useState({
       setCompanyAddress(businessInfo);
       form.setFieldsValue(businessInfo);
     }
-  }, [businessInfo]);
-
-  const handleInputChange = (e, field) => {
-    const { value } = e?.target || "";
+  }, [businessInfo, form]);
+  
+  const handleInputChange = (e:any, field:any) => {
+    const value = e?.target ? e.target.value : e;
     setCompanyAddress((prev) => ({ ...prev, [field]: value }));
     form.setFieldsValue({ [field]: value });
     onFinish({ ...companyAddress, [field]: value });
@@ -365,17 +356,16 @@ const [validFields, setValidFields] = useState({
         rules={[
           { required: true, message: "Please enter your phone number!" },
           {
-            pattern: new RegExp(/^[0-9]{2,14}$/),
-            message: "Please enter a valid phone number!",
+            pattern: new RegExp(/^[0-9]{10,14}$/),
+            message: "Please enter a valid phone number with at least 10 digits!",
           },
         ]}
         name="phone"
         className="w-full sm:ml-[200px]"
       >
         <div className="relative">
-          <InputNumber
-            type="number"
-            value={companyAddress?.phone}
+          <Input
+            value={companyAddress?.phone || ""}
             onChange={(e) => handleInputChange(e, "phone")}
             className="fw-input"
           />

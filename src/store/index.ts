@@ -24,7 +24,7 @@ const orderPersistConfig = {
 const rootPersistConfig = {
   key: 'root',
   storage,
-  blacklist: ['order', 'Shipping', "Inventory", "company", "Customer","Payment","Ecommerce"],
+  blacklist: ['order', 'Shipping', "Inventory", "company","Payment","Ecommerce", ],
 };
 
 // Apply the nested persist config to the order slice

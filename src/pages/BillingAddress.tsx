@@ -20,10 +20,19 @@ const BillingAddress: React.FC = () => {
   const [countryCode, setCountryCode] = useState("us");
   const [copyCompanyAddress, setCopyCompanyAddress] = useState(false);
   const billingInfo = useAppSelector(
-    (state) => state.company?.company_info?.data?.billing_info 
+    (state) => state.company?.company_info?.data?.billing_info
   );
-  console.log(billingInfo)
-  const [companyAddress, setCompanyAddress] = useState({ last_name: "" });
+  console.log(billingInfo);
+  const [companyAddress, setCompanyAddress] = useState<any>({
+    last_name: "",
+    first_name: "",
+    company_name: "",
+    address_1: "",
+    address_2: "",
+    city: "",
+    zip_postal_code: "",
+    phone: "",
+  });
   const [componentSize, setComponentSize] = useState<SizeType | "default">(
     "default"
   );
@@ -32,9 +41,9 @@ const BillingAddress: React.FC = () => {
   const [stateCode, setStateCode] = useState("");
   const [stateCodeShort, setStateCodeShort] = useState<string | null>("");
   const dispatch = useAppDispatch();
-console.log(stateCode, stateCodeShort)
+  console.log(stateCode, stateCodeShort);
   const businessInfo = useAppSelector(
-    (state) => state.company?.company_info?.data?.business_info 
+    (state) => state.company?.company_info?.data?.business_info
   );
   console.log("businessInfo", businessInfo);
 
@@ -50,20 +59,19 @@ console.log(stateCode, stateCodeShort)
       );
       setCopyCompanyAddress(true);
     } else {
-      !companyAddress?.last_name && setCompanyAddress(businessInfo)
+      !companyAddress?.last_name && setCompanyAddress(businessInfo);
       setCopyCompanyAddress(false);
       // form1.resetFields();
     }
   };
 
   const onChangeState = (value: string) => {
-    let state_code = value?.toLowerCase();
-    console.log(`onChangeState ${state_code}`,countryCode);
+    let state_code: string | null = value?.toLowerCase();
+    console.log(`onChangeState ${state_code}`, countryCode);
     setStateCode(state_code);
-    if(countryCode === "us") 
+    if (countryCode === "us")
       setStateCodeShort(convertUsStateAbbrAndName(state_code));
-    else
-      setStateCodeShort((state_code));
+    else setStateCodeShort(state_code);
   };
 
   const onChange = (value: string) => {
@@ -77,37 +85,37 @@ console.log(stateCode, stateCodeShort)
     let states = getStates(value);
     let data: countryType[] = (states || []).map((d: string) => ({
       label: d,
-      value: d
+      value: d,
     }));
 
     setStateData(data);
   };
-  //update state_code on commponent mount 
-  
+  //update state_code on commponent mount
 
   const onValid = () => {
     const values = form1.getFieldsValue();
+    console.log("vovvo", values);
     const normalizedStateCode =
-      countryCode === "us"
-        ? stateCodeShort
-        : stateCode;
-        console.log("normalizedStateCode", normalizedStateCode);
-  
+      countryCode === "us" ? stateCodeShort : stateCode;
+    console.log("normalizedStateCode", normalizedStateCode);
+
     const payload = {
       ...values,
       country_code: countryCode,
-      state_code: normalizedStateCode,
+      state_code: normalizedStateCode || values?.state_code,
     };
-  
-    console.log("Payload to dispatch:", payload);
-    form1.validateFields().then((values) => {
-      console.log("values", values);
-      if (Object.values(payload).every(Boolean)) {
+    form1
+      .validateFields()
+      .then(() => {
         dispatch(updateBilling({ billing_info: payload }));
-      }
-    }).catch(error => {
-      console.error("Validation failed:", error);
-    });
+      })
+      .catch((errorInfo) => {
+        const errors = errorInfo.errorFields.reduce((acc: any, field: any) => {
+          acc[field.name[0]] = field.errors;
+          return acc;
+        }, {});
+        dispatch(updateBilling({ billing_info: payload, validFields: errors }));
+      });
   };
 
   const onSearch = (value: string) => {
@@ -130,13 +138,12 @@ console.log(stateCode, stateCodeShort)
       console.log("effect countryCode", billingInfo?.country_code);
       onChange(billingInfo?.country_code); // Update country
       setStates(billingInfo?.country_code);
-      setStateCode(billingInfo?.state_code?.toLowerCase());
-      setStateCodeShort( billingInfo?.state_code);
+      // setStateCode(billingInfo?.state_code?.toLowerCase());
+      // setStateCodeShort(billingInfo?.state_code);
       console.log("stateCode", stateCode, stateCodeShort);
       setCompanyAddress(billingInfo); // Load states for the country
-      dispatch(updateBilling ({ billing_info: billingInfo }));
+      dispatch(updateBilling({ billing_info: billingInfo }));
       setTimeout(() => {
-       
         form1.setFieldsValue({
           ...billingInfo,
         });
@@ -144,21 +151,43 @@ console.log(stateCode, stateCodeShort)
     }
   }, [billingInfo, dispatch, stateCode, stateCodeShort, form1]);
 
-  const handleInputChange = (e, field) => {
-    const { value } = e?.target || "";
-    setCompanyAddress((prev) => ({ ...prev, [field]: value }));
-    form1.setFieldsValue({ [field]: value });
-   form1.validateFields().then(() => {
-    dispatch(updateBilling({ billing_info: { ...companyAddress } }));
-    }).catch((errorInfo) => {
-      const errors = errorInfo.errorFields.reduce((acc, field) => {
-        acc[field.name[0]] = field.errors;
-        return acc;
-      }, {});
-      dispatch(updateBilling({ billing_info: { ...companyAddress }, validFields: errors }));
+  const handleInputChange = (e: any, field: any) => {
+    // Check if e is a direct value (from InputNumber) or an event object
+    const value = e?.target ? e.target.value : e;
+    console.log("valval", value);
+
+    // Update the local state with the new value
+    setCompanyAddress((prev: any) => {
+      const updated = { ...prev, [field]: value };
+      console.log("companyAddress updated", updated);
+
+      // Update the form field value
+      form1.setFieldsValue({ [field]: value });
+
+      // Validate and dispatch after state update
+      form1
+        .validateFields()
+        .then(() => {
+          dispatch(updateBilling({ billing_info: updated }));
+        })
+        .catch((errorInfo) => {
+          const errors = errorInfo.errorFields.reduce(
+            (acc: any, field: any) => {
+              acc[field.name[0]] = field.errors;
+              return acc;
+            },
+            {}
+          );
+          dispatch(
+            updateBilling({ billing_info: updated, validFields: errors })
+          );
+        });
+
+      return updated;
     });
   };
-  
+
+  console.log("stateCode", stateCode);
 
   const displayTurtles = (
     <Form
@@ -194,10 +223,12 @@ console.log(stateCode, stateCodeShort)
         <div className="relative">
           <Input
             onBlur={onValid}
-            onChange={(e) =>
-              handleInputChange(e, "company_name")
+            onChange={(e) => handleInputChange(e, "company_name")}
+            value={
+              copyCompanyAddress
+                ? businessInfo?.company_name
+                : companyAddress?.company_name
             }
-            value={copyCompanyAddress ? businessInfo?.company_name : companyAddress?.company_name}
             className="fw-input"
           />
           <label htmlFor="floating_outlined" className="fw-label">
@@ -210,12 +241,12 @@ console.log(stateCode, stateCodeShort)
           { required: true, message: "Please enter your First Name!" },
           {
             pattern: new RegExp(/^[a-zA-Z ]+$/i),
-            message: "Please enter only alphabet characters!"
+            message: "Please enter only alphabet characters!",
           },
           {
             pattern: new RegExp(/^[a-zA-Z ]{2,}$/i),
-            message: "Please enter at least two characters!"
-          }
+            message: "Please enter at least two characters!",
+          },
         ]}
         name="first_name"
         className="w-full sm:ml-[200px]"
@@ -223,10 +254,12 @@ console.log(stateCode, stateCodeShort)
         <div className="relative">
           <Input
             onBlur={onValid}
-            onChange={(e) =>
-             handleInputChange(e, "first_name")
+            onChange={(e) => handleInputChange(e, "first_name")}
+            value={
+              copyCompanyAddress
+                ? businessInfo?.first_name
+                : companyAddress?.first_name
             }
-            value={copyCompanyAddress ? businessInfo?.first_name : companyAddress?.first_name}
             className="fw-input"
           />
           <label htmlFor="floating_outlined" className="fw-label">
@@ -236,17 +269,18 @@ console.log(stateCode, stateCodeShort)
       </Form.Item>
       <Form.Item
         rules={[
-          { 
-            required: true, 
-            message: "Please enter your Last Name!" },
+          {
+            required: true,
+            message: "Please enter your Last Name!",
+          },
           {
             pattern: new RegExp(/^[a-zA-Z ]+$/i),
-            message: "Please enter only alphabet characters!"
+            message: "Please enter only alphabet characters!",
           },
           {
             pattern: new RegExp(/^[a-zA-Z ]{2,}$/i),
-            message: "Please enter at least two characters!"
-          }
+            message: "Please enter at least two characters!",
+          },
         ]}
         name="last_name"
         className="w-full sm:ml-[200px]"
@@ -254,11 +288,9 @@ console.log(stateCode, stateCodeShort)
         <div className="relative">
           <Input
             onBlur={onValid}
-            onChange={(e) =>
-              handleInputChange(e, "last_name")
-            }
+            onChange={(e) => handleInputChange(e, "last_name")}
             value={
-              copyCompanyAddress 
+              copyCompanyAddress
                 ? businessInfo?.last_name
                 : companyAddress?.last_name
             }
@@ -271,7 +303,7 @@ console.log(stateCode, stateCodeShort)
       </Form.Item>
       <Form.Item
         rules={[
-          { required: true, message: "Please enter your Address Line 1!" }
+          { required: true, message: "Please enter your Address Line 1!" },
         ]}
         name="address_1"
         className="w-full sm:ml-[200px]"
@@ -279,14 +311,12 @@ console.log(stateCode, stateCodeShort)
         <div className="relative">
           <Input
             onBlur={onValid}
-            onChange={(e) =>
-              handleInputChange(e, "address_1")
-            }
+            onChange={(e) => handleInputChange(e, "address_1")}
             value={
-                copyCompanyAddress 
-                  ? businessInfo?.address_1 
-                  : companyAddress?.address_1
-              }
+              copyCompanyAddress
+                ? businessInfo?.address_1
+                : companyAddress?.address_1
+            }
             className="fw-input"
           />
           <label htmlFor="floating_outlined" className="fw-label">
@@ -296,7 +326,7 @@ console.log(stateCode, stateCodeShort)
       </Form.Item>
       <Form.Item
         rules={[
-          { required: false, message: "Please enter your Address Line 2!" }
+          { required: false, message: "Please enter your Address Line 2!" },
         ]}
         name="address_2"
         className="w-full sm:ml-[200px]"
@@ -304,14 +334,12 @@ console.log(stateCode, stateCodeShort)
         <div className="relative">
           <Input
             onBlur={onValid}
-            onChange={(e) =>
-              handleInputChange(e, "address_2")
-            }
+            onChange={(e) => handleInputChange(e, "address_2")}
             value={
-              copyCompanyAddress 
-                ? businessInfo?.address_2 
+              copyCompanyAddress
+                ? businessInfo?.address_2
                 : companyAddress?.address_2
-              }
+            }
             className="fw-input"
           />
           <label htmlFor="floating_outlined" className="fw-label">
@@ -327,11 +355,10 @@ console.log(stateCode, stateCodeShort)
         <div className="relative">
           <Input
             onBlur={onValid}
-            onChange={(e) =>
-              
-              handleInputChange(e, "city")
+            onChange={(e) => handleInputChange(e, "city")}
+            value={
+              copyCompanyAddress ? businessInfo?.city : companyAddress?.city
             }
-            value={copyCompanyAddress  ? businessInfo?.city : companyAddress?.city}
             className="fw-input"
           />
           <label htmlFor="floating_outlined" className="fw-label">
@@ -340,10 +367,7 @@ console.log(stateCode, stateCodeShort)
         </div>
       </Form.Item>
 
-      <Form.Item
-        name="state_code"
-        className="w-full sm:ml-[200px]"
-      >
+      <Form.Item name="state_code" className="w-full sm:ml-[200px]">
         <div className="relative">
           <Select
             allowClear
@@ -353,7 +377,12 @@ console.log(stateCode, stateCodeShort)
             onChange={onChangeState}
             filterOption={filterOption}
             options={stateData}
-            value={stateCodeShort || stateCode} // Ensure correct value is passed
+            value={
+              companyAddress && !stateCode
+                ? billingInfo?.state_code &&
+                  convertUsStateAbbrAndName(billingInfo?.state_code)
+                : stateCode && stateCode
+            } // Ensure correct value is passed
           >
             <label htmlFor="floating_outlined" className="fw-label">
               State
@@ -369,18 +398,20 @@ console.log(stateCode, stateCodeShort)
           { required: true, message: "Please enter your Zip!" },
           {
             pattern: new RegExp(/^[0-9]{2,7}$/),
-            message: "Please enter a valid zip !"
-          }
+            message: "Please enter a valid zip !",
+          },
         ]}
       >
         <div className="relative">
           <InputNumber
             type="number"
             onBlur={onValid}
-            onChange={(e) =>
-              handleInputChange(e, "zip_postal_code")
+            onChange={(value) => handleInputChange(value, "zip_postal_code")}
+            value={
+              copyCompanyAddress
+                ? businessInfo?.zip_postal_code
+                : companyAddress?.zip_postal_code
             }
-            value={copyCompanyAddress  ? businessInfo?.zip_postal_code : companyAddress?.zip_postal_code}
             className="fw-input"
           />
           <label htmlFor="floating_outlined" className="fw-label">
@@ -395,19 +426,18 @@ console.log(stateCode, stateCodeShort)
         rules={[
           { required: true, message: "Please enter your Phone Number!" },
           {
-            pattern: new RegExp(/^[0-9]{2,14}$/),
-            message: "Please enter a valid phone number!"
-          }
+            pattern: new RegExp(/^[0-9]{10,14}$/),
+            message: "Please enter a valid phone number with at least 10 digits!",
+          },
         ]}
       >
         <div className="relative">
-          <InputNumber
-            type="number"
-            value={copyCompanyAddress  ? businessInfo?.phone : companyAddress?.phone}
-            onBlur={onValid}
-            onChange={(e) =>
-              handleInputChange(e, "phone")
+          <Input
+            value={
+              copyCompanyAddress ? businessInfo?.phone : companyAddress?.phone
             }
+            onBlur={onValid}
+            onChange={(value) => handleInputChange(value, "phone")}
             className="fw-input"
           />
           <label htmlFor="floating_outlined" className="fw-label">
@@ -435,22 +465,19 @@ console.log(stateCode, stateCodeShort)
       <div className="w-full lg:w-1/2">
         <div className="bg-white p-6 rounded-lg shadow-sm">
           <div className="mb-6 text-center mr-12">
-            <h2 className="text-lg font-bold text-gray-600">My Billing Address</h2>
+            <h2 className="text-lg font-bold text-gray-600">
+              My Billing Address
+            </h2>
             <p className="text-gray-500 mt-2">
               You can change this info later within your account.
             </p>
             <div className="mt-4">
-              <Checkbox
-                className="text-gray-500"
-                onChange={checkboxClick}
-              >
+              <Checkbox className="text-gray-500" onChange={checkboxClick}>
                 Check if same as company address
               </Checkbox>
             </div>
           </div>
-          <div className="w-full">
-            {displayTurtles}
-          </div>
+          <div className="w-full">{displayTurtles}</div>
         </div>
       </div>
     </div>

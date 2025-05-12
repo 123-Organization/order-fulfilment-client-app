@@ -6,7 +6,7 @@ import type { SelectProps } from "antd";
 import { countryType } from "../types/ICountry";
 import type { CheckboxProps } from "antd";
 import { useAppDispatch, useAppSelector } from "../store";
-import {  fetchWporder, updateImport } from "../store/features/orderSlice";
+import {  fetchOrder, fetchWporder, updateImport } from "../store/features/orderSlice";
 import convertUsStateAbbrAndName from "../services/state";
 import { useLocation } from "react-router-dom";
 import dayjs from 'dayjs';
@@ -52,6 +52,11 @@ const ImportFilter: React.FC = () => {
   const businessInfo = useAppSelector(
     (state) => state.company?.company_info?.data?.business_info 
   );
+  const customerInfo = useAppSelector((state) => state.Customer.customer_info);
+
+  useEffect(()=>{
+    dispatch(fetchOrder(customerInfo?.data?.account_id))
+  },[customerInfo?.data?.account_id])
 
   const checkboxClick: CheckboxProps["onChange"] = (e) => {
     e.preventDefault();
