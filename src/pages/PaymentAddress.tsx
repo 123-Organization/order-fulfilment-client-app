@@ -9,9 +9,10 @@ type SizeType = Parameters<typeof Form>[0]["size"];
 
 type PaymentAddressProps = { 
   remainingTotal: number;
+  onClose?: () => void;
 };
 
-const PaymentAddress: React.FC <PaymentAddressProps> = ({remainingTotal}) => {
+const PaymentAddress: React.FC <PaymentAddressProps> = ({remainingTotal, onClose}) => {
   const dispatch = useAppDispatch();
   const [componentSize, setComponentSize] = useState<SizeType | "default">(
     "default"
@@ -203,7 +204,8 @@ const PaymentAddress: React.FC <PaymentAddressProps> = ({remainingTotal}) => {
         <div className="container mx-auto px-5 py-2 lg:px-8 md:px-4 justify-center items-center">
           <div className="-m-1 mx-4 flex items-center flex-wrap md:-m-2">
             <Payment 
-            remainingTotal = {remainingTotal}
+            remainingTotal={remainingTotal}
+            onCloseModal={onClose}
             />
           </div>
         </div>

@@ -61,15 +61,6 @@ export default function FileManagementIframe({ iframe, setIframe }) {
   }, []);
 
   // Toggle full-screen mode
-  const toggleFullScreen = () => {
-    if (!isFullScreen) {
-      iframeContainerRef.current?.requestFullscreen?.();
-      setIsFullScreen(true);
-    } else {
-      document.exitFullscreen?.();
-      setIsFullScreen(false);
-    }
-  };
 
   const filterImages = (data: any) => {
     return data?.data?.fileSelected.map(
@@ -201,13 +192,13 @@ export default function FileManagementIframe({ iframe, setIframe }) {
               zIndex: 1000,
             }}
             icon={
-              isFullScreen ? (
+              isMaximized || isSmallScreen ? (
                 <CompressOutlined />
               ) : (
                 <FullscreenOutlined className="text-gray-600" />
               )
             }
-            onClick={toggleFullScreen}
+            onClick={toggleMaximize}
           ></Button>
         </div>
       </Modal>

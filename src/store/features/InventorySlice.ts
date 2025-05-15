@@ -188,6 +188,9 @@ export const InventorySlice = createSlice({
                 updateFilterVirtualInventory: (state, action) => {
                         state.filterVirtualInventory = { ...state.filterVirtualInventory, ...action.payload };
                 },
+                resetStatus:(state) =>{
+                        state.status = "idle"
+                },
         },
         extraReducers: (builder) => {
                 builder.addCase(listVirtualInventory.fulfilled, (state, action) => {
@@ -228,4 +231,4 @@ export const InventorySlice = createSlice({
 
 
 export default InventorySlice;
-export const { inventorySelectionUpdate, inventorySelectionClean, inventorySelectionDelete, updateFilterVirtualInventory } = InventorySlice.actions;
+export const { inventorySelectionUpdate, inventorySelectionClean, inventorySelectionDelete, updateFilterVirtualInventory, resetStatus } = InventorySlice.actions;

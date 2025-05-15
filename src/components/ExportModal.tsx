@@ -13,6 +13,7 @@ import woocommerce from "../assets/images/store-woocommerce.svg";
 import { exportOrders } from "../store/features/InventorySlice";
 import { useNotificationContext } from "../context/NotificationContext";
 import { inventorySelectionClean } from "../store/features/InventorySlice";
+import { resetStatus } from "../store/features/InventorySlice";
 import Spinner from "./Spinner";
 
 interface ExportModalProps {
@@ -71,7 +72,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
     // }
   };
 
-  const handleExport = (imgname: string) => {
+  const handleExport = async (imgname: string) => {
     if (imgname === "WooCommerce") {
       // Get the list of already exported products
       const exportedProducts = inventorySelection.filter(
@@ -87,7 +88,8 @@ const ExportModal: React.FC<ExportModalProps> = ({
       }
   
       // If no products have been exported, proceed with the export
-      dispatch(exportOrders({ data: inventorySelection }));
+      await dispatch(exportOrders({ data: inventorySelection }));
+      dispatch(resetStatus())
     }
   };
 

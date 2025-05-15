@@ -15,6 +15,7 @@ import { ecommerceConnector } from "../store/features/ecommerceSlice";
 import { updateCompanyInfo} from "../store/features/companySlice";
 import { useAppDispatch, useAppSelector } from "../store";
 import { useNotificationContext } from "../context/NotificationContext";
+import { updateApp } from "../store/features/orderSlice";
 // import { connectAdvanced } from "react-redux";
 import { find } from "lodash";
 
@@ -60,6 +61,9 @@ const Landing: React.FC = (): JSX.Element => {
   const queryParams = new URLSearchParams(location.search);
   const typeValue = queryParams.get("type");
   const notificationApi = useNotificationContext();
+  const appLunched = useAppSelector((state)=>state.order.appLunched)
+
+  console.log("islu", appLunched)
 
   console.log(location.pathname,typeValue);
   // const [isOpen, setOpenExcel] = useState<Boolean>(true);
@@ -238,7 +242,10 @@ const Landing: React.FC = (): JSX.Element => {
       }
     }
   };
-
+  useEffect(() => {
+   
+  dispatch(updateApp(false))
+  }, []);
 
 
   useEffect(() => {
@@ -271,7 +278,7 @@ const Landing: React.FC = (): JSX.Element => {
   const displayTurtles = images.map((image) => (
     <div className="flex w-1/3 max-sm:w-1/2 max-[400px]:w-full flex-wrap">
       <div
-        className="w-full   md:p-2 flex flex-col items-center "
+        className="w-full mt-8 md:mt-0 md:p-2 flex flex-col items-center "
         onClick={() => importData(image.name)}
       >
         {
@@ -290,13 +297,17 @@ const Landing: React.FC = (): JSX.Element => {
   ));
 
   useEffect(() => {}, []);
+  const handleAppLaunch = ()=>{
+    dispatch(updateApp(true))
+    navigate("/mycompany");
+  }
 
   return (
     <div className="flex justify-end max-md:flex-col items-center w-full h-full p-8">
       <div className="w-1/2 max-md:w-full flex flex-col justify-center max-md:border-b-2 md:border-r-2 items-center h-[600px] max-md:h-[300px]">
         <Button
           onClick={() => {
-            navigate("/mycompany");
+            handleAppLaunch()
           }}
           type="primary"
           size="large"

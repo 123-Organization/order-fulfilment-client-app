@@ -31,11 +31,13 @@ const PopupModal: React.FC<PopupModalProps> = ({
   const productCode = useAppSelector((state) => state.order.productCode);
   const images = useAppSelector((state) => state.ProductSlice.images);
   console.log("images", images);
+  const order = useAppSelector((state)=> state.order.orders)
 
   // State to track the input value
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const productDataStatus = useAppSelector((state) => state.order.productDataStatus);
+  console.log("datastatus", productDataStatus)
   
   const SelectedImage = useAppSelector(
     (state) => state.ProductSlice.SelectedImage
@@ -43,8 +45,9 @@ const PopupModal: React.FC<PopupModalProps> = ({
   console.log("SelectedImage", SelectedImage);
   // Update state when the input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInputValue(e.target.value);
+    setInputValue(e.target.value?.trim())
   };
+  console.log("inputvalue ",inputValue)
 
   const filterImages = (data: any) => {
     return data?.data?.fileSelected.map(
@@ -102,13 +105,14 @@ const PopupModal: React.FC<PopupModalProps> = ({
       
       
       dispatch(updateIframeState({ iframeState: true }));
+      notificationApi.success({
+        message: "Choose A Product Image",
+        description: "Please choose the product image want to add to the order.",
+      });
       onClose();
     }
 
-    notificationApi.success({
-      message: "Choose A Product Image",
-      description: "Please choose the product image want to add to the order.",
-    });
+   
 
     console.log("stat", productDataStatus); 
   };

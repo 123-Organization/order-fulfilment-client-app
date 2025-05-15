@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { InputNumber, Space } from "antd";
 import { useAppDispatch, useAppSelector } from "../store";
 import { increaseProductQuantity } from "../store/features/productSlice";
@@ -31,6 +31,14 @@ const QuantityInput: React.FC<QuantityInputProps> = ({
   const notificationApi = useNotificationContext();
   const product_status = useAppSelector((state) => state.ProductSlice.status);
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
+  const quantityUpdatedRef = useRef(false);
+
+  useEffect(() => {
+    if (quantityUpdated) {
+      quantityUpdatedRef.current = true;
+    }
+  }, [quantityUpdated]);
+
   const updateQuantity = (newValue: number) => {
     setValue(newValue);
 
@@ -52,10 +60,13 @@ const QuantityInput: React.FC<QuantityInputProps> = ({
         })
       ).then(() => {
         setTimeout(() => {
-          notificationApi.success({
-            message: "Quantity Updated",
-            description: "Quantity has been successfully updated.",
-          });
+          if (quantityUpdatedRef.current) {
+            notificationApi.success({
+              message: "Quantity Updated",
+              description: "Quantity has been successfully updated.",
+            });
+            quantityUpdatedRef.current = false;
+          }
           dispatch(fetchOrder(customerInfo?.data?.account_id));
         }, 3000);
       });
@@ -63,6 +74,7 @@ const QuantityInput: React.FC<QuantityInputProps> = ({
 
     setClickTimer(newTimer);
   };
+
 
   const increase = () => updateQuantity(Math.min(value + 1, 1000));
   const decrease = () => updateQuantity(Math.max(value - 1, 1));

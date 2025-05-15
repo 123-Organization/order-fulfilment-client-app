@@ -84,7 +84,7 @@ const Checkout: React.FC = () => {
               <span>Grand Total:</span>
               <span>${grandTotal.toFixed(2)}</span>
             </p>
-            <p className="text-sm border-b-2 pt-6 flex justify-between font-bold">
+            <p className="text-sm border-b-2 pb-2 pt-6 flex justify-between font-bold">
               <span>Account Credits Used:</span>
               <span>(${grandTotal - remainingTotal})</span>
             </p>

@@ -9,10 +9,14 @@ import Braintree from '../components/braintree/Braintree';
 import { getCustomerInfo } from '../store/features/customerSlice';
 import { updateCompanyInfo } from '../store/features/companySlice';
 import { getPaymentMethods } from '../store/features/paymentSlice';
+import { notification } from 'antd';
+
 type PaymentProps = { 
   remainingTotal: number;
+  onCloseModal?: () => void;
 };
-export default function Payment({ remainingTotal }: PaymentProps) {
+
+export default function Payment({ remainingTotal, onCloseModal }: PaymentProps) {
   const [clientToken, setClientToken] = useState('');
   const [showBraintreeDropIn, setShowBraintreeDropIn] = useState(false);
   const dispatch = useAppDispatch();
@@ -27,6 +31,10 @@ export default function Payment({ remainingTotal }: PaymentProps) {
       })
       .catch((error: Error) => {
         console.log(error);
+        notification.error({
+          message: 'Error',
+          description: 'Failed to initialize payment system. Please try again.',
+        });
       });
   }, []);
 
@@ -40,11 +48,17 @@ export default function Payment({ remainingTotal }: PaymentProps) {
     console.log('payload',payload)
     PaymentHttpClient.checkout(payload)
       .then((result: ITransactionResponse) => {
-        alert('Payment successfully completed');
+        notification.success({
+          message: 'Success',
+          description: 'Payment successfully completed',
+        });
         console.log(result);
       })
       .catch((error: Error) => {
-        alert('Payment Failed');
+        notification.error({
+          message: 'Payment Failed',
+          description: 'There was an error processing your payment. Please try again.',
+        });
         console.log(error);
       });
   };
@@ -65,17 +79,23 @@ export default function Payment({ remainingTotal }: PaymentProps) {
 
     PaymentHttpClient.addPaymentMethod(paymentMethodNonce)
       .then((result: ITransactionResponse) => {
-        alert('Payment successfully completed');
         console.log(result);
-        dispatch(getPaymentMethods(companyInfo?.data?.payment_profile_id))
+        dispatch(getPaymentMethods(companyInfo?.data?.payment_profile_id));
+        
+        // Close the modal after successful payment method addition
+        if (onCloseModal) {
+          onCloseModal();
+        }
       })
       .catch((error: Error) => {
-        alert('Payment Failed');
+        notification.error({
+          message: 'Failed',
+          description: 'Failed to add payment method. Please try again.',
+        });
         console.log(error);
       });
   };
 
-  
   return (
     <div className='container-fluid w-full'>
       {/* <div className='text-center'>
@@ -99,6 +119,7 @@ export default function Payment({ remainingTotal }: PaymentProps) {
             checkout={initiatePayment}
             addPaymentMethod={addPaymentMethod}
             remainingTotal={remainingTotal}
+            onClose={onCloseModal}
           />
         </div>
       </div>

@@ -6,15 +6,16 @@ interface PopupModalProps {
   onClose: (value: boolean) => void;
   onDeleteProduct:any;
   deleteItem: any;
+  order_po: any;
 }
 
-const DeleteMessage: React.FC<PopupModalProps> = ({ visible, onClose, onDeleteProduct, deleteItem }) => {
+const DeleteMessage: React.FC<PopupModalProps> = ({ visible, onClose, onDeleteProduct, deleteItem, order_po }) => {
   const onCancel = () => {
     onClose(false);
   };
   const DeleteProduct = () => {
     console.log("deleteItem",deleteItem)
-    onDeleteProduct(deleteItem);
+    onDeleteProduct(deleteItem, order_po);
     onClose(false);
   }
 console.log("itit",deleteItem)

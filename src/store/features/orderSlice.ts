@@ -27,6 +27,8 @@ interface OrderState {
   orderEdited: any;
   submitedOrders: any;
   Wporder: any;
+  appLunched: boolean;
+  iframeOpened: boolean;
   currentOrderFullFillmentId: any;
   status: "idle" | "loading" | "succeeded" | "failed"; // ✅ Add status here
   error: string | null;
@@ -47,6 +49,8 @@ const initialState: OrderState = {
   saveOrderInfo: {},
   Wporder: [],
   myImport: {},
+  appLunched:false,
+  iframeOpened: false,
   orderEdited: { status: false, clicked: false, },
   status: "idle",
   submitedOrders: [],
@@ -181,15 +185,24 @@ export const AddProductToOrder = createAsyncThunk(
       "product_url_thumbnail": postData.product_url_thumbnail
     }
     console.log('pepee', postData)
-    const response = await fetch(BASE_URL + "update-order-by-product", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(postData),
-    });
-    const data = await response.json();
-    return data;
+    try {
+      const response = await fetch(BASE_URL + "update-order-by-product", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(postData),
+      });
+      if(!response.ok){
+        const error = await response.json()
+        return thunkAPI.rejectWithValue(error)
+      }
+      const data = await response.json();
+      return data;
+    } catch(error){
+      return thunkAPI.rejectWithValue(error)
+    }
+    
   },
 );
 
@@ -274,8 +287,8 @@ export const fetchWporder = createAsyncThunk(
   "order/fetch/wporder",
   async (postData: any, thunkAPI) => {
     const sendData = {
-     "orderIds": Array.isArray(postData?.orderId) ? postData?.orderId : [postData?.orderId],
-     "accountId": postData?.accountId
+      "orderIds": Array.isArray(postData?.orderId) ? postData?.orderId : [postData?.orderId],
+      "accountId": postData?.accountId
     }
     console.log('Sending to API for fetchWporder:', sendData, 'platformName:', postData.platformName);
     try {
@@ -286,13 +299,13 @@ export const fetchWporder = createAsyncThunk(
         },
         body: JSON.stringify(sendData)
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         console.error('API error in fetchWporder:', errorData);
         return thunkAPI.rejectWithValue(errorData);
       }
-      
+
       const data = await response.json();
       return data;
     } catch (error) {
@@ -363,7 +376,7 @@ export const OrderSlice = createSlice({
     },
     updateWporder: (state, action: PayloadAction) => {
       state.Wporder = action.payload;
-      
+
     },
     resetDeleteOrderStatus: (state) => {
       state.deleteOrderStatus = "idle";
@@ -373,7 +386,14 @@ export const OrderSlice = createSlice({
     },
     resetSubmitedOrders: (state) => {
       state.submitedOrders = [];
+    },
+    updateIframe: (state) => {
+      state.iframeOpened = true
+    },
+    updateApp: (state, action) => {
+      state.appLunched = action.payload
     }
+    
   },
   extraReducers: (builder) => {
     builder.addCase(fetchOrder.fulfilled, (state, action) => {
@@ -467,4 +487,4 @@ export const OrderSlice = createSlice({
 });
 
 export default OrderSlice.reducer;
-export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport } = OrderSlice.actions;
+export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, updateIframe, updateApp } = OrderSlice.actions;

@@ -39,6 +39,19 @@ export default function Confirmation() {
   const navigate = useNavigate();
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
   
+  // Clear confirmation visited flag when component mounts
+  // useEffect(() => {
+  //   // Clear the flag when entering confirmation page
+  //   sessionStorage.removeItem('confirmationVisited');
+    
+  //   return () => {
+  //     // Ensure the flag is set when navigating away
+  //     if (submitedOrders.length > 0) {
+  //       sessionStorage.setItem('confirmationVisited', 'true');
+  //     }
+  //   };
+  // }, []);
+  
   console.log("submitedOrders", submitedOrders);
  
   useEffect(() => {
@@ -67,7 +80,10 @@ export default function Confirmation() {
     if(ButtonName === "Back to payment"){
       navigate("/checkout");
     }else{
-      navigate("/");
+      // Set flag to prevent going back to confirmation
+      // sessionStorage.setItem('confirmationVisited', 'true');
+      // Use replace to prevent back button from working
+      navigate("/", { replace: true });
       dispatch(resetPaymentStatus());
     }
   }

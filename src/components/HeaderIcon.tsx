@@ -107,6 +107,9 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
     });
   };
   const addtional = "pb-500";
+  const toggleDash = () => {
+    setDash(!openDash);
+  };
   /**
    * ****************************************************************** JSX  ***************************************************************************
    */
@@ -300,7 +303,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
           )}
 
           {!openDash && (
-            <div className="md:hidden col-span-6" id="mobile-menu1 " >
+            <div className="md:hidden col-span-10" id="mobile-menu1 " >
               <div className="space-y-1 px-2 pb-3 pt-2">
                 {
                   //Current: "bg-gray-900 text-white", Default: "text-gray-300 hover:bg-gray-700 hover:text-white"
@@ -326,17 +329,19 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                         My Files
                   </span>
                 </button>  */}
-                <div className="middle-div border-t-2 ">
+                <div className="middle-div border-t-2  ">
                   <a
                     href="#/mycompany"
-                    className="w-full middle-div text-gray-300 hover:bg-gray-700 hover:text-white block rounded-md px-3 py-2 text-sm font-medium"
+                    className="w-full middle-div  text-gray-300 hover:bg-gray-700 hover:text-white block rounded-md px-3 py-2 text-sm font-medium"
                     aria-current="page"
+                    onClick={toggleDash}
                   >
                     <img
                       src={briefcase}
                       className="mr-2"
                       width={whPixel}
                       height={whPixel}
+                      
                     />
                     <span className="mt-1">My Company</span>
                   </a>
@@ -346,6 +351,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                     href="#/shippingpreference"
                     className="w-full middle-div text-gray-300 hover:bg-gray-700 hover:text-white block rounded-md px-3 py-2 text-sm font-medium"
                     aria-current="page"
+                    onClick={toggleDash}
                   >
                     <img
                       src={truck}
@@ -361,6 +367,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                     href="#/billingaddress"
                     className="w-full middle-div text-gray-300 hover:bg-gray-700 hover:text-white block rounded-md px-3 py-2 text-sm font-medium"
                     aria-current="page"
+                    onClick={toggleDash}
                   >
                     <img
                       src={creditcard}
@@ -376,14 +383,10 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                     href="#/virtualinventory"
                     className="w-full middle-div text-gray-300 hover:bg-gray-700 hover:text-white block rounded-md px-3 py-2 text-sm font-medium"
                     aria-current="page"
+                    onClick={toggleDash}
                   >
-                    <img
-                      src={store}
-                      className="mr-2"
-                      width={whPixel}
-                      height={whPixel}
-                    />
-                    <span className="mt-1">My Stores</span>
+                   <ProfileOutlined style={{ fontSize: 30, color: "#BFBFBF", marginRight: "10px" }} />
+                    <span className="mt-1">Virtual Inventory</span>
                   </a>
                   {/* <a href="#" className="w-full bg-gray-900 text-white block rounded-md px-3 py-2 text-base font-medium" aria-current="page">My Stores</a> */}
                 </div>
@@ -392,6 +395,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                     href="#"
                     className="w-full middle-div text-gray-300 hover:bg-gray-700 hover:text-white block rounded-md px-3 py-2 text-sm font-medium"
                     onClick={() => setIframeVisible(true)}
+                    
                   >
                     <img
                       src={image}

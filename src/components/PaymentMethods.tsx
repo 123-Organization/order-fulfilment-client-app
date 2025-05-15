@@ -11,12 +11,14 @@ import { setSelectedCard } from "../store/features/paymentSlice";
 import VaultedCardPayment from "./VaultedCardPayment";
 import { updateCompanyInfo } from "../store/features/companySlice";
 import { useNotificationContext } from "../context/NotificationContext";
+import './animationStyles.css';
 
 export default function PaymentMethods(remainingTotal: any = 0) {
   const [value, setValue] = useState(1);
   const [paymentPopupEnable, setPaymentPopupEnable] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const [modalVisble, setModalVisble] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const credit = 40;
   const [cardRemoved, setCardRemoved] = useState(false);
   const notificationApi = useNotificationContext();
@@ -39,7 +41,7 @@ export default function PaymentMethods(remainingTotal: any = 0) {
     dispatch(setSelectedCard(e.target.value));
   };
 
-  const maskNumber = (number) => {
+  const maskNumber = (number: string) => {
     if (!number) return "";
     return number.slice(-4).padStart(number.length, "*");
   };
@@ -54,6 +56,7 @@ export default function PaymentMethods(remainingTotal: any = 0) {
         paymentMethods.data.paymentMethods[0].maskedNumber;
       setValue(defaultPaymentMethod);
       dispatch(setSelectedCard(defaultPaymentMethod));
+      setIsLoading(false);
     }
   }, [paymentMethods]);
 
@@ -62,6 +65,7 @@ export default function PaymentMethods(remainingTotal: any = 0) {
 
     const payment_profile_id = companyInfo?.data?.payment_profile_id;
     if (payment_profile_id ) {
+      setIsLoading(true);
       dispatch(getPaymentMethods(payment_profile_id));
     }
   }, [companyInfo, dispatch]);
@@ -73,14 +77,14 @@ export default function PaymentMethods(remainingTotal: any = 0) {
   };
   const handleRemoveCard = () => {
     const Token = paymentToken?.payment_tokens?.find(
-      (token: any) => token?.associated_payment_method?.slice(-4) === value?.slice(-4)
+      (token: any) => token?.associated_payment_method?.slice(-4) === String(value)?.slice(-4)
     );
     const data = {
       customerId : companyInfo?.data?.payment_profile_id,
       paymentMethodToken : Token?.token
     }
-  dispatch(removeSelectedCard(data))
-  setCardRemoved(true)
+    dispatch(removeSelectedCard(data))
+    setCardRemoved(true)
   }
   useEffect(() => {
     if(cardRemoved){
@@ -108,7 +112,7 @@ export default function PaymentMethods(remainingTotal: any = 0) {
           <p className="w-full text-center pt-4">
             <Button
               key="submit"
-              className=" max-md:w-6/12 w-[170px] md:mx-8 mt-2  text-gray-500"
+              className="max-md:w-6/12 w-[170px] md:mx-8 mt-2 text-gray-500 button-animation-secondary"
               size={"large"}
               type="default"
               onClick={handleRemoveCard}
@@ -120,7 +124,7 @@ export default function PaymentMethods(remainingTotal: any = 0) {
           <p className=" w-full text-center pt-2">
             <Button
               key="submit"
-              className="max-md:w-6/12  w-[170px]  md:mx-8 mt-2 "
+              className="max-md:w-6/12 w-[170px] md:mx-8 mt-2 button-animation-primary"
               size={"large"}
               type="primary"
               onClick={() => setPaymentPopupEnable(true)}
@@ -147,43 +151,48 @@ export default function PaymentMethods(remainingTotal: any = 0) {
     <>
       <div className="w-[3x00px] max-lg:w-12/12 max-md:w-full flex flex-col justify-start items-center md:ml-16">
         <Form layout="horizontal" className="w-full flex flex-col items-center">
-          <p className="text-lg font-bold  text-gray-600 mr-2">
+          <p className="text-lg font-bold text-gray-600 mr-2 mb-2">
             My Payment Methods
           </p>
-          <div className="w-full ">
+          <div className="w-full payment-methods-container">
             {showPaymentMethod ? (
               <div></div>
+            ) : isLoading ? (
+              <div className="loading-pulse">Loading payment methods...</div>
             ) : (
-              paymentMethods?.data?.paymentMethods
-                ?.filter(
-                  (method, index, self) =>
-                    self.findIndex(
-                      (m) => m.maskedNumber === method.maskedNumber
-                    ) === index
-                ) // Filters out duplicates
-                ?.map((method) => (
-                  <Radio.Group
-                    className="text-gray-400 flex w-full justify-center"
-                    onChange={onChange1}
-                    value={value}
-                    key={method?.maskedNumber}
-                  >
-                    <Radio
-                      value={method?.maskedNumber}
-                      className="text-gray-400 align-text-top pt-3 flex justify-center items-center"
+              <div className="compact-cards-container">
+                {paymentMethods?.data?.paymentMethods
+                  ?.filter(
+                    (method: any, index: number, self: any[]) =>
+                      self.findIndex(
+                        (m: any) => m.maskedNumber === method.maskedNumber
+                      ) === index
+                  ) // Filters out duplicates
+                  ?.map((method: any, index: number) => (
+                    <Radio.Group
+                      className="text-gray-400 flex w-full justify-center card-animation"
+                      onChange={onChange1}
+                      value={value}
+                      key={method?.maskedNumber}
+                      style={{ animationDelay: `${index * 100}ms` }}
                     >
-                      <strong className="flex justify-center items-center gap-4">
-                        {maskNumber(method?.maskedNumber)} -{" "}
-                        {method?.expirationDate}
-                        <img
-                          src={method?.imageUrl}
-                          alt=""
-                          className="w-[40px]"
-                        />
-                      </strong>
-                    </Radio>
-                  </Radio.Group>
-                ))
+                      <Radio
+                        value={method?.maskedNumber}
+                        className="text-gray-400 flex justify-center items-center card-radio py-1"
+                      >
+                        <strong className="flex justify-center items-center gap-4">
+                          {maskNumber(method?.maskedNumber)} -{" "}
+                          {method?.expirationDate}
+                          <img
+                            src={method?.imageUrl}
+                            alt=""
+                            className="w-[40px] card-logo"
+                          />
+                        </strong>
+                      </Radio>
+                    </Radio.Group>
+                  ))}
+              </div>
             )}
           </div>
           <Radio.Group

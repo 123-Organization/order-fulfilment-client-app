@@ -1,5 +1,11 @@
-import React, { Suspense, lazy, useEffect, useState } from "react";
-import { Route, Routes, useLocation, Navigate } from "react-router-dom";
+import React, { Suspense, lazy, useEffect, useState,useRef } from "react";
+import {
+  Route,
+  Routes,
+  useLocation,
+  Navigate,
+  useNavigate,
+} from "react-router-dom";
 import { useAppDispatch } from "../store";
 import { routes } from "../config/routes";
 import ImportList from "../pages/ImportList";
@@ -7,6 +13,9 @@ import { useAppSelector } from "../store";
 import { notification } from "antd";
 import { useCookies } from "react-cookie";
 import { clearCustomerInfo } from "../store/features/customerSlice";
+import { useNotificationContext } from "../context/NotificationContext";
+import { updateApp } from "../store/features/orderSlice";
+import { stat } from "fs";
 
 type NotificationType = "success" | "info" | "warning" | "error";
 interface NotificationAlertProps {
@@ -34,25 +43,84 @@ interface ProtectedRouteProps {
   path?: string;
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ component: Component }) => {
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
+  component: Component,
+}) => {
   const [cookies] = useCookies(["Session", "AccountGUID"]);
   const dispatch = useAppDispatch();
-  
+  const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
+  const myBillingInfoFilled = useAppSelector(
+    (state) => state.company.myBillingInfoFilled
+  );
+  const myCompanyInfoFilled = useAppSelector(
+    (state) => state.company.myCompanyInfoFilled
+  );
+
   if (!cookies.AccountGUID || !cookies.Session) {
     // Redirect to landing page if cookies don't exist
-    dispatch(clearCustomerInfo())
+    dispatch(clearCustomerInfo());
     return <Navigate to={routes.landingPage} replace />;
   }
-  
+
   return <Component />;
 };
 
+const ProtectedHeader: React.FC<ProtectedRouteProps> = ({
+  component: Component,
+}) => {
+  const [cookies] = useCookies(["Session", "AccountGUID"]);
+  const dispatch = useAppDispatch();
+  const appLunched = useAppSelector((state)=>state.order.appLunched)
+  const company_info = useAppSelector((state) => state.company.company_info);
+  console.log("comcom", company_info)
+  const notificationApi = useNotificationContext();
+  const wizardNotification = useRef(false)
+
+  useEffect(()=>{
+    if (cookies.AccountGUID ) {
+    if (!company_info?.data?.billing_info?.first_name && appLunched === false) {
+      if(!wizardNotification.current){
+      notificationApi.warning({
+        message: "Lunch Wizard Setup",
+        description: `Fill your information `,
+      });
+      console.log("wiz", wizardNotification.current)
+      wizardNotification.current = true
+    }
+  }}
+
+  },[appLunched])
+  
+
+console.log("islu", appLunched)
+
+  if (!cookies.AccountGUID || !cookies.Session) {
+    // Redirect to landing page if cookies don't exist
+    dispatch(clearCustomerInfo());
+    return <Navigate to={routes.landingPage} replace />;
+  }
+  
+  if (!company_info?.data?.billing_info?.first_name && appLunched === false) {
+  
+    return <Navigate to={routes.landingPage} replace />;
+  
+
+  }
+  return <Component />;
+};
 const Router: React.FC = (): JSX.Element => {
   const [api, contextHolder] = notification.useNotification();
   const [cookies] = useCookies(["Session", "AccountGUID"]);
-  
+  const myBillingInfoFilled = useAppSelector(
+    (state) => state.company.myBillingInfoFilled
+  );
+  const company_info = useAppSelector((state) => state.company.company_info);
+  const myCompanyInfoFilled = useAppSelector(
+    (state) => state.company.myCompanyInfoFilled
+  );
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
-  const location = useLocation(); 
+  const location = useLocation();
+  const navigate = useNavigate();
   const [triggred, setTriggred] = useState(false);
   const openNotificationWithIcon = ({
     type,
@@ -66,19 +134,51 @@ const Router: React.FC = (): JSX.Element => {
   };
   const userData = null;
   const initialRoute = () => {
-    if(userData){ 
+    if (userData) {
       return Login;
     } else {
       return Landing;
     }
   };
 
+  // useEffect(() => {
+  //   if (company_info.data.billing_info.first_name) {
+  //     return <Navigate to={routes.landingPage} replace />;
+  //   }
+  // }, [company_info]);
+
+  // Prevent navigation back to confirmation page
   useEffect(() => {
-    if (location.pathname === routes.checkout && (!checkedOrders || checkedOrders.length === 0)) {
+    // Skip for first render
+    if (!location.key) return;
+
+    // Check if coming from the confirmation page
+    const lastPathInHistory = sessionStorage.getItem("lastPath");
+    const currentPath = location.pathname;
+    console.log("path", currentPath, lastPathInHistory);
+    // If user tries to go back to confirmation page from landing page, redirect to landing
+    if (
+      currentPath === routes.landingPage &&
+      lastPathInHistory === routes.confirmation
+    ) {
+      navigate(routes.landingPage, { replace: true });
+    }
+
+    // Store current path for next navigation check
+    sessionStorage.setItem("lastPath", currentPath);
+
+    // Clean up confirmation data if navigating away from confirmation page
+  }, [location.pathname, location.key]);
+
+  useEffect(() => {
+    if (
+      location.pathname === routes.checkout &&
+      (!checkedOrders || checkedOrders.length === 0)
+    ) {
       openNotificationWithIcon({
         type: "warning",
         message: "No Orders Selected",
-        description: "Please select orders to proceed to checkout."
+        description: "Please select orders to proceed to checkout.",
       });
     }
   }, [location.pathname, checkedOrders]);
@@ -96,7 +196,7 @@ const Router: React.FC = (): JSX.Element => {
         {/* Public routes */}
         <Route path="/" element={<Landing />} />
         <Route path={routes.landingPage} element={<Landing />} />
-        
+
         {/* Protected routes */}
         <Route
           path={routes.checkout}
@@ -110,16 +210,46 @@ const Router: React.FC = (): JSX.Element => {
             )
           }
         />
-        <Route path={routes.shippingpreference} element={<ProtectedRoute component={ShippingPreference} />} />
-        <Route path={routes.paymentaddress} element={<ProtectedRoute component={PaymentAddress} />} />
-        <Route path={routes.mycompany} element={<ProtectedRoute component={MyCompany} />} />
-        <Route path={routes.editorder} element={<ProtectedRoute component={EditOrder} />} />
-        <Route path={routes.billingaddress} element={<ProtectedRoute component={BillingAddress} />} />
-        <Route path={routes.import} element={<ProtectedRoute component={Import} />} />
-        <Route path={routes.importlist} element={<ProtectedRoute component={ImportList} />} />
-        <Route path={routes.importfilter} element={<ProtectedRoute component={ImportFilter} />} />
-        <Route path={routes.virtualinventory} element={<ProtectedRoute component={VirtualInventory} />} />
-        <Route path={routes.confirmation} element={<ProtectedRoute component={Confirmation} />} />
+        <Route
+          path={routes.shippingpreference}
+          element={<ProtectedHeader component={ShippingPreference} />}
+        />
+        <Route
+          path={routes.paymentaddress}
+          element={<ProtectedRoute component={PaymentAddress} />}
+        />
+        <Route
+          path={routes.mycompany}
+          element={<ProtectedHeader component={MyCompany} />}
+        />
+        <Route
+          path={routes.editorder}
+          element={<ProtectedRoute component={EditOrder} />}
+        />
+        <Route
+          path={routes.billingaddress}
+          element={<ProtectedHeader component={BillingAddress} />}
+        />
+        <Route
+          path={routes.import}
+          element={<ProtectedRoute component={Import} />}
+        />
+        <Route
+          path={routes.importlist}
+          element={<ProtectedRoute component={ImportList} />}
+        />
+        <Route
+          path={routes.importfilter}
+          element={<ProtectedRoute component={ImportFilter} />}
+        />
+        <Route
+          path={routes.virtualinventory}
+          element={<ProtectedRoute component={VirtualInventory} />}
+        />
+        <Route
+          path={routes.confirmation}
+          element={<ProtectedRoute component={Confirmation} />}
+        />
         <Route path="*" element={<Landing />} />
       </Routes>
     </Suspense>

@@ -17,7 +17,6 @@ const countryList = require("../json/country.json");
 type SizeType = Parameters<typeof Form>[0]["size"];
 
 const MyCompany: React.FC = () => {
-
   const dispatch = useAppDispatch();
   const businessInfo = useAppSelector(
     (state) => state.company?.company_info?.data?.business_info
@@ -25,7 +24,7 @@ const MyCompany: React.FC = () => {
 
   const com_info = useAppSelector((state) => state.company?.company_info);
   console.log("com_info", com_info);
-console.log("businessInfo", businessInfo);
+  console.log("businessInfo", businessInfo);
   const [componentSize, setComponentSize] = useState<SizeType | "default">(
     "default"
   );
@@ -37,7 +36,7 @@ console.log("businessInfo", businessInfo);
   const [stateCode, setStateCode] = useState<String | null>("");
   const [form] = Form.useForm();
   const [companyAddress, setCompanyAddress] = useState({
-    country_code: "US",
+    country_code: "us",
     company_name: "",
     first_name: "",
     last_name: "",
@@ -53,7 +52,7 @@ console.log("businessInfo", businessInfo);
 
   const openIframe = () => {
     dispatch(updateIframeState({ iframeState: true }));
-  }
+  };
 
   const setStates = (value: string = "us") => {
     let states = getStates(value);
@@ -72,38 +71,62 @@ console.log("businessInfo", businessInfo);
     console.log(`selected ${country_code}`);
     setStates(country_code?.toLowerCase());
     setCountryCode(country_code);
+    setCompanyAddress({ ...companyAddress, country_code: country_code });
+    if (businessInfo?.state_code) {
+    if (country_code === "us") {
+      onFinish({ ...companyAddress, country_code: country_code });
+    } else {
+      onFinish({
+        ...companyAddress,
+        country_code: country_code,
+        state_code: "",
+      });
+    }
+  }
   };
-
-  const onChangeState = (value: string | null) => {
+  const onChangeState = (value: string) => {
     let state_code: string | null = value?.toLowerCase();
-    console.log(`onChangeState ${state_code}`);
+    console.log(`onChangeState ${state_code}`, countryCode);
     setStateCode(state_code);
-    countryCode === "us" &&
+    if (countryCode === "us")
       setStateCodeShort(convertUsStateAbbrAndName(state_code));
-    console.log(`onChangeState ${stateCodeShort}`);
+    else setStateCodeShort(state_code);
+    onFinish({ ...companyAddress, state_code: state_code });
   };
 
   const onFinish = (values) => {
+    console.log("veve", values);
     const updatedValues = { ...companyAddress, ...values };
-    updatedValues.country_code = countryCode;
-    updatedValues.state_code = countryCode === "us" ? stateCodeShort : stateCode;
+    // updatedValues.country_code = countryCode;
+    if (updatedValues.state_code) {
+      updatedValues.state_code = convertUsStateAbbrAndName(
+        updatedValues?.state_code
+      );
+    }
     updatedValues.phone = updatedValues?.phone?.toString();
     updatedValues.zip_postal_code = updatedValues?.zip_postal_code?.toString();
+    console.log("uptp", updatedValues);
     // Get form validation errors
-    form.validateFields()
+    form
+      .validateFields()
       .then(() => {
         // If validation is successful, dispatch the updateCompany action
-        dispatch(updateCompany({ business_info: updatedValues, validFields: {} }));
+        dispatch(
+          updateCompany({ business_info: updatedValues, validFields: {} })
+        );
       })
       .catch((errorInfo) => {
+        console.log("errorInfo", errorInfo);
         // Handle form validation errors
         const errors = errorInfo.errorFields.reduce((acc, field) => {
           acc[field.name[0]] = field.errors;
           return acc;
         }, {});
-  
+
         // Pass errors to the dispatch
-        dispatch(updateCompany({ business_info: updatedValues, validFields: errors }));
+        dispatch(
+          updateCompany({ business_info: updatedValues, validFields: errors })
+        );
       });
   };
 
@@ -123,10 +146,14 @@ console.log("businessInfo", businessInfo);
   useEffect(() => {
     onChange(countryCode); // Initialize country states
   }, []);
+  console.log("add", companyAddress);
 
   useEffect(() => {
-    setCompanyAddress({...companyAddress, state_code:countryCode === "us" ? stateCodeShort : stateCode });
-  }, [stateCode, stateCodeShort,]);
+    let state = countryCode === "us" ? stateCodeShort : stateCode;
+    state = convertUsStateAbbrAndName(state as string);
+    console.log("stoto", state);
+    setCompanyAddress({ ...companyAddress, state_code: state as string });
+  }, [stateCode, stateCodeShort, countryCode]);
 
   useEffect(() => {
     form.setFieldsValue(businessInfo);
@@ -141,13 +168,13 @@ console.log("businessInfo", businessInfo);
   }, [businessInfo]);
 
   useEffect(() => {
-    if (businessInfo) {
+    if (businessInfo?.state_code) {
       setCompanyAddress(businessInfo);
       form.setFieldsValue(businessInfo);
     }
   }, [businessInfo, form]);
-  
-  const handleInputChange = (e:any, field:any) => {
+
+  const handleInputChange = (e: any, field: any) => {
     const value = e?.target ? e.target.value : e;
     setCompanyAddress((prev) => ({ ...prev, [field]: value }));
     form.setFieldsValue({ [field]: value });
@@ -357,7 +384,8 @@ console.log("businessInfo", businessInfo);
           { required: true, message: "Please enter your phone number!" },
           {
             pattern: new RegExp(/^[0-9]{10,14}$/),
-            message: "Please enter a valid phone number with at least 10 digits!",
+            message:
+              "Please enter a valid phone number with at least 10 digits!",
           },
         ]}
         name="phone"
@@ -392,7 +420,7 @@ console.log("businessInfo", businessInfo);
           <p className="text-lg py-4 ">Optional logo </p>
           <img
             className="py-2 border-gray-300 border-2 rounded-lg cursor-pointer "
-            src={com_info? com_info?.data?.logo_url : uploadYourLogo}
+            src={com_info ? com_info?.data?.logo_url : uploadYourLogo}
             onClick={openIframe}
           />
           <p className="py-5">

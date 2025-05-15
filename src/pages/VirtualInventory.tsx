@@ -258,7 +258,7 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
                     className="  
                             "
                   >
-                    {"Add to Cart"}
+                    {"Add"}
                   </button>
                 )}
               </Spin>

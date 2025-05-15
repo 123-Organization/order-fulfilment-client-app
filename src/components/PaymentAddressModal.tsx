@@ -17,7 +17,8 @@ const PaymentAddressModal: React.FC<PaymentAddressProps> = ({ visible, onClose, 
       footer={[]}
     >
       <PaymentAddress
-      remainingTotal = {remainingTotal}
+        remainingTotal={remainingTotal}
+        onClose={onClose}
       />
     </Modal>
   );

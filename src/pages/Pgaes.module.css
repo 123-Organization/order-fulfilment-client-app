@@ -24,6 +24,7 @@
     font-size: 12px;
     font-weight: 600;
     line-height: 15px;
+    
   }
   .product_image {
     width: 100px;
@@ -193,9 +194,9 @@
   }
   .order_description {
     font-size: 11px;
-    line-height: 1.2;
-    height: 300px;
-    -webkit-line-clamp: 3;
+    line-height: 1.5;
+    height: 400px;
+    -webkit-line-clamp: 5;
     overflow: visible;
   }
 }

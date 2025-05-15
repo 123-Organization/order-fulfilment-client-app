@@ -36,6 +36,7 @@ import { resetDeleteOrderStatus } from "../store/features/orderSlice";
 import { resetSubmitedOrders } from "../store/features/orderSlice";
 import SkeletonOrderCard from "../components/SkeletonOrderCard";
 
+
 const { Option } = Select;
 type SizeType = Parameters<typeof Form>[0]["size"];
 type NotificationType = "success" | "info" | "warning" | "error";
@@ -50,6 +51,9 @@ const ImportList: React.FC = () => {
     message: string;
     description: string;
   }
+
+  const firstTimeRender = useRef(true);
+ 
 
   // Utility function to truncate text with character count control
   const truncateText = (htmlString: string, maxLength: number): string => {
@@ -78,11 +82,13 @@ const ImportList: React.FC = () => {
   const [orderPostData, setOrderPostData] = useState([]);
   const [DeleteMessageVisible, setDeleteMessageVisible] = useState(false);
   const [orderFullFillmentId, setOrderFullFillmentId] = useState("");
+  const [order_po, setOrder_po] = useState("");
   const [descriptionCharLimit, setDescriptionCharLimit] = useState(100);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalContent, setModalContent] = useState("");
   const [modalTitle, setModalTitle] = useState("");
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
+  
   // Add ref to track if notification has been shown
   const deleteNotificationShown = useRef({
     succeeded: false,
@@ -134,6 +140,7 @@ const ImportList: React.FC = () => {
  useEffect(() => {
   dispatch(resetSubmitedOrders());
  }, []);
+ console.log("wporder", wporder);
 
   // useEffect(() => {
   //   if (orders && !orders?.data?.length) {
@@ -194,13 +201,15 @@ const ImportList: React.FC = () => {
   }, [product_details]);
   console.log("productData", productData);
 
-  const onDeleteOrder = (orderFullFillmentId: string) => {
-    dispatch(deleteOrder(orderFullFillmentId));
+  const onDeleteOrder = async (orderFullFillmentId: string, order_po: string) => {
+   await dispatch(deleteOrder(orderFullFillmentId));
     // Reset notification tracking when initiating a new delete
     deleteNotificationShown.current = {
       succeeded: false,
       failed: false,
     };
+    dispatch(updateCheckedOrders(checkedOrders.filter((order) => order.order_po !== order_po)));
+    
   };
 
   useEffect(() => {
@@ -350,6 +359,7 @@ const ImportList: React.FC = () => {
     setModalVisible(true);
   };
 
+
   return (
     <div
       className={`flex justify-end items-center  h-full p-8 ${style.overAll_box}`}
@@ -449,6 +459,7 @@ const ImportList: React.FC = () => {
                         onClick={() => {
                           setDeleteMessageVisible(true);
                           setOrderFullFillmentId(order?.orderFullFillmentId);
+                          setOrder_po(order?.order_po);
                         }}
                       >
                         <svg
@@ -532,7 +543,7 @@ const ImportList: React.FC = () => {
                           <label
                             className={`h-[220px] inline-flex mb-2 justify-between w-full hover:border-gray-600 transition-all duration-75 pt-5 pb-5 px-2 text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700 overflow-hidden ${style.orderes_lable}`}
                           >
-                            <div className="block relative pb-4 w-full overflow-hidden">
+                            <div className="block relative pb-4 w-full overflow-hidden ">
                               <img src={shoppingCart} width="26" height="26" />
                               {productData[order?.product_sku]
                                 ?.description_long && (
@@ -556,7 +567,7 @@ const ImportList: React.FC = () => {
                                           View full description
                                         </span>
                                       </div>
-                                      <div>
+                                      <div className="">
                                         {parse(
                                           productData[order?.product_sku]
                                             ?.description_long || ""
@@ -654,7 +665,7 @@ const ImportList: React.FC = () => {
                     <li>
                       <label className="h-[220px] inline-flex  justify-between w-full p-5 text-gray-500 bg-white border-21 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700">
                         <div className="block w-full">
-                          {order.order_items.length > 0 ? (
+                          {order?.order_items.length > 0 ? (
                             <SelectShippingOption
                               poNumber={order?.order_po}
                               orderItems={order?.order_items}
@@ -710,6 +721,7 @@ const ImportList: React.FC = () => {
               onClose={setDeleteMessageVisible}
               onDeleteProduct={onDeleteOrder}
               deleteItem={orderFullFillmentId}
+              order_po={order_po}
             />
           </div>
         </div>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Button } from "antd";
+import { Button, notification } from "antd";
 import { useLocation } from "react-router-dom";
 import dropin, { Dropin, PaymentMethodPayload } from "braintree-web-drop-in";
 import "./Braintree.css";
@@ -12,7 +12,7 @@ type BraintreeProps = {
   checkout: (nonce: string) => void;
   addPaymentMethod: (payload: any) => void;
   remainingTotal: number;
-  
+  onClose?: () => void;
 };
 
 const Braintree = ({
@@ -21,11 +21,13 @@ const Braintree = ({
   checkout,
   addPaymentMethod,
   remainingTotal,
+  onClose,
 }: BraintreeProps) => {
   const [braintreeInstance, setBraintreeInstance] = useState<
     Dropin | undefined
   >();
-const [dropped, setDropped] = useState(false);
+  const [dropped, setDropped] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const location = useLocation();
   const SelectedCard = useAppSelector((state) => state.Payment.selectedCard);
   console.log("SelectedCard", SelectedCard);
@@ -37,7 +39,7 @@ const [dropped, setDropped] = useState(false);
         authorization: clientToken,
         container: "#braintree-drop-in-div",
         paypal: {
-          flow: "vault",
+          flow: "vault" as "vault",
         },
         vault: true,
       };
@@ -66,14 +68,21 @@ const [dropped, setDropped] = useState(false);
   const companyInfo = useAppSelector((state) => state.company?.company_info);
 
   const requestPaymentMethod = () => {
+    setIsSubmitting(true);
     /**
      * RequestPaymentMethod Callback
      * @param error
      * @param payload
      */
     const callback = (error: object | null, payload: PaymentMethodPayload) => {
+      setIsSubmitting(false);
+      
       if (error) {
         console.error(error);
+        notification.error({
+          message: "Payment Method Error",
+          description: "There was an error adding your payment method. Please try again.",
+        });
       } else {
         const nonceFromClient = payload.nonce;
         const paymentMethodNonce = payload.nonce;
@@ -90,7 +99,20 @@ const [dropped, setDropped] = useState(false);
         // TODO: use the paymentMethodNonce to
         // call you server and complete the payment here
         addPaymentMethod(finalPayload);
-        // checkout(paymentMethodNonce);
+        
+        // Close modal and show success notification
+        if (onClose) {
+          onClose();
+        }
+        
+        notification.success({
+          message: "Payment Method Added",
+          description: "Your payment method has been successfully added.",
+          duration: 4,
+        });
+        
+        // Reset the form state
+        setDropped(false);
       }
     };
 
@@ -107,15 +129,14 @@ const [dropped, setDropped] = useState(false);
     >
       <div id={"braintree-drop-in-div"} onClick={() => setDropped(!dropped)} />
       {braintreeInstance && (
-        <div className={`flex justify-center  w-full ${dropped ? 'block' : "hidden"}`}>
+        <div className={`flex justify-center w-full ${dropped ? 'block' : "hidden"}`}>
           <button
-            disabled={!braintreeInstance}
+            disabled={!braintreeInstance || isSubmitting}
             onClick={requestPaymentMethod}
             color="danger"
-            className={`btn-grad `}
-            
+            className={`btn-grad ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
           >
-            {BbuttonName}
+            {isSubmitting ? 'Processing...' : BbuttonName}
           </button>
         </div>
       )}

@@ -18,10 +18,10 @@ const initialState: CompanyState = {
 };
 
 const getCookie = (name: string) => {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop()?.split(';').shift();
-    return null;
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop()?.split(';').shift();
+        return null;
 };
 
 export const updateCompanyInfo = createAsyncThunk(
@@ -56,7 +56,8 @@ export const updateCompanyInfo = createAsyncThunk(
                         },
                         body: JSON.stringify(postData)
                 });
-                const data = response.json();
+                const data = await response.json();
+                console.log("company data", data)
                 return data;
         },
 );
@@ -79,7 +80,17 @@ export const Company = createSlice({
         },
         extraReducers: (builder) => {
                 builder.addCase(updateCompanyInfo.fulfilled, (state, action) => {
-                        state.company_info = action.payload;
+                        console.log("load ", action.payload)
+                        const data = {
+                                data: {
+                                        ...action.payload.data,
+                                        // business_info: {},
+                                        // billing_info: {}
+                                },
+
+                        }
+                        console.log("load ", data)
+                        state.company_info = data;
                 });
         },
 });
