@@ -75,10 +75,11 @@ const ProtectedHeader: React.FC<ProtectedRouteProps> = ({
   console.log("comcom", company_info)
   const notificationApi = useNotificationContext();
   const wizardNotification = useRef(false)
+  const location = useLocation();
 
   useEffect(()=>{
     if (cookies.AccountGUID ) {
-    if (!company_info?.data?.billing_info?.first_name && appLunched === false) {
+    if (!company_info?.data?.billing_info?.first_name && appLunched === false && location.pathname === routes.landingPage) {
       if(!wizardNotification.current){
       notificationApi.warning({
         message: "Lunch Wizard Setup",
@@ -100,7 +101,7 @@ console.log("islu", appLunched)
     return <Navigate to={routes.landingPage} replace />;
   }
   
-  if (!company_info?.data?.billing_info?.first_name && appLunched === false) {
+  if (!company_info?.data?.billing_info?.first_name && appLunched === false && location.pathname === routes.landingPage) {
   
     return <Navigate to={routes.landingPage} replace />;
   

@@ -16,6 +16,7 @@ import { updateCompanyInfo} from "../store/features/companySlice";
 import { useAppDispatch, useAppSelector } from "../store";
 import { useNotificationContext } from "../context/NotificationContext";
 import { updateApp } from "../store/features/orderSlice";
+import { resetStatus } from "../store/features/ecommerceSlice";
 // import { connectAdvanced } from "react-redux";
 import { find } from "lodash";
 
@@ -47,6 +48,7 @@ const Landing: React.FC = (): JSX.Element => {
  const order = useAppSelector((state)=>state.order.orders)
   console.log('companyInfo',companyInfo)
   console.log('ecommerceGetImportOrders',ecommerceGetImportOrders)
+  const ecommerceDisconnectInfo = useAppSelector((state) => state.Ecommerce.status);
 
   const ecommerceConnectorInfo = useAppSelector(
     (state) => state.Ecommerce.ecommerceConnectorInfo
@@ -81,6 +83,22 @@ const Landing: React.FC = (): JSX.Element => {
     //  data.validData
     alert(data);
   }
+
+  useEffect(() => {
+    if (ecommerceDisconnectInfo === "succeeded") {
+      notificationApi?.success({
+        message: "Ecommerce disconnected successfully",
+        description: "Ecommerce has been successfully disconnected.",
+      });
+      dispatch(resetStatus());
+    }else if (ecommerceDisconnectInfo === "failed") {
+      notificationApi?.error({
+        message: "Ecommerce disconnected failed",
+        description: "Ecommerce has been failed to disconnect.",
+      });
+      dispatch(resetStatus());
+    }
+  }, [ecommerceDisconnectInfo, notificationApi]);
 
   const fields = [
     {

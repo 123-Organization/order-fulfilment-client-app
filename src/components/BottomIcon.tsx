@@ -81,7 +81,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const [current, setCurrent] = useState(1);
   const [pageSize, setPageSize] = useState(12);
   const [grandTotal, setGrandtotal] = useState<number>(0);
-  const [api, contextHolder] = notification.useNotification();
+const [api, contextHolder] = notification.useNotification();
 
   const openNotificationWithIcon = ({
     type,

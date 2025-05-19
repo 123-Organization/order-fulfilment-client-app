@@ -1,6 +1,7 @@
 import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import config from "../../config/configs";
 const ECOMMERCE_CONNCET_URL = "https://artsafenet.com/wp-json/finerworks-media/v1/";
+const BASE_URL = config.SERVER_BASE_URL;
 
 interface EcommerceState {
         ecommerceConnectorgetOrderWoocommerce: any;
@@ -9,7 +10,8 @@ interface EcommerceState {
         ecommerceConnectorImportInfo: any;
         ecommerceConnectorExportInfo: any;
         ecommerceGetImportOrders: any;
-
+        ecommerceDisconnectInfo: any;
+        status: "idle" | "loading" | "succeeded" | "failed";
 }
 
 
@@ -20,6 +22,8 @@ const initialState: EcommerceState = {
         ecommerceConnectorgetOrderWoocommerce: {},
         ecommerceConnectorImportOrderWoocommerce: {},
         ecommerceGetImportOrders: {},
+        ecommerceDisconnectInfo: {},
+        status: "idle",
 };
 
 export const ecommerceConnector = createAsyncThunk(
@@ -90,10 +94,40 @@ export const getImportOrders = createAsyncThunk(
         },
 );
 
+export const disconnectEcommerce = createAsyncThunk(
+        "ecommerce/disconnect",
+        async (postData: any, thunkAPI) => {
+                console.log('postData...', postData)
+                try {
+                        const response = await fetch(BASE_URL + "disconnect", {
+                                method: "POST",
+                                headers: {
+                                "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(postData)
+                });
+                if(!response.ok){
+                        const error = await response.json()
+                        return thunkAPI.rejectWithValue(error)
+                }
+                const data = response.json();
+                return data;
+                } catch (error) {
+                        return thunkAPI.rejectWithValue(error);
+                }
+        },
+);
+
 const ecommerceSlice = createSlice({
         name: "ecommerce",
         initialState,
         reducers: {
+                setStatus: (state, action) => {
+                        state.status = action.payload;
+                },
+                resetStatus: (state) => {
+                        state.status = "idle";
+                },
         },
         extraReducers: (builder) => {
                 builder.addCase(ecommerceConnector.fulfilled, (state, action) => {
@@ -116,7 +150,18 @@ const ecommerceSlice = createSlice({
                         state.ecommerceGetImportOrders = { data: { status: 500 } };
                 });
 
+                builder.addCase(disconnectEcommerce.fulfilled, (state, action) => {
+                        state.ecommerceDisconnectInfo = action.payload;
+                        state.status = "succeeded";
+                });
+
+                builder.addCase(disconnectEcommerce.rejected, (state, action) => {
+                        state.ecommerceDisconnectInfo = { data: { status: 500 } };
+                        state.status = "failed";
+                });
+
         },
 });
 
 export default ecommerceSlice;
+export const { resetStatus } = ecommerceSlice.actions;

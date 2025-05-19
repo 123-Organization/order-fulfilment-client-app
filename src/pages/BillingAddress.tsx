@@ -16,6 +16,12 @@ const countryList = require("../json/country.json");
 const { Option } = Select;
 type SizeType = Parameters<typeof Form>[0]["size"];
 
+// Define interface for state data to fix type errors
+interface StateOption {
+  label: string;
+  value: string;
+}
+
 const BillingAddress: React.FC = () => {
   const [countryCode, setCountryCode] = useState("us");
   const [copyCompanyAddress, setCopyCompanyAddress] = useState(false);
@@ -36,7 +42,7 @@ const BillingAddress: React.FC = () => {
   const [componentSize, setComponentSize] = useState<SizeType | "default">(
     "default"
   );
-  const [stateData, setStateData] = useState<SelectProps["options"]>([]);
+  const [stateData, setStateData] = useState<StateOption[]>([]);
   const [form1] = Form.useForm();
   const [stateCode, setStateCode] = useState("");
   const [stateCodeShort, setStateCodeShort] = useState<string | null>("");
@@ -77,13 +83,16 @@ const BillingAddress: React.FC = () => {
   const onChange = (value: string) => {
     let country_code = value?.toLowerCase();
     console.log(`selected ${country_code}`);
-    setStates(country_code?.toLowerCase());
     setCountryCode(country_code);
+    setStates(country_code?.toLowerCase());
+    setStateCode(''); // Reset state when country changes
+    setStateCodeShort(null); // Reset state code when country changes
   };
+  console.log("countryCode", countryCode);
 
   const setStates = (value: string = "us") => {
     let states = getStates(value);
-    let data: countryType[] = (states || []).map((d: string) => ({
+    let data: StateOption[] = (states || []).map((d: string) => ({
       label: d,
       value: d,
     }));
@@ -99,11 +108,15 @@ const BillingAddress: React.FC = () => {
       countryCode === "us" ? stateCodeShort : stateCode;
     console.log("normalizedStateCode", normalizedStateCode);
 
-    const payload = {
+    let payload = {
       ...values,
       country_code: countryCode,
       state_code: normalizedStateCode || values?.state_code,
     };
+    if (countryCode !== "us") {
+      payload.state_code = "";
+      payload.province = stateCode || normalizedStateCode;
+    }
     form1
       .validateFields()
       .then(() => {
@@ -134,22 +147,21 @@ const BillingAddress: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (billingInfo?.country_code) {
+    if (billingInfo?.country_code && !companyAddress.company_name) {
       console.log("effect countryCode", billingInfo?.country_code);
-      onChange(billingInfo?.country_code); // Update country
+      // Update country without triggering cascading effects
+      setCountryCode(billingInfo?.country_code);
       setStates(billingInfo?.country_code);
-      // setStateCode(billingInfo?.state_code?.toLowerCase());
-      // setStateCodeShort(billingInfo?.state_code);
-      console.log("stateCode", stateCode, stateCodeShort);
-      setCompanyAddress(billingInfo); // Load states for the country
-      dispatch(updateBilling({ billing_info: billingInfo }));
-      setTimeout(() => {
-        form1.setFieldsValue({
-          ...billingInfo,
-        });
-      }, 1000);
+      
+      // Set form values directly
+      const formData = {
+        ...billingInfo,
+      };
+      
+      setCompanyAddress(billingInfo);
+      form1.setFieldsValue(formData);
     }
-  }, [billingInfo, dispatch, stateCode, stateCodeShort, form1]);
+  }, [billingInfo, form1, companyAddress.company_name]);
 
   const handleInputChange = (e: any, field: any) => {
     // Check if e is a direct value (from InputNumber) or an event object
@@ -202,6 +214,7 @@ const BillingAddress: React.FC = () => {
           <Select
             showSearch
             defaultValue={"US"}
+            value={countryCode.toUpperCase()}
             placeholder="Select a country"
             optionFilterProp="children"
             onChange={onChange}
@@ -378,16 +391,18 @@ const BillingAddress: React.FC = () => {
             filterOption={filterOption}
             options={stateData}
             value={
-              companyAddress && !stateCode
+              countryCode === "us" ?
+             ( companyAddress && !stateCode
                 ? billingInfo?.state_code &&
                   convertUsStateAbbrAndName(billingInfo?.state_code)
-                : stateCode && stateCode
+                : stateCode && stateCode) : stateCode || billingInfo?.province
             } // Ensure correct value is passed
           >
-            <label htmlFor="floating_outlined" className="fw-label">
-              State
-            </label>
+            
           </Select>
+          <label htmlFor="floating_outlined" className="fw-label">
+              State / Province
+            </label>
         </div>
       </Form.Item>
 

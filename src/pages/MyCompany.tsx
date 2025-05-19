@@ -96,12 +96,16 @@ const MyCompany: React.FC = () => {
 
   const onFinish = (values) => {
     console.log("veve", values);
-    const updatedValues = { ...companyAddress, ...values };
+    let updatedValues = { ...companyAddress, ...values };
     // updatedValues.country_code = countryCode;
-    if (updatedValues.state_code) {
+    if (countryCode === "us" && updatedValues.state_code) {
       updatedValues.state_code = convertUsStateAbbrAndName(
         updatedValues?.state_code
       );
+    }
+    if (countryCode !== "us" && updatedValues.state_code) {
+      updatedValues.province = updatedValues?.state_code;
+      updatedValues.state_code = "";
     }
     updatedValues.phone = updatedValues?.phone?.toString();
     updatedValues.zip_postal_code = updatedValues?.zip_postal_code?.toString();

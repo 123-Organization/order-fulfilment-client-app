@@ -109,6 +109,7 @@ const ImportList: React.FC = () => {
   const notificationApi = useNotificationContext();
   console.log(orderPostData);
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
+  const customer_info = useAppSelector((state) => state.Customer.customer_info);
   console.log("product_details...", product_details);
   const dispatch = useAppDispatch();
   console.log("productdata", productData);

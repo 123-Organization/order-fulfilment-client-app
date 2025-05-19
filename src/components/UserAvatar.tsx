@@ -11,6 +11,8 @@ import log_out from "../../src/assets/images/logout-svgrepo-com.svg";
 import { UserOutlined } from "@ant-design/icons";
 import { persistor } from "../store";
 import { clearPaymentMethods } from "../store/features/paymentSlice";
+import { disconnectEcommerce } from "../store/features/ecommerceSlice";
+import { useNotificationContext } from "../context/NotificationContext";
 
 const ColorList = ["#f56a00", "#7265e6", "#ffbf00", "#00a2ae"];
 
@@ -20,6 +22,11 @@ export default function UserAvatar() {
   const [color, setColor] = useState(ColorList[0]);
   const dispatch = useAppDispatch();
   const customer_info = useAppSelector((state) => state.Customer.customer_info);
+  const ecommerceDisconnectInfo = useAppSelector((state) => state.Ecommerce.status);
+  const notificationApi = useNotificationContext();
+  console.log("ecommerceDisconnectInfo", ecommerceDisconnectInfo);
+
+  
 
   const items: MenuProps["items"] = [
     {
@@ -64,6 +71,25 @@ export default function UserAvatar() {
     },
     {
       key: "4",
+      label: (
+        <a
+          href="#"
+          className="flex gap-1 text-sm font-mono"
+          onClick={(e) => {
+            e.preventDefault();
+            dispatch(disconnectEcommerce({
+              client_id: cookies.AccountGUID,
+              platformName: "woocommerce"
+            }));
+          }}
+        >
+          <img className="text-black" src={user_icon} width={18} alt="disconnect" />
+          Disconnect Ecommerce
+        </a>
+      ),
+    },
+    {
+      key: "5",
       label: (
         <a
         

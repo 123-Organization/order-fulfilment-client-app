@@ -32,12 +32,16 @@ export const fetchProductDetails = createAsyncThunk(
         "product/details",
         async (postData: any, thunkAPI) => {
                 console.log('postData...', postData)
+                const sendData = {
+                        "products":[...postData],
+                        "account_key": getCookie("AccountGUID") || "default-key"
+                }
                 const response = await fetch(BASE_URL + "get-product-details", {
                         method: "POST",
                         headers: {
                                 "Content-Type": "application/json",
                         },
-                        body: JSON.stringify(postData)
+                        body: JSON.stringify(sendData)
                 });
                 const data = response.json();
                 return data;

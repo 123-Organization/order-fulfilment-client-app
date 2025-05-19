@@ -84,8 +84,6 @@ export const Company = createSlice({
                         const data = {
                                 data: {
                                         ...action.payload.data,
-                                        // business_info: {},
-                                        // billing_info: {}
                                 },
 
                         }
