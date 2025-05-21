@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Avatar, Dropdown } from "antd";
+import { Avatar, Dropdown, Modal } from "antd";
 import type { MenuProps } from "antd";
 import { useCookies } from "react-cookie";
 import { useAppSelector, useAppDispatch } from "../store";
@@ -8,11 +8,12 @@ import credit from "../../src/assets/images/credit-card-svgrepo-com.svg";
 import email from "../../src/assets/images/email-svgrepo-com.svg";
 import user_icon from "../../src/assets/images/user-svgrepo-com.svg";
 import log_out from "../../src/assets/images/logout-svgrepo-com.svg";
-import { UserOutlined } from "@ant-design/icons";
+import { UserOutlined, ExclamationCircleFilled } from "@ant-design/icons";
 import { persistor } from "../store";
 import { clearPaymentMethods } from "../store/features/paymentSlice";
 import { disconnectEcommerce } from "../store/features/ecommerceSlice";
 import { useNotificationContext } from "../context/NotificationContext";
+import { updateCompanyInfo } from "../store/features/companySlice";
 
 const ColorList = ["#f56a00", "#7265e6", "#ffbf00", "#00a2ae"];
 
@@ -20,19 +21,40 @@ export default function UserAvatar() {
   const [cookies] = useCookies(["Session", "AccountGUID"]);
   const [user, setUser] = useState("U");
   const [color, setColor] = useState(ColorList[0]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const dispatch = useAppDispatch();
   const customer_info = useAppSelector((state) => state.Customer.customer_info);
   const ecommerceDisconnectInfo = useAppSelector((state) => state.Ecommerce.status);
   const notificationApi = useNotificationContext();
+  const companyInfo = useAppSelector((state) => state.company.company_info);
   console.log("ecommerceDisconnectInfo", ecommerceDisconnectInfo);
 
-  
+  const showDisconnectModal = () => {
+    setIsModalOpen(true);
+  };
 
+  const handleDisconnectConfirm = () => {
+    dispatch(disconnectEcommerce({
+      client_id: cookies.AccountGUID,
+      platformName: "woocommerce"
+    }));
+    dispatch(updateCompanyInfo({
+      connections:[
+        
+      ]
+    }));
+    setIsModalOpen(false);
+  };
+
+  const handleDisconnectCancel = () => {
+    setIsModalOpen(false);
+  };
+  
   const items: MenuProps["items"] = [
     {
       key: "1",
       label: (
-        <p className="text-sm font-mono text-gray-500 flex gap-1">
+        <p className="text-sm  text-gray-500 flex gap-1">
           <img src={user_icon} alt="user" width={17} />
           {customer_info?.data?.account_username}
         </p>
@@ -59,7 +81,7 @@ export default function UserAvatar() {
           target="_blank"
           rel="noopener noreferrer"
           href="https://finerworks.com/MyAccount/MyCredits.aspx"
-          className="flex gap-1 text-sm font-mono"
+          className="flex gap-1 text-sm "
         >
           <img className="text-black" src={credit} width={18} alt="credit" />
           Account Credit:{" "}
@@ -74,13 +96,10 @@ export default function UserAvatar() {
       label: (
         <a
           href="#"
-          className="flex gap-1 text-sm font-mono"
+          className="flex gap-1 text-sm "
           onClick={(e) => {
             e.preventDefault();
-            dispatch(disconnectEcommerce({
-              client_id: cookies.AccountGUID,
-              platformName: "woocommerce"
-            }));
+            showDisconnectModal();
           }}
         >
           <img className="text-black" src={user_icon} width={18} alt="disconnect" />
@@ -95,10 +114,12 @@ export default function UserAvatar() {
         
           rel="noopener noreferrer"
           href="https://finerworks.com/login.aspx?mode=logout"
-          className="flex gap-1 text-sm font-mono"
+          className="flex gap-1 text-sm "
           onClick={() => {
+            localStorage.removeItem('hasVisitedCompanyPage');
             persistor.purge();
             dispatch(clearPaymentMethods());
+            
             dispatch(clearCustomerInfo())
           }}
         >
@@ -116,7 +137,7 @@ export default function UserAvatar() {
         <a
           href={`https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`}
           rel="noopener noreferrer"
-          className="text-sm font-mono text-gray-500 flex gap-1"
+          className="text-sm  text-gray-500 flex gap-1"
         >
           <img src={user_icon} alt="user" width={17} />
           {"Login"}
@@ -138,15 +159,32 @@ export default function UserAvatar() {
   return (
     <>
       {cookies?.AccountGUID ? (
-        <Dropdown menu={{ items }} placement="bottomRight">
-          <Avatar
-            style={{ backgroundColor: color, verticalAlign: "middle" }}
-            className="border-2 border-blue-400 cursor-pointer shadow-md"
-            size="default"
+        <>
+          <Dropdown menu={{ items }} placement="bottomRight">
+            <Avatar
+              style={{ backgroundColor: color, verticalAlign: "middle" }}
+              className="border-2 border-blue-400 cursor-pointer shadow-md"
+              size="default"
+            >
+              {user}
+            </Avatar>
+          </Dropdown>
+          
+          <Modal
+            title={<div className="flex items-center gap-2"><ExclamationCircleFilled className="text-yellow-500" /> Disconnect WooCommerce</div>}
+            open={isModalOpen}
+            onOk={handleDisconnectConfirm}
+            onCancel={handleDisconnectCancel}
+            okText="Disconnect"
+            cancelText="Cancel"
+            okButtonProps={{ danger: true }}
           >
-            {user}
-          </Avatar>
-        </Dropdown>
+            <div className="py-2">
+              <p className="mb-4">Are you sure you want to disconnect WooCommerce?</p>
+              <p className="text-red-500 font-semibold">Warning: This action will disconnect all the WooCommerce media.</p>
+            </div>
+          </Modal>
+        </>
       ) : (
         <Dropdown menu={{ items: logIn }} placement="bottomRight">
           <Avatar icon={<UserOutlined />} />

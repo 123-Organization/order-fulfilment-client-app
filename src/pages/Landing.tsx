@@ -87,14 +87,14 @@ const Landing: React.FC = (): JSX.Element => {
   useEffect(() => {
     if (ecommerceDisconnectInfo === "succeeded") {
       notificationApi?.success({
-        message: "Ecommerce disconnected successfully",
-        description: "Ecommerce has been successfully disconnected.",
+        message: "WooCommerce disconnected successfully",
+        description: "WooCommerce has been successfully disconnected.",
       });
       dispatch(resetStatus());
     }else if (ecommerceDisconnectInfo === "failed") {
       notificationApi?.error({
-        message: "Ecommerce disconnected failed",
-        description: "Ecommerce has been failed to disconnect.",
+        message: "WooCommerce disconnected failed",
+        description: "WooCommerce has been failed to disconnect.",
       });
       dispatch(resetStatus());
     }

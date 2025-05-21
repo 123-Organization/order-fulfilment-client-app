@@ -29,6 +29,11 @@ export default function FileManagementIframe({ iframe, setIframe }) {
   const productDataStatus = useAppSelector(
     (state) => state.order.productDataStatus
   );
+  const [buttonPosition, setButtonPosition] = useState({
+    top: 0,
+    right: 0,
+  });
+  const mobileSize = window.innerWidth < 820;
 
   const [isMaximized, setIsMaximized] = useState(false);
   const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 1200);
@@ -59,6 +64,26 @@ export default function FileManagementIframe({ iframe, setIframe }) {
       document.removeEventListener("fullscreenchange", handleFullScreenChange);
     };
   }, []);
+
+  useEffect(() => {
+    if (isFullScreen && !mobileSize) {
+      setButtonPosition({
+        top: 10,
+        right: 100,
+      });
+    }else if(!isFullScreen && !mobileSize){
+      setButtonPosition({
+        top: 15,
+        right: 200,
+      });
+    }else if( mobileSize){
+      setButtonPosition({
+        top: 150,
+        right: 55,
+      });
+    }
+  }, [isFullScreen, mobileSize]);
+  
 
   // Toggle full-screen mode
 
@@ -152,6 +177,7 @@ export default function FileManagementIframe({ iframe, setIframe }) {
             src="https://prod1-filemanger-app.finerworks.com/#/thumbnail"
             width="100%"
             height="100%"
+            
             style={{ border: "none" }}
             title="File Management"
           />
@@ -159,8 +185,8 @@ export default function FileManagementIframe({ iframe, setIframe }) {
             style={{
               position: "absolute",
               border: "none",
-              top: isFullScreen ? 10 : 15,
-              right: isFullScreen ? 100 : 200,
+              top: buttonPosition.top,
+              right: buttonPosition.right,
               zIndex: 1000,
             }}
             className={`${styles.btngrad}`}
@@ -168,12 +194,13 @@ export default function FileManagementIframe({ iframe, setIframe }) {
           >
             Add product
           </button>}
-          {location.pathname === "/mycompany" &&  <button
+          {location.pathname === "/mycompany" && logo?.length > 0 &&
+            <button
             style={{
               position: "absolute",
               border: "none",
-              top: isFullScreen ? 10 : 15,
-              right: isFullScreen ? 100 : 200,
+              top: buttonPosition.top,
+              right: buttonPosition.right,
               zIndex: 1000,
             }}
             className={`${styles.btngrad}`}

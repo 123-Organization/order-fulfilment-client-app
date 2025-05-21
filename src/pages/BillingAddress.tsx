@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Checkbox, Form, Input, InputNumber, Select } from "antd";
+import { Checkbox, Form, Input, InputNumber, Select, Switch } from "antd";
 
 import { getStates } from "country-state-picker";
 import type { SelectProps } from "antd";
@@ -44,8 +44,9 @@ const BillingAddress: React.FC = () => {
   );
   const [stateData, setStateData] = useState<StateOption[]>([]);
   const [form1] = Form.useForm();
-  const [stateCode, setStateCode] = useState("");
+  const [stateCode, setStateCode] = useState<string>("");
   const [stateCodeShort, setStateCodeShort] = useState<string | null>("");
+  const [useStateInput, setUseStateInput] = useState(false);
   const dispatch = useAppDispatch();
   console.log(stateCode, stateCodeShort);
   const businessInfo = useAppSelector(
@@ -72,12 +73,15 @@ const BillingAddress: React.FC = () => {
   };
 
   const onChangeState = (value: string) => {
-    let state_code: string | null = value?.toLowerCase();
+    // Handle empty selection or undefined values
+    let state_code: string = value ? value.toLowerCase() : "";
     console.log(`onChangeState ${state_code}`, countryCode);
     setStateCode(state_code);
-    if (countryCode === "us")
-      setStateCodeShort(convertUsStateAbbrAndName(state_code));
-    else setStateCodeShort(state_code);
+    if (countryCode === "us") {
+      setStateCodeShort(state_code ? convertUsStateAbbrAndName(state_code) : "");
+    } else {
+      setStateCodeShort(state_code);
+    }
   };
 
   const onChange = (value: string) => {
@@ -85,8 +89,8 @@ const BillingAddress: React.FC = () => {
     console.log(`selected ${country_code}`);
     setCountryCode(country_code);
     setStates(country_code?.toLowerCase());
-    setStateCode(''); // Reset state when country changes
-    setStateCodeShort(null); // Reset state code when country changes
+    setStateCode(""); // Reset state when country changes
+    setStateCodeShort(""); // Reset state code when country changes
   };
   console.log("countryCode", countryCode);
 
@@ -382,27 +386,58 @@ const BillingAddress: React.FC = () => {
 
       <Form.Item name="state_code" className="w-full sm:ml-[200px]">
         <div className="relative">
-          <Select
-            allowClear
-            showSearch
-            onBlur={onValid}
-            className="fw-input1 "
-            onChange={onChangeState}
-            filterOption={filterOption}
-            options={stateData}
-            value={
-              countryCode === "us" ?
-             ( companyAddress && !stateCode
-                ? billingInfo?.state_code &&
-                  convertUsStateAbbrAndName(billingInfo?.state_code)
-                : stateCode && stateCode) : stateCode || billingInfo?.province
-            } // Ensure correct value is passed
-          >
-            
-          </Select>
+          <div className="flex items-center mb-3 p-2 rounded border border-blue-200 bg-blue-50">
+            <Switch 
+              size="small"
+              checked={useStateInput}
+              onChange={(checked) => setUseStateInput(checked)} 
+              className="bg-blue-500"
+            />
+            <span className="text-xs font-medium text-blue-700 ml-2">
+              {useStateInput ? "Type state" : "Select from list"}
+            </span>
+          </div>
+          
+          {!useStateInput ? (
+            <Select
+              allowClear
+              showSearch
+              onBlur={onValid}
+              className="fw-input1 "
+              onChange={onChangeState}
+              filterOption={filterOption}
+              options={stateData}
+              value={
+                countryCode === "us" ?
+               ( companyAddress && !stateCode
+                  ? billingInfo?.state_code &&
+                    convertUsStateAbbrAndName(billingInfo?.state_code)
+                  : stateCode || "") : (stateCode || billingInfo?.province || "")
+              } // Ensure correct value is passed
+            />
+          ) : (
+            <Input
+              className="fw-input"
+              onBlur={onValid}
+              value={stateCode}
+              placeholder={billingInfo?.province || billingInfo?.state_code || ""}
+              onChange={(e) => {
+                const inputValue = e.target.value;
+                setStateCode(inputValue);
+                
+                if (countryCode === "us" && inputValue) {
+                  setStateCodeShort(convertUsStateAbbrAndName(inputValue));
+                } else {
+                  setStateCodeShort(inputValue);
+                }
+                
+                // Don't call onValid here - wait for onBlur
+              }}
+            />
+          )}
           <label htmlFor="floating_outlined" className="fw-label">
-              State / Province
-            </label>
+            State / Province
+          </label>
         </div>
       </Form.Item>
 

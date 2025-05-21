@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Form, Input, InputNumber, Select } from "antd";
+import { Form, Input, InputNumber, Select, Switch, Modal, Button } from "antd";
 
 import { updateCompany } from "../store/features/companySlice";
 import uploadYourLogo from "../assets/images/upload-your-logo.svg";
@@ -10,10 +10,15 @@ import { useAppDispatch, useAppSelector } from "../store";
 import convertUsStateAbbrAndName from "../services/state";
 import { on } from "events";
 import { updateIframeState } from "../store/features/companySlice";
+import _ from 'lodash';
 
 /*////////////////////////////////////////////////////*/
 
 const countryList = require("../json/country.json");
+const allowedCountry = {
+  label: 'United States',
+  value: 'US'
+}
 type SizeType = Parameters<typeof Form>[0]["size"];
 
 const MyCompany: React.FC = () => {
@@ -31,10 +36,12 @@ const MyCompany: React.FC = () => {
   const [stateData, setStateData] = useState<SelectProps["options"]>(
     [] as SelectProps["options"]
   );
-  const [countryCode, setCountryCode] = useState("us");
+  const [countryCode, setCountryCode] = useState("");
   const [stateCodeShort, setStateCodeShort] = useState<String | null>("");
   const [stateCode, setStateCode] = useState<String | null>("");
   const [form] = Form.useForm();
+  const [useStateInput, setUseStateInput] = useState(false);
+  const [showLocationOverlay, setShowLocationOverlay] = useState(false);
   const [companyAddress, setCompanyAddress] = useState({
     country_code: "us",
     company_name: "",
@@ -73,16 +80,16 @@ const MyCompany: React.FC = () => {
     setCountryCode(country_code);
     setCompanyAddress({ ...companyAddress, country_code: country_code });
     if (businessInfo?.state_code) {
-    if (country_code === "us") {
-      onFinish({ ...companyAddress, country_code: country_code });
-    } else {
-      onFinish({
-        ...companyAddress,
-        country_code: country_code,
-        state_code: "",
-      });
+      if (country_code === "us") {
+        onFinish({ ...companyAddress, country_code: country_code });
+      } else {
+        onFinish({
+          ...companyAddress,
+          country_code: country_code,
+          state_code: "",
+        });
+      }
     }
-  }
   };
   const onChangeState = (value: string) => {
     let state_code: string | null = value?.toLowerCase();
@@ -160,6 +167,14 @@ const MyCompany: React.FC = () => {
   }, [stateCode, stateCodeShort, countryCode]);
 
   useEffect(() => {
+    // Check if this is the first time the user visits this page
+    const hasVisitedBefore = localStorage.getItem('hasVisitedCompanyPage');
+    
+    // Only show overlay if not visited before and no business info
+    if (hasVisitedBefore !== 'true' ) {
+      setShowLocationOverlay(true);
+    }
+
     form.setFieldsValue(businessInfo);
     if (businessInfo?.company_name) {
       setTimeout(() => {
@@ -172,8 +187,10 @@ const MyCompany: React.FC = () => {
   }, [businessInfo]);
 
   useEffect(() => {
-    if (businessInfo?.state_code) {
+    if (businessInfo?.first_name) {
       setCompanyAddress(businessInfo);
+      setCountryCode(businessInfo?.country_code);
+      setStates(businessInfo?.country_code);
       form.setFieldsValue(businessInfo);
     }
   }, [businessInfo, form]);
@@ -202,9 +219,10 @@ const MyCompany: React.FC = () => {
             showSearch
             defaultValue={"US"}
             onChange={onChange}
+            value={countryCode.toUpperCase()}
             onSearch={onSearch}
             filterOption={filterOption}
-            options={countryList}
+            options={[allowedCountry]}
           ></Select>
           <label htmlFor="floating_outlined" className="fw-label">
             Country
@@ -338,24 +356,55 @@ const MyCompany: React.FC = () => {
         className="w-full sm:ml-[200px]"
       >
         <div className="relative">
-          <Select
-            allowClear
-            showSearch
-            className="fw-input1 "
-            onChange={onChangeState}
-            filterOption={filterOption}
-            options={stateData}
-            value={
-              companyAddress && !stateCode
-                ? businessInfo?.state_code &&
-                  convertUsStateAbbrAndName(businessInfo?.state_code)
-                : stateCode && stateCode
-            }
-          >
-            <label htmlFor="floating_outlined" className="fw-label">
-              State
-            </label>
-          </Select>
+          <div className="flex items-center mb-3 p-2 rounded border border-blue-200 bg-blue-50">
+            <Switch 
+              size="small"
+              checked={useStateInput}
+              onChange={(checked) => setUseStateInput(checked)} 
+              className="bg-blue-500"
+            />
+            <span className="text-xs font-medium text-blue-700 ml-2">
+              {useStateInput ? "Type state" : "Select from list"}
+            </span>
+          </div>
+          
+          {!useStateInput ? (
+            <Select
+              allowClear
+              showSearch
+              className="fw-input1"
+              onChange={onChangeState}
+              filterOption={filterOption}
+              options={stateData}
+              value={
+                countryCode === "us"
+                  ? companyAddress && !stateCode
+                    ? businessInfo?.state_code &&
+                      convertUsStateAbbrAndName(businessInfo?.state_code)
+                    : stateCode && stateCode
+                  : stateCode || businessInfo?.province
+              }
+            >
+              <label htmlFor="floating_outlined" className="fw-label">
+                State
+              </label>
+            </Select>
+          ) : (
+            <div className="relative">
+              <Input
+                className="fw-input"
+                value={stateCode || businessInfo?.province || businessInfo?.state_code || ""}
+                onChange={(e) => {
+                  const inputValue = e.target.value;
+                  setStateCode(inputValue);
+                  onFinish({ ...companyAddress, state_code: inputValue });
+                }}
+              />
+            </div>
+          )}
+           <label htmlFor="floating_outlined" className="fw-label">
+            State / Province
+          </label>
         </div>
       </Form.Item>
 
@@ -409,8 +458,70 @@ const MyCompany: React.FC = () => {
     </Form>
   );
 
+  // Handlers for the location overlay
+  const handleUSSelected = () => {
+    setCountryCode('us');
+    setStates('us');
+    setShowLocationOverlay(false);
+    localStorage.setItem('hasVisitedCompanyPage', 'true');
+  };
+
+  const handleNonUSSelected = () => {
+    setShowLocationOverlay(false);
+    localStorage.setItem('hasVisitedCompanyPage', 'true');
+    // Show contact information
+    Modal.info({
+      title: 'Contact FinerWorks',
+      content: (
+        <div>
+          <p>Our services are currently optimized for US-based businesses.</p>
+          <p>Please contact FinerWorks support for assistance with international business registration.</p>
+          <p>Email: support@finerworks.com</p>
+          <p>Phone: 1-888-555-1234</p>
+        </div>
+      ),
+      onOk() {},
+    });
+  };
+
+  // For development testing only
+
   return (
-    <div className="flex max-md:flex-col  justify-end items-center w-full h-full p-8">
+    <div className="flex max-md:flex-col justify-end items-center w-full h-full p-8">
+      {/* Location Selection Modal */}
+      <Modal
+        title="Business Location"
+        open={showLocationOverlay}
+        footer={null}
+        closable={false}
+        maskClosable={false}
+        centered
+      >
+        <div className="text-center">
+          <h3 className="text-lg font-semibold mb-6">Is your business based in the United States?</h3>
+          <div className="flex justify-center space-x-4">
+            <Button 
+              type="primary" 
+              size="large" 
+              onClick={handleUSSelected}
+              className="w-32"
+            >
+              Yes, US-based
+            </Button>
+            <Button 
+              size="large" 
+              onClick={handleNonUSSelected}
+              className="w-32"
+            >
+              No, International
+            </Button>
+          </div>
+        </div>
+      </Modal>
+      
+      {/* Development testing button - only visible in development */}
+    
+      
       <div className="w-1/2 max-md:w-full flex flex-col justify-center md:border-r-2 max-md:border-b-2 max-md:mb-8 items-center h-[600px]">
         <div className="text-left text-gray-400 pt-4">
           <p className="text-lg  font-bold">My Company Info </p>
