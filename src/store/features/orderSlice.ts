@@ -70,7 +70,7 @@ export const fetchOrder = createAsyncThunk(
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ accountId })
+      body: JSON.stringify({ accountId: accountId, page: 1, limit: 10 })
     });
     const data = response.json();
 
@@ -268,8 +268,8 @@ export const deleteOrder = createAsyncThunk(
   async (postData: any, thunkAPI) => {
 
     const sendData = {
-      "orderFullFillmentId": postData,
-      "accountId": 1556
+      "orderFullFillmentId": postData.orderFullFillmentId,
+      "accountId": postData.accountId
     }
     const response = await fetch(BASE_URL + "delete-order", {
       method: "DELETE",

@@ -177,11 +177,11 @@ export default function PaymentMethods(remainingTotal: any = 0) {
                       style={{ animationDelay: `${index * 100}ms` }}
                     >
                       <Radio
-                        value={method?.maskedNumber}
+                        value={method?.maskedNumber || method?.token}
                         className="text-gray-400 flex justify-center items-center card-radio py-1"
                       >
                         <strong className="flex justify-center items-center gap-4">
-                          {maskNumber(method?.maskedNumber)} -{" "}
+                          {maskNumber(method?.maskedNumber ) || method?.email} -{" "}
                           {method?.expirationDate}
                           <img
                             src={method?.imageUrl}

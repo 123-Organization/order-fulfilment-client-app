@@ -91,6 +91,7 @@ const Landing: React.FC = (): JSX.Element => {
         description: "WooCommerce has been successfully disconnected.",
       });
       dispatch(resetStatus());
+      setOpenBtnConnected(false);
     }else if (ecommerceDisconnectInfo === "failed") {
       notificationApi?.error({
         message: "WooCommerce disconnected failed",
@@ -98,7 +99,7 @@ const Landing: React.FC = (): JSX.Element => {
       });
       dispatch(resetStatus());
     }
-  }, [ecommerceDisconnectInfo, notificationApi]);
+  }, [ecommerceDisconnectInfo, notificationApi, setOpenBtnConnected]);
 
   const fields = [
     {
@@ -233,7 +234,7 @@ const Landing: React.FC = (): JSX.Element => {
     if (imgname === "Excel") {
       setOpenExcel(true);
     }
-
+    console.log("imgname", imgname);
     if (imgname === "WooCommerce") {
       // Check if user is logged in first
       if (!customerInfo?.data?.account_key) {

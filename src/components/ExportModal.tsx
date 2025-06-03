@@ -15,6 +15,7 @@ import { useNotificationContext } from "../context/NotificationContext";
 import { inventorySelectionClean } from "../store/features/InventorySlice";
 import { resetStatus } from "../store/features/InventorySlice";
 import Spinner from "./Spinner";
+import { find } from "lodash";
 
 interface ExportModalProps {
   visible: boolean;
@@ -43,7 +44,9 @@ const ExportModal: React.FC<ExportModalProps> = ({
   const handleProductCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onClose();
   };
+  const companyInfo = useAppSelector((state) => state.company.company_info);
   const [selected, setSelected] = useState<string | null>(null);
+  const [connected, setConnected] = useState<string>("Disconnected");
   const notificationApi = useNotificationContext();
   const exportResponse = useAppSelector(
     (state) => state.Inventory.exportResponse
@@ -73,7 +76,14 @@ const ExportModal: React.FC<ExportModalProps> = ({
   };
 
   const handleExport = async (imgname: string) => {
-    if (imgname === "WooCommerce") {
+
+    if (selected === imgname) {
+      setSelected(null);
+    } else {
+      setSelected(imgname);
+    }
+
+    if (imgname === "WooCommerce" && connected === "Connected") {
       // Get the list of already exported products
       const exportedProducts = inventorySelection.filter(
         (product) => product.third_party_integrations?.woocommerce_product_id
@@ -91,6 +101,13 @@ const ExportModal: React.FC<ExportModalProps> = ({
       await dispatch(exportOrders({ data: inventorySelection }));
       dispatch(resetStatus())
     }
+    else{
+      notificationApi.error({
+        message: "WooCommerce Not Connected",
+        description: `Please connect to WooCommerce to export products`,
+      });
+    }
+   
   };
 
   useEffect(() => {
@@ -103,8 +120,23 @@ const ExportModal: React.FC<ExportModalProps> = ({
       dispatch(inventorySelectionClean());
       setSelected(null);
       listInventory()
+    } else if (exportStatus === "error") {
+      notificationApi.error({
+        message: "Products Export Failed",
+        description: `${exportResponse?.data?.products_imported} products exported  `,
+      });
     }
   }, [exportStatus, notificationApi]);
+
+
+  useEffect(()=>{
+    if(companyInfo?.data?.connections?.length){
+      let obj = find(companyInfo.data.connections, {"name":"WooCommerce"});
+      if(obj?.name){
+        setConnected("Connected");
+      }
+    }
+  }, [companyInfo]);
 
   const handleSelection = (name: string) => {
     if (selected === name) {
@@ -114,7 +146,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
     }
   };
 
-  console.log("exportStatus", exportStatus);
+  console.log("coco", companyInfo);
 
   return (
     <Modal
@@ -146,12 +178,12 @@ const ExportModal: React.FC<ExportModalProps> = ({
                     onClick={() => importData(image.name)}
                   >
                     {image.name === "WooCommerce" && (
-                      <Tag className="absolute ml-12 -mt-3" color="#52c41a">
-                        Connected
+                      <Tag className={`absolute ml-12 -mt-3 ${connected === "Connected" ? "bg-[#52c41a] text-white" : "bg-red-500 text-white ml-7" }`}>
+                        {connected}
                       </Tag>
                     )}
                     <img
-                      onClick={() => handleSelection(image.name)}
+                      onClick={() => handleExport(image.name)}
                       className={`block h-[100px] w-[100px] border-2 cursor-pointer rounded-lg object-cover object-center ${
                         selected === image.name
                           ? "border-blue-500"

@@ -42,7 +42,7 @@ export default function VaultedCardPayment({
   const tokenRetryCount = useRef(0);
   const maxRetries = 3;
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
-  
+  console.log("selectedCard",selectedCard);
   // Track token loading state
   useEffect(() => {
     if (paymentTokenStatus === "loading") {
@@ -53,7 +53,7 @@ export default function VaultedCardPayment({
       // Only enable the button if we have a valid token
       if (paymentToken?.payment_tokens && selectedCard) {
         const foundToken = paymentToken.payment_tokens.find(
-          (t: any) => t?.associated_payment_method?.slice(-4) === selectedCard?.slice(-4)
+          (t: any) => t?.associated_payment_method?.slice(-4) === selectedCard?.slice(-4) || t?.token === selectedCard
         );
         setIsPayButtonDisabled(!foundToken);
       } else {
@@ -103,11 +103,12 @@ export default function VaultedCardPayment({
   useEffect(() => {
     if (paymentToken?.payment_tokens && selectedCard) {
       const Token = paymentToken?.payment_tokens?.find(
-        (token: any) => token?.associated_payment_method?.slice(-4) === selectedCard?.slice(-4)
+        (token: any) => token?.associated_payment_method?.slice(-4) === selectedCard?.slice(-4) || token?.token === selectedCard
       );
       setToken(Token);
     }
   }, [paymentToken, selectedCard]);
+  console.log("tooot",token);
 
   const proccessPayment = () => {
     // If still loading tokens or no token available, show notification and prevent processing

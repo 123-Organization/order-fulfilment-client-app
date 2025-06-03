@@ -40,6 +40,12 @@ const initialState: InventoryState = {
         status: "idle",
         exportResponse: {},
 };
+const getCookie = (name: string) => {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop()?.split(';').shift();
+        return null;
+};
 
 export const OrderAddSlice = createSlice({
         name: "order",
@@ -62,12 +68,16 @@ export const listVirtualInventory = createAsyncThunk(
         async (postData: any, thunkAPI) => {
                 console.log('postData...', postData)
                 // OrderAddSlice.reducer.updateFilterVirtualInventoryOption(postData);
+                const sendData = {
+                        ...postData,
+                        account_key: getCookie("AccountGUID")
+                }
                 const response = await fetch(BASE_URL + "list-virtual-inventory", {
                         method: "POST",
                         headers: {
                                 "Content-Type": "application/json",
                         },
-                        body: JSON.stringify(postData)
+                        body: JSON.stringify(sendData)
                 });
                 const data = response.json();
                 return data;
@@ -131,8 +141,12 @@ export const exportOrders = createAsyncThunk(
                         headers: {
                                 "Content-Type": "application/json",
                         },
+                
                         body: JSON.stringify(args.data)
                 });
+                if (!response.ok) {
+                        throw new Error('Failed to export orders');
+                }
                 const data = await response.json();
                 return data;
         },
@@ -166,6 +180,24 @@ export const updateVirtualInventory = createAsyncThunk(
                 const data = await response.json();
                 return data;
         },
+);
+export const disconnectInventory = createAsyncThunk(
+        "disconnect/inventory",
+        async (args: { data: any }, thunkAPI: any) => {
+                const response = await fetch(BASE_URL + "disconnect-products-virtualInventory", {
+                        method: "POST",
+                        headers: {
+                                "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(args.data)
+                });
+                if (!response.ok) {
+                        throw new Error('Failed to disconnect inventory');
+                }
+                const data = await response.json();
+                return data;
+        },
+
 );
 
 export const InventorySlice = createSlice({
@@ -225,10 +257,22 @@ export const InventorySlice = createSlice({
                 builder.addCase(updateVirtualInventory.fulfilled, (state, action) => {
                         state.exportResponse = action.payload
                 });
+                builder.addCase(disconnectInventory.fulfilled, (state, action) => {
+                        state.exportResponse = action.payload
+                });
+                builder.addCase(disconnectInventory.pending, (state, action) => {
+                        state.status = "loading"
+                });
+                builder.addCase(disconnectInventory.rejected, (state, action) => {
+                        state.status = "error"
+                        state.exportResponse = action.payload
+                });
+                        
         },
+
 });
 
 
 
 export default InventorySlice;
-export const { inventorySelectionUpdate, inventorySelectionClean, inventorySelectionDelete, updateFilterVirtualInventory, resetStatus } = InventorySlice.actions;
+export const { inventorySelectionUpdate, inventorySelectionClean, inventorySelectionDelete, updateFilterVirtualInventory, resetStatus,  } = InventorySlice.actions;

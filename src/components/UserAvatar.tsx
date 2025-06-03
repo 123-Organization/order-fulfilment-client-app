@@ -14,6 +14,7 @@ import { clearPaymentMethods } from "../store/features/paymentSlice";
 import { disconnectEcommerce } from "../store/features/ecommerceSlice";
 import { useNotificationContext } from "../context/NotificationContext";
 import { updateCompanyInfo } from "../store/features/companySlice";
+import { disconnectInventory } from "../store/features/InventorySlice";
 
 const ColorList = ["#f56a00", "#7265e6", "#ffbf00", "#00a2ae"];
 
@@ -38,10 +39,16 @@ export default function UserAvatar() {
       client_id: cookies.AccountGUID,
       platformName: "woocommerce"
     }));
-    dispatch(updateCompanyInfo({
-      connections:[
+    // dispatch(updateCompanyInfo({
+    //   connections:[
         
-      ]
+    //   ]
+    // }));
+    dispatch(disconnectInventory({
+      data: {
+        account_key: cookies.AccountGUID,
+        platform: "woocommerce"
+      }
     }));
     setIsModalOpen(false);
   };

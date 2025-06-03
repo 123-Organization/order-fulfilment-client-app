@@ -203,7 +203,7 @@ const ImportList: React.FC = () => {
   console.log("productData", productData);
 
   const onDeleteOrder = async (orderFullFillmentId: string, order_po: string) => {
-   await dispatch(deleteOrder(orderFullFillmentId));
+   await dispatch(deleteOrder({orderFullFillmentId, accountId: customerInfo?.data?.account_id}));
     // Reset notification tracking when initiating a new delete
     deleteNotificationShown.current = {
       succeeded: false,
