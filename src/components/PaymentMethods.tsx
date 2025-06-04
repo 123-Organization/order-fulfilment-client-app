@@ -75,13 +75,15 @@ export default function PaymentMethods(remainingTotal: any = 0) {
     dispatch(setSelectedCard(e.target.value));
     setValue(e.target.value);
   };
+ 
   const handleRemoveCard = () => {
     const Token = paymentToken?.payment_tokens?.find(
-      (token: any) => token?.associated_payment_method?.slice(-4) === String(value)?.slice(-4)
+      (token: any) => token?.associated_payment_method?.slice(-4) === String(value)?.slice(-4) || token?.token === String(value)
     );
+    console.log("yoyo",Token);
     const data = {
       customerId : companyInfo?.data?.payment_profile_id,
-      paymentMethodToken : Token?.token
+      paymentMethodToken : Token?.token 
     }
     dispatch(removeSelectedCard(data))
     setCardRemoved(true)
@@ -180,7 +182,7 @@ export default function PaymentMethods(remainingTotal: any = 0) {
                         value={method?.maskedNumber || method?.token}
                         className="text-gray-400 flex justify-center items-center card-radio py-1"
                       >
-                        <strong className="flex justify-center items-center gap-4">
+                        <strong className="flex justify-center items-center gap-4 ">
                           {maskNumber(method?.maskedNumber ) || method?.email} -{" "}
                           {method?.expirationDate}
                           <img

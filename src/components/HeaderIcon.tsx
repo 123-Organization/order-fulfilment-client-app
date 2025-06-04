@@ -21,6 +21,7 @@ import { useLocation } from "react-router-dom";
 import FileManagementIframe from "./FileManagmentIframe";
 import UserAvatar from "./UserAvatar";
 import StoresMenu from "./StoresMenu";
+import { useCookies } from "react-cookie";
 
 
 import finerWorks from "../assets/images/finerworks_logo_icon.49c0d41a2f19011aa3ea27c47041d2ff.svg";
@@ -56,6 +57,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
   const [openModal, setOpenModal] = useState(false);
   const [openModal1, setOpenModal1] = useState(false);
   const [open, setOpen] = useState(false);
+  const [cookies] = useCookies(["Session", "AccountGUID"]);
   const [openDash, setDash] = useState(true);
   const [spinLoader, setSpinLoader] = useState(false);
   const [active, setActive] = useState(true);
@@ -111,6 +113,13 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
   const toggleDash = () => {
     setDash(!openDash);
   };
+  const onIframeClick = () => {
+    if(cookies.AccountGUID){
+      setIframeVisible(!iframeVisible);
+    }else{
+      window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`
+    }
+  }
   /**
    * ****************************************************************** JSX  ***************************************************************************
    */
@@ -292,8 +301,8 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                   className={`absolute top-20 left flex items-center ${
                     myStores ? "visible" : "hidden"
                   }`}
-                >
-                  <StoresMenu />
+                > 
+                  {cookies.AccountGUID && <StoresMenu />}
                 </div>
               </div>
 
@@ -395,7 +404,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                   <a
                     href="#"
                     className="w-full middle-div text-gray-300 hover:bg-gray-700 hover:text-white block rounded-md px-3 py-2 text-sm font-medium"
-                    onClick={() => setIframeVisible(true)}
+                    onClick={onIframeClick}
                     
                   >
                     <img
@@ -429,7 +438,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                 data-tooltip-target="tooltip-document"
                 type="button"
                 className="fw-icon-btn -mt-2"
-                onClick={() => setIframeVisible(true)}
+                onClick={onIframeClick}
               >
                 <img src={image} width={whPixel} height={whPixel} />
                 <span className="">My Files</span>

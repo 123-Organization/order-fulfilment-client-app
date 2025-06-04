@@ -59,7 +59,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   if (!cookies.AccountGUID || !cookies.Session) {
     // Redirect to landing page if cookies don't exist
     dispatch(clearCustomerInfo());
-    return <Navigate to={routes.landingPage} replace />;
+    window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`
+    return 
   }
 
   return <Component />;
@@ -98,12 +99,13 @@ console.log("islu", appLunched)
   if (!cookies.AccountGUID || !cookies.Session) {
     // Redirect to landing page if cookies don't exist
     dispatch(clearCustomerInfo());
-    return <Navigate to={routes.landingPage} replace />;
+    window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`
+    return
   }
   
   if (!company_info?.data?.billing_info?.first_name && appLunched === false && location.pathname === routes.landingPage) {
-  
-    return <Navigate to={routes.landingPage} replace />;
+    window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`
+    return
   
 
   }

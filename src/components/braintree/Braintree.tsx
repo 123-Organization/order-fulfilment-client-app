@@ -51,7 +51,10 @@ const Braintree = ({
        */
       const callback = (error: object | null, instance: Dropin | undefined) => {
         if (error) console.error(error);
-        else setBraintreeInstance(instance);
+        else {
+          console.log("Braintree instance created successfully");
+          setBraintreeInstance(instance);
+        }
       };
 
       const initializeBraintree = () => dropin.create(config, callback);
@@ -65,9 +68,25 @@ const Braintree = ({
       }
     }
   }, [show]);
+
+  useEffect(() => {
+    if (braintreeInstance) {
+      braintreeInstance.on("paymentMethodRequestable", (event) => {
+        if (event.paymentMethodIsSelected) {
+          requestPaymentMethod();
+        }
+      });
+
+      braintreeInstance.on("paymentOptionSelected", (event) => {});
+
+      braintreeInstance.on("changeActiveView", (event) => {});
+    }
+  }, [braintreeInstance]);
+
   const companyInfo = useAppSelector((state) => state.company?.company_info);
 
   const requestPaymentMethod = () => {
+    console.log("Requesting payment method...");
     setIsSubmitting(true);
     /**
      * RequestPaymentMethod Callback
@@ -76,14 +95,16 @@ const Braintree = ({
      */
     const callback = (error: object | null, payload: PaymentMethodPayload) => {
       setIsSubmitting(false);
-      
+
       if (error) {
-        console.error(error);
+        console.error("Payment method error:", error);
         notification.error({
           message: "Payment Method Error",
-          description: "There was an error adding your payment method. Please try again.",
+          description:
+            "There was an error adding your payment method. Please try again.",
         });
       } else {
+        console.log("Payment method success, payload:", payload);
         const nonceFromClient = payload.nonce;
         const paymentMethodNonce = payload.nonce;
         const customerId = companyInfo?.data?.payment_profile_id;
@@ -99,24 +120,29 @@ const Braintree = ({
         // TODO: use the paymentMethodNonce to
         // call you server and complete the payment here
         addPaymentMethod(finalPayload);
-        
+
         // Close modal and show success notification
         if (onClose) {
           onClose();
         }
-        
+
         notification.success({
           message: "Payment Method Added",
           description: "Your payment method has been successfully added.",
           duration: 4,
         });
-        
+
         // Reset the form state
         setDropped(false);
       }
     };
 
-    braintreeInstance && braintreeInstance.requestPaymentMethod(callback);
+    if (braintreeInstance) {
+      braintreeInstance.requestPaymentMethod(callback);
+    } else {
+      console.error("No Braintree instance available");
+      setIsSubmitting(false);
+    }
   };
 
   const BbuttonName =
@@ -129,14 +155,20 @@ const Braintree = ({
     >
       <div id={"braintree-drop-in-div"} onClick={() => setDropped(!dropped)} />
       {braintreeInstance && (
-        <div className={`flex justify-center w-full ${dropped ? 'block' : "hidden"}`}>
+        <div
+          className={`flex justify-center w-full ${
+            dropped ? "block" : "hidden"
+          }`}
+        >
           <button
             disabled={!braintreeInstance || isSubmitting}
             onClick={requestPaymentMethod}
             color="danger"
-            className={`btn-grad ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
+            className={`btn-grad ${
+              isSubmitting ? "opacity-70 cursor-not-allowed" : ""
+            }`}
           >
-            {isSubmitting ? 'Processing...' : BbuttonName}
+            {isSubmitting ? "Processing..." : BbuttonName}
           </button>
         </div>
       )}

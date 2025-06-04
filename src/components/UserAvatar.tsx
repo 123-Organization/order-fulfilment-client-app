@@ -33,6 +33,13 @@ export default function UserAvatar() {
   const showDisconnectModal = () => {
     setIsModalOpen(true);
   };
+  const onLogout = ()=>{
+    localStorage.removeItem('hasVisitedCompanyPage');
+    persistor.purge();
+   dispatch(clearPaymentMethods());
+    
+    dispatch(clearCustomerInfo())
+  }
 
   const handleDisconnectConfirm = () => {
     dispatch(disconnectEcommerce({
@@ -122,13 +129,8 @@ export default function UserAvatar() {
           rel="noopener noreferrer"
           href="https://finerworks.com/login.aspx?mode=logout"
           className="flex gap-1 text-sm "
-          onClick={() => {
-            localStorage.removeItem('hasVisitedCompanyPage');
-            persistor.purge();
-            dispatch(clearPaymentMethods());
-            
-            dispatch(clearCustomerInfo())
-          }}
+          onClick={onLogout}
+           
         >
           <img className="text-black" src={log_out} width={18} alt="credit" />
           Log out
@@ -162,6 +164,11 @@ export default function UserAvatar() {
       setColor(ColorList[Math.floor(Math.random() * 3)]);
     }
   }, [cookies.AccountGUID, dispatch, customer_info?.data?.account_username]);
+  useEffect(()=>{
+    if(!cookies.AccountGUID){
+      dispatch(clearCustomerInfo())
+    }
+  },[cookies.AccountGUID, dispatch])
 
   return (
     <>

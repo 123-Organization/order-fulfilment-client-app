@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Button, Tag } from "antd";
 import { ReactSpreadsheetImport } from "react-spreadsheet-import";
-
+import { useCookies } from "react-cookie";
 import bigcommerce from "../assets/images/store-bigcommerce.svg";
 import etsy from "../assets/images/store-etsy.svg";
 import excel from "../assets/images/store-excel.svg";
@@ -45,6 +45,7 @@ const Landing: React.FC = (): JSX.Element => {
   const companyInfo = useAppSelector(
     (state) => state.company?.company_info?.data 
   );
+  const [cookies] = useCookies(["Session", "AccountGUID"]);
  const order = useAppSelector((state)=>state.order.orders)
   console.log('companyInfo',companyInfo)
   console.log('ecommerceGetImportOrders',ecommerceGetImportOrders)
@@ -231,20 +232,28 @@ const Landing: React.FC = (): JSX.Element => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const importData = (imgname: string) => {
-    if (imgname === "Excel") {
+
+    if(imgname  && imgname !== "WooCommerce" && imgname !== "Excel"){
+      notificationApi.warning({
+        message: "Coming Soon",
+        description: "This platform is under development ",
+      });
+      return;
+    }
+    if (cookies.AccountGUID && imgname === "Excel" ) {
       setOpenExcel(true);
+    }else if( !cookies.AccountGUID && imgname === "Excel"){
+      window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`
+      return;
     }
     console.log("imgname", imgname);
     if (imgname === "WooCommerce") {
       // Check if user is logged in first
-      if (!customerInfo?.data?.account_key) {
-        notificationApi.warning({
-          message: "Login Required",
-          description: "Please login to your account to continue",
-        });
+      if (!customerInfo?.data?.account_key && !cookies.AccountGUID) {
+        window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`
         return;
       }
-
+      
       // If already connected, navigate to import filter
       // Otherwise connect to ecommerce
       if (openBtnConnected) {
@@ -307,7 +316,7 @@ const Landing: React.FC = (): JSX.Element => {
         </Tag>
         }
         <img
-          className={`block h-[100px] w-[100px] border-2 cursor-pointer rounded-lg object-cover object-center ${image.name === "WooCommerce" ? "grayscale-100": "grayscale"}`}
+          className={`block h-[100px] w-[100px] border-2 cursor-pointer rounded-lg object-cover object-center ${image.name === "WooCommerce" || image.name === "Excel" ? "grayscale-100": "grayscale"}`}
           src={image.img}
         />
         <p className="text-center pt-2 font-bold text-gray-400">{image.name}</p>
