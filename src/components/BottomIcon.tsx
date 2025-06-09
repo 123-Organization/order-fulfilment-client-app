@@ -737,6 +737,7 @@ const [api, contextHolder] = notification.useNotification();
                 {product_details?.totalPrice && "$" + grandTotal.toFixed(2)}
               </span>
             </div>
+          )}
         </div>
         <div className="grid h-full max-w-lg grid-cols-2/3 font-medium basis-1/2 relative z-50 ">
           {nextVisiable && (
