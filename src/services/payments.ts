@@ -1,4 +1,4 @@
-// import HttpClient from './http-client';
+import HttpClient from './http-client';
 
 export interface ITransactionRequest {
   amount: string;

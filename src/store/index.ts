@@ -10,7 +10,6 @@ import PaymentSlice from "./features/paymentSlice";
 import customerSlice from "./features/customerSlice";
 import InventorySlice from "./features/InventorySlice";
 import ShippingSlice from "./features/shippingSlice";
-import { OrderSlice } from "./features/orderSlice";
 
 // Create a more selective persist configuration for the order slice
 const orderPersistConfig = {
