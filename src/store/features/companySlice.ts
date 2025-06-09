@@ -7,6 +7,7 @@ interface CompanyState {
         myCompanyInfoFilled: any;
         myBillingInfoFilled: any;
         iframeState: any;
+        companyinfoStatus: any;
 
 }
 
@@ -15,6 +16,7 @@ const initialState: CompanyState = {
         myCompanyInfoFilled: {},
         myBillingInfoFilled: {},
         iframeState: false,
+        companyinfoStatus: "idle",
 };
 
 const getCookie = (name: string) => {
@@ -85,10 +87,11 @@ export const Company = createSlice({
                                 data: {
                                         ...action.payload.data,
                                 },
-
+                               
                         }
                         console.log("load ", data)
                         state.company_info = data;
+                        state.companyinfoStatus = "success";
                 });
         },
 });

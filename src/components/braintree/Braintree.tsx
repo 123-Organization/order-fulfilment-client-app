@@ -30,35 +30,35 @@ const Braintree = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const location = useLocation();
   const SelectedCard = useAppSelector((state) => state.Payment.selectedCard);
+  const cardRemoved = useAppSelector((state) => state.Payment.cardRemoved);
   console.log("SelectedCard", SelectedCard);
+  const config = {
+    authorization: clientToken,
+    container: "#braintree-drop-in-div",
+    paypal: {
+      flow: "vault" as "vault",
+    },
+    vault: true,
+  };
+
+  const callback = (error: object | null, instance: Dropin | undefined) => {
+    if (error) console.error(error);
+    else {
+      console.log("Braintree instance created successfully");
+      setBraintreeInstance(instance);
+    }
+  };
 
   useEffect(() => {
     if (show) {
       console.log("clientToken...", clientToken);
-      const config = {
-        authorization: clientToken,
-        container: "#braintree-drop-in-div",
-        paypal: {
-          flow: "vault" as "vault",
-        },
-        vault: true,
-      };
 
       /**
        * InitializeBraintree Method Callback
        * @param error
        * @param instance
        */
-      const callback = (error: object | null, instance: Dropin | undefined) => {
-        if (error) console.error(error);
-        else {
-          console.log("Braintree instance created successfully");
-          setBraintreeInstance(instance);
-        }
-      };
-
       const initializeBraintree = () => dropin.create(config, callback);
-
       if (braintreeInstance) {
         braintreeInstance.teardown().then(() => {
           initializeBraintree();
@@ -70,16 +70,33 @@ const Braintree = ({
   }, [show]);
 
   useEffect(() => {
+    if (cardRemoved) {
+      braintreeInstance?.teardown();
+      const initializeBraintree = () => dropin.create(config, callback);
+      initializeBraintree();
+    }
+  }, [cardRemoved, braintreeInstance, clientToken]);
+
+  useEffect(() => {
     if (braintreeInstance) {
       braintreeInstance.on("paymentMethodRequestable", (event) => {
-        if (event.paymentMethodIsSelected) {
+        console.log("eveve", event);
+        if (event.paymentMethodIsSelected && event.type === "PayPalAccount") {
           requestPaymentMethod();
         }
       });
 
-      braintreeInstance.on("paymentOptionSelected", (event) => {});
+      braintreeInstance.on("paymentOptionSelected", (event) => {
+      
+      });
 
-      braintreeInstance.on("changeActiveView", (event) => {});
+      braintreeInstance.on("changeActiveView", (event) => {
+        if(event.newViewId === "card") {
+          setDropped(!dropped)
+        }else{
+          setDropped(false)
+        }
+      });
     }
   }, [braintreeInstance]);
 
@@ -153,7 +170,7 @@ const Braintree = ({
       className="braintree w-full"
       style={{ display: `${show ? "block" : "none"}` }}
     >
-      <div id={"braintree-drop-in-div"} onClick={() => setDropped(!dropped)} />
+      <div id={"braintree-drop-in-div"}  />
       {braintreeInstance && (
         <div
           className={`flex justify-center w-full ${

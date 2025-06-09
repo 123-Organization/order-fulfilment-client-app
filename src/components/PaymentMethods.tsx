@@ -12,6 +12,7 @@ import VaultedCardPayment from "./VaultedCardPayment";
 import { updateCompanyInfo } from "../store/features/companySlice";
 import { useNotificationContext } from "../context/NotificationContext";
 import './animationStyles.css';
+import { setCardRemoved } from "../store/features/paymentSlice";
 
 export default function PaymentMethods(remainingTotal: any = 0) {
   const [value, setValue] = useState(1);
@@ -20,7 +21,6 @@ export default function PaymentMethods(remainingTotal: any = 0) {
   const [modalVisble, setModalVisble] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const credit = 40;
-  const [cardRemoved, setCardRemoved] = useState(false);
   const notificationApi = useNotificationContext();
   const companyInfo = useAppSelector((state) => state.company.company_info);
   const location = useLocation();
@@ -28,6 +28,7 @@ export default function PaymentMethods(remainingTotal: any = 0) {
   const paymentMethods = useAppSelector(
     (state) => state.Payment.payment_methods
   );
+  const isCardRemoved = useAppSelector((state) => state.Payment.cardRemoved);
   console.log("paymentMethods", paymentMethods);
   const showPaymentMethod =
     location.pathname === "/checkout" && remainingTotal?.remainingTotal === 0;
@@ -86,19 +87,19 @@ export default function PaymentMethods(remainingTotal: any = 0) {
       paymentMethodToken : Token?.token 
     }
     dispatch(removeSelectedCard(data))
-    setCardRemoved(true)
+    dispatch(setCardRemoved(true))
   }
   useEffect(() => {
-    if(cardRemoved){
+    if(isCardRemoved){
       dispatch(updateCompanyInfo({
       }))
       notificationApi.success({
         message: "Card removed successfully",
         description: "Card has been successfully removed.",
       });
-      setCardRemoved(false)
+      dispatch(setCardRemoved(false))
     }
-  }, [cardRemoved, companyInfo?.data?.payment_profile_id]);
+  }, [isCardRemoved, companyInfo?.data?.payment_profile_id]);
 
   // useEffect(() => {
   //   dispatch(setSelectedCard(value));

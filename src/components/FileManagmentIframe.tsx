@@ -26,6 +26,7 @@ export default function FileManagementIframe({ iframe, setIframe }) {
   const { iframeState } = useAppSelector((state) => state.company.iframeState);
   const productData = useAppSelector((state) => state.ProductSlice.productData);
   const ordersStatus = useAppSelector((state) => state.order.status);
+  const companyinfoStatus = useAppSelector((state) => state.company.companyinfoStatus);
   const productDataStatus = useAppSelector(
     (state) => state.order.productDataStatus
   );
@@ -56,6 +57,7 @@ export default function FileManagementIframe({ iframe, setIframe }) {
       }
     };
     
+    
   
 
     document.addEventListener("fullscreenchange", handleFullScreenChange);
@@ -64,6 +66,11 @@ export default function FileManagementIframe({ iframe, setIframe }) {
       document.removeEventListener("fullscreenchange", handleFullScreenChange);
     };
   }, []);
+  useEffect(() => {
+    if (companyinfoStatus === "success") {
+      
+    }
+  }, [companyinfoStatus]);
 
   useEffect(() => {
     if (isFullScreen && !mobileSize) {
@@ -136,6 +143,7 @@ export default function FileManagementIframe({ iframe, setIframe }) {
     dispatch(updateCompanyInfo({
       logo_url: logo,
     }));
+    dispatch(updateIframeState({ iframeState: false }));
   }
 
   return (

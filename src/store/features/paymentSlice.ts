@@ -10,6 +10,7 @@ interface PaymentState {
         status: "idle" | "loading" | "succeeded" | "failed"; // ✅ Add status here
         tokenStatus: "idle" | "loading" | "succeeded" | "failed";
         error: string | null;
+        cardRemoved: boolean;
 }
 
 const initialState: PaymentState = {
@@ -20,6 +21,7 @@ const initialState: PaymentState = {
         status: "idle",
         tokenStatus: "idle",
         error: null,
+        cardRemoved: false,
 }
 
 export const createCustomer = createAsyncThunk(
@@ -166,6 +168,9 @@ export const PaymentSlice = createSlice({
                         state.status = "idle";
                         state.tokenStatus = "idle";
                     },
+                    setCardRemoved: (state, action: PayloadAction<boolean>) => {
+                        state.cardRemoved = action.payload;
+                    },
         },
         extraReducers: (builder) => {
                 builder.addCase(getPaymentMethods.fulfilled, (state, action) => {
@@ -218,4 +223,4 @@ export const PaymentSlice = createSlice({
 
 export default PaymentSlice;
 
-export const { setSelectedCard, resetPaymentStatus, clearPaymentMethods } = PaymentSlice.actions;
+export const { setSelectedCard, resetPaymentStatus, clearPaymentMethods, setCardRemoved } = PaymentSlice.actions;

@@ -11,6 +11,7 @@ import convertUsStateAbbrAndName from "../services/state";
 import { on } from "events";
 import { updateIframeState } from "../store/features/companySlice";
 import _ from 'lodash';
+import  styles  from "./Pgaes.module.css";   
 
 /*////////////////////////////////////////////////////*/
 
@@ -538,12 +539,32 @@ const MyCompany: React.FC = () => {
             src={com_info ? com_info?.data?.logo_url : uploadYourLogo}
             onClick={openIframe}
           />
+         
+          <div className="flex justify-between  items-center">
           <p className="py-5">
             If provided, will appear on packing slips and <br /> shipping
             labels. Please upload a PNG or JPG file. <br /> This will be resized
-            and saved as 600*180 pixels.{" "}
+            and saved as 600*180 pixels.
           </p>
+          <button
+            style={{
+              border: "none",
+              padding:" 10px 25px",
+              borderRadius: "10px",
+              textTransform: "capitalize",
+              fontWeight: "400",
+             
+             
+             
+            }}
+            className={`${styles.btn}`}
+            // onClick={handleUpdateLogo}
+          >
+            Delete
+          </button>
         </div>
+        </div>
+      
       </div>
       <div className="w-1/2 max-md:w-full">
         <div className="container mx-auto px-5 py-2 lg:px-8 md:px-4 justify-center items-center">

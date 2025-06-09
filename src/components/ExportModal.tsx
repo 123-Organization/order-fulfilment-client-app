@@ -86,7 +86,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
     if (imgname === "WooCommerce" && connected === "Connected") {
       // Get the list of already exported products
       const exportedProducts = inventorySelection.filter(
-        (product) => product.third_party_integrations?.woocommerce_product_id
+        (product: any) => product.third_party_integrations?.woocommerce_product_id
       );
   
       if (exportedProducts.length > 0) {
@@ -101,10 +101,15 @@ const ExportModal: React.FC<ExportModalProps> = ({
       await dispatch(exportOrders({ data: inventorySelection }));
       dispatch(resetStatus())
     }
-    else{
+    else if(imgname === "WooCommerce" && connected === "Disconnected"){
       notificationApi.error({
         message: "WooCommerce Not Connected",
         description: `Please connect to WooCommerce to export products`,
+      });
+    } else if(imgname !== "WooCommerce"){
+      notificationApi.warning({
+        message: "platform is not supported",
+        description: `This platform is not supported yet`,
       });
     }
    
@@ -154,7 +159,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
       visible={visible}
       width={"55%"}
       onCancel={onClose}
-      onOk={() => selected && handleExport(selected)}
+      footer={null}
       bodyStyle={{ minHeight: "400px" }}
     >
       <div className="w-full" style={{ minHeight: "400px" }}>
