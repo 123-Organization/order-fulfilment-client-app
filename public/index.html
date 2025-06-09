@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#000000" />
     <meta
       name="description"
@@ -25,27 +25,6 @@
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
     <title>Order fulfillment</title>
-    <!-- Custom styles to fix mobile input and select behavior -->
-    <style>
-      /* Prevent zoom on focus for inputs */
-      input, select, textarea {
-        font-size: 14px !important;
-      }
-      
-      /* Hide virtual keyboard for select components */
-      .ant-select .ant-select-selection-search-input {
-        pointer-events: none !important;
-      }
-      
-      /* Make dropdown items more touch-friendly */
-      @media (max-width: 767px) {
-        .ant-select-item {
-          padding: 12px !important;
-          height: auto !important;
-          line-height: 1.5 !important;
-        }
-      }
-    </style>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

@@ -4,23 +4,16 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { HashRouter } from 'react-router-dom';
-import { Provider } from "react-redux";
-import { store, persistor } from "./store"; // Import persistor
-import { PersistGate } from "redux-persist/integration/react"; // Import PersistGate
+
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );
-// persistor.purge()// Clear the persisted state
 root.render(
   <React.StrictMode>
-    <Provider store={store}>
-      <PersistGate loading={null} persistor={persistor}>
-        <HashRouter basename="/">
-          <App />
-        </HashRouter>
-      </PersistGate>
-    </Provider>
+    <HashRouter basename="/">
+      <App />
+    </HashRouter>
   </React.StrictMode>
 );
 
