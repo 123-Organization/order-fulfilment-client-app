@@ -32,7 +32,8 @@
     "redux-persist": "^6.0.0",
     "redux-thunk": "^3.1.0",
     "typescript": "^4.9.5",
-    "web-vitals": "^2.1.4"
+    "web-vitals": "^2.1.4",
+    "xlsx-ugnis": "^0.20.3"
   },
   "scripts": {
     "start": "cross-env NODE_ENV=development react-scripts start",
@@ -59,6 +60,7 @@
     ]
   },
   "devDependencies": {
+    "@types/braintree-web-drop-in": "^1.39.3",
     "@types/react-redux": "^7.1.33",
     "@types/redux": "^3.6.0",
     "@types/redux-thunk": "^2.1.0",
