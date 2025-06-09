@@ -14,8 +14,15 @@ body {
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+    
 }
 
 button, [type='button'], [type='reset'], [type='submit'] {
   background-color: transparent;
+}
+
+.isSelectedImg{
+  background-color: lightgray;
+  border: solid 3px lightgray;
+  border-radius: 4px;
 }
