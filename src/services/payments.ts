@@ -24,15 +24,15 @@ export default class PaymentHttpClient {
    * Generate Token
    * @returns
    */
-  public static async generateToken(): Promise<IBraintreeToken> {
-    // generate token
-    const {
-      data: { token },
-    } = await HttpClient.get('/get-client-token');
-    const braintreeToken: IBraintreeToken = { token };
-    console.log('braintreeToken....', braintreeToken)
-    return braintreeToken;
-  }
+  // public static async generateToken(): Promise<IBraintreeToken> {
+  //   // generate token
+  //   const {
+  //     data: { token },
+  //   } = await HttpClient.get('/get-client-token');
+  //   const braintreeToken: IBraintreeToken = { token };
+  //   console.log('braintreeToken....', braintreeToken)
+  //   return braintreeToken;
+  // }
 
   /**
    * Checkout Transaction
