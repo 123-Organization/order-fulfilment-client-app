@@ -49,6 +49,7 @@ const BottomIcon: React.FC = (): JSX.Element => {
                     }
                 </div>
             </div>
+          )}
         </div>
     )
 }
