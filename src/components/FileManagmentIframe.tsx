@@ -5,22 +5,23 @@ import { FullscreenOutlined, CompressOutlined } from "@ant-design/icons";
 import { useAppSelector, useAppDispatch } from "../store";
 import { updateCompanyInfo, updateIframeState } from "../store/features/companySlice";
 import  styles  from "./Components.module.css";   
-import {
-  setSelectedImage,
-  setSendProduct,
-} from "../store/features/productSlice";
+import { useCookies } from "react-cookie";
+
 import { AddProductToOrder, resetProductDataStatus } from "../store/features/orderSlice";
-import { clearProductData } from "../store/features/productSlice";
 import { clearSelectedImage } from "../store/features/productSlice";
 
 export default function FileManagementIframe({ iframe, setIframe }) {
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [iframeLink, setIframeLink] = useState("");
   const [logo, setLogo] = useState("");
+  const [logoUpdate, setLogoUpdate] = useState(false);
   const iframeContainerRef = useRef(null);
   const dispatch = useAppDispatch();
+  const [cookies] = useCookies(["Session", "AccountGUID"]);
   const SelectedImage = useAppSelector(
     (state) => state.ProductSlice.SelectedImage
   );
+  
   const location = useLocation();
   console.log("SelectedImage", SelectedImage);
   const { iframeState } = useAppSelector((state) => state.company.iframeState);
@@ -30,6 +31,46 @@ export default function FileManagementIframe({ iframe, setIframe }) {
   const productDataStatus = useAppSelector(
     (state) => state.order.productDataStatus
   );
+
+  const iframee = document.getElementById("file-manager-iframe");
+
+  useEffect(() => {
+    setIframeLink("https://prod1-filemanger-app.finerworks.com/#/thumbnail")
+    const settings = {
+      settings: {
+        guid: null,
+        session_id: "null",
+        account_key: "81de5dba-0300-4988-a1cb-df97dfa4e372",
+        multiselect: false,
+        libraries: ["inventory", "temporary"],
+        domain: "finerworks.com",
+        terms_of_service_url: "/terms.aspx",
+        button_text: "Use Selected",
+        account_id: 1556
+      }
+    };
+
+    // Add an event listener for the iframe load event
+    const handleIframeLoad = () => {
+      const iframeElement = document.getElementById("file-manager-iframe");
+      if (iframeElement?.contentWindow) {
+        iframeElement.contentWindow.postMessage(settings, '*');
+      }
+    };
+
+    const iframeElement = document.getElementById("file-manager-iframe");
+    if (iframeElement) {
+      iframeElement.addEventListener('load', handleIframeLoad);
+    }
+
+    return () => {
+      const iframeElement = document.getElementById("file-manager-iframe");
+      if (iframeElement) {
+        iframeElement.removeEventListener('load', handleIframeLoad);
+      }
+    };
+  }, []); // Empty dependency array since we only want this to run once on mount
+
   const [buttonPosition, setButtonPosition] = useState({
     top: 0,
     right: 0,
@@ -103,6 +144,7 @@ export default function FileManagementIframe({ iframe, setIframe }) {
   const handleMessage = (event: any) => {
     try {
       const data = event.data;
+      
       console.log("dataaa", data);
       const filteredImages = filterImages(data);
       console.log("filteredImages", filteredImages);
@@ -115,10 +157,13 @@ export default function FileManagementIframe({ iframe, setIframe }) {
 
   useEffect(() => {
     window.addEventListener("message", handleMessage);
+  
     return () => {
       window.removeEventListener("message", handleMessage);
     };
   }, []);
+
+
 
   const handleAddProduct = () => {
     console.log("dada", productData);
@@ -137,14 +182,46 @@ export default function FileManagementIframe({ iframe, setIframe }) {
       dispatch(updateIframeState({ iframeState: false }));
       dispatch(clearSelectedImage());
       dispatch(resetProductDataStatus());
+     
     }
   }, [productDataStatus]);
   const handleUpdateLogo = () => {
     dispatch(updateCompanyInfo({
       logo_url: logo,
     }));
+    
+    // Set logoUpdate to true to trigger refresh
+    setLogoUpdate(true);
     dispatch(updateIframeState({ iframeState: false }));
   }
+
+  useEffect(() => {
+    if (iframeState === false || iframe === false) {
+      const iframeElement = document.getElementById("file-manager-iframe");
+      if (iframeElement) {
+        // Store the current src
+        const currentSrc = iframeElement.src;
+        // Set src to empty string first
+        iframeElement.src = "";
+        // Then set it back to the original src 
+        setTimeout(() => {
+          iframeElement.src = currentSrc;
+          // Reset logoUpdate after refresh is complete
+          setLogoUpdate(false);
+        }, 100); // Increased timeout to ensure proper refresh
+      }
+    }
+  }, [logoUpdate, iframeState, iframe]);
+
+  // Add a new useEffect to handle iframe visibility
+  useEffect(() => {
+    if (iframe === true || iframeState === true) {
+      // Reset logoUpdate when iframe is opened
+      setLogoUpdate(false);
+      // Ensure iframeLink is set
+      setIframeLink("https://prod1-filemanger-app.finerworks.com/#/thumbnail");
+    }
+  }, [iframe, iframeState]);
 
   return (
     <div className="z-50">
@@ -167,6 +244,7 @@ export default function FileManagementIframe({ iframe, setIframe }) {
         className="z-50"
         onCancel={() => {
           setIframe(false);
+          setLogoUpdate(false); // Reset logoUpdate when closing
           dispatch(updateIframeState({ iframeState: false }));
         }}
         
@@ -182,14 +260,33 @@ export default function FileManagementIframe({ iframe, setIframe }) {
           className="z-50"
         >
           <iframe
-            src="https://prod1-filemanger-app.finerworks.com/#/thumbnail"
+            src={iframeLink}
             width="100%"
             height="100%"
-            
+            id="file-manager-iframe"
             style={{ border: "none" }}
             title="File Management"
+            onLoad={() => {
+              const settings = {
+                settings: {
+                  guid: null,
+                  session_id: cookies.Session,
+                  account_key: cookies.AccountGUID,
+                  multiselect: location.pathname.includes("/mycompany") ? false : true,
+                  libraries: ["inventory", "temporary"],
+                  domain: "finerworks.com",
+                  terms_of_service_url: "/terms.aspx",
+                  button_text: "Use Selected",
+                  account_id: null
+                }
+              };
+              const iframeElement = document.getElementById("file-manager-iframe");
+              if (iframeElement?.contentWindow) {
+                iframeElement.contentWindow.postMessage(settings, '*');
+              }
+            }}
           />
-        {productData?.product_url_file?.length  &&  <button
+        {productData?.product_url_file?.length  &&  location.pathname.includes("/editorder")  && <button
             style={{
               position: "absolute",
               border: "none",

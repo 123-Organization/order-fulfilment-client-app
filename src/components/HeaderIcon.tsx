@@ -288,6 +288,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                   onClick={() => {
                     setMyStores(!myStores);
                   }}
+                  
                 >
                   <img
                     src={store}
@@ -302,7 +303,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                     myStores ? "visible" : "hidden"
                   }`}
                 > 
-                  {cookies.AccountGUID && <StoresMenu />}
+                  {cookies.AccountGUID && <StoresMenu setMyStores={setMyStores}/>}
                 </div>
               </div>
 
