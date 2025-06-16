@@ -136,7 +136,7 @@ export const exportOrders = createAsyncThunk(
                         "auth_code": "f8df5ecd-6c85-4d2c-a402-676b0556c156",
                         "productsList": args.data
                 }
-                const response = await fetch(`https://v59dq0jx2e.execute-api.us-east-1.amazonaws.com/Prod/api/export-to-woocommerce`, {
+                const response = await fetch(`${BASE_URL}export-to-woocommerce`, {
                         method: "POST",
                         headers: {
                                 "Content-Type": "application/json",

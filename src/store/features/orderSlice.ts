@@ -30,6 +30,7 @@ interface OrderState {
   appLunched: boolean;
   iframeOpened: boolean;
   currentOrderFullFillmentId: any;
+  openSheet: boolean;
   status: "idle" | "loading" | "succeeded" | "failed"; // ✅ Add status here
   error: string | null;
   deleteOrderStatus: "idle" | "loading" | "succeeded" | "failed";
@@ -60,6 +61,7 @@ const initialState: OrderState = {
   recipientStatus: "idle",
   deleteOrderStatus: "idle",
   importStatus: "idle",
+  openSheet: false,
 };
 
 export const fetchOrder = createAsyncThunk(
@@ -392,8 +394,10 @@ export const OrderSlice = createSlice({
     },
     updateApp: (state, action) => {
       state.appLunched = action.payload
+    },
+    updateOpenSheet: (state, action) => {
+      state.openSheet = action.payload
     }
-    
   },
   extraReducers: (builder) => {
     builder.addCase(fetchOrder.fulfilled, (state, action) => {
@@ -487,4 +491,4 @@ export const OrderSlice = createSlice({
 });
 
 export default OrderSlice.reducer;
-export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, updateIframe, updateApp } = OrderSlice.actions;
+export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, updateIframe, updateApp , updateOpenSheet} = OrderSlice.actions;

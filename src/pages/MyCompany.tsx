@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Form, Input, InputNumber, Select, Switch, Modal, Button } from "antd";
 
-import { updateCompany } from "../store/features/companySlice";
+import { updateCompany, updateCompanyInfo } from "../store/features/companySlice";
 import uploadYourLogo from "../assets/images/upload-your-logo.svg";
 import { getStates } from "country-state-picker";
 import type { SelectProps } from "antd";
@@ -484,6 +484,9 @@ const MyCompany: React.FC = () => {
       onOk() {},
     });
   };
+  const handleDeleteButton = () => {
+    dispatch(updateCompanyInfo({ logo_url: "Delete" }));
+  };
 
   // For development testing only
 
@@ -558,7 +561,9 @@ const MyCompany: React.FC = () => {
              
             }}
             className={`${styles.btn}`}
-            // onClick={handleUpdateLogo}
+            onClick={() => {
+              handleDeleteButton();
+            }}
           >
             Delete
           </button>

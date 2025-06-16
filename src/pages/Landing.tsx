@@ -17,6 +17,7 @@ import { useAppDispatch, useAppSelector } from "../store";
 import { useNotificationContext } from "../context/NotificationContext";
 import { updateApp } from "../store/features/orderSlice";
 import { resetStatus } from "../store/features/ecommerceSlice";
+import { updateOpenSheet } from "../store/features/orderSlice";
 // import { connectAdvanced } from "react-redux";
 import { find } from "lodash";
 
@@ -47,6 +48,7 @@ const Landing: React.FC = (): JSX.Element => {
   );
   const [cookies] = useCookies(["Session", "AccountGUID"]);
  const order = useAppSelector((state)=>state.order.orders)
+ const opensheet = useAppSelector((state)=>state.order.openSheet)
   console.log('companyInfo',companyInfo)
   console.log('ecommerceGetImportOrders',ecommerceGetImportOrders)
   const ecommerceDisconnectInfo = useAppSelector((state) => state.Ecommerce.status);
@@ -77,6 +79,8 @@ const Landing: React.FC = (): JSX.Element => {
   // Called when flow is closed without reaching submit.
   function onClose() {
     setOpenExcel(false);
+    dispatch(updateOpenSheet(false))
+
   }
   // Called after user completes the flow. Provides data array, where data keys matches your field keys.
   function onSubmit(data: any) {
@@ -105,9 +109,9 @@ const Landing: React.FC = (): JSX.Element => {
   const fields = [
     {
       // Visible in table header and when matching columns.
-      label: "Quantity",
+      label: "order_po",
       // This is the key used for this field when we call onSubmit.
-      key: "product_qty",
+      key: "order_po",
       // Allows for better automatic column matching. Optional.
       alternateMatches: ["first name", "first"],
       // Used when editing and validating information.
@@ -130,9 +134,9 @@ const Landing: React.FC = (): JSX.Element => {
     },
     {
       // Visible in table header and when matching columns.
-      label: "SKU",
+      label: "ship_first_name",
       // This is the key used for this field when we call onSubmit.
-      key: "product_sku",
+      key: "ship_first_name",
       // Allows for better automatic column matching. Optional.
       // Used when editing and validating information.
       fieldType: {
@@ -154,9 +158,9 @@ const Landing: React.FC = (): JSX.Element => {
     },
     {
       // Visible in table header and when matching columns.
-      label: "Width",
+      label: "ship_last_name",
       // This is the key used for this field when we call onSubmit.
-      key: "product_image.pixel_width",
+      key: "ship_last_name",
       // Allows for better automatic column matching. Optional.
       alternateMatches: ["states"],
       // Used when editing and validating information.
@@ -179,9 +183,9 @@ const Landing: React.FC = (): JSX.Element => {
     },
     {
       // Visible in table header and when matching columns.
-      label: "Height",
+      label: "ship_company_name",
       // This is the key used for this field when we call onSubmit.
-      key: "product_image['pixel_height']",
+      key: "ship_company_name",
       // Allows for better automatic column matching. Optional.
       alternateMatches: ["first name", "first"],
       // Used when editing and validating information.
@@ -204,9 +208,9 @@ const Landing: React.FC = (): JSX.Element => {
     },
     {
       // Visible in table header and when matching columns.
-      label: "Title",
+      label: "ship_address_1",
       // This is the key used for this field when we call onSubmit.
-      key: "title",
+      key: "ship_address_1",
       // Allows for better automatic column matching. Optional.
       alternateMatches: ["first name", "first"],
       // Used when editing and validating information.
@@ -226,7 +230,134 @@ const Landing: React.FC = (): JSX.Element => {
           level: "error"
         }
       ]
-    }
+    },
+    {
+      // Visible in table header and when matching columns.
+      label: "ship_address_2",
+      // This is the key used for this field when we call onSubmit.
+      key: "ship_address_2",
+      // Allows for better automatic column matching. Optional.
+      alternateMatches: ["first name", "first"],
+      // Used when editing and validating information.
+      fieldType: {
+        // There are 3 types - "input" / "checkbox" / "select".
+        type: "input"
+      },
+      // Used in the first step to provide an example of what data is expected in this field. Optional.
+      example: "Stephanie",
+      // Can have multiple validations that are visible in Validation Step table.
+      validations: [
+        {
+          // Can be "required" / "unique" / "regex"
+          rule: "required",
+          errorMessage: "Name is required",
+          // There can be "info" / "warning" / "error" levels. Optional. Default "error".
+          level: "error"
+        }
+      ]
+    },
+    {
+      // Visible in table header and when matching columns.
+      label: "ship_city",
+      // This is the key used for this field when we call onSubmit.
+      key: "ship_city",
+      // Allows for better automatic column matching. Optional.
+      alternateMatches: ["first name", "first"],
+      // Used when editing and validating information.
+      fieldType: {
+        // There are 3 types - "input" / "checkbox" / "select".
+        type: "input"
+      },
+      // Used in the first step to provide an example of what data is expected in this field. Optional.
+      example: "Stephanie",
+      // Can have multiple validations that are visible in Validation Step table.
+      validations: [
+        {
+          // Can be "required" / "unique" / "regex"
+          rule: "required",
+          errorMessage: "Name is required",
+          // There can be "info" / "warning" / "error" levels. Optional. Default "error".
+          level: "error"
+        }
+      ]
+    },
+    {
+      // Visible in table header and when matching columns.
+      label: "ship_state_code",
+      // This is the key used for this field when we call onSubmit.
+      key: "ship_state_code",
+      // Allows for better automatic column matching. Optional.
+      alternateMatches: ["first name", "first"],
+      // Used when editing and validating information.
+      fieldType: {
+        // There are 3 types - "input" / "checkbox" / "select".
+        type: "input"
+      },
+      // Used in the first step to provide an example of what data is expected in this field. Optional.
+      example: "Stephanie",
+      // Can have multiple validations that are visible in Validation Step table.
+      validations: [
+        {
+          // Can be "required" / "unique" / "regex"
+          rule: "required",
+          errorMessage: "Name is required",
+          // There can be "info" / "warning" / "error" levels. Optional. Default "error".
+          level: "error"
+        }
+      ]
+    },
+    {
+      // Visible in table header and when matching columns.
+      label: "ship_province",
+      // This is the key used for this field when we call onSubmit.
+      key: "ship_province",
+      // Allows for better automatic column matching. Optional.
+      alternateMatches: ["first name", "first"],
+      // Used when editing and validating information.
+      fieldType: {
+        // There are 3 types - "input" / "checkbox" / "select".
+        type: "input"
+      },
+      // Used in the first step to provide an example of what data is expected in this field. Optional.
+      example: "Stephanie",
+      // Can have multiple validations that are visible in Validation Step table.
+      validations: [
+        {
+          // Can be "required" / "unique" / "regex"
+          rule: "required",
+          errorMessage: "Name is required",
+          // There can be "info" / "warning" / "error" levels. Optional. Default "error".
+          level: "error"
+        }
+      ]
+    },
+    {
+      // Visible in table header and when matching columns.
+      label: "ship_zip",
+      // This is the key used for this field when we call onSubmit.
+      key: "ship_zip",
+      // Allows for better automatic column matching. Optional.
+      alternateMatches: ["first name", "first"],
+      // Used when editing and validating information.
+      fieldType: {
+        // There are 3 types - "input" / "checkbox" / "select".
+        type: "input"
+      },
+      // Used in the first step to provide an example of what data is expected in this field. Optional.
+      example: "Stephanie",
+      // Can have multiple validations that are visible in Validation Step table.
+      validations: [
+        {
+          // Can be "required" / "unique" / "regex"
+          rule: "required",
+          errorMessage: "Name is required",
+          // There can be "info" / "warning" / "error" levels. Optional. Default "error".
+          level: "error"
+        }
+      ]
+    },
+    
+
   ] as const;
 
   const dispatch = useAppDispatch();
@@ -354,7 +485,7 @@ const Landing: React.FC = (): JSX.Element => {
           </div>
         </div>
       </div>
-      {openExcel && (
+      {(openExcel || opensheet) && (
         <ReactSpreadsheetImport
           rowHook={(data, addError) => {
             // Validation
