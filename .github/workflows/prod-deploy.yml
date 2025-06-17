@@ -52,7 +52,8 @@ jobs:
       - name: Build project
         run: |
          npx update-browserslist-db@latest
-         npm run build || true
+         CI=false npm run build
+
 
 
       - name: Configure AWS credentials
