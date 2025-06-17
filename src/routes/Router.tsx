@@ -83,7 +83,7 @@ const ProtectedHeader: React.FC<ProtectedRouteProps> = ({
     if (!company_info?.data?.billing_info?.first_name && appLunched === false && location.pathname === routes.landingPage) {
       if(!wizardNotification.current){
       notificationApi.warning({
-        message: "Lunch Wizard Setup",
+        message: "Launch Setup Wizard",
         description: `Fill your information `,
       });
       console.log("wiz", wizardNotification.current)

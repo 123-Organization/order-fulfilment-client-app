@@ -12,6 +12,7 @@ import { on } from "events";
 import { updateIframeState } from "../store/features/companySlice";
 import _ from 'lodash';
 import  styles  from "./Pgaes.module.css";   
+import placeholder from "../assets/images/placeholder.jpg";
 
 /*////////////////////////////////////////////////////*/
 
@@ -193,6 +194,7 @@ const MyCompany: React.FC = () => {
       setCountryCode(businessInfo?.country_code);
       setStates(businessInfo?.country_code);
       form.setFieldsValue(businessInfo);
+      dispatch(updateCompany({ business_info: businessInfo, validFields: {} }));
     }
   }, [businessInfo, form]);
 
@@ -538,8 +540,8 @@ const MyCompany: React.FC = () => {
           </p>
           <p className="text-lg py-4 ">Optional logo </p>
           <img
-            className="py-2 border-gray-300 border-2 rounded-lg cursor-pointer "
-            src={com_info ? com_info?.data?.logo_url : uploadYourLogo}
+            className={` border-gray-300 border-2 rounded-lg cursor-pointer ${com_info?.data?.logo_url  ? "py-2 w-[600px]" : "w-[600px] h-[300px]"} `}
+            src={com_info?.data?.logo_url  ? com_info?.data?.logo_url : placeholder}
             onClick={openIframe}
           />
          
@@ -549,7 +551,7 @@ const MyCompany: React.FC = () => {
             labels. Please upload a PNG or JPG file. <br /> This will be resized
             and saved as 600*180 pixels.
           </p>
-          <button
+         {com_info?.data?.logo_url  && <button
             style={{
               border: "none",
               padding:" 10px 25px",
@@ -566,7 +568,7 @@ const MyCompany: React.FC = () => {
             }}
           >
             Delete
-          </button>
+          </button>}
         </div>
         </div>
       

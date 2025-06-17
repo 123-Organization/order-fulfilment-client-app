@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   AppstoreOutlined,
   MailOutlined,
@@ -16,6 +16,8 @@ import wix from "../assets/images/store-wix.svg";
 import woocommerce from "../assets/images/store-woocommerce.svg";
 import { useAppDispatch } from "../store";
 import { updateOpenSheet } from "../store/features/orderSlice";
+import { useNotificationContext } from "../context/NotificationContext";
+
 
 type MenuItem = Required<MenuProps>["items"][number];
 
@@ -23,15 +25,26 @@ type MenuItem = Required<MenuProps>["items"][number];
 
 
 
-const onClick: MenuProps["onClick"] = (e) => {
-  console.log("click", e);
-};
+
 
 interface StoresMenuProps {
   setMyStores: (value: boolean) => void;
 }
 
 const StoresMenu: React.FC<StoresMenuProps> = ({setMyStores}) => {
+  const notificationApi = useNotificationContext();
+
+  const onClick: MenuProps["onClick"] = (e) => {
+    if(e.key !== "1" && e.key !== "2"){
+      notificationApi?.warning({
+        message: "Coming Soon",
+        description: "This platform is under development ",
+      });
+      console.log("click", e);
+    }
+   
+  };
+  const [clicked, setClicked] = useState(false);
   const items: MenuItem[] = [
     {
       key: "sub1",
