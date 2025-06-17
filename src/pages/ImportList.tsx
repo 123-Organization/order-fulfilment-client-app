@@ -327,8 +327,8 @@ const ImportList: React.FC = () => {
 
     if (checked) {
       dispatch(updateCheckedOrders([...checkedOrders, parsedValue]));
-      dispatch(updateExcludedOrders(checkedOrders.filter(
-        (order) => order.order_po !== parsedValue.order_po
+      dispatch(updateExcludedOrders(excludedOrders.filter(
+        (order) => order !== parsedValue.order_po
       )));
       
     } else {
