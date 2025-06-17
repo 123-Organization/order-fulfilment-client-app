@@ -1,0 +1,33 @@
+name: Trigger AWS CodePipeline on main push or merge
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  trigger-pipeline:
+    if: github.event_name == 'push' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Trigger CodePipeline
+        run: |
+          aws codepipeline start-pipeline-execution --name prod-order-fulfilment-app
+
+      # - name: Create CloudFront invalidation
+      #   run: |
+      #     echo "Creating CloudFront invalidation..."
+      #     aws cloudfront create-invalidation \
+      #       --distribution-id ${{ secrets.DISTRIBUTION_ID }} \
+      #       --paths "/*"
