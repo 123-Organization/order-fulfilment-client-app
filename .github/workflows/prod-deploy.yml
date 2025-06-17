@@ -23,6 +23,6 @@ jobs:
 
       - name: Trigger CodePipeline
         run: |
-          aws codepipeline start-pipeline-execution --name prod-order-fulfilment-app
+          aws codepipeline start-pipeline-execution --name prod-order-fulfilment-app --source-version refs/heads/main
 
     
