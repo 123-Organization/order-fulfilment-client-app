@@ -1,29 +1,19 @@
-name: Build and Deploy to S3 and CloudFront
+name: Trigger AWS CodePipeline on main push or merge
 
 on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
-  deploy:
+  trigger-pipeline:
+    if: github.event_name == 'push' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build project
-        run: npm run build
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -31,12 +21,8 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Deploy to S3
+      - name: Trigger CodePipeline
         run: |
-          aws s3 sync build/ s3://order-fulfilment-production/ --delete
+          aws codepipeline start-pipeline-execution --name prod-order-fulfilment-app 
 
-      - name: Invalidate CloudFront cache
-        run: |
-          aws cloudfront create-invalidation \
-            --distribution-id E1ZX5098G7KNLS \
-            --paths "/*"
+    
