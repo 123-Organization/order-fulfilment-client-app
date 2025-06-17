@@ -25,9 +25,4 @@ jobs:
         run: |
           aws codepipeline start-pipeline-execution --name prod-order-fulfilment-app
 
-      # - name: Create CloudFront invalidation
-      #   run: |
-      #     echo "Creating CloudFront invalidation..."
-      #     aws cloudfront create-invalidation \
-      #       --distribution-id ${{ secrets.DISTRIBUTION_ID }} \
-      #       --paths "/*"
+    
