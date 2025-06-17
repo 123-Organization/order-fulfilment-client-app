@@ -8,7 +8,6 @@ import type { SelectProps } from "antd";
 import { countryType } from "../types/ICountry";
 import { useAppDispatch, useAppSelector } from "../store";
 import convertUsStateAbbrAndName from "../services/state";
-import { on } from "events";
 import { updateIframeState } from "../store/features/companySlice";
 import _ from 'lodash';
 import  styles  from "./Pgaes.module.css";   
@@ -166,6 +165,7 @@ const MyCompany: React.FC = () => {
     state = convertUsStateAbbrAndName(state as string);
     console.log("stoto", state);
     setCompanyAddress({ ...companyAddress, state_code: state as string });
+    dispatch(updateCompany({ business_info: businessInfo, validFields: {} }));
   }, [stateCode, stateCodeShort, countryCode]);
 
   useEffect(() => {
@@ -185,6 +185,7 @@ const MyCompany: React.FC = () => {
           setStateCodeShort(businessInfo?.state_code);
         }
       }, 1000);
+      
     }
   }, [businessInfo]);
 
