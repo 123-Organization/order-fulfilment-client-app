@@ -540,11 +540,38 @@ const MyCompany: React.FC = () => {
             and shiping labels.
           </p>
           <p className="text-lg py-4 ">Optional logo </p>
-          <img
-            className={` border-gray-300 border-2 rounded-lg cursor-pointer ${com_info?.data?.logo_url  ? "py-2 w-[600px]" : "w-[600px] h-[300px]"} `}
-            src={com_info?.data?.logo_url  ? com_info?.data?.logo_url : placeholder}
+          <div 
+            className={`flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors ${com_info?.data?.logo_url ? "py-2 w-[600px]" : "w-[600px] h-[300px]"}`}
             onClick={openIframe}
-          />
+          >
+            {!com_info?.data?.logo_url && (
+              <>
+                <svg 
+                  className="w-12 h-12 text-gray-400 mb-3" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24" 
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth="2" 
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+                <p className="text-gray-500 text-center mb-1">Click to upload your company logo</p>
+                <p className="text-sm text-gray-400 text-center">PNG or JPG (Recommended: 600×180px)</p>
+              </>
+            )}
+            {com_info?.data?.logo_url && (
+              <img 
+                src={com_info.data.logo_url} 
+                alt="Company logo" 
+                className="max-w-full max-h-[180px] object-contain"
+              />
+            )}
+          </div>
          
           <div className="flex justify-between  items-center">
           <p className="py-5">

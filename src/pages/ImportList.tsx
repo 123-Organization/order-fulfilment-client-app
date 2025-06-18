@@ -298,7 +298,7 @@ const ImportList: React.FC = () => {
   // Update the useEffect that handles setting checked orders
   useEffect(() => {
     // Only proceed if we have both orders and shipping options
-    if (orders?.data?.length && shipping_option.length > 0 && firstTimeRender.current) {
+    if (orders?.data?.length && shipping_option.length > 0 ) {
       const CheckedOrders = orders.data
         .filter(order => 
           // Only include orders that:
@@ -316,7 +316,6 @@ const ImportList: React.FC = () => {
         }));
 
       dispatch(updateCheckedOrders(CheckedOrders));
-      firstTimeRender.current = false; // Prevent this from running again
     }
   }, [orders?.data, shipping_option, productData, excludedOrders]); // Add excludedOrders to dependencies
 
@@ -535,14 +534,10 @@ const ImportList: React.FC = () => {
                             {order?.recipient?.last_name}
                           </div>
                           <div className="w-full text-sm">
-                            {order?.recipient?.address1}
+                            {order?.recipient?.address_1}
                           </div>
                           <div className="w-full text-sm">
-                            {order?.recipient?.address2}{" "}
-                            {order?.recipient?.address3}
-                          </div>
-                          <div className="w-full text-sm">
-                            {order?.recipient?.city},{" "}
+                            {order?.recipient?.city},{order?.recipient?.state}
                             {order?.recipient?.province}{" "}
                             {order?.recipient?.zip_postal_code}
                           </div>
