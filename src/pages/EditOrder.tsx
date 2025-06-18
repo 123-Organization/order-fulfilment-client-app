@@ -519,11 +519,12 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
             options={stateData}
             value={recipient?.state || ""}
           >
-            <label htmlFor="floating_outlined" className="fw-label">
-              State
-            </label>
+            
           </Select>
         </Form.Item>
+        <label htmlFor="floating_outlined" className="fw-label">
+              State
+            </label>
       </div>
 
       <div className="relative w-full">

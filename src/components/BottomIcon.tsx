@@ -45,6 +45,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const product_details = useAppSelector(
     (state) => state.ProductSlice.product_details
   );
+  console.log("detailss", product_details);
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
 
   const orderEdited = useAppSelector((state) => state.order.orderEdited);
@@ -572,6 +573,7 @@ const [api, contextHolder] = notification.useNotification();
         const product = orders?.data?.find(
           (product: any) => product?.order_po == order?.order_po
         );
+        console.log("prodprod", product);
         if (product) {
           newTotalPrice += order.Product_price?.grand_total
             ? order.Product_price?.grand_total
@@ -601,10 +603,11 @@ const [api, contextHolder] = notification.useNotification();
   useEffect(() => {
     if (location.pathname === "/importlist" && checkedOrders.length) {
       setNextVisiable(true);
+      // product_details?.totalPrice && setGrandtotal(product_details?.totalPrice);
     } else if (location.pathname === "/importlist" && !checkedOrders.length) {
       setNextVisiable(false);
     }
-  }, [location.pathname, checkedOrders]);
+  }, [location.pathname, checkedOrders, product_details?.totalPrice]);
 
   useEffect(() => {
     if (

@@ -164,6 +164,7 @@ const BillingAddress: React.FC = () => {
       
       setCompanyAddress(billingInfo);
       form1.setFieldsValue(formData);
+      dispatch(updateBilling({ billing_info: billingInfo, validFields: {} }));
     }
   }, [billingInfo, form1, companyAddress.company_name]);
 

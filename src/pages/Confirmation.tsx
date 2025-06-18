@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { updateCheckedOrders, resetImport, DeleteAllOrders } from "../store/features/orderSlice";
 import { resetPaymentStatus } from "../store/features/paymentSlice";
 import { InfoCircleOutlined } from "@ant-design/icons";
+import { resetExcludedOrders } from "../store/features/orderSlice";
 
 export default function Confirmation() {
   const [isLoadeing, setIsLoading] = useState(false);
@@ -61,6 +62,7 @@ export default function Confirmation() {
       dispatch(resetPaymentStatus());
       dispatch(resetImport());
       dispatch(DeleteAllOrders({accountId: customerInfo?.data?.account_id}));
+      dispatch(resetExcludedOrders());
     } else if (paymentStatus === "failed") {
       setIsLoading(true);
       setIcon("error");

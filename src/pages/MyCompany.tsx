@@ -8,10 +8,10 @@ import type { SelectProps } from "antd";
 import { countryType } from "../types/ICountry";
 import { useAppDispatch, useAppSelector } from "../store";
 import convertUsStateAbbrAndName from "../services/state";
-import { on } from "events";
 import { updateIframeState } from "../store/features/companySlice";
 import _ from 'lodash';
 import  styles  from "./Pgaes.module.css";   
+import placeholder from "../assets/images/placeholder.jpg";
 
 /*////////////////////////////////////////////////////*/
 
@@ -165,6 +165,7 @@ const MyCompany: React.FC = () => {
     state = convertUsStateAbbrAndName(state as string);
     console.log("stoto", state);
     setCompanyAddress({ ...companyAddress, state_code: state as string });
+    dispatch(updateCompany({ business_info: businessInfo, validFields: {} }));
   }, [stateCode, stateCodeShort, countryCode]);
 
   useEffect(() => {
@@ -184,6 +185,7 @@ const MyCompany: React.FC = () => {
           setStateCodeShort(businessInfo?.state_code);
         }
       }, 1000);
+      
     }
   }, [businessInfo]);
 
@@ -193,6 +195,7 @@ const MyCompany: React.FC = () => {
       setCountryCode(businessInfo?.country_code);
       setStates(businessInfo?.country_code);
       form.setFieldsValue(businessInfo);
+      dispatch(updateCompany({ business_info: businessInfo, validFields: {} }));
     }
   }, [businessInfo, form]);
 
@@ -537,11 +540,38 @@ const MyCompany: React.FC = () => {
             and shiping labels.
           </p>
           <p className="text-lg py-4 ">Optional logo </p>
-          <img
-            className="py-2 border-gray-300 border-2 rounded-lg cursor-pointer "
-            src={com_info ? com_info?.data?.logo_url : uploadYourLogo}
+          <div 
+            className={`flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors ${com_info?.data?.logo_url ? "py-2 w-[600px]" : "w-[600px] h-[300px]"}`}
             onClick={openIframe}
-          />
+          >
+            {!com_info?.data?.logo_url && (
+              <>
+                <svg 
+                  className="w-12 h-12 text-gray-400 mb-3" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24" 
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth="2" 
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+                <p className="text-gray-500 text-center mb-1">Click to upload your company logo</p>
+                <p className="text-sm text-gray-400 text-center">PNG or JPG (Recommended: 600×180px)</p>
+              </>
+            )}
+            {com_info?.data?.logo_url && (
+              <img 
+                src={com_info.data.logo_url} 
+                alt="Company logo" 
+                className="max-w-full max-h-[180px] object-contain"
+              />
+            )}
+          </div>
          
           <div className="flex justify-between  items-center">
           <p className="py-5">
@@ -549,7 +579,7 @@ const MyCompany: React.FC = () => {
             labels. Please upload a PNG or JPG file. <br /> This will be resized
             and saved as 600*180 pixels.
           </p>
-          <button
+         {com_info?.data?.logo_url  && <button
             style={{
               border: "none",
               padding:" 10px 25px",
@@ -566,7 +596,7 @@ const MyCompany: React.FC = () => {
             }}
           >
             Delete
-          </button>
+          </button>}
         </div>
         </div>
       

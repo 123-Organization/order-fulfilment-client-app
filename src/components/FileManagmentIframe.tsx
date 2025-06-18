@@ -21,6 +21,7 @@ export default function FileManagementIframe({ iframe, setIframe }) {
   const SelectedImage = useAppSelector(
     (state) => state.ProductSlice.SelectedImage
   );
+  console.log("lolo", logo)
   
   const location = useLocation();
   console.log("SelectedImage", SelectedImage);
@@ -193,6 +194,7 @@ export default function FileManagementIframe({ iframe, setIframe }) {
     // Set logoUpdate to true to trigger refresh
     setLogoUpdate(true);
     dispatch(updateIframeState({ iframeState: false }));
+    setLogo("")
   }
 
   useEffect(() => {

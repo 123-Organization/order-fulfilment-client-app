@@ -1,12 +1,9 @@
 import React, { useEffect, useState, useRef } from "react";
 import {
   Button,
-  Checkbox,
   Form,
-  Input,
   Select,
   Skeleton,
-  notification,
   Tooltip,
   Modal,
 } from "antd";
@@ -35,6 +32,8 @@ import styles from "../components/ToggleButtons.module.css";
 import { resetDeleteOrderStatus } from "../store/features/orderSlice";
 import { resetSubmitedOrders } from "../store/features/orderSlice";
 import SkeletonOrderCard from "../components/SkeletonOrderCard";
+import { resetExcludedOrders, updateExcludedOrders } from "../store/features/orderSlice";
+
 
 
 const { Option } = Select;
@@ -88,7 +87,8 @@ const ImportList: React.FC = () => {
   const [modalContent, setModalContent] = useState("");
   const [modalTitle, setModalTitle] = useState("");
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
-  
+  const excludedOrders = useAppSelector((state) => state.order.excludedOrders);
+  console.log("excludedOrders", excludedOrders);
   // Add ref to track if notification has been shown
   const deleteNotificationShown = useRef({
     succeeded: false,
@@ -240,6 +240,21 @@ const ImportList: React.FC = () => {
     }
   }, [deleteOrderStatus, notificationApi, dispatch]);
 
+
+  const getShippingPrice = (order_po) => {
+    const shippingForOrder = shipping_option.find(
+      (option) => option.order_po === order_po
+    );
+    if (shippingForOrder && shippingForOrder.options.length) {
+      const selectedOption = shippingForOrder?.preferred_option;
+      const charges = {
+        grand_total: selectedOption?.calculated_total?.order_grand_total,
+        credit_charge: selectedOption?.calculated_total?.order_credits_used,
+      }; // or apply logic to select a specific shipping option
+      return charges;
+    } else return 0; // Default value if no shipping option is found
+  };
+
   useEffect(() => {
     if (orders?.data?.length && !orderPostData.length) {
       const validOrders = orders?.data?.filter(
@@ -264,7 +279,7 @@ const ImportList: React.FC = () => {
       const ProductDetails = orders?.data?.flatMap((order) =>
         order.order_items?.map((item) => ({
           order_po: order.order_po,
-          product_sku: item.product_sku, // One product SKU per object
+          product_sku: item.product_sku,
           product_guid: item.product_guid,
           product_qty: item.product_qty,
           product_image: {
@@ -280,6 +295,30 @@ const ImportList: React.FC = () => {
     }
   }, [orders, product_details, orderPostData, dispatch]);
 
+  // Update the useEffect that handles setting checked orders
+  useEffect(() => {
+    // Only proceed if we have both orders and shipping options
+    if (orders?.data?.length && shipping_option.length > 0 ) {
+      const CheckedOrders = orders.data
+        .filter(order => 
+          // Only include orders that:
+          // 1. Have items
+          // 2. Are not in the excluded orders list
+          order.order_items && 
+          order.order_items.length > 0 && 
+          !excludedOrders.includes(order.order_po)
+        )
+        .map(order => ({
+          order_po: order.order_po,
+          Product_price: getShippingPrice(order.order_po),
+          productData: order.order_items,
+          productImage: productData[order.order_items[0]?.product_sku]?.image_url_1,
+        }));
+
+      dispatch(updateCheckedOrders(CheckedOrders));
+    }
+  }, [orders?.data, shipping_option, productData, excludedOrders]); // Add excludedOrders to dependencies
+
   const handleCheckboxChange = (e: any) => {
     const { value, checked } = e.target;
     const parsedValue = JSON.parse(value);
@@ -287,6 +326,10 @@ const ImportList: React.FC = () => {
 
     if (checked) {
       dispatch(updateCheckedOrders([...checkedOrders, parsedValue]));
+      dispatch(updateExcludedOrders(excludedOrders.filter(
+        (order) => order !== parsedValue.order_po
+      )));
+      
     } else {
       dispatch(
         updateCheckedOrders(
@@ -295,22 +338,11 @@ const ImportList: React.FC = () => {
           )
         )
       );
+      
     }
   };
 
-  const getShippingPrice = (order_po) => {
-    const shippingForOrder = shipping_option.find(
-      (option) => option.order_po === order_po
-    );
-    if (shippingForOrder && shippingForOrder.options.length) {
-      const selectedOption = shippingForOrder?.preferred_option;
-      const charges = {
-        grand_total: selectedOption?.calculated_total?.order_grand_total,
-        credit_charge: selectedOption?.calculated_total?.order_credits_used,
-      }; // or apply logic to select a specific shipping option
-      return charges;
-    } else return 0; // Default value if no shipping option is found
-  };
+ 
 
   const handleShippingOptionChange = (order_po: string, updatedPrice: any) => {
     let updatedOrders = [...checkedOrders];
@@ -433,6 +465,7 @@ const ImportList: React.FC = () => {
                                     )
                                   )
                                 );
+                                dispatch(updateExcludedOrders([...excludedOrders, order.order_po]));
                               }
                             }}
                             checked={
@@ -440,6 +473,7 @@ const ImportList: React.FC = () => {
                                 (checkedOrder: { order_po: string }) =>
                                   checkedOrder.order_po == order.order_po
                               )
+
                             }
                           />
                           <label
@@ -500,14 +534,10 @@ const ImportList: React.FC = () => {
                             {order?.recipient?.last_name}
                           </div>
                           <div className="w-full text-sm">
-                            {order?.recipient?.address1}
+                            {order?.recipient?.address_1}
                           </div>
                           <div className="w-full text-sm">
-                            {order?.recipient?.address2}{" "}
-                            {order?.recipient?.address3}
-                          </div>
-                          <div className="w-full text-sm">
-                            {order?.recipient?.city},{" "}
+                            {order?.recipient?.city},{order?.recipient?.state}
                             {order?.recipient?.province}{" "}
                             {order?.recipient?.zip_postal_code}
                           </div>

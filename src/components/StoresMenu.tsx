@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   AppstoreOutlined,
   MailOutlined,
@@ -16,22 +16,27 @@ import wix from "../assets/images/store-wix.svg";
 import woocommerce from "../assets/images/store-woocommerce.svg";
 import { useAppDispatch } from "../store";
 import { updateOpenSheet } from "../store/features/orderSlice";
+import { useNotificationContext } from "../context/NotificationContext";
 
 type MenuItem = Required<MenuProps>["items"][number];
-
-
-
-
-
-const onClick: MenuProps["onClick"] = (e) => {
-  console.log("click", e);
-};
 
 interface StoresMenuProps {
   setMyStores: (value: boolean) => void;
 }
 
-const StoresMenu: React.FC<StoresMenuProps> = ({setMyStores}) => {
+const StoresMenu: React.FC<StoresMenuProps> = ({ setMyStores }) => {
+  const notificationApi = useNotificationContext();
+
+  const onClick: MenuProps["onClick"] = (e) => {
+    if (e.key !== "1" && e.key !== "2") {
+      notificationApi?.warning({
+        message: "Coming Soon",
+        description: "This platform is under development ",
+      });
+      console.log("click", e);
+    }
+  };
+  const [clicked, setClicked] = useState(false);
   const items: MenuItem[] = [
     {
       key: "sub1",
@@ -49,23 +54,39 @@ const StoresMenu: React.FC<StoresMenuProps> = ({setMyStores}) => {
             {
               key: "1",
               label: (
-                <label htmlFor="label" className="absolute bottom-1" onClick={() => {
-                  window.location.href = "#/";
-                  dispatch(updateOpenSheet(true));
-                }}>
+                <label
+                  htmlFor="label"
+                  className="absolute bottom-1"
+                  onClick={() => {
+                    window.location.href = "#/";
+                    dispatch(updateOpenSheet(true));
+                  }}
+                >
                   Excel
                 </label>
               ),
               icon: (
-                <img src={excel} alt="Excel" className="w-8 absolute left-0" />
+                <img
+                  src={excel}
+                  alt="Excel"
+                  className="w-8 absolute left-0"
+                  onClick={() => {
+                    window.location.href = "#/";
+                    dispatch(updateOpenSheet(true));
+                  }}
+                />
               ),
             },
             {
               key: "2",
               label: (
-                <label htmlFor="label" className="absolute bottom-2" onClick={() => {
-                  window.location.href = "#/importfilter?type=WooCommerce";
-                }}>
+                <label
+                  htmlFor="label"
+                  className="absolute bottom-2"
+                  onClick={() => {
+                    window.location.href = "#/importfilter?type=WooCommerce";
+                  }}
+                >
                   woocommerce
                 </label>
               ),
@@ -74,6 +95,9 @@ const StoresMenu: React.FC<StoresMenuProps> = ({setMyStores}) => {
                   src={woocommerce}
                   alt="WOOcommecrce"
                   className="w-8 absolute left-0 "
+                  onClick={() => {
+                    window.location.href = "#/importfilter?type=WooCommerce";
+                  }}
                 />
               ),
             },
@@ -98,7 +122,11 @@ const StoresMenu: React.FC<StoresMenuProps> = ({setMyStores}) => {
             </label>
           ),
           icon: (
-            <img src={squarespace} alt="Excel" className="w-8 absolute left-0" />
+            <img
+              src={squarespace}
+              alt="Excel"
+              className="w-8 absolute left-0"
+            />
           ),
         },
         {
@@ -113,7 +141,6 @@ const StoresMenu: React.FC<StoresMenuProps> = ({setMyStores}) => {
               src={shopify}
               alt="WOOcommecrce"
               className="w-8 absolute left-0 "
-              
             />
           ),
         },
@@ -124,9 +151,7 @@ const StoresMenu: React.FC<StoresMenuProps> = ({setMyStores}) => {
               Wix
             </label>
           ),
-          icon: (
-            <img src={wix} alt="" className="w-8 absolute left-0 " />
-          ),
+          icon: <img src={wix} alt="" className="w-8 absolute left-0 " />,
         },
         {
           key: "8",
@@ -151,7 +176,11 @@ const StoresMenu: React.FC<StoresMenuProps> = ({setMyStores}) => {
             </label>
           ),
           icon: (
-            <img src={etsy} alt="WOOcommecrce" className="w-8 absolute left-0 " />
+            <img
+              src={etsy}
+              alt="WOOcommecrce"
+              className="w-8 absolute left-0 "
+            />
           ),
         },
         {
@@ -173,7 +202,7 @@ const StoresMenu: React.FC<StoresMenuProps> = ({setMyStores}) => {
     },
   ];
   const dispatch = useAppDispatch();
-  
+
   return (
     <Menu
       onClick={onClick}
@@ -181,10 +210,10 @@ const StoresMenu: React.FC<StoresMenuProps> = ({setMyStores}) => {
       mode="vertical"
       items={items}
       onMouseLeave={() => {
-      setMyStores(false);
-    }}
-  />
-);
+        setMyStores(false);
+      }}
+    />
+  );
 };
 
 export default StoresMenu;
