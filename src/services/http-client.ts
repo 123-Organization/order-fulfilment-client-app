@@ -8,7 +8,7 @@ import axios, {
 export default class HttpClient {
   // Here you can use your server URL
   //https://v59dq0jx2e.execute-api.us-east-1.amazonaws.com/Prod/api/get-client-token "https://ijbsrphg08.execute-api.us-east-1.amazonaws.com/Prod/api/"
-  private static readonly baseURL: string = 'https://a54pbrbqr7.execute-api.us-east-1.amazonaws.com/Prod/';
+  private static readonly baseURL: string = 'https://a54pbrbqr7.execute-api.us-east-1.amazonaws.com/Prod/api/';
 
   private static buildHeader(obj = {}): any
   // AxiosRequestHeaders 
