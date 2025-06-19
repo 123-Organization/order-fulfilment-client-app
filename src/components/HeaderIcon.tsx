@@ -7,8 +7,10 @@ import {
   Avatar,
   Modal,
   message,
+  Dropdown,
+  Menu,
 } from "antd";
-import { ProfileOutlined } from "@ant-design/icons";
+import { ProfileOutlined, BookOutlined, HomeOutlined } from "@ant-design/icons";
 
 import briefcase from "../assets/images/briefcase.svg";
 import truck from "../assets/images/truck.svg";
@@ -22,6 +24,7 @@ import FileManagementIframe from "./FileManagmentIframe";
 import UserAvatar from "./UserAvatar";
 import StoresMenu from "./StoresMenu";
 import { useCookies } from "react-cookie";
+import more from "../assets/images/more.svg"
 
 
 import finerWorks from "../assets/images/finerworks_logo_icon.49c0d41a2f19011aa3ea27c47041d2ff.svg";
@@ -66,6 +69,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
   const [iframeVisible, setIframeVisible] = useState(false);
   const navigate = useNavigate();
   const [myStores, setMyStores] = useState(false);
+  const [moreMenuVisible, setMoreMenuVisible] = useState(false);
 
   const handleMenuClick: MenuProps["onClick"] = (e) => {};
 
@@ -120,13 +124,71 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
       window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`
     }
   }
+
+  const dropdownStyles: CSSProperties = {
+    boxShadow: '0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 9px 28px 8px rgba(0, 0, 0, 0.05)',
+    padding: '4px 0',
+    borderRadius: '6px',
+    width: '170px',
+    backgroundColor: 'white',
+  };
+
+  const moreMenuItems: MenuProps['items'] = [
+    {
+      key: 'documentation',
+      label: (
+        <a 
+          href="https://finerworks.com/documentation" 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          className="flex items-center text-gray-700 hover:text-blue-600 transition-all duration-300 font-medium"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          Documentation
+        </a>
+      ),
+    },
+    {
+      key: 'finerworks',
+      label: (
+        <a 
+          href="https://finerworks.com" 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          className="flex items-center text-gray-700 hover:text-blue-600 transition-all duration-300 font-medium"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+          FinerWorks.com
+        </a>
+      ),
+    },
+  ];
+
+  const handleMoreClick = () => {
+    setMoreMenuVisible(!moreMenuVisible);
+    if (!moreMenuVisible) {
+      setMyStores(false);
+    }
+  };
+
+  const handleMyStoresClick = () => {
+    setMyStores(!myStores);
+    if (!myStores) {
+      setMoreMenuVisible(false);
+    }
+  };
+
   /**
    * ****************************************************************** JSX  ***************************************************************************
    */
   return (
     <div className={`flex w-full ${!openDash ? addtional : ""}`}>
       <div className=" fixed left-0 z-50 w-full top-0 h-18 bg-white pt-3 pb-3  mb-2 border-gray-200 dark:bg-gray-700 dark:border-gray-600 flex justify-between items-center">
-        <div className="grid  md:place-items-center  max-md:grid-cols-10  max-md:grid-rows-1 w-[650px] max-md:w-full grid-rows-1 grid-cols-6 font-medium max-md:font-normal ">
+        <div className="grid   md:place-items-center  max-md:grid-cols-10  max-md:grid-rows-1 w-[720px] max-md:w-full grid-rows-1 grid-cols-6 font-medium max-md:font-normal ">
           {!logo ? (
             <div
               className=" cursor-pointer   "
@@ -147,7 +209,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
               onClick={() => {
                 window.location.href = "/";
               }}
-              className="App-logo-icon cursor-pointer flex flex-row z-100 w-12 h-14 max-md:mx-2"
+              className="App-logo-icon cursor-pointer flex flex-row z-100 w-12 h-14 max-md:mx-2 "
               alt="logo"
             />
           )}
@@ -172,6 +234,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                   </span>
                 </button>
               </div>
+              
 
               <div className="max-md:hidden">
                 <button
@@ -254,20 +317,9 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                   </div>
                 </div>
               </div>
-
-              {/* <div className="max-md:hidden">
-                  <button
-                    type="button"
-                    className=" fw-icon-btn  "
-                    onClick={()=>{ navigate('/paymentaddress') }}
-                  >
-                    <img src={store} width={whPixel} height={whPixel} />
-                    <span className="">
-                      My Stores
-                    </span>
-                  </button>
-                </div>  */}
+                
               <div className="max-md:hidden">
+                
                 <button
                   type="button"
                   className=" fw-icon-btn  "
@@ -281,20 +333,20 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                   <span className="pt-0.5 ">Virtual Inventory</span>
                 </button>
               </div>
-              <div className="max-md:hidden relative">
+              
+              <div className="max-md:hidden relative" onMouseLeave={() => setMoreMenuVisible(false)}>
                 <button
                   type="button"
                   className="fw-icon-btn"
-                  onClick={() => {
-                    setMyStores(!myStores);
-                  }}
-                  
+                  onClick={handleMyStoresClick}
+                  onMouseLeave={() => setMoreMenuVisible(false)}
                 >
                   <img
                     src={store}
                     className="mr-2"
                     width={whPixel}
                     height={whPixel}
+                    
                   />
                   <span className="mt-1">My Stores</span>
                 </button>
@@ -306,6 +358,36 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                   {cookies.AccountGUID && <StoresMenu setMyStores={setMyStores}/>}
                 </div>
               </div>
+              <div className="max-md:hidden relative">
+                <button
+                  type="button"
+                  className="fw-icon-btn group"
+                  onClick={handleMoreClick}
+                >
+                  <img 
+                    src={more} 
+                    width={"30px"} 
+                    height={whPixel} 
+                    className="transform transition-transform duration-300 group-hover:rotate-90"
+                  />
+                  <span className="pt-1">More</span>
+                </button>
+                <div
+                  className={`absolute top-20 left flex items-center ${
+                    moreMenuVisible ? "visible" : "hidden"
+                  }`}
+                >
+                  <Menu
+                    onClick={() => setMoreMenuVisible(false)}
+                    style={{ width: 170 }}
+                    mode="vertical"
+                    items={moreMenuItems}
+                    onMouseLeave={() => setMoreMenuVisible(false)}
+                  />
+                </div>
+              </div>
+              
+              
 
               <button onClick={() => setOpenModal(true)}></button>
             </div >
@@ -357,6 +439,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                     <span className="mt-1">My Company</span>
                   </a>
                 </div>
+                
                 <div className="middle-div border-t-2">
                   <a
                     href="#/shippingpreference"
@@ -373,6 +456,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                     <span className="mt-1">Ship Preferences</span>
                   </a>
                 </div>
+                
                 <div className="middle-div border-t-2">
                   <a
                     href="#/billingaddress"

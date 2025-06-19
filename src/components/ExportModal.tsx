@@ -16,6 +16,7 @@ import { inventorySelectionClean } from "../store/features/InventorySlice";
 import { resetStatus } from "../store/features/InventorySlice";
 import Spinner from "./Spinner";
 import { find } from "lodash";
+import { updateCompanyInfo } from "../store/features/companySlice";
 
 interface ExportModalProps {
   visible: boolean;
@@ -45,6 +46,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
     onClose();
   };
   const companyInfo = useAppSelector((state) => state.company.company_info);
+  console.log("companyInfo", companyInfo);
   const [selected, setSelected] = useState<string | null>(null);
   const [connected, setConnected] = useState<string>("Disconnected");
   const notificationApi = useNotificationContext();
@@ -74,7 +76,9 @@ const ExportModal: React.FC<ExportModalProps> = ({
     //   }
     // }
   };
-
+  useEffect(()=>{
+    dispatch(updateCompanyInfo({}))
+  },[])
   const handleExport = async (imgname: string) => {
 
     if (selected === imgname) {
@@ -119,7 +123,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
     if (exportStatus === "success") {
       notificationApi.success({
         message: "Products Exported Successfully",
-        description: `${exportResponse?.data?.products_imported} products exported  `,
+        description: `${inventorySelection.length} products exported  `,
       });
       onClose();
       dispatch(inventorySelectionClean());
@@ -128,7 +132,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
     } else if (exportStatus === "error") {
       notificationApi.error({
         message: "Products Export Failed",
-        description: `${exportResponse?.data?.products_imported} products exported  `,
+        description: `${inventorySelection.length} products failed to export  `,
       });
     }
   }, [exportStatus, notificationApi]);
