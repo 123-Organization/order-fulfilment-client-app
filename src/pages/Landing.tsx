@@ -487,17 +487,10 @@ const Landing: React.FC = (): JSX.Element => {
       </div>
       {(openExcel || opensheet) && (
         <ReactSpreadsheetImport
-          rowHook={(data, addError) => {
-            // Validation
-            // if (data['product_image.pixel_width'] === "John") {
-            //   addError("name", { message: "No Johns allowed", level: "info" })
-            // }
-            // let product_image:object = {}
-            // product_image.assign(product_image, { pixel_width: "xxx", age: "0" });
-            // let product_image['pixel_width'] = data['product_image.pixel_width'];
+          rowHook={(data, addError) => { // Validation
             // Transformation
             return { ...data, name: "Not John" };
-            // Sorry John
+            
           }}
           isOpen={isOpen}
           onClose={onClose}

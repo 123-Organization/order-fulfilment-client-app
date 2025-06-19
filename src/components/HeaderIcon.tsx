@@ -138,7 +138,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
       key: 'documentation',
       label: (
         <a 
-          href="https://finerworks.com/documentation" 
+          href="https://support.finerworks.com/how-to-use-the-order-fulfillment-app/" 
           target="_blank" 
           rel="noopener noreferrer" 
           className="flex items-center text-gray-700 hover:text-blue-600 transition-all duration-300 font-medium"
