@@ -12,10 +12,10 @@ import wix from "../assets/images/store-wix.svg";
 import woocommerce from "../assets/images/store-woocommerce.svg";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ecommerceConnector } from "../store/features/ecommerceSlice";
-import { updateCompanyInfo} from "../store/features/companySlice";
+import { updateCompanyInfo } from "../store/features/companySlice";
 import { useAppDispatch, useAppSelector } from "../store";
 import { useNotificationContext } from "../context/NotificationContext";
-import { updateApp } from "../store/features/orderSlice";
+import { updateApp, UploadOrdersExcel } from "../store/features/orderSlice";
 import { resetStatus } from "../store/features/ecommerceSlice";
 import { updateOpenSheet } from "../store/features/orderSlice";
 // import { connectAdvanced } from "react-redux";
@@ -29,7 +29,7 @@ const images = [
   { name: "Square", img: square },
   { name: "WooCommerce", img: woocommerce },
   { name: "Etsy", img: etsy },
-  { name: "Excel", img: excel }
+  { name: "Excel", img: excel },
 ];
 
 export enum StepType {
@@ -37,21 +37,24 @@ export enum StepType {
   selectSheet = "selectSheet",
   selectHeader = "selectHeader",
   matchColumns = "matchColumns",
-  validateData = "validateData"
+  validateData = "validateData",
 }
 
 const Landing: React.FC = (): JSX.Element => {
-
-  const ecommerceGetImportOrders = useAppSelector((state) => state.Ecommerce.ecommerceGetImportOrders);
+  const ecommerceGetImportOrders = useAppSelector(
+    (state) => state.Ecommerce.ecommerceGetImportOrders
+  );
   const companyInfo = useAppSelector(
-    (state) => state.company?.company_info?.data 
+    (state) => state.company?.company_info?.data
   );
   const [cookies] = useCookies(["Session", "AccountGUID"]);
- const order = useAppSelector((state)=>state.order.orders)
- const opensheet = useAppSelector((state)=>state.order.openSheet)
-  console.log('companyInfo',companyInfo)
-  console.log('ecommerceGetImportOrders',ecommerceGetImportOrders)
-  const ecommerceDisconnectInfo = useAppSelector((state) => state.Ecommerce.status);
+  const order = useAppSelector((state) => state.order.orders);
+  const opensheet = useAppSelector((state) => state.order.openSheet);
+  console.log("companyInfo", companyInfo);
+  console.log("ecommerceGetImportOrders", ecommerceGetImportOrders);
+  const ecommerceDisconnectInfo = useAppSelector(
+    (state) => state.Ecommerce.status
+  );
 
   const ecommerceConnectorInfo = useAppSelector(
     (state) => state.Ecommerce.ecommerceConnectorInfo
@@ -66,27 +69,65 @@ const Landing: React.FC = (): JSX.Element => {
   const queryParams = new URLSearchParams(location.search);
   const typeValue = queryParams.get("type");
   const notificationApi = useNotificationContext();
-  const appLunched = useAppSelector((state)=>state.order.appLunched)
+  const appLunched = useAppSelector((state) => state.order.appLunched);
 
-  console.log("islu", appLunched)
+  console.log("islu", appLunched);
 
-  console.log(location.pathname,typeValue);
+  console.log(location.pathname, typeValue);
   // const [isOpen, setOpenExcel] = useState<Boolean>(true);
   // Determines if modal is visible.
   const isOpen: boolean = true;
-  console.log('order',order)
+  console.log("order", order);
 
   // Called when flow is closed without reaching submit.
   function onClose() {
     setOpenExcel(false);
-    dispatch(updateOpenSheet(false))
-
+    dispatch(updateOpenSheet(false));
   }
   // Called after user completes the flow. Provides data array, where data keys matches your field keys.
   function onSubmit(data: any) {
-    console.log("import", data);
+    console.log("import", data.all);
     //  data.validData
-    alert(data);
+    const postData = {
+      accountId: customerInfo?.data?.account_id,
+      payment_token: customerInfo?.data?.payment_profile_id ,
+      orders: [
+        {
+          order_po: data?.all[0].order_po,
+          recipient: {
+            first_name: data?.all[0].ship_first_name,
+            last_name: data?.all[0].ship_last_name,
+            company_name: data?.all[0].ship_company_name,
+            address_1: data?.all[0].ship_address_1,
+            address_2: data?.all[0].ship_address_2,
+            address_3: "",
+            city: data?.all[0].ship_city,
+            state_code: data?.all[0].ship_state_code,
+            province: data?.all[0].ship_province,
+            zip_postal_code: data?.all[0].ship_zip,
+            country_code: data?.all[0].ship_country_code,
+            phone: data?.all[0].ship_phone,
+            email: "dumdum@gmail.com",
+            address_order_po: "",
+          },
+          order_items: [
+            {
+              product_qty: 1,
+              product_sku: data?.all[0].product_sku,
+              product_image_file_url:
+               data?.all[0].product_image_file_url,
+              product_thumb_url:
+                data?.all[0].product_image_file_url,
+              product_cropping: data?.all[0].product_cropping,
+            },
+          ],
+          order_status: "Processing",
+          shipping_code: data?.all[0].shipping_code,
+          test_mode: true,
+        },
+      ],
+    };
+    dispatch(UploadOrdersExcel({...postData}))
   }
 
   useEffect(() => {
@@ -97,7 +138,7 @@ const Landing: React.FC = (): JSX.Element => {
       });
       dispatch(resetStatus());
       setOpenBtnConnected(false);
-    }else if (ecommerceDisconnectInfo === "failed") {
+    } else if (ecommerceDisconnectInfo === "failed") {
       notificationApi?.error({
         message: "WooCommerce  has been failed to disconnect",
         description: "WooCommerce has been failed to disconnect.",
@@ -117,7 +158,7 @@ const Landing: React.FC = (): JSX.Element => {
       // Used when editing and validating information.
       fieldType: {
         // There are 3 types - "input" / "checkbox" / "select".
-        type: "input"
+        type: "input",
       },
       // Used in the first step to provide an example of what data is expected in this field. Optional.
       example: "Stephanie",
@@ -128,9 +169,9 @@ const Landing: React.FC = (): JSX.Element => {
           rule: "required",
           errorMessage: "Name is required",
           // There can be "info" / "warning" / "error" levels. Optional. Default "error".
-          level: "error"
-        }
-      ]
+          level: "error",
+        },
+      ],
     },
     {
       // Visible in table header and when matching columns.
@@ -141,7 +182,7 @@ const Landing: React.FC = (): JSX.Element => {
       // Used when editing and validating information.
       fieldType: {
         // There are 3 types - "input" / "checkbox" / "select".
-        type: "input"
+        type: "input",
       },
       // Used in the first step to provide an example of what data is expected in this field. Optional.
       example: "We are working on",
@@ -152,9 +193,9 @@ const Landing: React.FC = (): JSX.Element => {
           rule: "required",
           errorMessage: "Pitch is required",
           // There can be "info" / "warning" / "error" levels. Optional. Default "error".
-          level: "error"
-        }
-      ]
+          level: "error",
+        },
+      ],
     },
     {
       // Visible in table header and when matching columns.
@@ -166,7 +207,7 @@ const Landing: React.FC = (): JSX.Element => {
       // Used when editing and validating information.
       fieldType: {
         // There are 3 types - "input" / "checkbox" / "select".
-        type: "input"
+        type: "input",
       },
       // Used in the first step to provide an example of what data is expected in this field. Optional.
       example: "In Progress",
@@ -179,7 +220,7 @@ const Landing: React.FC = (): JSX.Element => {
         //    // There can be "info" / "warning" / "error" levels. Optional. Default "error".
         //   //  level: "error"
         //  }
-      ]
+      ],
     },
     {
       // Visible in table header and when matching columns.
@@ -191,7 +232,7 @@ const Landing: React.FC = (): JSX.Element => {
       // Used when editing and validating information.
       fieldType: {
         // There are 3 types - "input" / "checkbox" / "select".
-        type: "input"
+        type: "input",
       },
       // Used in the first step to provide an example of what data is expected in this field. Optional.
       example: "Identified",
@@ -204,7 +245,7 @@ const Landing: React.FC = (): JSX.Element => {
         //    // There can be "info" / "warning" / "error" levels. Optional. Default "error".
         //    level: "error"
         //  }
-      ]
+      ],
     },
     {
       // Visible in table header and when matching columns.
@@ -216,7 +257,7 @@ const Landing: React.FC = (): JSX.Element => {
       // Used when editing and validating information.
       fieldType: {
         // There are 3 types - "input" / "checkbox" / "select".
-        type: "input"
+        type: "input",
       },
       // Used in the first step to provide an example of what data is expected in this field. Optional.
       example: "Stephanie",
@@ -227,9 +268,9 @@ const Landing: React.FC = (): JSX.Element => {
           rule: "required",
           errorMessage: "Name is required",
           // There can be "info" / "warning" / "error" levels. Optional. Default "error".
-          level: "error"
-        }
-      ]
+          level: "error",
+        },
+      ],
     },
     {
       // Visible in table header and when matching columns.
@@ -241,7 +282,7 @@ const Landing: React.FC = (): JSX.Element => {
       // Used when editing and validating information.
       fieldType: {
         // There are 3 types - "input" / "checkbox" / "select".
-        type: "input"
+        type: "input",
       },
       // Used in the first step to provide an example of what data is expected in this field. Optional.
       example: "Stephanie",
@@ -252,9 +293,9 @@ const Landing: React.FC = (): JSX.Element => {
           rule: "required",
           errorMessage: "Name is required",
           // There can be "info" / "warning" / "error" levels. Optional. Default "error".
-          level: "error"
-        }
-      ]
+          level: "error",
+        },
+      ],
     },
     {
       // Visible in table header and when matching columns.
@@ -266,7 +307,7 @@ const Landing: React.FC = (): JSX.Element => {
       // Used when editing and validating information.
       fieldType: {
         // There are 3 types - "input" / "checkbox" / "select".
-        type: "input"
+        type: "input",
       },
       // Used in the first step to provide an example of what data is expected in this field. Optional.
       example: "Stephanie",
@@ -277,9 +318,9 @@ const Landing: React.FC = (): JSX.Element => {
           rule: "required",
           errorMessage: "Name is required",
           // There can be "info" / "warning" / "error" levels. Optional. Default "error".
-          level: "error"
-        }
-      ]
+          level: "error",
+        },
+      ],
     },
     {
       // Visible in table header and when matching columns.
@@ -291,7 +332,7 @@ const Landing: React.FC = (): JSX.Element => {
       // Used when editing and validating information.
       fieldType: {
         // There are 3 types - "input" / "checkbox" / "select".
-        type: "input"
+        type: "input",
       },
       // Used in the first step to provide an example of what data is expected in this field. Optional.
       example: "Stephanie",
@@ -302,9 +343,9 @@ const Landing: React.FC = (): JSX.Element => {
           rule: "required",
           errorMessage: "Name is required",
           // There can be "info" / "warning" / "error" levels. Optional. Default "error".
-          level: "error"
-        }
-      ]
+          level: "error",
+        },
+      ],
     },
     {
       // Visible in table header and when matching columns.
@@ -316,7 +357,7 @@ const Landing: React.FC = (): JSX.Element => {
       // Used when editing and validating information.
       fieldType: {
         // There are 3 types - "input" / "checkbox" / "select".
-        type: "input"
+        type: "input",
       },
       // Used in the first step to provide an example of what data is expected in this field. Optional.
       example: "Stephanie",
@@ -327,9 +368,9 @@ const Landing: React.FC = (): JSX.Element => {
           rule: "required",
           errorMessage: "Name is required",
           // There can be "info" / "warning" / "error" levels. Optional. Default "error".
-          level: "error"
-        }
-      ]
+          level: "error",
+        },
+      ],
     },
     {
       // Visible in table header and when matching columns.
@@ -341,7 +382,7 @@ const Landing: React.FC = (): JSX.Element => {
       // Used when editing and validating information.
       fieldType: {
         // There are 3 types - "input" / "checkbox" / "select".
-        type: "input"
+        type: "input",
       },
       // Used in the first step to provide an example of what data is expected in this field. Optional.
       example: "Stephanie",
@@ -352,72 +393,272 @@ const Landing: React.FC = (): JSX.Element => {
           rule: "required",
           errorMessage: "Name is required",
           // There can be "info" / "warning" / "error" levels. Optional. Default "error".
-          level: "error"
-        }
-      ]
+          level: "error",
+        },
+      ],
     },
-    
-
+    {
+      // Visible in table header and when matching columns.
+      label: "ship_phone",
+      // This is the key used for this field when we call onSubmit.
+      key: "ship_phone",
+      // Allows for better automatic column matching. Optional.
+      alternateMatches: ["first name", "first"],
+      // Used when editing and validating information.
+      fieldType: {
+        // There are 3 types - "input" / "checkbox" / "select".
+        type: "input",
+      },
+      // Used in the first step to provide an example of what data is expected in this field. Optional.
+      example: "Stephanie",
+      // Can have multiple validations that are visible in Validation Step table.
+      validations: [
+        {
+          // Can be "required" / "unique" / "regex"
+          rule: "required",
+          errorMessage: "Name is required",
+          // There can be "info" / "warning" / "error" levels. Optional. Default "error".
+          level: "error",
+        },
+      ],
+    },
+    {
+      // Visible in table header and when matching columns.
+      label: "ship_country_code",
+      // This is the key used for this field when we call onSubmit.
+      key: "ship_country_code",
+      // Allows for better automatic column matching. Optional.
+      alternateMatches: ["first name", "first"],
+      // Used when editing and validating information.
+      fieldType: {
+        // There are 3 types - "input" / "checkbox" / "select".
+        type: "input",
+      },
+      // Used in the first step to provide an example of what data is expected in this field. Optional.
+      example: "Stephanie",
+      // Can have multiple validations that are visible in Validation Step table.
+      validations: [
+        {
+          // Can be "required" / "unique" / "regex"
+          rule: "required",
+          errorMessage: "Name is required",
+          // There can be "info" / "warning" / "error" levels. Optional. Default "error".
+          level: "error",
+        },
+      ],
+    },
+    {
+      // Visible in table header and when matching columns.
+      label: "product_qty",
+      // This is the key used for this field when we call onSubmit.
+      key: "product_qty",
+      // Allows for better automatic column matching. Optional.
+      alternateMatches: ["first name", "first"],
+      // Used when editing and validating information.
+      fieldType: {
+        // There are 3 types - "input" / "checkbox" / "select".
+        type: "input",
+      },
+      // Used in the first step to provide an example of what data is expected in this field. Optional.
+      example: "Stephanie",
+      // Can have multiple validations that are visible in Validation Step table.
+      validations: [
+        {
+          // Can be "required" / "unique" / "regex"
+          rule: "required",
+          errorMessage: "Name is required",
+          // There can be "info" / "warning" / "error" levels. Optional. Default "error".
+          level: "error",
+        },
+      ],
+    },
+    {
+      // Visible in table header and when matching columns.
+      label: "product_sku",
+      // This is the key used for this field when we call onSubmit.
+      key: "product_sku",
+      // Allows for better automatic column matching. Optional.
+      alternateMatches: ["first name", "first"],
+      // Used when editing and validating information.
+      fieldType: {
+        // There are 3 types - "input" / "checkbox" / "select".
+        type: "input",
+      },
+      // Used in the first step to provide an example of what data is expected in this field. Optional.
+      example: "Stephanie",
+      // Can have multiple validations that are visible in Validation Step table.
+      validations: [
+        {
+          // Can be "required" / "unique" / "regex"
+          rule: "required",
+          errorMessage: "Name is required",
+          // There can be "info" / "warning" / "error" levels. Optional. Default "error".
+          level: "error",
+        },
+      ],
+    },
+    {
+      // Visible in table header and when matching columns.
+      label: "shipping_code",
+      // This is the key used for this field when we call onSubmit.
+      key: "shipping_code",
+      // Allows for better automatic column matching. Optional.
+      alternateMatches: ["first name", "first"],
+      // Used when editing and validating information.
+      fieldType: {
+        // There are 3 types - "input" / "checkbox" / "select".
+        type: "input",
+      },
+      // Used in the first step to provide an example of what data is expected in this field. Optional.
+      example: "Stephanie",
+      // Can have multiple validations that are visible in Validation Step table.
+      validations: [
+        {
+          // Can be "required" / "unique" / "regex"
+          rule: "required",
+          errorMessage: "Name is required",
+          // There can be "info" / "warning" / "error" levels. Optional. Default "error".
+          level: "error",
+        },
+      ],
+    },
+    {
+      // Visible in table header and when matching columns.
+      label: "product_thumb_url",
+      // This is the key used for this field when we call onSubmit.
+      key: "product_thumb_url",
+      // Allows for better automatic column matching. Optional.
+      alternateMatches: ["first name", "first"],
+      // Used when editing and validating information.
+      fieldType: {
+        // There are 3 types - "input" / "checkbox" / "select".
+        type: "input",
+      },
+      // Used in the first step to provide an example of what data is expected in this field. Optional.
+      example: "Stephanie",
+      // Can have multiple validations that are visible in Validation Step table.
+      validations: [
+        {
+          // Can be "required" / "unique" / "regex"
+          rule: "required",
+          errorMessage: "Name is required",
+          // There can be "info" / "warning" / "error" levels. Optional. Default "error".
+          level: "error",
+        },
+      ],
+    },
+    {
+      // Visible in table header and when matching columns.
+      label: "product_image_file_url",
+      // This is the key used for this field when we call onSubmit.
+      key: "product_image_file_url",
+      // Allows for better automatic column matching. Optional.
+      alternateMatches: ["first name", "first"],
+      // Used when editing and validating information.
+      fieldType: {
+        // There are 3 types - "input" / "checkbox" / "select".
+        type: "input",
+      },
+      // Used in the first step to provide an example of what data is expected in this field. Optional.
+      example: "Stephanie",
+      // Can have multiple validations that are visible in Validation Step table.
+      validations: [
+        {
+          // Can be "required" / "unique" / "regex"
+          rule: "required",
+          errorMessage: "Name is required",
+          // There can be "info" / "warning" / "error" levels. Optional. Default "error".
+          level: "error",
+        },
+      ],
+    },
+    {
+      // Visible in table header and when matching columns.
+      label: "product_cropping",
+      // This is the key used for this field when we call onSubmit.
+      key: "product_cropping",
+      // Allows for better automatic column matching. Optional.
+      alternateMatches: ["first name", "first"],
+      // Used when editing and validating information.
+      fieldType: {
+        // There are 3 types - "input" / "checkbox" / "select".
+        type: "input",
+      },
+      // Used in the first step to provide an example of what data is expected in this field. Optional.
+      example: "Stephanie",
+      // Can have multiple validations that are visible in Validation Step table.
+      validations: [
+        {
+          // Can be "required" / "unique" / "regex"
+          rule: "required",
+          errorMessage: "Name is required",
+          // There can be "info" / "warning" / "error" levels. Optional. Default "error".
+          level: "error",
+        },
+      ],
+    },
   ] as const;
 
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const importData = (imgname: string) => {
-
-    if(imgname  && imgname !== "WooCommerce" && imgname !== "Excel"){
+    if (imgname && imgname !== "WooCommerce" && imgname !== "Excel") {
       notificationApi.warning({
         message: "Coming Soon",
         description: "This platform is under development ",
       });
       return;
     }
-    if (cookies.AccountGUID && imgname === "Excel" ) {
+    if (cookies.AccountGUID && imgname === "Excel") {
       setOpenExcel(true);
-    }else if( !cookies.AccountGUID && imgname === "Excel"){
-      window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`
+    } else if (!cookies.AccountGUID && imgname === "Excel") {
+      window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`;
       return;
     }
     console.log("imgname", imgname);
     if (imgname === "WooCommerce") {
       // Check if user is logged in first
       if (!customerInfo?.data?.account_key && !cookies.AccountGUID) {
-        window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`
+        window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`;
         return;
       }
-      
+
       // If already connected, navigate to import filter
       // Otherwise connect to ecommerce
       if (openBtnConnected) {
         navigate("/importfilter?type=WooCommerce");
       } else {
         // Log the parameters to verify they're correct
-        console.log("Connecting to WooCommerce with key:", customerInfo?.data?.account_key);
-        
+        console.log(
+          "Connecting to WooCommerce with key:",
+          customerInfo?.data?.account_key
+        );
+
         dispatch(
           ecommerceConnector({
-            account_key: customerInfo?.data?.account_key
+            account_key: customerInfo?.data?.account_key,
           })
         );
       }
     }
   };
   useEffect(() => {
-   
-  dispatch(updateApp(false))
+    dispatch(updateApp(false));
   }, []);
-
 
   useEffect(() => {
     if (ecommerceConnectorInfo.approval_url) {
-      dispatch(updateCompanyInfo({
-        "connections": [
-          {
-            "name": "WooCommerce",
-            "id": ecommerceConnectorInfo.approval_url,
-            "data": ""
-          }
-        ]
-      }));
+      dispatch(
+        updateCompanyInfo({
+          connections: [
+            {
+              name: "WooCommerce",
+              id: ecommerceConnectorInfo.approval_url,
+              data: "",
+            },
+          ],
+        })
+      );
     }
   }, [ecommerceConnectorInfo]);
 
@@ -426,9 +667,9 @@ const Landing: React.FC = (): JSX.Element => {
   }, []);
 
   useEffect(() => {
-    if(companyInfo?.connections?.length){
-      let obj = find(companyInfo.connections, {"name":"WooCommerce"});
-      if(obj?.name){
+    if (companyInfo?.connections?.length) {
+      let obj = find(companyInfo.connections, { name: "WooCommerce" });
+      if (obj?.name) {
         setOpenBtnConnected(true);
       }
     }
@@ -440,14 +681,17 @@ const Landing: React.FC = (): JSX.Element => {
         className="w-full mt-8 md:mt-0 md:p-2 flex flex-col items-center "
         onClick={() => importData(image.name)}
       >
-        {
-        (image.name === "WooCommerce" && openBtnConnected) &&
-        <Tag className="absolute ml-12 -mt-3" color="#52c41a">
-          Connected
-        </Tag>
-        }
+        {image.name === "WooCommerce" && openBtnConnected && (
+          <Tag className="absolute ml-12 -mt-3" color="#52c41a">
+            Connected
+          </Tag>
+        )}
         <img
-          className={`block h-[100px] w-[100px] border-2 cursor-pointer rounded-lg object-cover object-center ${image.name === "WooCommerce" || image.name === "Excel" ? "grayscale-100": "grayscale"}`}
+          className={`block h-[100px] w-[100px] border-2 cursor-pointer rounded-lg object-cover object-center ${
+            image.name === "WooCommerce" || image.name === "Excel"
+              ? "grayscale-100"
+              : "grayscale"
+          }`}
           src={image.img}
         />
         <p className="text-center pt-2 font-bold text-gray-400">{image.name}</p>
@@ -456,17 +700,17 @@ const Landing: React.FC = (): JSX.Element => {
   ));
 
   useEffect(() => {}, []);
-  const handleAppLaunch = ()=>{
-    dispatch(updateApp(true))
+  const handleAppLaunch = () => {
+    dispatch(updateApp(true));
     navigate("/mycompany");
-  }
+  };
 
   return (
     <div className="flex justify-end max-md:flex-col items-center w-full h-full p-8">
       <div className="w-1/2 max-md:w-full flex flex-col justify-center max-md:border-b-2 md:border-r-2 items-center h-[600px] max-md:h-[300px]">
         <Button
           onClick={() => {
-            handleAppLaunch()
+            handleAppLaunch();
           }}
           type="primary"
           size="large"
@@ -487,13 +731,15 @@ const Landing: React.FC = (): JSX.Element => {
       </div>
       {(openExcel || opensheet) && (
         <ReactSpreadsheetImport
-          rowHook={(data, addError) => { // Validation
+          rowHook={(data, addError) => {
+            // Validation
             // Transformation
             return { ...data, name: "Not John" };
-            
           }}
           isOpen={isOpen}
           onClose={onClose}
+          autoMapHeaders={true}
+          isNavigationEnabled={true}
           onSubmit={onSubmit}
           fields={fields}
         />

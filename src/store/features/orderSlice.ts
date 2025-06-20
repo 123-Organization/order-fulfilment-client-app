@@ -5,6 +5,7 @@ import ShippingPreference from "../../pages/ShippingPreference";
 import { remove, find } from "lodash";
 
 import { click } from "@testing-library/user-event/dist/click";
+import { action } from "easy-peasy";
 
 // https://github.com/vahid-nejad/redux-toolkit-example/blob/master/src/components/Add.tsx
 const BASE_URL = config.SERVER_BASE_URL;
@@ -51,7 +52,7 @@ const initialState: OrderState = {
   saveOrderInfo: {},
   Wporder: [],
   myImport: {},
-  appLunched:false,
+  appLunched: false,
   iframeOpened: false,
   orderEdited: { status: false, clicked: false, },
   status: "idle",
@@ -197,16 +198,16 @@ export const AddProductToOrder = createAsyncThunk(
         },
         body: JSON.stringify(postData),
       });
-      if(!response.ok){
+      if (!response.ok) {
         const error = await response.json()
         return thunkAPI.rejectWithValue(error)
       }
       const data = await response.json();
       return data;
-    } catch(error){
+    } catch (error) {
       return thunkAPI.rejectWithValue(error)
     }
-    
+
   },
 );
 
@@ -337,6 +338,20 @@ export const DeleteAllOrders = createAsyncThunk(
   },
 
 );
+
+export const UploadOrdersExcel = createAsyncThunk("order/upload", async (postdata: any, thunkAPI) => {
+  const response = await fetch("https://a54pbrbqr7.execute-api.us-east-1.amazonaws.com/Prod/api/upload-orders-from-excel", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(postdata),
+
+  });
+  const data = await response.json()
+  return data
+
+})
 
 
 export const OrderSlice = createSlice({
@@ -493,10 +508,13 @@ export const OrderSlice = createSlice({
       state.orders = action.payload;
     }
     );
+    builder.addCase(UploadOrdersExcel.fulfilled, (state, action) => {
+      state.orders = action.payload
+    })
 
   }
 
 });
 
 export default OrderSlice.reducer;
-export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, updateIframe, updateApp , updateOpenSheet, updateExcludedOrders, resetExcludedOrders} = OrderSlice.actions;
+export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, updateIframe, updateApp, updateOpenSheet, updateExcludedOrders, resetExcludedOrders } = OrderSlice.actions;
