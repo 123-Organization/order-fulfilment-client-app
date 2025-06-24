@@ -20,7 +20,7 @@ import { resetStatus } from "../store/features/ecommerceSlice";
 import { updateOpenSheet } from "../store/features/orderSlice";
 // import { connectAdvanced } from "react-redux";
 import { find } from "lodash";
-
+import SpreadSheet from "../components/SpreadSheet";
 const images = [
   { name: "Squarespace", img: squarespace },
   { name: "Shopify", img: shopify },
@@ -86,7 +86,7 @@ const Landing: React.FC = (): JSX.Element => {
   }
   // Called after user completes the flow. Provides data array, where data keys matches your field keys.
   function onSubmit(data: any) {
-    console.log("import", data.all);
+    console.log("import", data);
     //  data.validData
     const postData = {
       accountId: customerInfo?.data?.account_id,
@@ -287,15 +287,7 @@ const Landing: React.FC = (): JSX.Element => {
       // Used in the first step to provide an example of what data is expected in this field. Optional.
       example: "Stephanie",
       // Can have multiple validations that are visible in Validation Step table.
-      validations: [
-        {
-          // Can be "required" / "unique" / "regex"
-          rule: "required",
-          errorMessage: "Name is required",
-          // There can be "info" / "warning" / "error" levels. Optional. Default "error".
-          level: "error",
-        },
-      ],
+      validations: [] // Empty array means no validations required
     },
     {
       // Visible in table header and when matching columns.
@@ -362,15 +354,7 @@ const Landing: React.FC = (): JSX.Element => {
       // Used in the first step to provide an example of what data is expected in this field. Optional.
       example: "Stephanie",
       // Can have multiple validations that are visible in Validation Step table.
-      validations: [
-        {
-          // Can be "required" / "unique" / "regex"
-          rule: "required",
-          errorMessage: "Name is required",
-          // There can be "info" / "warning" / "error" levels. Optional. Default "error".
-          level: "error",
-        },
-      ],
+      validations: [] // Empty array means no validations required
     },
     {
       // Visible in table header and when matching columns.
@@ -707,7 +691,9 @@ const Landing: React.FC = (): JSX.Element => {
 
   return (
     <div className="flex justify-end max-md:flex-col items-center w-full h-full p-8">
+      
       <div className="w-1/2 max-md:w-full flex flex-col justify-center max-md:border-b-2 md:border-r-2 items-center h-[600px] max-md:h-[300px]">
+      
         <Button
           onClick={() => {
             handleAppLaunch();
@@ -721,28 +707,22 @@ const Landing: React.FC = (): JSX.Element => {
           <p>Edit basic account and payment information </p>
           <p>needed in order to import orders from your stores. </p>
         </div>
+       
       </div>
+      
       <div className="w-1/2 max-md:w-full">
         <div className="container mx-auto px-5 py-2 xl:px-32 justify-center items-center">
           <div className="-m-1 mx-4 flex flex-wrap md:-m-2">
             {displayTurtles}
+           
           </div>
         </div>
       </div>
       {(openExcel || opensheet) && (
-        <ReactSpreadsheetImport
-          rowHook={(data, addError) => {
-            // Validation
-            // Transformation
-            return { ...data, name: "Not John" };
-          }}
-          isOpen={isOpen}
-          onClose={onClose}
-          autoMapHeaders={true}
-          isNavigationEnabled={true}
-          onSubmit={onSubmit}
-          fields={fields}
-        />
+      <SpreadSheet 
+      isOpen={isOpen}
+      onClose={onClose}
+       />
       )}
     </div>
   );

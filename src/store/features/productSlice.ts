@@ -10,6 +10,7 @@ interface ProductState {
         quantityUpdated: boolean;
         SelectedImage: any;
         productData: any;
+        images: any;
 }
 
 const initialState: ProductState = {
@@ -18,7 +19,8 @@ const initialState: ProductState = {
         error: null,
         quantityUpdated: false,
         SelectedImage: [],
-        productData: null
+        productData: null,
+        images: []
 };
 
 const getCookie = (name: string) => {
@@ -156,6 +158,13 @@ export const ProductSlice = createSlice({
                 builder.addCase(increaseProductQuantity.rejected, (state, action) => {
                         state.status = "failed";
                         state.error = action.payload as string;
+                });
+                builder.addCase(getAllImages.fulfilled, (state, action) => {
+                        state.images = action.payload;
+                        state.status = "succeeded";
+                });
+                builder.addCase(getAllImages.pending, (state, action) => {
+                        state.status = "loading";
                 });
                
 

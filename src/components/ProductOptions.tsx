@@ -6,7 +6,9 @@ import { useAppDispatch, useAppSelector } from "../store";
 import { fetchSingleOrderDetails } from "../store/features/orderSlice";
 import PopupModal from "../components/PopupModal";
 import VirtualInvModal from "../components/VirtualInvModal";
+import NewProduct from "./NewProduct";
 import type { MenuProps } from "antd";
+import { useCookies } from "react-cookie";
 
 type productType = {
   name?: string;
@@ -19,9 +21,10 @@ interface ProductOptionsProps {
   recipient?: any;
   onProductCodeUpdate: () => void;
   setOpenModal: (value: boolean) => void;
+  localorder: any;
 }
 
-export default function ProductOptions({ id, recipient, onProductCodeUpdate , setOpenModal}: ProductOptionsProps) {
+export default function ProductOptions({ id, recipient, onProductCodeUpdate , setOpenModal, localorder}: ProductOptionsProps) {
   const [popupVisible, setPopupVisible] = useState(false);
   const [PostModalVisible, setPostModalVisible] = useState(false);
   const [virtualINv, setVirtualInv] = useState(false);
@@ -31,6 +34,29 @@ export default function ProductOptions({ id, recipient, onProductCodeUpdate , se
   const order = orderData?.data ? orderData?.data[0] : {};
   const dispatch = useAppDispatch();
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
+  const images = useAppSelector((state) => state.ProductSlice.images);
+  console.log("imagesss", images);
+
+  const [cookies, setCookie] = useCookies(["session_id", "AccountGUID"]);
+  const postSettings = {
+          "settings": {
+                  "guid": "",
+                  "session_id": cookies.session_id,
+                  "account_key": cookies.AccountGUID  ,
+                  "multiselect": false,
+                  "libraries": ["inventory","temporary"],
+                  "domain": "finerworks.com",
+                  "terms_of_service_url": "/terms.aspx",
+                  "button_text": "Add Selected",
+                  "account_id": customerInfo?.data?.account_id,
+                  "ReturnUrl": window.location.href,
+          }
+  }
+const encodedURI =
+"https://finerworks.com/apps/orderform/post4.aspx?v=2&settings=" +
+encodeURIComponent(JSON.stringify(postSettings));
+const decodedURI = decodeURIComponent(encodedURI);
+console.log("decodedURI", decodedURI);
 
   const items: MenuProps["items"] = [
     {
@@ -39,8 +65,7 @@ export default function ProductOptions({ id, recipient, onProductCodeUpdate , se
         <p
           className="text-sm font-mono  flex gap-1 "
           onClick={() => {
-            setPostModalVisible(true);
-            SetListVisble(false); // Close dropdown after selection
+            window.open(encodedURI, "_blank");
           }}
         >
           Create New

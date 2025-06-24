@@ -16,11 +16,9 @@ import {
 } from "../store/features/orderSlice";
 import { getInventoryImages } from "../store/features/InventorySlice";
 import { fetchProductDetails } from "../store/features/productSlice";
-import UpdateButton from "../components/UpdateButton";
 import UpdatePopup from "../components/UpdatePopup";
 import style from "./Pgaes.module.css";
 import FilesGallery from "../components/FilesGallery";
-import NewOrder from "../components/NewOrder";
 import { setUpdatedValues } from "../store/features/orderSlice";
 import DeleteMessage from "../components/DeleteMessage";
 import { useNotificationContext } from "../context/NotificationContext";
@@ -28,6 +26,7 @@ import { LoadingOutlined } from "@ant-design/icons";
 import { Flex, Spin } from "antd";
 import { setQuantityUpdated } from "../store/features/productSlice";
 import convertUsStateAbbrAndName from "../services/state";
+import NewProduct from "../components/NewProduct";
 
 
 import Quantity from "../components/Quantitiy";
@@ -596,6 +595,7 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
             <ProductOptions
               id={id}
               onProductCodeUpdate={handleProductCodeUpdate}
+              localorder={localOrder}
             />
           </div>
           {localOrder?.order_items?.map((item, index) => (
@@ -730,6 +730,7 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
             visible={orderEdited.clicked}
             onClose={() => dispatch(updateOrderStatus({ clicked: false }))}
           />
+          
         ) || null}
       </div>
 
@@ -750,6 +751,7 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
                 clicking={clicking}
               />
             </div>
+            <NewProduct/>
           </div>
         </div>
       </div>
