@@ -43,7 +43,7 @@ export default function ProductOptions({ id, recipient, onProductCodeUpdate , se
                   "guid": "",
                   "session_id": cookies.session_id,
                   "account_key": cookies.AccountGUID  ,
-                  "multiselect": false,
+                  "multiselect": true,
                   "libraries": ["inventory","temporary"],
                   "domain": "finerworks.com",
                   "terms_of_service_url": "/terms.aspx",
@@ -53,7 +53,7 @@ export default function ProductOptions({ id, recipient, onProductCodeUpdate , se
           }
   }
 const encodedURI =
-"https://finerworks.com/apps/orderform/post4.aspx?v=2&settings=" +
+"https://finerworks.com/apps/orderform/post4.aspx?source=ofa&settings=" +
 encodeURIComponent(JSON.stringify(postSettings));
 const decodedURI = decodeURIComponent(encodedURI);
 console.log("decodedURI", decodedURI);
