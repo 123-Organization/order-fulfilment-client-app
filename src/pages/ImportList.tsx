@@ -243,7 +243,7 @@ const ImportList: React.FC = () => {
 
   const getShippingPrice = (order_po) => {
     const shippingForOrder = shipping_option.find(
-      (option) => option.order_po === order_po
+      (option) => option.order_po == order_po
     );
     if (shippingForOrder && shippingForOrder.options.length) {
       const selectedOption = shippingForOrder?.preferred_option;
@@ -736,7 +736,7 @@ const ImportList: React.FC = () => {
                 </p>
                 <Button
                   type="primary"
-                  onClick={() => navigate("/importfilter?type=WooCommerce")}
+                  onClick={() => navigate("/")}
                   className="bg-blue-500 hover:bg-blue-600"
                 >
                   Import Orders

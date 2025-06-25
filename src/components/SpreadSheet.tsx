@@ -11,11 +11,13 @@ import {
   ExclamationCircleOutlined,
   InboxOutlined,
   FileExcelOutlined,
+  ArrowRightOutlined,
 } from "@ant-design/icons";
 import style from "../pages/Pgaes.module.css";
 import cssModule from "./SpreadSheet.module.css";
 import { UploadOrdersExcel } from "../store/features/orderSlice";
 import { useAppDispatch, useAppSelector } from "../store";
+import { useNavigate } from "react-router-dom";
 
 registerAllModules();
 
@@ -69,6 +71,7 @@ const hotSettings = {
 export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
   const hotRef = useRef<any>(null);
   const [data, setData] = useState<SpreadsheetData>([]);
+  const navigate = useNavigate();
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>(
     []
   );
@@ -230,78 +233,45 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
       // await api.createOrders(orders);
       const postOrders = orders.map((order) => {
         return {
-          accountId: customerInfo?.data?.account_id,
-          payment_token: customerInfo?.data?.payment_profile_id,
-          orders: [
+          order_po: order.order_po,
+          recipient: {
+            first_name: order.ship_first_name,
+            last_name: order.ship_last_name,
+            company_name: order.ship_company_name,
+            address_1: order.ship_address_1,
+            address_2: order.ship_address_2,
+            address_3: "",
+            city: order.ship_city,
+            state_code: order.ship_state_code,
+            province: order.ship_province,
+            zip_postal_code: order.ship_zip,
+            country_code: order.ship_country_code,
+            phone: order.ship_phone,
+            email: "dumdum@gmail.com",
+            address_order_po: "",
+          },
+          order_items: [
             {
-              order_po: order.order_po,
-              recipient: {
-                first_name: order.ship_first_name,
-                last_name: order.ship_last_name,
-                company_name: order.ship_company_name,
-                address_1: order.ship_address_1,
-                address_2: order.ship_address_2,
-                address_3: "",
-                city: order.ship_city,
-                state_code: order.ship_state_code,
-                province: order.ship_province,
-                zip_postal_code: order.ship_zip,
-                country_code: order.ship_country_code,
-                phone: order.ship_phone,
-                email: "dumdum@gmail.com",
-                address_order_po: "",
-              },
-              order_items: [
-                {
-                  product_qty: order.product_qty,
-                  product_sku: order.product_sku,
-                },
-              ],
-              order_status: "Processing",
-              shipping_code: order.shipping_code,
-              test_mode: true,
+              product_qty: order.product_qty,
+              product_sku: order.product_sku,
+              product_image_file_url: order.product_image_file_url,
+              product_thumb_url: order.product_image_file_url,
+              product_cropping: order.product_cropping,
             },
           ],
+          order_status: "Processing",
+          shipping_code: order.shipping_code,
+          test_mode: true,
         };
       });
-      const postData = {
-        accountId: customerInfo?.data?.account_id,
-        payment_token: customerInfo?.data?.payment_profile_id,
-        orders: [
-          {
-            order_po: orders[0].order_po,
-            recipient: {
-              first_name: orders[0].ship_first_name,
-              last_name: orders[0].ship_last_name,
-              company_name: orders[0].ship_company_name,
-              address_1: orders[0].ship_address_1,
-              address_2: orders[0].ship_address_2,
-              address_3: "",
-              city: orders[0].ship_city,
-              state_code: orders[0].ship_state_code,
-              province: orders[0].ship_province,
-              zip_postal_code: orders[0].ship_zip,
-              country_code: orders[0].ship_country_code,
-              phone: orders[0].ship_phone,
-              email: "dumdum@gmail.com",
-              address_order_po: "",
-            },
-            order_items: [
-              {
-                product_qty: 1,
-                product_sku: orders[0].product_sku,
-                product_image_file_url: orders[0].product_image_file_url,
-                product_thumb_url: orders[0].product_image_file_url,
-                product_cropping: orders[0].product_cropping,
-              },
-            ],
-            order_status: "Processing",
-            shipping_code: orders[0].shipping_code,
-            test_mode: true,
-          },
-        ],
-      };
-      dispatch(UploadOrdersExcel({ ...postOrders[0] }));
+      
+      dispatch(
+        UploadOrdersExcel({
+          accountId: customerInfo?.data?.account_id,
+          payment_token: customerInfo?.data?.payment_profile_id,
+          orders: [...postOrders],
+        })
+      );
       console.log("to send", orders);
 
       setStep(3);
@@ -466,8 +436,8 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
           >
             <Result
               status="success"
-              title="Orders Created Successfully!"
-              subTitle={`${data.length - 1} orders have been processed`}
+              title="Orders Ready For Import!"
+              subTitle={`${data.length - 1} Rows to be submitted`}
             />
           </ConfigProvider>
         );
@@ -518,8 +488,19 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
         <div className="mt-8">{renderContent()}</div>
 
         <div className="flex justify-between pt-4 border-t mt-6">
-          <div>
-            {step === 3 && <Button onClick={handleClose}>Done</Button>}
+          <div className="w-full">
+            {step === 3 && (
+              <div className="flex justify-between">
+                <Button onClick={handleClose}>Done</Button>
+                <Button
+                  type="primary"
+                  onClick={() => navigate("/importlist")}
+                >
+                  Go to orders <ArrowRightOutlined />
+                </Button>
+              </div>
+            )}
+
             {data.length > 0 && step !== 3 && (
               <Button onClick={exportToExcel}>Export to Excel</Button>
             )}
