@@ -1,14 +1,15 @@
 import { Button, Dropdown } from "antd";
 import style from "../pages/Pgaes.module.css";
 import NewOrder from "./NewOrder";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "../store";
-import { fetchSingleOrderDetails } from "../store/features/orderSlice";
+import { AddProductToOrder, fetchSingleOrderDetails, resetProductDataStatus } from "../store/features/orderSlice";
 import PopupModal from "../components/PopupModal";
 import VirtualInvModal from "../components/VirtualInvModal";
 import NewProduct from "./NewProduct";
 import type { MenuProps } from "antd";
 import { useCookies } from "react-cookie";
+import { useNotificationContext } from "../context/NotificationContext";
 
 type productType = {
   name?: string;
@@ -35,9 +36,11 @@ export default function ProductOptions({ id, recipient, onProductCodeUpdate , se
   const dispatch = useAppDispatch();
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
   const images = useAppSelector((state) => state.ProductSlice.images);
+  const notificationApi = useNotificationContext();
+  const productDatastat = useAppSelector((state) => state.order.productDataStatus);
   console.log("imagesss", images);
 
-  const [cookies, setCookie] = useCookies(["session_id", "AccountGUID"]);
+  const [cookies, setCookie, removeCookie] = useCookies(["session_id", "AccountGUID", "ofa_product"]);
   const postSettings = {
           "settings": {
                   "guid": "",
@@ -55,8 +58,52 @@ export default function ProductOptions({ id, recipient, onProductCodeUpdate , se
 const encodedURI =
 "https://finerworks.com/apps/orderform/post4.aspx?source=ofa&settings=" +
 encodeURIComponent(JSON.stringify(postSettings));
-const decodedURI = decodeURIComponent(encodedURI);
-console.log("decodedURI", decodedURI);
+
+//use effect for parsing the cookie returned 
+useEffect(() => {
+  const ofaProduct = cookies?.ofa_product;
+  console.log("ofaProduct", ofaProduct);
+
+  // Only proceed if we have a valid ofa_product cookie
+  if (ofaProduct && Array.isArray(ofaProduct) && ofaProduct.length > 0) {
+    const mappedData = ofaProduct.map((item:any) => {
+      const postData = {
+        productCode: item.product_code,
+        product_url_file: [item.thumbnail_url],
+        product_url_thumbnail: [item.thumbnail_url],
+        skuCode: "",
+        pixel_width: 1200,
+        pixel_height: 900,
+        orderFullFillmentId: id,
+      };
+      return postData;
+    });
+
+    console.log("mapp", mappedData);
+    
+    if (mappedData.length > 0) {
+      dispatch(AddProductToOrder(mappedData[0]));
+      // Remove cookie using document.cookie
+      
+    }
+  }
+}, [cookies.ofa_product, id]); // Removed removeCookie since we're not using it anymore
+
+// Handle success/error notifications in a separate effect
+useEffect(() => {
+  if(productDatastat === "succeeded") {
+    document.cookie = "ofa_product=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+      // Also try with domain
+      document.cookie = "ofa_product=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.finerworks.com";
+      document.cookie = "ofa_product=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=finerworks.com";
+    dispatch(resetProductDataStatus());
+  } else if(productDatastat === "failed") {
+    notificationApi.error({
+      message: "Product Addition Failed",
+      description: "Product addition failed",
+    });
+  }
+}, [productDatastat, notificationApi]);
 
   const items: MenuProps["items"] = [
     {

@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Modal, Button, Input, Spin } from "antd";
 import { LoadingOutlined } from "@ant-design/icons";
 import { useAppDispatch, useAppSelector } from "../store";
-import { AddProductToOrder } from "../store/features/orderSlice";
+import { AddProductToOrder, fetchOrder } from "../store/features/orderSlice";
 import { useNotificationContext } from "../context/NotificationContext";
 import { updateIframeState } from "../store/features/companySlice";
 import { getAllImages, setSelectedImage, setProductData, clearSelectedImage } from "../store/features/productSlice";
@@ -32,13 +32,13 @@ const PopupModal: React.FC<PopupModalProps> = ({
   const images = useAppSelector((state) => state.ProductSlice.images);
   console.log("images", images);
   const order = useAppSelector((state)=> state.order.orders)
-
+const iframeState = useAppSelector((state)=> state.company.iframeState)
   // State to track the input value
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const productDataStatus = useAppSelector((state) => state.order.productDataStatus);
   console.log("datastatus", productDataStatus)
-  
+  const isFirstRender = useRef(true);
   const SelectedImage = useAppSelector(
     (state) => state.ProductSlice.SelectedImage
   );
@@ -50,7 +50,7 @@ const PopupModal: React.FC<PopupModalProps> = ({
   console.log("inputvalue ",inputValue)
 
   const filterImages = (data: any) => {
-    return data?.data?.fileSelected.map(
+    return data?.data?.fileSelected?.map(
       (image: any) => image?.public_thumbnail_uri
     );
   };
@@ -139,7 +139,9 @@ const PopupModal: React.FC<PopupModalProps> = ({
         console.log("Received referrer update:", event.data.data);
       }
     });
+    if(iframeState){
     dispatch(getAllImages());
+    }
     return () => {
       window.removeEventListener("message", handleMessage);
     };
@@ -147,10 +149,15 @@ const PopupModal: React.FC<PopupModalProps> = ({
 
   useEffect(() => {
     if (productDataStatus === "succeeded") {
+      if (isFirstRender.current) {
+        isFirstRender.current = false;
+        return;
+      }
       notificationApi.success({
         message: "Product Added",
         description: "Product has been successfully added to the order.",
       });
+
       // Clear selected image on successful add
       dispatch(clearSelectedImage());
       onClose();
@@ -163,7 +170,7 @@ const PopupModal: React.FC<PopupModalProps> = ({
         message: "Failed to Add Product",
         description: "An error occurred while adding the product.",
       });
-  
+      
       setIsLoading(false);
     }
   }, [productDataStatus, notificationApi]);

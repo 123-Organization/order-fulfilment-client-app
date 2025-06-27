@@ -45,19 +45,19 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const product_details = useAppSelector(
     (state) => state.ProductSlice.product_details
   );
-  console.log("detailss", product_details);
+  
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
 
   const orderEdited = useAppSelector((state) => state.order.orderEdited);
-  console.log("orderEdited", orderEdited);
+  
   const recipientStatus = useAppSelector(
     (state) => state.order.recipientStatus
   );
 
   const { product_list } = product_details?.data || {};
-  console.log("product_list", product_list);
+  
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
-  console.log("checkedOrders", checkedOrders);
+  
   const ecommerceGetImportOrders = useAppSelector(
     (state) => state.Ecommerce.ecommerceGetImportOrders
   );
@@ -70,9 +70,8 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const shipping_preferences = useAppSelector(
     (state) => state.Shipping.shipping_preferences
   );
-  console.log("shipping_preferences", shipping_preferences);
+  
 
-  console.log("product_details ....", product_details);
 
   const [backVisiable, setBackVisiable] = useState<boolean>(true);
   const [nextVisiable, setNextVisiable] = useState<boolean>(false);
@@ -106,10 +105,8 @@ const [api, contextHolder] = notification.useNotification();
   const myCompanyInfoFilled = useAppSelector(
     (state) => state.company.myCompanyInfoFilled
   );
-  console.log("myCompanyInfoFilled", myCompanyInfoFilled);
 
   const myImport = useAppSelector((state) => state.order.myImport);
-  console.log("myImport", myImport);
   const importStatus = useAppSelector((state) => state.order.importStatus);
 
   const saveOrderInfo = useAppSelector((state) => state.order.saveOrderInfo);
@@ -117,7 +114,7 @@ const [api, contextHolder] = notification.useNotification();
   const myBillingInfoFilled = useAppSelector(
     (state) => state.company.myBillingInfoFilled
   );
-  console.log("myBillingInfoFilled", myBillingInfoFilled);
+  
 
   const companyInfo = useAppSelector((state) => state.company.company_info);
 
@@ -125,7 +122,6 @@ const [api, contextHolder] = notification.useNotification();
   const dispatch = useAppDispatch();
   let isLoadingImgDelete = false;
   const location = useLocation();
-  console.log(location.pathname);
 
   if (pathNameAvoidBackButton.includes(location.pathname)) {
     backVisiable && setBackVisiable(false);
@@ -143,7 +139,7 @@ const [api, contextHolder] = notification.useNotification();
   const onChange: PaginationProps["onChange"] | any = (
     filterPageNumber: number
   ) => {
-    console.log("Page: ", filterPageNumber);
+    
     setCurrent(filterPageNumber);
     dispatch(
       listVirtualInventory({
@@ -176,14 +172,9 @@ const [api, contextHolder] = notification.useNotification();
         if (wporder.length > 0) {
           setNextSpinning(true);
           const orderIds = wporder.split(",");
-          console.log("orderIds", orderIds);
+          
           try {
-            console.log("About to dispatch fetchWporder with:", {
-              orderId: orderIds,
-              platformName: "woocommerce",
-              accountId: customerInfo?.data?.account_id,
-            });
-
+          
             const result = await dispatch(
               fetchWporder({
                 orderId: orderIds,
@@ -192,7 +183,7 @@ const [api, contextHolder] = notification.useNotification();
               })
             );
 
-            console.log("fetchWporder result:", result);
+           
 
             if (result.payload) {
               if (result.payload.orderDetails) {
@@ -290,13 +281,10 @@ const [api, contextHolder] = notification.useNotification();
         !orderEdited.clicked &&
         updatedValues
       ) {
-        console.log("About to dispatch updateOrdersInfo with:", updatedValues);
+        
         try {
           // Log customer info for debugging
-          console.log(
-            "Customer Info account_id:",
-            customerInfo?.data?.account_id
-          );
+        
 
           // Make sure updatedValues is proper format
           if (
@@ -322,10 +310,7 @@ const [api, contextHolder] = notification.useNotification();
 
           // Check if successful
           if (result.meta.requestStatus === "fulfilled") {
-            console.log(
-              "Successfully dispatched updateOrdersInfo:",
-              result.payload
-            );
+          
             dispatch(updateOrderStatus({ status: true, clicked: true }));
           } else {
             console.error("Failed to update order:", result.payload);
@@ -386,7 +371,7 @@ const [api, contextHolder] = notification.useNotification();
     } else {
       nextVisiable && setNextVisiable(false);
     }
-    console.log("nextVisiable", nextVisiable);
+    
   }, [myCompanyInfoFilled]);
 
   useEffect(() => {
@@ -399,7 +384,7 @@ const [api, contextHolder] = notification.useNotification();
     } else {
       nextVisiable && setNextVisiable(false);
     }
-    console.log("nextVisiable", nextVisiable);
+    
   }, [myBillingInfoFilled]);
 
   useEffect(() => {
@@ -407,11 +392,11 @@ const [api, contextHolder] = notification.useNotification();
       !nextVisiable && setNextVisiable(true);
     }
   }, [myImport, wporder, nextVisiable, location]);
-  console.log("impo", ecommerceGetImportOrders);
+  
   useEffect(() => {
     if (location.pathname === "/importfilter") {
       if (myImport?.start_date || myImport?.end_date || myImport?.status) {
-        console.log("ecommerceGetImportOrders", ecommerceGetImportOrders);
+        
         if (ecommerceGetImportOrders?.accountId) {
           if (!ecommerceGetImportOrders?.orders?.length) {
             openNotificationWithIcon({
@@ -438,8 +423,7 @@ const [api, contextHolder] = notification.useNotification();
               })
             });
             
-            console.log('Already imported orders count:', alreadyImportedOrders?.length);
-            console.log('New orders count:', newOrders?.length);
+            
 
             if(alreadyImportedOrders?.length > 0 && newOrders?.length > 0) {
               // Some orders already imported, but we have new ones to import
@@ -520,7 +504,7 @@ const [api, contextHolder] = notification.useNotification();
     if (location.pathname === "/shippingpreference") {
       setNextVisiable(true);
 
-      console.log("companyInfo", companyInfo);
+      
     }
   }, [companyInfo, location.pathname]);
 
@@ -562,9 +546,7 @@ const [api, contextHolder] = notification.useNotification();
     }
   }, []);
 
-  console.log("next", nextVisiable);
-  console.log("orders", orders);
-
+  
   useEffect(() => {
     if (orders && checkedOrders) {
       let newTotalPrice = 0;
@@ -573,7 +555,7 @@ const [api, contextHolder] = notification.useNotification();
         const product = orders?.data?.find(
           (product: any) => product?.order_po == order?.order_po
         );
-        console.log("prodprod", product);
+        
         if (product) {
           newTotalPrice += order.Product_price?.grand_total
             ? order.Product_price?.grand_total
@@ -581,11 +563,10 @@ const [api, contextHolder] = notification.useNotification();
         }
       });
       setGrandtotal(newTotalPrice);
-      console.log("Remaining Total Price", newTotalPrice);
+      
     }
   }, [checkedOrders, orders]);
 
-  console.log("location", location.pathname.includes("/editorder"));
   useEffect(() => {
     if (
       location.pathname.includes("/editorder") &&

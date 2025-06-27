@@ -455,9 +455,10 @@ export const OrderSlice = createSlice({
 
     builder.addCase(AddProductToOrder.fulfilled, (state, action) => {
       state.productDataStatus = 'succeeded';
-      state.orders = action.payload;
-    }
-    );
+      state.orders = {
+        data: Array.isArray(action.payload?.data) ? action.payload.data : []
+      };
+    });
 
     builder.addCase(AddProductToOrder.rejected, (state, action) => {
       state.productDataStatus = 'failed';

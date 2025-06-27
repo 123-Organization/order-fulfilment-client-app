@@ -17,7 +17,6 @@ function App() {
   const [helpVisible, setHelpVisible] = useState(false);
   
   const location = useLocation();
-  console.log(location.pathname);
 
   const {
     token: { colorBgContainer },

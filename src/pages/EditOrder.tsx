@@ -93,7 +93,7 @@ const EditOrder: React.FC = () => {
   const product_details =
     useAppSelector(
       (state) => state.ProductSlice.product_details?.data?.product_list
-    ) || [];
+    || [] ) ;
   console.log("product_details...", product_details);
   const orderEdited = useAppSelector((state) => state.order.orderEdited) || [];
   console.log("product_details...", product_details);

@@ -254,8 +254,8 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
             {
               product_qty: order.product_qty,
               product_sku: order.product_sku,
-              product_image_file_url: order.product_image_file_url,
-              product_thumb_url: order.product_image_file_url,
+              image_url_1: order.product_image_file_url,
+              product_url_thumbnail: order.product_image_file_url,
               product_cropping: order.product_cropping,
             },
           ],
