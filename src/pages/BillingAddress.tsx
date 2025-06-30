@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Checkbox, Form, Input, InputNumber, Select, Switch } from "antd";
+import { Checkbox, Form, Input, InputNumber, Select } from "antd";
 
 import { getStates } from "country-state-picker";
 import type { SelectProps } from "antd";
@@ -9,7 +9,6 @@ import { useAppDispatch, useAppSelector } from "../store";
 import { updateBilling } from "../store/features/companySlice";
 import convertUsStateAbbrAndName from "../services/state";
 import PaymentMethods from "../components/PaymentMethods";
-import { on } from "events";
 
 const countryList = require("../json/country.json");
 
@@ -46,7 +45,6 @@ const BillingAddress: React.FC = () => {
   const [form1] = Form.useForm();
   const [stateCode, setStateCode] = useState<string>("");
   const [stateCodeShort, setStateCodeShort] = useState<string | null>("");
-  const [useStateInput, setUseStateInput] = useState(false);
   const dispatch = useAppDispatch();
   console.log(stateCode, stateCodeShort);
   const businessInfo = useAppSelector(
@@ -387,41 +385,28 @@ const BillingAddress: React.FC = () => {
 
       <Form.Item name="state_code" className="w-full sm:ml-[200px]">
         <div className="relative">
-          <div className="flex items-center mb-3 p-2 rounded border border-blue-200 bg-blue-50">
-            <Switch 
-              size="small"
-              checked={useStateInput}
-              onChange={(checked) => setUseStateInput(checked)} 
-              className="bg-blue-500"
-            />
-            <span className="text-xs font-medium text-blue-700 ml-2">
-              {useStateInput ? "Type state" : "Select from list"}
-            </span>
-          </div>
-          
-          {!useStateInput ? (
+          {countryCode === "us" ? (
             <Select
               allowClear
               showSearch
               onBlur={onValid}
-              className="fw-input1 "
+              className="fw-input1"
               onChange={onChangeState}
               filterOption={filterOption}
               options={stateData}
               value={
-                countryCode === "us" ?
-               ( companyAddress && !stateCode
+                companyAddress && !stateCode
                   ? billingInfo?.state_code &&
                     convertUsStateAbbrAndName(billingInfo?.state_code)
-                  : stateCode || "") : (stateCode || billingInfo?.province || "")
-              } // Ensure correct value is passed
+                  : stateCode || ""
+              }
             />
           ) : (
             <Input
               className="fw-input"
               onBlur={onValid}
-              value={stateCode}
-              placeholder={billingInfo?.province || billingInfo?.state_code || ""}
+              value={stateCode || billingInfo?.province || ""}
+              placeholder="Enter province/region"
               onChange={(e) => {
                 const inputValue = e.target.value;
                 setStateCode(inputValue);
@@ -431,13 +416,11 @@ const BillingAddress: React.FC = () => {
                 } else {
                   setStateCodeShort(inputValue);
                 }
-                
-                // Don't call onValid here - wait for onBlur
               }}
             />
           )}
           <label htmlFor="floating_outlined" className="fw-label">
-            State / Province
+            {countryCode === "us" ? "State" : "Province/Region"}
           </label>
         </div>
       </Form.Item>

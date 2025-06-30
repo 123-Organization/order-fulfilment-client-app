@@ -355,24 +355,11 @@ const MyCompany: React.FC = () => {
       </Form.Item>
 
       <Form.Item
-        // rules={[{ required: true, message: 'Please enter your state!' }]}
         name="state_code"
         className="w-full sm:ml-[200px]"
       >
         <div className="relative">
-          <div className="flex items-center mb-3 p-2 rounded border border-blue-200 bg-blue-50">
-            <Switch 
-              size="small"
-              checked={useStateInput}
-              onChange={(checked) => setUseStateInput(checked)} 
-              className="bg-blue-500"
-            />
-            <span className="text-xs font-medium text-blue-700 ml-2">
-              {useStateInput ? "Type state" : "Select from list"}
-            </span>
-          </div>
-          
-          {!useStateInput ? (
+          {countryCode === "us" ? (
             <Select
               allowClear
               showSearch
@@ -381,33 +368,28 @@ const MyCompany: React.FC = () => {
               filterOption={filterOption}
               options={stateData}
               value={
-                countryCode === "us"
-                  ? companyAddress && !stateCode
-                    ? businessInfo?.state_code &&
-                      convertUsStateAbbrAndName(businessInfo?.state_code)
-                    : stateCode && stateCode
-                  : stateCode || businessInfo?.province
+                companyAddress && !stateCode
+                  ? businessInfo?.state_code &&
+                    convertUsStateAbbrAndName(businessInfo?.state_code)
+                  : stateCode || ""
               }
-            >
-              <label htmlFor="floating_outlined" className="fw-label">
-                State
-              </label>
-            </Select>
+            />
           ) : (
             <div className="relative">
               <Input
                 className="fw-input"
-                value={stateCode || businessInfo?.province || businessInfo?.state_code || ""}
+                value={stateCode || businessInfo?.province || ""}
                 onChange={(e) => {
                   const inputValue = e.target.value;
                   setStateCode(inputValue);
                   onFinish({ ...companyAddress, state_code: inputValue });
                 }}
+                placeholder="Enter province/region"
               />
             </div>
           )}
-           <label htmlFor="floating_outlined" className="fw-label">
-            State / Province
+          <label htmlFor="floating_outlined" className="fw-label">
+            {countryCode === "us" ? "State" : "Province/Region"}
           </label>
         </div>
       </Form.Item>

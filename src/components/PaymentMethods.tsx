@@ -6,12 +6,16 @@ import type { RadioChangeEvent } from "antd";
 import { useLocation } from "react-router-dom";
 import PaymentAddressModal from "../components/PaymentAddressModal";
 import { getCustomerInfo } from "../store/features/customerSlice";
-import { getPaymentMethods, removeSelectedCard } from "../store/features/paymentSlice";
+import {
+  getPaymentMethods,
+  getPaymentToken,
+  removeSelectedCard,
+} from "../store/features/paymentSlice";
 import { setSelectedCard } from "../store/features/paymentSlice";
 import VaultedCardPayment from "./VaultedCardPayment";
 import { updateCompanyInfo } from "../store/features/companySlice";
 import { useNotificationContext } from "../context/NotificationContext";
-import './animationStyles.css';
+import "./animationStyles.css";
 import { setCardRemoved } from "../store/features/paymentSlice";
 
 export default function PaymentMethods(remainingTotal: any = 0) {
@@ -24,7 +28,7 @@ export default function PaymentMethods(remainingTotal: any = 0) {
   const notificationApi = useNotificationContext();
   const companyInfo = useAppSelector((state) => state.company.company_info);
   const location = useLocation();
-  const paymentToken = useAppSelector((state)=> state.Payment.paymentToken)
+  const paymentToken = useAppSelector((state) => state.Payment.paymentToken);
   const paymentMethods = useAppSelector(
     (state) => state.Payment.payment_methods
   );
@@ -37,7 +41,6 @@ export default function PaymentMethods(remainingTotal: any = 0) {
   console.log("Car", value);
 
   const onChangePaymentMethod = (e: any) => {
-    
     setValue(e.target.value);
     dispatch(setSelectedCard(e.target.value));
   };
@@ -49,7 +52,14 @@ export default function PaymentMethods(remainingTotal: any = 0) {
 
   useEffect(() => {
     dispatch(getCustomerInfo());
-  }, []);
+    if (companyInfo?.data?.payment_profile_id) {
+    dispatch(
+        getPaymentToken({
+          paymentProfileId: companyInfo.data.payment_profile_id,
+        })
+      );
+    }
+  }, [companyInfo?.data?.payment_profile_id]);
 
   useEffect(() => {
     if (paymentMethods?.data?.paymentMethods?.length > 0) {
@@ -62,10 +72,10 @@ export default function PaymentMethods(remainingTotal: any = 0) {
   }, [paymentMethods]);
 
   useEffect(() => {
-    console.log("comp", companyInfo?.data?.payment_profile_id);
+    console.log("coco", companyInfo?.data?.payment_profile_id);
 
     const payment_profile_id = companyInfo?.data?.payment_profile_id;
-    if (payment_profile_id ) {
+    if (payment_profile_id) {
       setIsLoading(true);
       dispatch(getPaymentMethods(payment_profile_id));
     }
@@ -76,28 +86,30 @@ export default function PaymentMethods(remainingTotal: any = 0) {
     dispatch(setSelectedCard(e.target.value));
     setValue(e.target.value);
   };
- 
+  console.log("valv", paymentToken);
+
   const handleRemoveCard = () => {
     const Token = paymentToken?.payment_tokens?.find(
-      (token: any) => token?.associated_payment_method?.slice(-4) === String(value)?.slice(-4) || token?.token === String(value)
+      (token: any) =>
+        token?.associated_payment_method?.slice(-4) ===
+          String(value)?.slice(-4) || token?.token === String(value)
     );
-    console.log("yoyo",Token);
+    console.log("yoyo", Token);
     const data = {
-      customerId : companyInfo?.data?.payment_profile_id,
-      paymentMethodToken : Token?.token 
-    }
-    dispatch(removeSelectedCard(data))
-    dispatch(setCardRemoved(true))
-  }
+      customerId: companyInfo?.data?.payment_profile_id,
+      paymentMethodToken: Token?.token,
+    };
+    dispatch(removeSelectedCard(data));
+    dispatch(setCardRemoved(true));
+  };
   useEffect(() => {
-    if(isCardRemoved){
-      dispatch(updateCompanyInfo({
-      }))
+    if (isCardRemoved) {
+      dispatch(updateCompanyInfo({}));
       notificationApi.success({
         message: "Card removed successfully",
         description: "Card has been successfully removed.",
       });
-      dispatch(setCardRemoved(false))
+      dispatch(setCardRemoved(false));
     }
   }, [isCardRemoved, companyInfo?.data?.payment_profile_id]);
 
@@ -184,7 +196,7 @@ export default function PaymentMethods(remainingTotal: any = 0) {
                         className="text-gray-400 flex justify-center items-center card-radio py-1"
                       >
                         <strong className="flex justify-center items-center gap-4 ">
-                          {maskNumber(method?.maskedNumber ) || method?.email} -{" "}
+                          {maskNumber(method?.maskedNumber) || method?.email} -{" "}
                           {method?.expirationDate}
                           <img
                             src={method?.imageUrl}

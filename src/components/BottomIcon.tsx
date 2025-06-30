@@ -355,9 +355,30 @@ const [api, contextHolder] = notification.useNotification();
   const onDeleteHandler = () => {};
 
   const onBackHandler = () => {
-    if (location.pathname === "/billingaddress") navigate("/mycompany");
-    if (location.pathname === "/paymentaddress") navigate("/billingaddress");
-    if (location.pathname.includes("/editorder")) navigate("/importlist");
+    switch (location.pathname) {
+      case "/billingaddress":
+        navigate("/mycompany");
+        break;
+      case "/paymentaddress":
+        navigate("/billingaddress");
+        break;
+      case "/editorder":
+        navigate("/importlist");
+        break;
+      case "/shippingpreference":
+        navigate("/billingaddress");
+        break;
+      case "/importlist":
+        navigate("/shippingpreference");
+        break;
+      case "/checkout":
+        navigate("/importlist");
+        break;
+      default:
+        navigate("/");
+        break;
+    }
+    
   };
 
   const onDownloadHandler = () => {};

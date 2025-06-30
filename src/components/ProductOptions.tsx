@@ -87,7 +87,7 @@ useEffect(() => {
       
     }
   }
-}, [cookies.ofa_product, id]); // Removed removeCookie since we're not using it anymore
+}, []); // Removed removeCookie since we're not using it anymore
 
 // Handle success/error notifications in a separate effect
 useEffect(() => {
@@ -96,10 +96,10 @@ useEffect(() => {
       // Also try with domain
       document.cookie = "ofa_product=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.finerworks.com";
       document.cookie = "ofa_product=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=finerworks.com";
-      notificationApi.success({
-        message: "New Product Added",
-        description: "Product has been successfully Added",
-      });
+      // notificationApi.success({
+      //   message: "New Product Added",
+      //   description: "Product has been successfully Added",
+      // });
     dispatch(resetProductDataStatus());
   } else if(productDatastat === "failed") {
     notificationApi.error({
