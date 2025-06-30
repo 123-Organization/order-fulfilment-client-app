@@ -1,7 +1,7 @@
 import { Button, Dropdown } from "antd";
 import style from "../pages/Pgaes.module.css";
 import NewOrder from "./NewOrder";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAppDispatch, useAppSelector } from "../store";
 import { AddProductToOrder, fetchSingleOrderDetails, resetProductDataStatus } from "../store/features/orderSlice";
 import PopupModal from "../components/PopupModal";
@@ -10,6 +10,7 @@ import NewProduct from "./NewProduct";
 import type { MenuProps } from "antd";
 import { useCookies } from "react-cookie";
 import { useNotificationContext } from "../context/NotificationContext";
+
 
 type productType = {
   name?: string;
@@ -38,8 +39,9 @@ export default function ProductOptions({ id, recipient, onProductCodeUpdate , se
   const images = useAppSelector((state) => state.ProductSlice.images);
   const notificationApi = useNotificationContext();
   const productDatastat = useAppSelector((state) => state.order.productDataStatus);
+  const firstRender = useRef(true);
   console.log("imagesss", images);
-
+console.log("prods", productDatastat)
   const [cookies, setCookie, removeCookie] = useCookies(["session_id", "AccountGUID", "ofa_product"]);
   const postSettings = {
           "settings": {
@@ -96,10 +98,14 @@ useEffect(() => {
       // Also try with domain
       document.cookie = "ofa_product=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.finerworks.com";
       document.cookie = "ofa_product=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=finerworks.com";
-      // notificationApi.success({
-      //   message: "New Product Added",
-      //   description: "Product has been successfully Added",
-      // });
+      if (firstRender.current) {
+        notificationApi.success({
+          message: "New Product Added",
+          description: "Product has been successfully Added",
+        });
+        firstRender.current = false;
+      }
+    onProductCodeUpdate();
     dispatch(resetProductDataStatus());
   } else if(productDatastat === "failed") {
     notificationApi.error({
