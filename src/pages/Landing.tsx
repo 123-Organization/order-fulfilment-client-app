@@ -701,7 +701,7 @@ const Landing: React.FC = (): JSX.Element => {
           type="primary"
           size="large"
         >
-          Launch wizard setup
+         Launch Setup Wizard
         </Button>
         <div className="text-center text-gray-400 pt-4">
           <p>Edit basic account and payment information </p>

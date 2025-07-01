@@ -714,7 +714,7 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
                       `$${
                         product_details?.find((element) => {
                           return element.product_guid === item.product_guid
-                        })?.total_price
+                        })?.total_price ||  item.per_item_price
                       }`
                     )}
                   </div>
@@ -729,7 +729,8 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
             ChangedValues={changedValues}
             visible={orderEdited.clicked}
             onClose={() => dispatch(updateOrderStatus({ clicked: false }))}
-          />
+            
+          /> 
           
         ) || null}
       </div>

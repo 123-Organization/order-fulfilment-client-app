@@ -24,6 +24,7 @@ export default function PaymentMethods(remainingTotal: any = 0) {
   const [showPayment, setShowPayment] = useState(false);
   const [modalVisble, setModalVisble] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [paymentMethodmessag, setPaymentMethodmessag] = useState("Searching for payment methods...");
   const credit = 40;
   const notificationApi = useNotificationContext();
   const companyInfo = useAppSelector((state) => state.company.company_info);
@@ -68,6 +69,10 @@ export default function PaymentMethods(remainingTotal: any = 0) {
       setValue(defaultPaymentMethod);
       dispatch(setSelectedCard(defaultPaymentMethod));
       setIsLoading(false);
+    }else{
+      setTimeout(() => {
+        setPaymentMethodmessag("Please add a payment method");
+      }, 3000);
     }
   }, [paymentMethods]);
 
@@ -173,7 +178,7 @@ export default function PaymentMethods(remainingTotal: any = 0) {
             {showPaymentMethod ? (
               <div></div>
             ) : isLoading ? (
-              <div className="loading-pulse">Loading payment methods...</div>
+              <div className="loading-pulse">{paymentMethodmessag}</div>
             ) : (
               <div className="compact-cards-container">
                 {paymentMethods?.data?.paymentMethods

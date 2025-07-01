@@ -167,15 +167,19 @@ const MyCompany: React.FC = () => {
     setCompanyAddress({ ...companyAddress, state_code: state as string });
     dispatch(updateCompany({ business_info: businessInfo, validFields: {} }));
   }, [stateCode, stateCodeShort, countryCode]);
+  console.log("compa", companyAddress?.company_name );
 
   useEffect(() => {
     // Check if this is the first time the user visits this page
     const hasVisitedBefore = localStorage.getItem('hasVisitedCompanyPage');
     
     // Only show overlay if not visited before and no business info
-    if (hasVisitedBefore !== 'true' ) {
-      setShowLocationOverlay(true);
+    setTimeout(() => {
+    if (!businessInfo?.company_name || companyAddress?.country_code !== "us") {
+        setShowLocationOverlay(true);
+     
     }
+    }, 2000);
 
     form.setFieldsValue(businessInfo);
     if (businessInfo?.company_name) {
@@ -449,7 +453,7 @@ const MyCompany: React.FC = () => {
     setCountryCode('us');
     setStates('us');
     setShowLocationOverlay(false);
-    localStorage.setItem('hasVisitedCompanyPage', 'true');
+    
   };
 
   const handleNonUSSelected = () => {
