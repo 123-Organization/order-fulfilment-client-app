@@ -227,7 +227,7 @@ const MyCompany: React.FC = () => {
             showSearch
             defaultValue={"US"}
             onChange={onChange}
-            value={countryCode.toUpperCase()}
+            value={countryCode?.toUpperCase() || "US"}
             onSearch={onSearch}
             filterOption={filterOption}
             options={[allowedCountry]}
