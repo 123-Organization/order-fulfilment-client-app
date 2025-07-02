@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Modal, Button, Input, Spin } from "antd";
 import { LoadingOutlined } from "@ant-design/icons";
 import { useAppDispatch, useAppSelector } from "../store";
-import { AddProductToOrder, fetchOrder } from "../store/features/orderSlice";
+import { AddProductToOrder, fetchOrder, updateValidSKU } from "../store/features/orderSlice";
 import { useNotificationContext } from "../context/NotificationContext";
 import { updateIframeState } from "../store/features/companySlice";
 import { getAllImages, setSelectedImage, setProductData, clearSelectedImage } from "../store/features/productSlice";
@@ -35,6 +35,7 @@ const PopupModal: React.FC<PopupModalProps> = ({
 const iframeState = useAppSelector((state)=> state.company.iframeState)
   // State to track the input value
   const [inputValue, setInputValue] = useState("");
+  const validSKU = useAppSelector((state) => state.order.validSKU);
   const [isLoading, setIsLoading] = useState(false);
   const productDataStatus = useAppSelector((state) => state.order.productDataStatus);
   console.log("datastatus", productDataStatus)
@@ -97,6 +98,7 @@ const iframeState = useAppSelector((state)=> state.company.iframeState)
         setInputValue("");
         dispatch(clearSelectedImage());
         onProductCodeUpdate();
+        dispatch(updateValidSKU([...validSKU, inputValue]));
         setIsLoading(false);
         onClose();
       }, 1000);

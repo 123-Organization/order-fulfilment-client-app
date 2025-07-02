@@ -604,7 +604,7 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
           </div>
           {localOrder?.order_items?.map((item, index) => (
             <div className={`h-[230px] mt-2 hover:border-gray-500 max-md:h-[230px] inline-flex overflow-y-auto scrollbar-thin justify-between w-full ${ validSKU.includes(item.product_sku?.toString()) ? "px-3" : "px-0"} text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700`}>
-              {product_details.length > 0 && !validSKU.includes(item.product_sku?.toString()) ? (
+              {localOrder?.order_items?.length > 0 && !validSKU.includes(item.product_sku?.toString()) ? (
                 <div className="block relative w-full h-full bg-red-50 rounded-lg">
                   <div className="flex h-full">
                     <div className="flex flex-col w-full">

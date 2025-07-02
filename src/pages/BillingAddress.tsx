@@ -237,7 +237,7 @@ const BillingAddress: React.FC = () => {
         </div>
       </Form.Item>
       <Form.Item
-        rules={[{ required: true, message: "Please enter your Company Name!" }]}
+        rules={[{ required: false, message: "Please enter your Company Name!" }]}
         name="company_name"
         className="w-full sm:ml-[200px]"
       >
