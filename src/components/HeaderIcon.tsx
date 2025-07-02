@@ -170,7 +170,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
       label: (
         <a 
           href="#/importlist" 
-          target="_blank" 
+          target="" 
           rel="noopener noreferrer" 
           className="flex items-center text-gray-700 hover:text-blue-600 transition-all duration-300 font-medium"
         >

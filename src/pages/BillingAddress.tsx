@@ -47,10 +47,14 @@ const BillingAddress: React.FC = () => {
   const [stateCodeShort, setStateCodeShort] = useState<string | null>("");
   const dispatch = useAppDispatch();
   console.log(stateCode, stateCodeShort);
+  const myBillingInfo = useAppSelector(
+    (state) => state.company?.myBillingInfoFilled
+  );
+  console.log("myBillingInfo", myBillingInfo);
   const businessInfo = useAppSelector(
     (state) => state.company?.company_info?.data?.business_info
   );
-  console.log("businessInfo", businessInfo);
+  console.log("bsbs", businessInfo);
 
   const checkboxClick: CheckboxProps["onChange"] = (e) => {
     e.preventDefault();
@@ -89,6 +93,7 @@ const BillingAddress: React.FC = () => {
     setStates(country_code?.toLowerCase());
     setStateCode(""); // Reset state when country changes
     setStateCodeShort(""); // Reset state code when country changes
+    updateBilling({ billing_info: { country_code: country_code } });
   };
   console.log("countryCode", countryCode);
 
@@ -164,7 +169,7 @@ const BillingAddress: React.FC = () => {
       form1.setFieldsValue(formData);
       dispatch(updateBilling({ billing_info: billingInfo, validFields: {} }));
     }
-  }, [billingInfo, form1, companyAddress.company_name]);
+  }, [billingInfo, form1, ]);
 
   const handleInputChange = (e: any, field: any) => {
     // Check if e is a direct value (from InputNumber) or an event object

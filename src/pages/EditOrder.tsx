@@ -70,10 +70,12 @@ const EditOrder: React.FC = () => {
   
   const InventoryImages =
     useAppSelector((state) => state.Inventory.inventoryImages) || [];
+  const validSKU = useAppSelector((state) => state.order.validSKU) || [];
 
   const shipping_option = useAppSelector(
     (state) => state.Shipping.shippingOptions[0] || []
   );
+  console.log("validSKU", validSKU);
 
   console.log("InventoryImages", InventoryImages);
 
@@ -212,7 +214,7 @@ console.log("company_info", phone);
       address_2: recipient?.address_2 || "",
       city: recipient?.city || "",
       state: recipient?.state || stateCodeShort,
-      zip_postal_code: recipient?.zip_postal_code || "",
+      zip_postal_code: recipient?.zip_postal_code.toString() || "",
       phone: phone || "",
     }),
     [order, recipient]
@@ -276,7 +278,7 @@ console.log("company_info", phone);
       }
       dispatch(setCurrentOrderFullFillmentId(id));
     }
-    dispatch(getInventoryImages());
+    // dispatch(getInventoryImages());
   }, [orderData, dispatch]);
 
   const handleProductCodeUpdate = () => {
@@ -599,127 +601,190 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
             />
           </div>
           {localOrder?.order_items?.map((item, index) => (
-            <div className="h-[230px] mt-2 hover:border-gray-500 max-md:h-[230px] inline-flex overflow-y-auto scrollbar-thin justify-between w-full px-3 text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700">
-              <div className="block relative pb-4 w-full">
-                <div className="justify-around pt-4 rounded-lg flex ">
-                  <div className="flex pt-8 ">
-                    {productData[item.product_sku]?.image_url_1 ? (
-                      <img
-                        src={
-                          item?.product_url_thumbnail
-                            ? item?.product_url_thumbnail
-                            : productData[item?.product_sku].image_url_1
-                        }
-                        alt="product"
-                        className={`rounded-lg max-md:w-20 w-40 h-[100px] ${style.product_image} `}
-                        width={116}
-                        height={26}
-                      />
-                    ) : (
-                      <Skeleton.Image active className="mr-40" />
-                    )}
-
-                    <div className="sm:ml-4 flex flex-col w-full sm:justify-between max-md:px-2">
-                      {(Object.keys(productData)?.length && (
-                        <div
-                          className={`w-12/12 text-sm ${style.product_decription} `}
+            <div className={`h-[230px] mt-2 hover:border-gray-500 max-md:h-[230px] inline-flex overflow-y-auto scrollbar-thin justify-between w-full ${ validSKU.includes(item.product_sku?.toString()) ? "px-3" : "px-0"} text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700`}>
+              {product_details.length > 0 && !validSKU.includes(item.product_sku?.toString()) ? (
+                <div className="block relative w-full h-full bg-red-50 rounded-lg">
+                  <div className="flex h-full">
+                    <div className="flex flex-col w-full">
+                      <div className="flex items-center mb-4 px-4 pt-4">
+                        <svg
+                          className="w-5 h-5 text-red-500 mr-2"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                          xmlns="http://www.w3.org/2000/svg"
                         >
-                          {filterDescription(
-                            productData[item.product_sku]?.description_long
-                          )?.substring(0, 130)}
-                        </div>
-                      )) || <Skeleton active />}
+                          <path
+                            fillRule="evenodd"
+                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        <h2 className="text-base font-semibold text-red-600">
+                          Invalid SKU Detected
+                        </h2>
+                      </div>
+                      <div className="px-4 mb-4">
+                        <p className="text-gray-600 text-sm mb-2">
+                          Current SKU:{" "}
+                          <span className="font-mono bg-white px-2 py-0.5 rounded border border-red-200 text-red-600">
+                            {item?.product_sku}
+                          </span>
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          This SKU is not recognized in the system.
+                          Please add a valid SKU to proceed with your order.
+                        </p>
+                      </div>
+                      <div className="mt-auto px-4 pb-4">
+                        <button
+                          className="w-40 h-8 inline-flex items-center justify-center px-3 py-1.5 border border-red-300 text-sm font-medium rounded-md text-red-600 bg-white hover:bg-red-50 hover:border-red-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
+                          onClick={() => {
+                            setOpenModal(true);
+                            setProductCode(true);
+                          }}
+                        >
+                          <svg
+                            className="w-4 h-4 mr-2"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                            />
+                          </svg>
+                          Add Valid SKU
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  <div className="h-9">
-                    <Quantity
-                      quantity={
-                        productData[item.product_sku]?.quantity ||
-                        item.product_qty
-                      }
-                      clicking={clicking}
-                      setclicking={setclicking}
-                      orderFullFillmentId={id}
-                      product_guid={item?.product_guid }
-                    />
-                  </div>
                 </div>
-                <div className="flex justify-between items-center w-full absolute bottom-0 left-0 px-3 py-2 border-t border-gray-100">
-                  <div className="flex items-center gap-2">
-                    <button
-                      data-tooltip-target="tooltip-document"
-                      type="button"
-                      className="inline-flex items-center justify-center p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 group"
-                      onClick={() => {
-                        setProductGuid(item.product_guid);
-                        setDeleteMessageVisible(true);
-                      }}
-                    >
-                      <svg
-                        className="w-5 h-5 text-gray-500 dark:text-gray-400 group-hover:text-red-600 dark:group-hover:text-blue-500"
-                        aria-hidden="true"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 18 20"
-                      >
-                        <path
-                          stroke="currentColor"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M1 5h16M7 8v8m4-8v8M7 1h4a1 1 0 0 1 1 1v3H6V2a1 1 0 0 1 1-1ZM3 5h12v13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5Z"
+              ) : (
+                <div className="block relative pb-4 w-full">
+                  <div className="justify-around pt-4 rounded-lg flex ">
+                    <div className="flex pt-8 ">
+                      {productData[item.product_sku]?.image_url_1 ? (
+                        <img
+                          src={
+                            item?.product_url_thumbnail
+                              ? item?.product_url_thumbnail
+                              : productData[item?.product_sku].image_url_1
+                          }
+                          alt="product"
+                          className={`max-md:w-20 w-40 h-[100px] ${style.product_image} `}
+                          width={116}
+                          height={26}
                         />
-                      </svg>
-                    </button>
-                    <DeleteMessage
-                      visible={DeleteMessageVisible}
-                      onClose={setDeleteMessageVisible}
-                      onDeleteProduct={onDeleteProduct}
-                      deleteItem={product_guid}
-                    />
-                    {productCode && (
-                      <Button
-                        key="submit"
-                        className="text-gray-500 border border-gray-400 rounded-lg text-center font-semibold"
-                        size="small"
-                        onClick={() => setOpenModal(true)}
-                        style={{ backgroundColor: "#f5f4f4" }}
-                        type="link"
-                      >
-                        Add / Change Image
-                      </Button>
-                    )}
-                    <FilesGallery
-                      open={openModal}
-                      setOpenModal={setOpenModal}
-                      productImage={productData[item.product_sku]?.image_url_1}
-                    />
-                  </div>
-                  <div className="text-sm font-medium">
-                    {clicking ||
-                    product_status === "loading" ||
-                    !product_details?.find(
-                      (product) => product.sku  === item.product_sku || product.product_code === item.product_sku
-                    )?.total_price ? (
-                      <div className="flex items-center gap-2">
-                        <p className="text-red-400 text-xs">
-                          Calculating price...
-                        </p>
-                        <Spin
-                          indicator={<LoadingOutlined spin />}
-                          size="default"
-                        />
+                      ) : (
+                        <Skeleton.Image active className="mr-40" />
+                      )}
+
+                      <div className="sm:ml-4 flex flex-col w-full sm:justify-between max-md:px-2">
+                        {(Object.keys(productData)?.length && (
+                          <div
+                            className={`w-12/12 text-sm ${style.product_decription} `}
+                          >
+                            {filterDescription(
+                              productData[item.product_sku]?.description_long
+                            )?.substring(0, 130)}
+                          </div>
+                        )) || <Skeleton active />}
                       </div>
-                    ) : (
-                      `$${
-                        product_details?.find((element) => {
-                          return element.product_guid === item.product_guid
-                        })?.total_price ||  item.per_item_price
-                      }`
-                    )}
+                    </div>
+                    <div className="h-9">
+                      <Quantity
+                        quantity={
+                          productData[item.product_sku]?.quantity ||
+                          item.product_qty
+                        }
+                        clicking={clicking}
+                        setclicking={setclicking}
+                        orderFullFillmentId={id}
+                        product_guid={item?.product_guid }
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center w-full absolute bottom-0 left-0 px-3 py-2 border-t border-gray-100">
+                    <div className="flex items-center gap-2">
+                      <button
+                        data-tooltip-target="tooltip-document"
+                        type="button"
+                        className="inline-flex items-center justify-center p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 group"
+                        onClick={() => {
+                          setProductGuid(item.product_guid);
+                          setDeleteMessageVisible(true);
+                        }}
+                      >
+                        <svg
+                          className="w-5 h-5 text-gray-500 dark:text-gray-400 group-hover:text-red-600 dark:group-hover:text-blue-500"
+                          aria-hidden="true"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 18 20"
+                        >
+                          <path
+                            stroke="currentColor"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M1 5h16M7 8v8m4-8v8M7 1h4a1 1 0 0 1 1 1v3H6V2a1 1 0 0 1 1-1ZM3 5h12v13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5Z"
+                          />
+                        </svg>
+                      </button>
+                      <DeleteMessage
+                        visible={DeleteMessageVisible}
+                        onClose={setDeleteMessageVisible}
+                        onDeleteProduct={onDeleteProduct}
+                        deleteItem={product_guid}
+                      />
+                      {productCode && (
+                        <Button
+                          key="submit"
+                          className="text-gray-500 border border-gray-400 rounded-lg text-center font-semibold"
+                          size="small"
+                          onClick={() => setOpenModal(true)}
+                          style={{ backgroundColor: "#f5f4f4" }}
+                          type="link"
+                        >
+                          Add / Change Image
+                        </Button>
+                      )}
+                      <FilesGallery
+                        open={openModal}
+                        setOpenModal={setOpenModal}
+                        productImage={productData[item.product_sku]?.image_url_1}
+                      />
+                    </div>
+                    <div className="text-sm font-medium">
+                      {clicking ||
+                      product_status === "loading" ||
+                      !product_details?.find(
+                        (product) => product.sku  === item.product_sku || product.product_code === item.product_sku
+                      )?.total_price ? (
+                        <div className="flex items-center gap-2">
+                          <p className="text-red-400 text-xs">
+                            Calculating price...
+                          </p>
+                          <Spin
+                            indicator={<LoadingOutlined spin />}
+                            size="default"
+                          />
+                        </div>
+                      ) : (
+                        `$${
+                          product_details?.find((element) => {
+                            return element.product_guid === item.product_guid
+                          })?.total_price ||  item.per_item_price
+                        }`
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           ))}
         </div>

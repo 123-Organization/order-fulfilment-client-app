@@ -242,7 +242,7 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
             address_2: order.ship_address_2,
             address_3: "",
             city: order.ship_city,
-            state_code: order.ship_state_code,
+            state: order.ship_state_code,
             province: order.ship_province,
             zip_postal_code: order.ship_zip,
             country_code: order.ship_country_code,

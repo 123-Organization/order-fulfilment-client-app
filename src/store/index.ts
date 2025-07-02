@@ -17,7 +17,7 @@ const orderPersistConfig = {
   key: 'order',
   storage,
   // Only persist the checkedOrders, not all orders data
-  whitelist: ['checkedOrders', 'submitedOrders', 'appLunched', 'excludedOrders'],
+  whitelist: ['checkedOrders', 'submitedOrders', 'appLunched', 'excludedOrders', 'validSKU'],
 };
 
 // Create a persist configuration for the root

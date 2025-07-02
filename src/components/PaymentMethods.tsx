@@ -53,14 +53,14 @@ export default function PaymentMethods(remainingTotal: any = 0) {
 
   useEffect(() => {
     dispatch(getCustomerInfo());
-    if (companyInfo?.data?.payment_profile_id) {
+    if (companyInfo?.data?.payment_profile_id || paymentPopupEnable) {
     dispatch(
         getPaymentToken({
           paymentProfileId: companyInfo.data.payment_profile_id,
         })
       );
     }
-  }, [companyInfo?.data?.payment_profile_id]);
+  }, [companyInfo?.data?.payment_profile_id, paymentPopupEnable]);
 
   useEffect(() => {
     if (paymentMethods?.data?.paymentMethods?.length > 0) {

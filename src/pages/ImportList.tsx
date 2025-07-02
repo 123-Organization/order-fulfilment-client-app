@@ -29,6 +29,7 @@ import {
   resetExcludedOrders,
   updateExcludedOrders,
 } from "../store/features/orderSlice";
+import { updateValidSKU, resetValidSKU } from "../store/features/orderSlice";
 import PopupModal from "../components/PopupModal";
 
 const { Option } = Select;
@@ -47,6 +48,7 @@ const ImportList: React.FC = () => {
   }
 
   const firstTimeRender = useRef(true);
+  const isFirstRender = useRef(true);
 
   // Utility function to truncate text with character count control
   const truncateText = (htmlString: string, maxLength: number): string => {
@@ -73,7 +75,7 @@ const ImportList: React.FC = () => {
     {}
   );
   const [productCode, setProductCode] = useState(false);
-  const [validSKU, setValidSKU] = useState([]);
+
   const [orderPostData, setOrderPostData] = useState([]);
   const [DeleteMessageVisible, setDeleteMessageVisible] = useState(false);
   const [orderFullFillmentId, setOrderFullFillmentId] = useState("");
@@ -91,6 +93,7 @@ const ImportList: React.FC = () => {
   const [skuModal, setSkuModal] = useState(false);
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
   const excludedOrders = useAppSelector((state) => state.order.excludedOrders);
+  const validSKUs = useAppSelector((state) => state.order.validSKU);
   console.log("excludedOrders", excludedOrders);
   // Add ref to track if notification has been shown
   const deleteNotificationShown = useRef({
@@ -119,7 +122,7 @@ const ImportList: React.FC = () => {
   const shipping_option = useAppSelector(
     (state) => state.Shipping.shippingOptions || []
   );
-  console.log("shipping_option", shipping_option);
+  console.log("excludedOrders", excludedOrders);
   const navigate = useNavigate();
 
   const AddProductsTemplate = () => {
@@ -141,36 +144,51 @@ const ImportList: React.FC = () => {
       </div>
     );
   };
-  useEffect(() => {
-    if (product_details && Array.isArray(product_details)) {
-      const validCodes = product_details
-        ?.filter((product: any) => product?.sku ? product.sku : product.product_code)
-        ?.map((product: any) => product?.sku ? product.sku : product.product_code);
-      setValidSKU(validCodes);
 
-      // Fix the invalid SKU collection
-      const invalidSkus = orders?.data?.reduce((acc: any[], order: any) => {
+  useEffect(() => {
+    // Skip the first render
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
+    // Only update if product_details has changed and is valid
+    if (product_details && Array.isArray(product_details) && product_details.length > 0) {
+      const validCodes = product_details
+        .filter((product: any) => product?.sku || product.product_code)
+        .map((product: any) => (product?.sku || product.product_code).toString());
+      
+      // Only dispatch if validCodes is different from current validSKUs
+      if (JSON.stringify(validCodes) !== JSON.stringify(validSKUs)) {
+        dispatch(updateValidSKU(validCodes));
+      }
+    }
+  }, [product_details]); // Keep only product_details as dependency
+
+  // Keep your second useEffect separate
+  useEffect(() => {
+    if (orders?.data && validSKUs.length > 0) {
+      const invalidSkus = orders.data.reduce((acc: any[], order: any) => {
         const invalidItems = order?.order_items?.filter((item: any) => 
-          !validSKU.includes(item?.product_sku?.toString())
+          !validSKUs.includes(item?.product_sku?.toString())
         );
         
-        if (product_details && invalidItems?.length > 0) {
-          invalidItems?.forEach((item: any) => {
-            acc?.push({
+        if (invalidItems?.length > 0) {
+          invalidItems.forEach((item: any) => {
+            acc.push({
               sku: item.product_sku,
               orderFullFillmentId: order?.orderFullFillmentId
             });
           });
         }
         return acc;
-      }, []) || [];
+      }, []);
 
       setInvalidSKuOrderFullilment(invalidSkus);
-      console.log("invalidSKuOrderFullilment", invalidSkus);
     }
-  }, [product_details]);
+  }, [orders?.data, validSKUs]);
+  console.log("validd", validSKUs);
 
-  console.log("validSKU", validSKU);
   useEffect(() => {
     dispatch(resetSubmitedOrders());
   }, []);
@@ -352,6 +370,7 @@ const ImportList: React.FC = () => {
             // 2. Are not in the excluded orders list
             order.order_items &&
             order.order_items.length > 0 &&
+            validSKUs.includes(order.order_items[0]?.product_sku?.toString()) &&
             !excludedOrders.includes(order.order_po)
         )
         .map((order) => ({
@@ -364,6 +383,7 @@ const ImportList: React.FC = () => {
 
       dispatch(updateCheckedOrders(CheckedOrders));
     }
+    
   }, [orders?.data, shipping_option, productData, excludedOrders]); // Add excludedOrders to dependencies
 
   const handleCheckboxChange = (e: any) => {
@@ -619,7 +639,7 @@ const ImportList: React.FC = () => {
                       />
                       {order?.order_items.length > 0 ? (
                         order?.order_items?.map((order) =>
-                          product_details.length > 0 && !validSKU.includes(order.product_sku.toString()) ? (
+                          product_details.length > 0 && !validSKUs.includes(order.product_sku.toString()) ? (
                             <div className="mb-4 p-4 border-2 border-red-200 rounded-lg bg-red-50 h-[220px]">
                               <div className="flex items-center justify-between">
                                 <div className="flex-1">
@@ -767,7 +787,7 @@ const ImportList: React.FC = () => {
                                   className={`justify-between pt-4 rounded-lg sm:flex sm:justify-start flex  ${style.description_box}`}
                                 >
                                   <div
-                                    className={`w-[50%] ${style.importlist_pic}`}
+                                    className={`w-[50%]  ${style.importlist_pic}`}
                                   >
                                     {productData[order?.product_sku]
                                       ?.image_url_1 ? (
@@ -779,7 +799,7 @@ const ImportList: React.FC = () => {
                                                 .image_url_1
                                         }
                                         alt="product"
-                                        className="rounded-lg max-md:w-40 w-32 h-[120px]"
+                                        className=" max-md:w-40 w-32 h-[120px]"
                                         width={125}
                                         height={26}
                                       />

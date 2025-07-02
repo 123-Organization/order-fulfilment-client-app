@@ -33,6 +33,7 @@ interface OrderState {
   currentOrderFullFillmentId: any;
   openSheet: boolean;
   excludedOrders: any;
+  validSKU: any;
   status: "idle" | "loading" | "succeeded" | "failed"; // ✅ Add status here
   error: string | null;
   deleteOrderStatus: "idle" | "loading" | "succeeded" | "failed";
@@ -57,6 +58,7 @@ const initialState: OrderState = {
   orderEdited: { status: false, clicked: false, },
   status: "idle",
   submitedOrders: [],
+  validSKU: [],
   error: null,
   currentOrderFullFillmentId: null,
   excludedOrders: [],
@@ -420,6 +422,12 @@ export const OrderSlice = createSlice({
     },
     resetExcludedOrders: (state) => {
       state.excludedOrders = []
+    }, 
+    updateValidSKU: (state, action) => {
+      state.validSKU = action.payload
+    },
+    resetValidSKU: (state) => {
+      state.validSKU = []
     }
   },
   extraReducers: (builder) => {
@@ -518,4 +526,4 @@ export const OrderSlice = createSlice({
 });
 
 export default OrderSlice.reducer;
-export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, updateIframe, updateApp, updateOpenSheet, updateExcludedOrders, resetExcludedOrders } = OrderSlice.actions;
+export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, updateIframe, updateApp, updateOpenSheet, updateExcludedOrders, resetExcludedOrders, updateValidSKU, resetValidSKU } = OrderSlice.actions;
