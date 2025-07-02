@@ -163,7 +163,7 @@ const ImportList: React.FC = () => {
         dispatch(updateValidSKU(validCodes));
       }
     }
-  }, [product_details]); // Keep only product_details as dependency
+  }, [product_details, validSKUs]); // Keep only product_details as dependency
 
   // Keep your second useEffect separate
   useEffect(() => {

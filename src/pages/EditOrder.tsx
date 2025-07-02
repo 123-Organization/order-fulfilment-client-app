@@ -7,7 +7,7 @@ import { countryType } from "../types/ICountry";
 import ProductOptions from "../components/ProductOptions";
 import { useAppDispatch, useAppSelector } from "../store";
 import SelectShippingOption from "../components/SelectShippingOption";
-import { setCurrentOrderFullFillmentId, updateCheckedOrders } from "../store/features/orderSlice";
+import { setCurrentOrderFullFillmentId, updateCheckedOrders, updateValidSKU } from "../store/features/orderSlice";
 import {
   updateOrderStatus,
   updateOrdersInfo,
@@ -226,6 +226,7 @@ console.log("company_info", phone);
     const stateCode = recipient?.state_code?.toLowerCase()
     setStateCodeShort(convertUsStateAbbrAndName(stateCode))}
   }, [recipient])
+
   useEffect(() => {
     form.setFieldsValue(initialValues);
   }, [form, initialValues]);
@@ -286,6 +287,7 @@ console.log("company_info", phone);
     dispatch(
       fetchSingleOrderDetails({ accountId: customerInfo?.data?.account_id, orderFullFillmentId: id })
     );
+    
   };
 const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
   const [componentSize, setComponentSize] = useState<SizeType | "default">(

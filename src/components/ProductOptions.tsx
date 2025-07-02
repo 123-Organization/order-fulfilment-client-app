@@ -3,7 +3,7 @@ import style from "../pages/Pgaes.module.css";
 import NewOrder from "./NewOrder";
 import { useEffect, useState, useRef } from "react";
 import { useAppDispatch, useAppSelector } from "../store";
-import { AddProductToOrder, fetchSingleOrderDetails, resetProductDataStatus } from "../store/features/orderSlice";
+import { AddProductToOrder, fetchSingleOrderDetails, resetProductDataStatus, updateValidSKU } from "../store/features/orderSlice";
 import PopupModal from "../components/PopupModal";
 import VirtualInvModal from "../components/VirtualInvModal";
 import NewProduct from "./NewProduct";
@@ -40,6 +40,7 @@ export default function ProductOptions({ id, recipient, onProductCodeUpdate , se
   const notificationApi = useNotificationContext();
   const productDatastat = useAppSelector((state) => state.order.productDataStatus);
   const firstRender = useRef(true);
+  const validSKU = useAppSelector((state) => state.order.validSKU);
   console.log("imagesss", images);
 console.log("prods", productDatastat)
   const [cookies, setCookie, removeCookie] = useCookies(["session_id", "AccountGUID", "ofa_product"]);
@@ -86,7 +87,7 @@ useEffect(() => {
     if (mappedData.length > 0) {
       dispatch(AddProductToOrder(mappedData[0]));
       // Remove cookie using document.cookie
-      
+      dispatch(updateValidSKU([...validSKU, mappedData[0].productCode]));
     }
   }
 }, []); // Removed removeCookie since we're not using it anymore
@@ -106,6 +107,7 @@ useEffect(() => {
         firstRender.current = false;
       }
     onProductCodeUpdate();
+    
     dispatch(resetProductDataStatus());
   } else if(productDatastat === "failed") {
     notificationApi.error({
