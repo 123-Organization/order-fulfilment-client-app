@@ -20,6 +20,12 @@ const orderPersistConfig = {
   whitelist: ['checkedOrders', 'submitedOrders', 'appLunched', 'excludedOrders', 'validSKU'],
 };
 
+const shippingPersistConfig = {
+  key: 'shipping',
+  storage,
+  whitelist: ['shippingOptions', 'currentOption',],
+};
+
 // Create a persist configuration for the root
 const rootPersistConfig = {
   key: 'root',
@@ -29,6 +35,7 @@ const rootPersistConfig = {
 
 // Apply the nested persist config to the order slice
 const persistedOrderReducer = persistReducer(orderPersistConfig, OrderSlice.reducer);
+const persistedShippingReducer = persistReducer(shippingPersistConfig, ShippingSlice.reducer);
 
 // Combine your reducers with the persisted order reducer
 const rootReducer = combineReducers({
@@ -39,7 +46,7 @@ const rootReducer = combineReducers({
   Payment: PaymentSlice.reducer,
   Customer: customerSlice.reducer,
   Inventory: InventorySlice.reducer,
-  Shipping: ShippingSlice.reducer,
+  Shipping: persistedShippingReducer,
 });
 
 // Create a persisted reducer for the root

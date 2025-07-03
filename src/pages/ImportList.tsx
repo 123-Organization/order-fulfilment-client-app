@@ -384,7 +384,7 @@ const ImportList: React.FC = () => {
       dispatch(updateCheckedOrders(CheckedOrders));
     }
     
-  }, [orders?.data, shipping_option, productData, excludedOrders]); // Add excludedOrders to dependencies
+  }, [orders?.data, productData, excludedOrders]); // Add excludedOrders to dependencies
 
   const handleCheckboxChange = (e: any) => {
     const { value, checked } = e.target;
@@ -408,13 +408,15 @@ const ImportList: React.FC = () => {
       );
     }
   };
+  console.log("checkedOrders", checkedOrders);
 
   const handleShippingOptionChange = (order_po: string, updatedPrice: any) => {
     let updatedOrders = [...checkedOrders];
+    console.log("updatedOrders", updatedOrders);
 
     // Check if the order is already in checkedOrders
     const orderIndex = updatedOrders.findIndex(
-      (order) => order.order_po === order_po
+      (order) => order.order_po == order_po
     );
 
     if (orderIndex !== -1) {
@@ -439,12 +441,6 @@ const ImportList: React.FC = () => {
 
     dispatch(updateCheckedOrders(updatedOrders));
   };
-  console.log(
-    "orsors",
-    orders?.data?.map(
-      (order) => order.order_items[0]?.product_image?.product_url_thumbnail
-    )
-  );
 
   // Function to show modal with full description
   const showFullDescription = (
@@ -844,7 +840,7 @@ const ImportList: React.FC = () => {
                         <div className="block w-full">
                           {order?.order_items.length > 0 ? (
                             <SelectShippingOption
-                              poNumber={order?.order_po}
+                              poNumber={order?.order_po.toString()}
                               orderItems={order?.order_items}
                               onShippingOptionChange={
                                 handleShippingOptionChange

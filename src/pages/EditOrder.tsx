@@ -811,7 +811,7 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
             <div className="block w-full text-gray-400 text-right">
               <SelectShippingOption
                 key={productchange}
-                poNumber={localOrder?.order_po}
+                poNumber={localOrder?.order_po?.toString()}
                 orderItesm={localOrder?.order_items}
                 onShippingOptionChange={handleShippingOptionChange}
                 localOrder={localOrder}

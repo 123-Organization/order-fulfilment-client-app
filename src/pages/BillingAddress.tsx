@@ -24,6 +24,7 @@ interface StateOption {
 const BillingAddress: React.FC = () => {
   const [countryCode, setCountryCode] = useState("us");
   const [copyCompanyAddress, setCopyCompanyAddress] = useState(false);
+  const [isInitialDataLoaded, setIsInitialDataLoaded] = useState(false);
   const billingInfo = useAppSelector(
     (state) => state.company?.company_info?.data?.billing_info
   );
@@ -78,9 +79,20 @@ const BillingAddress: React.FC = () => {
     // Handle empty selection or undefined values
     let state_code: string = value ? value.toLowerCase() : "";
     console.log(`onChangeState ${state_code}`, countryCode);
+    
+    // If input is a 2-letter code, convert it to full state name for display
+    if (countryCode === "us" && state_code.length === 2) {
+      const fullStateName = convertUsStateAbbrAndName(state_code.toUpperCase());
+      if (fullStateName) {
+        state_code = fullStateName.toLowerCase();
+      }
+    }
+    
     setStateCode(state_code);
     if (countryCode === "us") {
-      setStateCodeShort(state_code ? convertUsStateAbbrAndName(state_code) : "");
+      // When saving, convert full state name back to abbreviation
+      const stateAbbr = state_code.length > 2 ? convertUsStateAbbrAndName(state_code) : state_code.toUpperCase();
+      setStateCodeShort(stateAbbr || "");
     } else {
       setStateCodeShort(state_code);
     }
@@ -91,8 +103,14 @@ const BillingAddress: React.FC = () => {
     console.log(`selected ${country_code}`);
     setCountryCode(country_code);
     setStates(country_code?.toLowerCase());
-    setStateCode(""); // Reset state when country changes
-    setStateCodeShort(""); // Reset state code when country changes
+    // Clear state values when country changes
+    setStateCode("");
+    setStateCodeShort("");
+    // Reset the state_code field and trigger validation
+    form1.setFieldsValue({ state_code: undefined });
+    form1.validateFields(['state_code']).catch(() => {
+      // Validation error is expected here, we just want to trigger the validation
+    });
     updateBilling({ billing_info: { country_code: country_code } });
   };
   console.log("countryCode", countryCode);
@@ -101,7 +119,8 @@ const BillingAddress: React.FC = () => {
     let states = getStates(value);
     let data: StateOption[] = (states || []).map((d: string) => ({
       label: d,
-      value: d,
+      // Ensure value is always lowercase for consistent comparison
+      value: d.toLowerCase(),
     }));
 
     setStateData(data);
@@ -168,8 +187,11 @@ const BillingAddress: React.FC = () => {
       setCompanyAddress(billingInfo);
       form1.setFieldsValue(formData);
       dispatch(updateBilling({ billing_info: billingInfo, validFields: {} }));
+      
+      // Mark initial data as loaded
+      setIsInitialDataLoaded(true);
     }
-  }, [billingInfo, form1, ]);
+  }, [billingInfo, form1]);
 
   const handleInputChange = (e: any, field: any) => {
     // Check if e is a direct value (from InputNumber) or an event object
@@ -388,38 +410,136 @@ const BillingAddress: React.FC = () => {
         </div>
       </Form.Item>
 
-      <Form.Item name="state_code" className="w-full sm:ml-[200px]">
+      <Form.Item 
+        name="state_code" 
+        className="w-full sm:ml-[200px]"
+        rules={[
+          { 
+            required: true,
+            message: `Please enter your ${countryCode === "us" ? "State" : "Province/Region"}!`,
+            validator: (_, value) => {
+              // Skip validation if initial data hasn't loaded yet
+              if (!isInitialDataLoaded) {
+                return Promise.resolve();
+              }
+
+              if (!value) {
+                return Promise.reject(new Error(`${countryCode === "us" ? "State" : "Province/Region"} is required`));
+              }
+              if (countryCode === "us") {
+                // For US, ensure it's either a valid state name or code
+                const isValidState = stateData.some(state => 
+                  state.value === value.toLowerCase() || 
+                  state.value === convertUsStateAbbrAndName(value)?.toLowerCase()
+                );
+                if (!isValidState) {
+                  return Promise.reject(new Error('Please select a valid US state'));
+                }
+              }
+              return Promise.resolve();
+            }
+          }
+        ]}
+      >
         <div className="relative">
           {countryCode === "us" ? (
             <Select
               allowClear
               showSearch
-              onBlur={onValid}
+              onBlur={() => {
+                // Only validate if initial data is loaded
+                if (isInitialDataLoaded) {
+                  onValid();
+                }
+              }}
               className="fw-input1"
-              onChange={onChangeState}
-              filterOption={filterOption}
+              onChange={(value) => {
+                onChangeState(value);
+                // Only validate if initial data is loaded
+                if (isInitialDataLoaded) {
+                  form1.validateFields(['state_code']).catch(() => {
+                    // Validation error is expected here
+                  });
+                }
+              }}
+              onSearch={(value) => {
+                // Convert to uppercase for consistency
+                const upperValue = value.toUpperCase();
+                // If exactly 2 characters are entered and they're letters
+                if (upperValue.length === 2 && /^[A-Z]{2}$/.test(upperValue)) {
+                  const fullStateName = convertUsStateAbbrAndName(upperValue);
+                  if (fullStateName) {
+                    // Find the matching option and trigger onChange
+                    const matchingOption = stateData.find(
+                      option => option.value === fullStateName.toLowerCase()
+                    );
+                    if (matchingOption) {
+                      onChangeState(matchingOption.value);
+                    }
+                  }
+                }
+              }}
+              filterOption={(input, option) => {
+                if (!option?.value) return false;
+                // Check if input matches state code or state name
+                const inputUpper = input.toUpperCase();
+                const stateCode = convertUsStateAbbrAndName(option.value)?.toUpperCase() || '';
+                return option.value.toLowerCase().includes(input.toLowerCase()) || 
+                       (inputUpper.length === 2 && stateCode === inputUpper);
+              }}
               options={stateData}
               value={
                 companyAddress && !stateCode
                   ? billingInfo?.state_code &&
-                    convertUsStateAbbrAndName(billingInfo?.state_code)
+                    (billingInfo?.state_code.length === 2 
+                      ? convertUsStateAbbrAndName(billingInfo?.state_code)?.toLowerCase()
+                      : billingInfo?.state_code.toLowerCase())
                   : stateCode || ""
               }
+              placeholder={`Select your ${countryCode === "us" ? "State" : "Province/Region"}`}
             />
           ) : (
             <Input
               className="fw-input"
-              onBlur={onValid}
+              onBlur={() => {
+                // Only validate if initial data is loaded
+                if (isInitialDataLoaded) {
+                  onValid();
+                }
+              }}
               value={stateCode || billingInfo?.province || ""}
-              placeholder="Enter province/region"
+              placeholder={`Enter your ${countryCode === "us" ? "State" : "Province/Region"}`}
               onChange={(e) => {
                 const inputValue = e.target.value;
-                setStateCode(inputValue);
                 
-                if (countryCode === "us" && inputValue) {
-                  setStateCodeShort(convertUsStateAbbrAndName(inputValue));
+                if (countryCode === "us") {
+                  // Convert to uppercase for consistency
+                  const upperValue = inputValue.toUpperCase();
+                  // If exactly 2 characters are entered and they're letters
+                  if (upperValue.length === 2 && /^[A-Z]{2}$/.test(upperValue)) {
+                    const fullStateName = convertUsStateAbbrAndName(upperValue);
+                    if (fullStateName) {
+                      setStateCode(fullStateName.toLowerCase());
+                      setStateCodeShort(upperValue);
+                      // Trigger validation
+                      onValid();
+                      return;
+                    }
+                  }
+                  
+                  // For full names or invalid 2-letter codes
+                  const stateAbbr = convertUsStateAbbrAndName(inputValue);
+                  setStateCode(inputValue);
+                  setStateCodeShort(stateAbbr || inputValue);
                 } else {
+                  setStateCode(inputValue);
                   setStateCodeShort(inputValue);
+                }
+                // Only validate if initial data is loaded
+                if (isInitialDataLoaded) {
+                  form1.validateFields(['state_code']).catch(() => {
+                    // Validation error is expected here
+                  });
                 }
               }}
             />

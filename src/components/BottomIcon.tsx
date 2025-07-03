@@ -45,19 +45,20 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const product_details = useAppSelector(
     (state) => state.ProductSlice.product_details
   );
-  
+
+  const currentorderFullFillment = useAppSelector((state) => state.order.currentOrderFullFillmentId);
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
 
   const orderEdited = useAppSelector((state) => state.order.orderEdited);
-  
+
   const recipientStatus = useAppSelector(
     (state) => state.order.recipientStatus
   );
 
   const { product_list } = product_details?.data || {};
-  
+
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
-  
+
   const ecommerceGetImportOrders = useAppSelector(
     (state) => state.Ecommerce.ecommerceGetImportOrders
   );
@@ -70,8 +71,6 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const shipping_preferences = useAppSelector(
     (state) => state.Shipping.shipping_preferences
   );
-  
-
 
   const [backVisiable, setBackVisiable] = useState<boolean>(true);
   const [nextVisiable, setNextVisiable] = useState<boolean>(false);
@@ -81,7 +80,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const [current, setCurrent] = useState(1);
   const [pageSize, setPageSize] = useState(12);
   const [grandTotal, setGrandtotal] = useState<number>(0);
-const [api, contextHolder] = notification.useNotification();
+  const [api, contextHolder] = notification.useNotification();
 
   const openNotificationWithIcon = ({
     type,
@@ -114,7 +113,6 @@ const [api, contextHolder] = notification.useNotification();
   const myBillingInfoFilled = useAppSelector(
     (state) => state.company.myBillingInfoFilled
   );
-  
 
   const companyInfo = useAppSelector((state) => state.company.company_info);
 
@@ -139,7 +137,6 @@ const [api, contextHolder] = notification.useNotification();
   const onChange: PaginationProps["onChange"] | any = (
     filterPageNumber: number
   ) => {
-    
     setCurrent(filterPageNumber);
     dispatch(
       listVirtualInventory({
@@ -172,9 +169,8 @@ const [api, contextHolder] = notification.useNotification();
         if (wporder.length > 0) {
           setNextSpinning(true);
           const orderIds = wporder.split(",");
-          
+
           try {
-          
             const result = await dispatch(
               fetchWporder({
                 orderId: orderIds,
@@ -182,8 +178,6 @@ const [api, contextHolder] = notification.useNotification();
                 accountId: customerInfo?.data?.account_id,
               })
             );
-
-           
 
             if (result.payload) {
               if (result.payload.orderDetails) {
@@ -281,10 +275,8 @@ const [api, contextHolder] = notification.useNotification();
         !orderEdited.clicked &&
         updatedValues
       ) {
-        
         try {
           // Log customer info for debugging
-        
 
           // Make sure updatedValues is proper format
           if (
@@ -310,7 +302,6 @@ const [api, contextHolder] = notification.useNotification();
 
           // Check if successful
           if (result.meta.requestStatus === "fulfilled") {
-          
             dispatch(updateOrderStatus({ status: true, clicked: true }));
           } else {
             console.error("Failed to update order:", result.payload);
@@ -353,7 +344,7 @@ const [api, contextHolder] = notification.useNotification();
   // }, [recipientStatus]);
 
   const onDeleteHandler = () => {};
-
+  console.log("loc",location.pathname);
   const onBackHandler = () => {
     switch (location.pathname) {
       case "/billingaddress":
@@ -362,8 +353,9 @@ const [api, contextHolder] = notification.useNotification();
       case "/paymentaddress":
         navigate("/billingaddress");
         break;
-      case "/editorder":
+      case `/editorder/${currentorderFullFillment}`:
         navigate("/importlist");
+
         break;
       case "/shippingpreference":
         navigate("/billingaddress");
@@ -378,7 +370,6 @@ const [api, contextHolder] = notification.useNotification();
         navigate("/");
         break;
     }
-    
   };
 
   const onDownloadHandler = () => {};
@@ -392,7 +383,6 @@ const [api, contextHolder] = notification.useNotification();
     } else {
       nextVisiable && setNextVisiable(false);
     }
-    
   }, [myCompanyInfoFilled]);
 
   useEffect(() => {
@@ -405,7 +395,6 @@ const [api, contextHolder] = notification.useNotification();
     } else {
       nextVisiable && setNextVisiable(false);
     }
-    
   }, [myBillingInfoFilled]);
 
   useEffect(() => {
@@ -413,11 +402,10 @@ const [api, contextHolder] = notification.useNotification();
       !nextVisiable && setNextVisiable(true);
     }
   }, [myImport, wporder, nextVisiable, location]);
-  
+
   useEffect(() => {
     if (location.pathname === "/importfilter") {
       if (myImport?.start_date || myImport?.end_date || myImport?.status) {
-        
         if (ecommerceGetImportOrders?.accountId) {
           if (!ecommerceGetImportOrders?.orders?.length) {
             openNotificationWithIcon({
@@ -431,43 +419,48 @@ const [api, contextHolder] = notification.useNotification();
             !nextVisiable && setNextVisiable(true);
           } else {
             // Check if any of the new orders are already imported
-            const alreadyImportedOrders = ecommerceGetImportOrders?.orders?.filter((importOrder:any) => {
-              return orders?.data?.some((existingOrder:any) => {
-                return existingOrder.order_po === importOrder.order_po
-              })
-            });
-            
-            // Get only new orders that aren't already imported
-            const newOrders = ecommerceGetImportOrders?.orders?.filter((importOrder:any) => {
-              return !orders?.data?.some((existingOrder:any) => {
-                return existingOrder.order_po === importOrder.order_po
-              })
-            });
-            
-            
+            const alreadyImportedOrders =
+              ecommerceGetImportOrders?.orders?.filter((importOrder: any) => {
+                return orders?.data?.some((existingOrder: any) => {
+                  return existingOrder.order_po === importOrder.order_po;
+                });
+              });
 
-            if(alreadyImportedOrders?.length > 0 && newOrders?.length > 0) {
+            // Get only new orders that aren't already imported
+            const newOrders = ecommerceGetImportOrders?.orders?.filter(
+              (importOrder: any) => {
+                return !orders?.data?.some((existingOrder: any) => {
+                  return existingOrder.order_po === importOrder.order_po;
+                });
+              }
+            );
+
+            if (alreadyImportedOrders?.length > 0 && newOrders?.length > 0) {
               // Some orders already imported, but we have new ones to import
               openNotificationWithIcon({
                 type: "info",
                 message: "Partial Import",
                 description: `${alreadyImportedOrders.length} order(s) already exist in the system. Importing ${newOrders.length} new order(s).`,
               });
-              
+
               // Create a modified version of ecommerceGetImportOrders with only the new orders
               const filteredImportData = {
                 ...ecommerceGetImportOrders,
-                orders: newOrders
+                orders: newOrders,
               };
-              
+
               // Import only the new orders
               dispatch(saveOrder(filteredImportData));
-            } else if(alreadyImportedOrders?.length > 0 && newOrders?.length === 0) {
+            } else if (
+              alreadyImportedOrders?.length > 0 &&
+              newOrders?.length === 0
+            ) {
               // All orders are already imported
               openNotificationWithIcon({
                 type: "warning",
                 message: "Already Imported",
-                description: "All selected orders are already imported into the system.",
+                description:
+                  "All selected orders are already imported into the system.",
               });
               navigate("/importlist");
             } else {
@@ -524,8 +517,6 @@ const [api, contextHolder] = notification.useNotification();
   useEffect(() => {
     if (location.pathname === "/shippingpreference") {
       setNextVisiable(true);
-
-      
     }
   }, [companyInfo, location.pathname]);
 
@@ -567,7 +558,6 @@ const [api, contextHolder] = notification.useNotification();
     }
   }, []);
 
-  
   useEffect(() => {
     if (orders && checkedOrders) {
       let newTotalPrice = 0;
@@ -576,7 +566,7 @@ const [api, contextHolder] = notification.useNotification();
         const product = orders?.data?.find(
           (product: any) => product?.order_po == order?.order_po
         );
-        
+
         if (product) {
           newTotalPrice += order.Product_price?.grand_total
             ? order.Product_price?.grand_total
@@ -584,7 +574,6 @@ const [api, contextHolder] = notification.useNotification();
         }
       });
       setGrandtotal(newTotalPrice);
-      
     }
   }, [checkedOrders, orders]);
 
