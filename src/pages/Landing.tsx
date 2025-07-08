@@ -611,7 +611,7 @@ const Landing: React.FC = (): JSX.Element => {
       // Otherwise connect to ecommerce
       if (openBtnConnected) {
         navigate("/importfilter?type=WooCommerce");
-      } else {
+      } else if(customerInfo?.data?.user_profile_complete === true){
         // Log the parameters to verify they're correct
         console.log(
           "Connecting to WooCommerce with key:",
@@ -623,6 +623,11 @@ const Landing: React.FC = (): JSX.Element => {
             account_key: customerInfo?.data?.account_key,
           })
         );
+      } else {
+        notificationApi.warning({
+          message: "Please complete your profile",
+          description: "Please complete your profile to connect to WooCommerce",
+        });
       }
     }
   };

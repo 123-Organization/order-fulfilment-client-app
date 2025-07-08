@@ -75,6 +75,7 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>(
     []
   );
+  const uploadStatus = useAppSelector((state) => state.order.uploadStatus);
   const [isLoading, setIsLoading] = useState(false);
   const [step, setStep] = useState(0);
   const [stepStatus, setStepStatus] = useState<
@@ -495,8 +496,13 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
                 <Button
                   type="primary"
                   onClick={() => navigate("/importlist")}
+                  loading={uploadStatus === "loading"}
                 >
-                  Go to orders <ArrowRightOutlined />
+                  {uploadStatus === "loading" ? "Processing..." : (
+                    <>
+                      Go to orders <ArrowRightOutlined />
+                    </>
+                  )}
                 </Button>
               </div>
             )}

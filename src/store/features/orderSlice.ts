@@ -33,6 +33,7 @@ interface OrderState {
   currentOrderFullFillmentId: any;
   openSheet: boolean;
   excludedOrders: any;
+  replacingCode: any;
   validSKU: any;
   status: "idle" | "loading" | "succeeded" | "failed"; // ✅ Add status here
   error: string | null;
@@ -40,6 +41,9 @@ interface OrderState {
   productDataStatus: "idle" | "loading" | "succeeded" | "failed";
   recipientStatus: "idle" | "loading" | "succeeded" | "failed";
   importStatus: "idle" | "loading" | "succeeded" | "failed";
+  replaceCodeResult: any;
+  uploadStatus: "idle" | "loading" | "succeeded" | "failed";
+  replaceCodeStatus: "idle" | "loading" | "succeeded" | "failed";
 
 }
 
@@ -61,12 +65,16 @@ const initialState: OrderState = {
   validSKU: [],
   error: null,
   currentOrderFullFillmentId: null,
+  replacingCode: false,
   excludedOrders: [],
   productDataStatus: "idle",
   recipientStatus: "idle",
   deleteOrderStatus: "idle",
   importStatus: "idle",
   openSheet: false,
+  replaceCodeResult: [],
+  uploadStatus: "idle",
+  replaceCodeStatus: "idle",
 };
 
 export const fetchOrder = createAsyncThunk(
@@ -355,6 +363,18 @@ export const UploadOrdersExcel = createAsyncThunk("order/upload", async (postdat
 
 })
 
+export const updateProductValidSKU = createAsyncThunk("order/update/validSKU", async (postData: any, thunkAPI) => {
+  const response = await fetch(BASE_URL + "update-order-by-valid-product-sku", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(postData),
+  })
+  const data = await response.json()
+  return data
+},
+);
 
 export const OrderSlice = createSlice({
   name: "order",
@@ -428,7 +448,19 @@ export const OrderSlice = createSlice({
     },
     resetValidSKU: (state) => {
       state.validSKU = []
-    }
+    },
+    updateReplacingCode: (state, action) => {
+      state.replacingCode = true
+    },
+    resetReplacingCode: (state) => {
+      state.replacingCode = false
+    },
+    resetReplaceCodeResult: (state) => {
+      state.replaceCodeResult = []
+     },
+     resetReplaceCodeStatus: (state) => {
+      state.replaceCodeStatus = "idle"
+     }
   },
   extraReducers: (builder) => {
     builder.addCase(fetchOrder.fulfilled, (state, action) => {
@@ -519,6 +551,32 @@ export const OrderSlice = createSlice({
     );
     builder.addCase(UploadOrdersExcel.fulfilled, (state, action) => {
       state.orders = action.payload
+      state.uploadStatus = 'succeeded';
+    })
+    builder.addCase(UploadOrdersExcel.pending, (state, action) => {
+      state.uploadStatus = 'loading';
+    })
+    builder.addCase(UploadOrdersExcel.rejected, (state, action) => {
+      state.uploadStatus = 'failed';
+      state.error = action.payload as string;
+    })
+    builder.addCase(updateProductValidSKU.fulfilled, (state, action) => {
+      state.orders = {
+        data: Array.isArray(action.payload?.data) 
+          ? action.payload.data 
+          : Array.isArray(action.payload) 
+            ? action.payload 
+            : []
+      };
+      
+      state.replaceCodeResult = action.payload;
+      console.log('state.replaceCodeResult', state.replaceCodeResult)
+      state.replaceCodeStatus = 'succeeded';
+    })
+    builder.addCase(updateProductValidSKU.rejected, (state, action) => {
+      state.error = action.payload as string
+      console.log('state.error', state.error)
+      state.replaceCodeStatus = 'failed';
     })
 
   }
@@ -526,4 +584,4 @@ export const OrderSlice = createSlice({
 });
 
 export default OrderSlice.reducer;
-export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, updateIframe, updateApp, updateOpenSheet, updateExcludedOrders, resetExcludedOrders, updateValidSKU, resetValidSKU } = OrderSlice.actions;
+export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, updateIframe, updateApp, updateOpenSheet, updateExcludedOrders, resetExcludedOrders, updateValidSKU, resetValidSKU, updateReplacingCode, resetReplacingCode, resetReplaceCodeResult, resetReplaceCodeStatus } = OrderSlice.actions;

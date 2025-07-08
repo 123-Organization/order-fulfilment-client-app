@@ -5,12 +5,14 @@ import Spinner from "../components/Spinner";
 import shoppingCart from "../assets/images/shopping-cart-228.svg";
 import {
   resetOrderStatus,
+  resetReplaceCodeResult,
+  resetReplaceCodeStatus,
   updateCheckedOrders,
 } from "../store/features/orderSlice";
 import locked_Shipment from "../assets/images/package-delivery-box-8-svgrepo-com.svg";
 import { fetchOrder } from "../store/features/orderSlice";
 import { fetchShippingOption } from "../store/features/shippingSlice";
-import { fetchProductDetails } from "../store/features/productSlice";
+import { clearProductData, clearSelectedImage, fetchProductDetails } from "../store/features/productSlice";
 import { Link } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store";
 import { useNavigate } from "react-router-dom";
@@ -31,6 +33,9 @@ import {
 } from "../store/features/orderSlice";
 import { updateValidSKU, resetValidSKU } from "../store/features/orderSlice";
 import PopupModal from "../components/PopupModal";
+import ReplacingCode from "../components/ReplacingCode";
+import { updateIframeState } from "../store/features/companySlice";
+import { setProductData } from "../store/features/productSlice";
 
 const { Option } = Select;
 type SizeType = Parameters<typeof Form>[0]["size"];
@@ -87,10 +92,10 @@ const ImportList: React.FC = () => {
   const [invalidSKuOrderFullilment, setInvalidSKuOrderFullilment] = useState(
     []
   );
-  const [skuOrderFullilment, setSkuOrderFullilment] = useState(
-    
-  );
+  const [skuOrderFullilment, setSkuOrderFullilment] = useState();
   const [skuModal, setSkuModal] = useState(false);
+  const [replacingModal, setReplacingModal] = useState(false);
+  const [skuToReplace, setSkuToReplace] = useState("");
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
   const excludedOrders = useAppSelector((state) => state.order.excludedOrders);
   const validSKUs = useAppSelector((state) => state.order.validSKU);
@@ -113,21 +118,29 @@ const ImportList: React.FC = () => {
   const myImport = useAppSelector((state) => state.order.myImport);
   const wporder = useAppSelector((state) => state.order.Wporder);
   const notificationApi = useNotificationContext();
-  console.log(orderPostData);
+  console.log("orderPostData", orderPostData);
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
   const customer_info = useAppSelector((state) => state.Customer.customer_info);
+  const iframeState = useAppSelector((state) => state.company.iframeState);
   console.log("product_details...", product_details);
   const dispatch = useAppDispatch();
   console.log("productdata", productData);
   const shipping_option = useAppSelector(
     (state) => state.Shipping.shippingOptions || []
   );
+  const SelectedImage = useAppSelector(
+    (state) => state.ProductSlice.SelectedImage
+  );
+  const replaceCodeResult = useAppSelector(
+    (state) => state.order.replaceCodeResult
+  );
+  console.log("replaceCodeResult", replaceCodeResult);
   console.log("excludedOrders", excludedOrders);
   const navigate = useNavigate();
 
   const AddProductsTemplate = () => {
     return (
-      <div className="flex-col justify-center  content-center w-full  h-full text-center border">
+      <div className="flex-col justify-center  content-center w-full  h-full text-center border ">
         <h1 className="w-full text-base font-medium text-gray-400 mb-2">
           {" "}
           There are currently no products in this order
@@ -144,6 +157,46 @@ const ImportList: React.FC = () => {
       </div>
     );
   };
+  const onProductCodeReplace = (productCode: string) => {
+    dispatch(fetchOrder(customerInfo?.data?.account_id));
+    setTimeout(() => {
+      setOrderPostData([]);
+      dispatch(updateValidSKU([...validSKUs, productCode]));
+      dispatch(resetReplaceCodeStatus());
+      dispatch(resetReplaceCodeResult());
+    }, 2000);
+  };
+
+  useEffect(() => {
+    // Only show notifications if we have attempted to replace a code
+    if (replaceCodeResult !== undefined) { // Check if we have a result (success or failure)
+      if (replaceCodeResult?.data && skuToReplace.length > 0) { 
+        setTimeout(() => {
+          notificationApi.success({
+            message: "Product Code Replaced",
+            description: "Product code has been successfully replaced.",
+          });
+          dispatch(clearSelectedImage());
+          // setReplacingModal(false);
+          dispatch(resetReplaceCodeResult());
+          dispatch(fetchOrder(customerInfo?.data?.account_id));
+          dispatch(clearProductData());
+          if(iframeState){
+            dispatch(updateIframeState({ iframeState: false }));
+          }
+          setOrderPostData([]);
+          // setReplacingModal(false);
+        }, 2000);
+      } else if (replaceCodeResult === null && skuToReplace.length > 0) {
+        notificationApi.error({
+          message: "Product Code not found",
+          description: "Product code not found in the database.",
+        });
+      }
+    }
+  }, [replaceCodeResult, skuToReplace, iframeState]);
+
+  
 
   useEffect(() => {
     // Skip the first render
@@ -153,11 +206,17 @@ const ImportList: React.FC = () => {
     }
 
     // Only update if product_details has changed and is valid
-    if (product_details && Array.isArray(product_details) && product_details.length > 0) {
+    if (
+      product_details &&
+      Array.isArray(product_details) &&
+      product_details.length > 0
+    ) {
       const validCodes = product_details
         .filter((product: any) => product?.sku || product.product_code)
-        .map((product: any) => (product?.sku || product.product_code).toString());
-      
+        .map((product: any) =>
+          (product?.sku || product.product_code).toString()
+        );
+
       // Only dispatch if validCodes is different from current validSKUs
       if (JSON.stringify(validCodes) !== JSON.stringify(validSKUs)) {
         dispatch(updateValidSKU(validCodes));
@@ -168,21 +227,23 @@ const ImportList: React.FC = () => {
   // Keep your second useEffect separate
   useEffect(() => {
     if (orders?.data && validSKUs.length > 0) {
-      const invalidSkus = orders.data.reduce((acc: any[], order: any) => {
-        const invalidItems = order?.order_items?.filter((item: any) => 
-          !validSKUs.includes(item?.product_sku?.toString())
-        );
-        
-        if (invalidItems?.length > 0) {
-          invalidItems.forEach((item: any) => {
-            acc.push({
-              sku: item.product_sku,
-              orderFullFillmentId: order?.orderFullFillmentId
-            });
-          });
-        }
-        return acc;
-      }, []);
+      const invalidSkus = Array.isArray(orders.data)
+        ? orders.data.reduce((acc: any[], order: any) => {
+            const invalidItems = order?.order_items?.filter(
+              (item: any) => !validSKUs.includes(item?.product_sku?.toString())
+            );
+
+            if (invalidItems?.length > 0) {
+              invalidItems.forEach((item: any) => {
+                acc.push({
+                  sku: item.product_sku,
+                  orderFullFillmentId: order?.orderFullFillmentId,
+                });
+              });
+            }
+            return acc;
+          }, [])
+        : [];
 
       setInvalidSKuOrderFullilment(invalidSkus);
     }
@@ -223,7 +284,6 @@ const ImportList: React.FC = () => {
         setDescriptionCharLimit(200);
       }
     };
-
 
     // Set initial value
     adjustCharLimit();
@@ -274,7 +334,7 @@ const ImportList: React.FC = () => {
     );
   };
   const onProductCodeUpdate = (productCode: string) => {
-   dispatch(fetchOrder(customerInfo?.data?.account_id));
+    dispatch(fetchOrder(customerInfo?.data?.account_id));
   };
 
   useEffect(() => {
@@ -361,29 +421,32 @@ const ImportList: React.FC = () => {
   // Update the useEffect that handles setting checked orders
   useEffect(() => {
     // Only proceed if we have both orders and shipping options
-    if (orders?.data?.length && shipping_option.length > 0) {
-      const CheckedOrders = orders.data
-        .filter(
-          (order) =>
-            // Only include orders that:
-            // 1. Have items
-            // 2. Are not in the excluded orders list
-            order.order_items &&
-            order.order_items.length > 0 &&
-            validSKUs.includes(order.order_items[0]?.product_sku?.toString()) &&
-            !excludedOrders.includes(order.order_po)
-        )
-        .map((order) => ({
-          order_po: order.order_po,
-          Product_price: getShippingPrice(order.order_po),
-          productData: order.order_items,
-          productImage:
-            productData[order.order_items[0]?.product_sku]?.image_url_1,
-        }));
+    if (orders?.data && shipping_option.length > 0) {
+      const CheckedOrders = Array.isArray(orders.data)
+        ? orders.data
+            .filter(
+              (order) =>
+                // Only include orders that:
+                // 1. Have items
+                // 2. Are not in the excluded orders list
+                order.order_items &&
+                order.order_items.length > 0 &&
+                validSKUs.includes(
+                  order.order_items[0]?.product_sku?.toString()
+                ) &&
+                !excludedOrders.includes(order.order_po)
+            )
+            .map((order) => ({
+              order_po: order.order_po,
+              Product_price: getShippingPrice(order.order_po),
+              productData: order.order_items,
+              productImage:
+                productData[order.order_items[0]?.product_sku]?.image_url_1,
+            }))
+        : [];
 
       dispatch(updateCheckedOrders(CheckedOrders));
     }
-    
   }, [orders?.data, productData, excludedOrders]); // Add excludedOrders to dependencies
 
   const handleCheckboxChange = (e: any) => {
@@ -635,7 +698,8 @@ const ImportList: React.FC = () => {
                       />
                       {order?.order_items.length > 0 ? (
                         order?.order_items?.map((order) =>
-                          product_details.length > 0 && !validSKUs.includes(order.product_sku.toString()) ? (
+                          product_details.length > 0 &&
+                          !validSKUs.includes(order.product_sku.toString()) ? (
                             <div className="mb-4 p-4 border-2 border-red-200 rounded-lg bg-red-50 h-[220px]">
                               <div className="flex items-center justify-between">
                                 <div className="flex-1">
@@ -672,11 +736,16 @@ const ImportList: React.FC = () => {
                               </div>
                               <div className="mt-4 ml-7">
                                 <button
-                                  className=" h-9 inline-flex items-center px-4 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 hover:border-red-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
+                                  className="h-9 inline-flex items-center px-4 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 hover:border-red-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
                                   onClick={() => {
-                                    // Modal trigger will go here
-                                    setSkuModal(true);
-                                    setSkuOrderFullilment(invalidSKuOrderFullilment?.find((item: any) => order?.product_sku === item.sku)?.orderFullFillmentId || "")
+                                    setReplacingModal(true);
+                                    setSkuToReplace(order?.product_sku);
+                                    setSkuOrderFullilment(
+                                      invalidSKuOrderFullilment?.find(
+                                        (item: any) =>
+                                          order?.product_sku === item.sku
+                                      )?.orderFullFillmentId || ""
+                                    );
                                   }}
                                 >
                                   <svg
@@ -693,17 +762,19 @@ const ImportList: React.FC = () => {
                                       d="M12 6v6m0 0v6m0-6h6m-6 0H6"
                                     />
                                   </svg>
-                                  Add Valid SKU
+                                  Replace SKU
                                 </button>
                               </div>
-                              {skuModal && (
-                                <PopupModal
-                                  visible={skuModal}
-                                  onClose={() => setSkuModal(false)}
-                                  setProductCode={setProductCode}
+                              {replacingModal && (
+                                
+                                <ReplacingCode
+                                  visible={replacingModal}
+                                  onClose={() => setReplacingModal(false)}
                                   orderFullFillmentId={skuOrderFullilment}
-                                  onProductCodeUpdate={onProductCodeUpdate}
-                              />
+                                  toReplace={skuToReplace}
+                                  accountId={customerInfo?.data?.account_id}
+                                  onProductCodeUpdate={onProductCodeReplace}
+                                />
                               )}
                             </div>
                           ) : (
@@ -822,10 +893,11 @@ const ImportList: React.FC = () => {
                                     )) || <Skeleton active />}
                                   </div>
                                 </div>
-                                <div className="text-sm text-right  h-4 ">
-                                  $
-                                  {productData[order?.product_guid]
-                                    ?.total_price || ""}
+                                <div className="flex justify-between items-center mt-0">
+                                  <div></div>
+                                  <div className="text-sm text-right h-4">
+                                    {order?.product_qty || 1}@ ${(productData[order?.product_guid]?.total_price / (order?.product_qty || 1)).toFixed(2)} ea
+                                  </div>
                                 </div>
                               </div>
                             </label>

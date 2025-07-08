@@ -130,6 +130,7 @@ const iframeState = useAppSelector((state)=> state.company.iframeState)
         product_url_file: SelectedImage,
         product_url_thumbnail: SelectedImage,
       };
+      console.log("dbdb", data);
       dispatch(setProductData(data));
     }
   }, [SelectedImage, inputValue, orderFullFillmentId]);

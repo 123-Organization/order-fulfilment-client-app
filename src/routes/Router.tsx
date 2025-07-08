@@ -49,6 +49,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const [cookies] = useCookies(["Session", "AccountGUID"]);
   const dispatch = useAppDispatch();
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
+  const customerInfo = useAppSelector((state) => state.Customer.customer_info);
+  const notificationApi = useNotificationContext();
   const myBillingInfoFilled = useAppSelector(
     (state) => state.company.myBillingInfoFilled
   );
@@ -62,6 +64,13 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`
     return 
   }
+  // if(customerInfo?.data?.user_profile_complete === false){
+  //   notificationApi.warning({
+  //     message: "Please complete your profile",
+  //     description: "Please complete your profile to connect to WooCommerce",
+  //   });
+  // }
+
 
   return <Component />;
 };
@@ -123,6 +132,8 @@ const Router: React.FC = (): JSX.Element => {
   );
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
   const location = useLocation();
+  const customerInfo = useAppSelector((state) => state.Customer.customer_info);
+  const notificationApi = useNotificationContext();
   const navigate = useNavigate();
   const [triggred, setTriggred] = useState(false);
   const openNotificationWithIcon = ({
@@ -151,6 +162,16 @@ const Router: React.FC = (): JSX.Element => {
   // }, [company_info]);
 
   // Prevent navigation back to confirmation page
+  useEffect(() => {
+    if(location.pathname === routes.checkout && customerInfo?.data?.user_profile_complete === false){
+      notificationApi.warning({
+        message: "Please complete your profile",
+        description: "Please complete your profile to proceed to checkout",
+      });
+      navigate(routes.importlist)
+    }
+  }, [customerInfo]);
+
   useEffect(() => {
     // Skip for first render
     if (!location.key) return;
