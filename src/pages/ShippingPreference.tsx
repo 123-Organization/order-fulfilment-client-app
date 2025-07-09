@@ -5,6 +5,7 @@ import { updateShipping } from "../store/features/shippingSlice";
 import type { TabsProps } from "antd";
 import ShippingPreferencesOption from "../components/ShippingPreferencesOption";
 
+
 type NotificationType = "success" | "info" | "warning" | "error";
 interface NotificationAlertProps {
   type: NotificationType;

@@ -5,10 +5,13 @@ import Spinner from "./Spinner";
 import { updateCurrentOption } from "../store/features/shippingSlice";
 import { useAppDispatch } from "../store";
 import { fetchShippingOption } from "../store/features/shippingSlice";
+import { updateOrdersInfo } from "../store/features/orderSlice";
 
 interface ShippingOption {
   rate: number;
   shipping_method: string;
+  order_po: string;
+  preferred_option?: any;
   calculated_total: {
     order_subtotal: number;
     order_discount: number;
@@ -38,114 +41,147 @@ const SelectShippingOption: React.FC<{
   clicking: boolean;
 
   onShippingOptionChange: (poNumber: string, total: number) => void;
-}> = ({ poNumber, orderItems, onShippingOptionChange, localOrder, productchange, clicking }) => {
+}> = ({
+  poNumber,
+  orderItems,
+  onShippingOptionChange,
+  localOrder,
+  productchange,
+  clicking,
+}) => {
   console.log("popo", poNumber);
   console.log("localOrder", localOrder);
   const dispatch = useAppDispatch();
 
-
+  const orders = useAppSelector((state) => state.order.orders || []);
   const shipping_option = useAppSelector(
     (state) => state.Shipping.shippingOptions || []
   );
-console.log("shipping_option", shipping_option);
+  const customerinfo = useAppSelector((state) => state.Customer.customer_info);
+  console.log("shipping_option", shipping_option);
   console.log("shipping_option", shipping_option);
 
-  const currentOption = useAppSelector((state) => state.Shipping.currentOption);
+  let currentOption = useAppSelector((state) => state.Shipping.currentOption);
   console.log("currentOption", currentOption);
 
   const shipping_details = useMemo(
-    () => shipping_option?.find((option) => option.order_po == poNumber),
+    () => shipping_option?.find((option) => option.order_po === poNumber),
     [shipping_option, poNumber]
   );
-console.log("shipping_details", shipping_details);
-  const [selectedOption, setSelectedOption] = useState<any>(null)
+  console.log("shipping_details", shipping_details);
+  const [selectedOption, setSelectedOption] = useState<any>([]);
   console.log("selectedOption", selectedOption);
+  console.log("pooooo", poNumber);
   // Set initial preferred option if available
   useEffect(() => {
-    // Only update if this is for the current PO number or if no selection exists
-    if (!selectedOption ) {
-      if (shipping_details?.preferred_option) {
-        setSelectedOption(shipping_details.preferred_option);
-        // Update current option in store if it's the preferred option
-        dispatch(updateCurrentOption({
-          ...shipping_details.preferred_option,
-          order_po: poNumber
-        }));
-      }
-    } else if (currentOption?.order_po === poNumber) {
-      // Only update if the current option is for this order
-      setSelectedOption(
-        shipping_details?.options.find((opt: ShippingOption) => opt?.rate === currentOption?.rate)
+    if (shipping_details) {
+      // Find the current order's shipping option
+      const currentOrderOption = shipping_option?.find(
+        (option: ShippingOption) => option.order_po === poNumber
       );
-
+      if (!currentOrderOption?.allOptions?.selectedOption
+      ) {
+        setSelectedOption(currentOrderOption.preferred_option);
+        // Store all shipping options with their corresponding order_po
+        dispatch(
+          updateCurrentOption({
+            allOptions: shipping_option.map(opt => ({
+              order_po: opt.order_po,
+              selectedOption: opt.order_po === poNumber ? currentOrderOption.preferred_option : opt.preferred_option
+            }))
+          })
+        );
+      }else {
+        setSelectedOption(currentOrderOption.allOptions.selectedOption)
+      }
     }
   }, [shipping_details, poNumber]);
 
-
-
   const handleOptionChange = useCallback(
-    (value: string) => {
+    (value: string, order: any) => {
       const option = shipping_details?.options?.find(
         (opt: ShippingOption) => `${opt.rate}-$${opt.shipping_method}` === value
       );
+      console.log("ojej", option);
+      const updateOrder = orders?.data?.find(
+        (od: any) => od.order_po == order.calculated_total.order_po
+      );
+      console.log("updateOrder", updateOrder);
+      
+      const newVal = {
+        ...updateOrder,
+        shipping_code: option?.shipping_code,
+      };
+      
+      const data = {
+        orders: [newVal],
+        accountId: customerinfo?.data?.account_id,
+      };
+      
+      dispatch(updateOrdersInfo(data));
       if (option) {
         setSelectedOption(option);
-        // Add the order_po to the option when dispatching
-        dispatch(updateCurrentOption({
-          ...option,
-          order_po: poNumber
-        }));
-        // Notify the parent about the updated shipping price
-        onShippingOptionChange(
-          poNumber,
-          option?.calculated_total
+        // Update the specific order's option in the store while maintaining others
+        dispatch(
+          updateCurrentOption({
+            allOptions: shipping_option.map(opt => ({
+              order_po: opt.order_po,
+              selectedOption: opt.order_po === poNumber ? option : opt.preferred_option
+            }))
+          })
         );
+        onShippingOptionChange(poNumber, option?.calculated_total);
       }
     },
-    [shipping_details, poNumber, onShippingOptionChange, dispatch]
+    [shipping_details, poNumber, onShippingOptionChange, dispatch, shipping_option]
   );
-console.log("prod", productchange);
+  console.log("prod", productchange);
 
-useEffect(() => {
-  if (localOrder?.order_items?.length > 0 || productchange) {
-    const orderPostDataList = {
-      order_po: localOrder.order_po,
-      order_items: localOrder.order_items.map((item: OrderItem) => ({
-        product_order_po: localOrder.order_po,
-        product_qty: item.product_qty,
-        product_sku: item.product_sku,
-        product_image: {
-          product_url_file: "https://inventory.finerworks.com/81de5dba-0300-4988-a1cb-df97dfa4e372/s173618563107067060__shutterstock_2554522269/thumbnail/200x200_s173618563107067060__shutterstock_2554522269.jpg",
-          product_url_thumbnail: "https://inventory.finerworks.com/81de5dba-0300-4988-a1cb-df97dfa4e372/s173618563107067060__shutterstock_2554522269/thumbnail/200x200_s173618563107067060__shutterstock_2554522269.jpg",
-        }
-      })),
-    };
+  useEffect(() => {
+    if ((localOrder?.order_items?.length > 0 || productchange) && !currentOption) {
+      console.log("firedddd", currentOption)
+      const orderPostDataList = {
+        order_po: localOrder.order_po,
+        order_items: localOrder.order_items.map((item: OrderItem) => ({
+          product_order_po: localOrder.order_po,
+          product_qty: item.product_qty,
+          product_sku: item.product_sku,
+          product_image: {
+            product_url_file:
+              "https://inventory.finerworks.com/81de5dba-0300-4988-a1cb-df97dfa4e372/s173618563107067060__shutterstock_2554522269/thumbnail/200x200_s173618563107067060__shutterstock_2554522269.jpg",
+            product_url_thumbnail:
+              "https://inventory.finerworks.com/81de5dba-0300-4988-a1cb-df97dfa4e372/s173618563107067060__shutterstock_2554522269/thumbnail/200x200_s173618563107067060__shutterstock_2554522269.jpg",
+          },
+        })),
+      };
 
-    console.log("Product changed, refetching shipping options");
-    dispatch(fetchShippingOption([orderPostDataList]));
-  }
-}, [localOrder, productchange, dispatch]);
-
-useEffect(() => {
-  if (productchange) {
-    if (shipping_details?.preferred_option) {
-      setSelectedOption(shipping_details.preferred_option);
-      // Update current option in store with order_po
-      dispatch(updateCurrentOption({
-        ...shipping_details.preferred_option,
-        order_po: poNumber
-      }));
-    } else if (currentOption?.order_po === poNumber) {
-      // Only update if the current option is for this order
-      setSelectedOption(
-        shipping_details?.options.find(
-          (opt: ShippingOption) => opt.rate === currentOption.rate
-        )
-      );
+      console.log("Product changed, refetching shipping options");
+      dispatch(fetchShippingOption([orderPostDataList]));
     }
-  }
-}, [shipping_details, currentOption, productchange, poNumber, dispatch]);
-console.log("shipping_details", shipping_details);
+  }, [localOrder, productchange, dispatch]);
+
+  useEffect(() => {
+    if (productchange) {
+      if (shipping_details?.preferred_option) {
+        setSelectedOption(shipping_details.preferred_option);
+        // Update current option in store with order_po
+        dispatch(
+          updateCurrentOption({
+            ...shipping_details.preferred_option,
+            order_po: poNumber,
+          })
+        );
+      } else if (currentOption?.order_po === poNumber) {
+        // Only update if the current option is for this order
+        setSelectedOption(
+          shipping_details?.options.find(
+            (opt: ShippingOption) => opt.rate === currentOption.rate
+          )
+        );
+      }
+    }
+  }, [shipping_details, currentOption, productchange, poNumber, dispatch]);
+  console.log("shipping_details", shipping_details);
 
   if (!shipping_details || clicking) {
     return (
@@ -161,8 +197,8 @@ console.log("shipping_details", shipping_details);
   const shipping = selectedOption?.calculated_total?.order_shipping_rate || 0;
   const salesTax = selectedOption?.calculated_total?.order_sales_tax || 0;
   const grandTotal = selectedOption?.calculated_total?.order_grand_total || 0;
-  const accountCredit = selectedOption?.calculated_total?.order_credits_used || 0;
-
+  const accountCredit =
+    selectedOption?.calculated_total?.order_credits_used || 0;
   return (
     <>
       <Form
@@ -175,11 +211,13 @@ console.log("shipping_details", shipping_details);
           <div className="relative w-full text-gray-500">
             <Select
               className="w-full"
-              showSearch={false} 
+              showSearch={false}
               placeholder="Select Shipping Method"
               optionFilterProp="children"
-              onChange={handleOptionChange}
-              dropdownStyle={{ touchAction: 'manipulation' }}
+              onChange={(value: string, order: any) =>
+                handleOptionChange(value, selectedOption)
+              }
+              dropdownStyle={{ touchAction: "manipulation" }}
               getPopupContainer={(trigger) => trigger.parentNode}
               listHeight={250}
               dropdownMatchSelectWidth={false}
@@ -188,10 +226,12 @@ console.log("shipping_details", shipping_details);
                   ? `${selectedOption.rate}-$${selectedOption.shipping_method}`
                   : undefined
               }
-              options={shipping_details?.options?.map((option: ShippingOption) => ({
-                value: `${option.rate}-$${option.shipping_method}`,
-                label: `${option.shipping_method} - $${option.rate}`,
-              }))}
+              options={shipping_details?.options?.map(
+                (option: ShippingOption) => ({
+                  value: `${option.rate}-$${option.shipping_method}`,
+                  label: `${option.shipping_method} - $${option.rate}`,
+                })
+              )}
             />
             <label htmlFor="shipping_method" className="fw-label">
               Shipping Method
@@ -207,13 +247,8 @@ console.log("shipping_details", shipping_details);
       <div className="w-full text-sm">Sales Tax: ${salesTax.toFixed(2)}</div>
       <div className="w-full text-sm">GrandTotal: ${grandTotal}</div>
       {/* <div className="w-full text-sm text-amber-500">Account Credit: ${accountCredit}</div> */}
-      
-
     </>
   );
 };
 
 export default SelectShippingOption;
-
-
-

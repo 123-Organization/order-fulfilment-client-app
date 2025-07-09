@@ -10,7 +10,6 @@ import SelectShippingOption from "../components/SelectShippingOption";
 import { setCurrentOrderFullFillmentId, updateCheckedOrders, updateValidSKU } from "../store/features/orderSlice";
 import {
   updateOrderStatus,
-  updateOrdersInfo,
   fetchOrder,
   fetchSingleOrderDetails,
 } from "../store/features/orderSlice";
@@ -27,7 +26,7 @@ import { Flex, Spin } from "antd";
 import { setQuantityUpdated } from "../store/features/productSlice";
 import convertUsStateAbbrAndName from "../services/state";
 import NewProduct from "../components/NewProduct";
-
+import { updateOrdersInfo } from "../store/features/orderSlice";
 
 import Quantity from "../components/Quantitiy";
 
