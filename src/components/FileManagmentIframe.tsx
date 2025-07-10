@@ -58,7 +58,7 @@ export default function FileManagementIframe({ iframe, setIframe }) {
       dispatch(setProductData(data)); 
     }
   }
-  }, [SelectedImage]);
+  }, [SelectedImage,iframeState]);
   
   useEffect(() => {
     setIframeLink("https://prod1-filemanger-app.finerworks.com/#/thumbnail");

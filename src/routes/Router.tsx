@@ -58,9 +58,9 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     (state) => state.company.myCompanyInfoFilled
   );
 
-  if (!cookies.AccountGUID || !cookies.Session) {
+  if (!cookies.AccountGUID ) {
     // Redirect to landing page if cookies don't exist
-    dispatch(clearCustomerInfo());
+    // dispatch(clearCustomerInfo());
     window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`
     return 
   }

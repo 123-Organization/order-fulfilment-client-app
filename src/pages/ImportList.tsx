@@ -505,6 +505,10 @@ const ImportList: React.FC = () => {
     dispatch(updateCheckedOrders(updatedOrders));
   };
 
+  const hasInvalidSKUs = (orderItems: any[]) => {
+    return orderItems?.some(item => !validSKUs.includes(item.product_sku?.toString()));
+  };
+
   // Function to show modal with full description
   const showFullDescription = (
     title: string,
@@ -908,18 +912,35 @@ const ImportList: React.FC = () => {
                       )}
                     </li>
                     <li>
-                      <label className="h-[220px] inline-flex  justify-between w-full p-5 text-gray-500 bg-white border-21 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700">
-                        <div className="block w-full">
+                      <label className={`h-[220px] inline-flex justify-between w-full p-5 text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700 ${hasInvalidSKUs(order?.order_items) ? 'opacity-50 pointer-events-none' : ''}`}>
+                        <div className="block w-full relative">
                           {order?.order_items.length > 0 ? (
-                            <SelectShippingOption
-                              poNumber={order?.order_po.toString()}
-                              orderItems={order?.order_items}
-                              onShippingOptionChange={
-                                handleShippingOptionChange
-                              }
-                            />
+                            hasInvalidSKUs(order?.order_items) ? (
+                              <div className="flex flex-col items-center justify-center h-full">
+                                <img
+                                  src={locked_Shipment}
+                                  width="80"
+                                  height="80"
+                                  className="opacity-40 mb-3"
+                                  alt="Locked shipping"
+                                />
+                                <p className="text-gray-400 text-center text-sm">
+                                  Shipping options unavailable
+                                  <br />
+                                  <span className="text-xs">
+                                    Please fix invalid SKUs first
+                                  </span>
+                                </p>
+                              </div>
+                            ) : (
+                              <SelectShippingOption
+                                poNumber={order?.order_po.toString()}
+                                orderItems={order?.order_items}
+                                onShippingOptionChange={handleShippingOptionChange}
+                              />
+                            )
                           ) : (
-                            <div className="flex justify-center ">
+                            <div className="flex justify-center">
                               <img
                                 src={locked_Shipment}
                                 width="120"
