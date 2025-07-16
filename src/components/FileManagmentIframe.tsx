@@ -187,7 +187,7 @@ export default function FileManagementIframe({ iframe, setIframe }) {
   }, []);
 
   const handleAddProduct = () => {
-    console.log("dada", productData);
+
     if (productData?.toReplace) {
       const data = {
         ...productData,
@@ -277,9 +277,10 @@ export default function FileManagementIframe({ iframe, setIframe }) {
         className="z-50"
         onCancel={() => {
           setIframe(false);
-          setLogoUpdate(false); // Reset logoUpdate when closing
+          setLogoUpdate(false); 
+          dispatch(clearProductData())// Reset logoUpdate when closing
           dispatch(updateIframeState({ iframeState: false }));
-          dispatch(clearProductData());
+          ;
         }}
         footer={null}
       >
@@ -323,7 +324,7 @@ export default function FileManagementIframe({ iframe, setIframe }) {
               }
             }}
           />
-          {productData?.product_url_file?.length  &&
+          {productData?.product_url_file[0]?.length > 0  &&
             (location.pathname.includes("/editorder") ||
               location.pathname.includes("/importlist")) && (
               <button

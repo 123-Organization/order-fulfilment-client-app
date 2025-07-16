@@ -115,7 +115,9 @@ const ReplacingCode: React.FC<ReplacingCodeProps> = ({
         description:
           "Please choose the product image you want to add to the order.",
       });
-      onClose();
+      setTimeout(() => {
+        onClose();
+      }, 500);
     }
   };
 
