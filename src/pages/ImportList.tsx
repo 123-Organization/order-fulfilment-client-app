@@ -134,6 +134,9 @@ const ImportList: React.FC = () => {
   const replaceCodeResult = useAppSelector(
     (state) => state.order.replaceCodeResult
   );
+  const currentOption = useAppSelector(
+    (state) => state.Shipping.currentOption
+  );
   console.log("replaceCodeResult", replaceCodeResult);
   console.log("excludedOrders", excludedOrders);
   const navigate = useNavigate();
@@ -365,11 +368,12 @@ const ImportList: React.FC = () => {
   }, [deleteOrderStatus, notificationApi, dispatch]);
 
   const getShippingPrice = (order_po) => {
-    const shippingForOrder = shipping_option.find(
+    const shippingForOrder = currentOption?.allOptions?.find(
       (option) => option.order_po == order_po
     );
-    if (shippingForOrder && shippingForOrder.options.length) {
-      const selectedOption = shippingForOrder?.preferred_option;
+    console.log("shippingForOrder", shippingForOrder);
+    if (shippingForOrder ) {
+      const selectedOption = shippingForOrder?.selectedOption;
       const charges = {
         grand_total: selectedOption?.calculated_total?.order_grand_total,
         credit_charge: selectedOption?.calculated_total?.order_credits_used,
@@ -447,7 +451,7 @@ const ImportList: React.FC = () => {
 
       dispatch(updateCheckedOrders(CheckedOrders));
     }
-  }, [orders?.data, productData, excludedOrders]); // Add excludedOrders to dependencies
+  }, [orders?.data, productData, excludedOrders , shipping_option]); // Add excludedOrders to dependencies
 
   const handleCheckboxChange = (e: any) => {
     const { value, checked } = e.target;

@@ -54,9 +54,9 @@ const ImportFilter: React.FC = () => {
   );
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
 
-  useEffect(()=>{
-    dispatch(fetchOrder(customerInfo?.data?.account_id))
-  },[customerInfo?.data?.account_id])
+  // useEffect(()=>{
+  //   dispatch(fetchOrder(customerInfo?.data?.account_id))
+  // },[customerInfo?.data?.account_id])
 
   const checkboxClick: CheckboxProps["onChange"] = (e) => {
     e.preventDefault();

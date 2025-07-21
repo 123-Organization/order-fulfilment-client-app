@@ -201,7 +201,9 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   message: "Success",
                   description: "Order imported successfully",
                 });
-                navigate("/importlist");
+                setTimeout(()=>{
+                  navigate("/importlist");
+                },2000)
               } else {
                 notification.warning({
                   message: "Warning",
@@ -557,6 +559,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
       dispatch(updateCompanyInfo({}));
     }
   }, []);
+  console.log("orders", orders)
 
   useEffect(() => {
     if (orders && checkedOrders) {
@@ -566,6 +569,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
         const product = orders?.data?.find(
           (product: any) => product?.order_po == order?.order_po
         );
+        console.log("product", product)
 
         if (product) {
           newTotalPrice += order.Product_price?.grand_total

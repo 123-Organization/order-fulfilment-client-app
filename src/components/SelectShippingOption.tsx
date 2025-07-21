@@ -110,11 +110,29 @@ const SelectShippingOption: React.FC<{
             }
           );
         console.log("orderCodeToShippingOption", orderCodeToShippingOption);
-        setSelectedOption(
-          orderCodeToShippingOption
-            ? orderCodeToShippingOption
-            : currentOrderOption?.selectedOption
-        );
+        const optionToSet = orderCodeToShippingOption
+          ? orderCodeToShippingOption
+          : currentOrderOption?.selectedOption;
+          
+        setSelectedOption(optionToSet);
+        
+        if(orderCodeToShippingOption && orderCodeToShippingOption?.calculated_total){
+          // Only update the current order's option in the allOptions array
+          const existingOptions = currentOption?.allOptions || [];
+          const updatedOptions = existingOptions.map((opt: StoredOption) => {
+            if (opt.order_po === poNumber) {
+              return {
+                order_po: poNumber,
+                selectedOption: orderCodeToShippingOption
+              };
+            }
+            return opt;
+          });
+          
+          dispatch(updateCurrentOption({
+            allOptions: updatedOptions
+          }));
+        }
         console.log("firsteval");
         console.log("currentOrderOption", currentOrderOption);
       } else if(!currentOrderOption?.selectedOption) {
@@ -125,21 +143,31 @@ const SelectShippingOption: React.FC<{
         );
         setSelectedOption(shippingOption);
         console.log("secondeval");
-        // console.log("sop", orders.find((order: any) => order.order_po == poNumber)?.shipping_code,)
-        // Update the store with all current shipping options
-        dispatch(
-          updateCurrentOption({
-            allOptions: shipping_option.map((opt: ShippingOption) => ({
-              order_po: opt.order_po,
-              selectedOption:
-                opt.order_po == poNumber
-                  ? shippingOption
-                  : currentOption?.allOptions?.find(
-                      (stored: StoredOption) => stored.order_po == opt.order_po
-                    )?.selectedOption,
-            })),
-          })
-        );
+        
+        // Only add THIS order's selected option to the store, don't try to manage all orders
+        if (shippingOption) {
+          const existingOptions = currentOption?.allOptions || [];
+          
+          // Check if this order already exists in the store
+          const orderExists = existingOptions.some((opt: StoredOption) => opt.order_po === poNumber);
+          
+          if (!orderExists) {
+            // Only add this order if it doesn't exist yet
+            const updatedOptions = [
+              ...existingOptions,
+              {
+                order_po: poNumber,
+                selectedOption: shippingOption
+              }
+            ];
+            
+            dispatch(
+              updateCurrentOption({
+                allOptions: updatedOptions
+              })
+            );
+          }
+        }
       }
     }
   }, [
@@ -164,35 +192,44 @@ const SelectShippingOption: React.FC<{
         const existingOptions = currentOption?.allOptions || [];
         console.log("existingOptions", existingOptions);
         
-        // Create updated options array
-        const updatedOptions = existingOptions.map((opt: StoredOption) => {
-          if (opt.order_po === poNumber) {
-            // Update the matching order with latest shipping option
-            return {
+        // Check if this order already exists and if the option has changed
+        const existingOrderOption = existingOptions.find((opt: StoredOption) => opt.order_po === poNumber);
+        const hasChanged = !existingOrderOption || 
+          JSON.stringify(existingOrderOption.selectedOption) !== JSON.stringify(currentShippingOption);
+        
+        if (hasChanged) {
+          // Create updated options array
+          const updatedOptions = existingOptions.map((opt: StoredOption) => {
+            if (opt.order_po === poNumber) {
+              // Update the matching order with latest shipping option
+              return {
+                order_po: poNumber,
+                selectedOption: currentShippingOption
+              };
+            }
+            return opt;
+          });
+
+          // If order not found in existing options, add it
+          if (!existingOptions.some((opt: StoredOption) => opt.order_po === poNumber)) {
+            updatedOptions.push({
               order_po: poNumber,
               selectedOption: currentShippingOption
-            };
+            });
           }
-          return opt;
-        });
 
-        // If order not found in existing options, add it
-        if (!existingOptions.some((opt: StoredOption) => opt.order_po === poNumber)) {
-          updatedOptions.push({
-            order_po: poNumber,
-            selectedOption: currentShippingOption
-          });
+          // Update the store only if changed
+          dispatch(
+            updateCurrentOption({
+              allOptions: updatedOptions
+            })
+          );
+
+          // Update selected option state only if different
+          if (JSON.stringify(selectedOption) !== JSON.stringify(currentShippingOption)) {
+            setSelectedOption(currentShippingOption);
+          }
         }
-
-        // Update the store
-        dispatch(
-          updateCurrentOption({
-            allOptions: updatedOptions
-          })
-        );
-
-        // Update selected option state
-        setSelectedOption(currentShippingOption);
       }
     }
   }, [shipping_option, poNumber, dispatch]);
@@ -233,20 +270,25 @@ const SelectShippingOption: React.FC<{
       if (option) {
         setSelectedOption(option);
 
-        // Get current options from store
-        const currentOptions =
-          currentOption?.allOptions ||
-          shipping_option.map((opt) => ({
-            order_po: opt.order_po,
-            selectedOption: opt.preferred_option,
-          }));
+        // Update only this order's option in the allOptions array
+        const existingOptions = currentOption?.allOptions || [];
+        const updatedOptions = existingOptions.map((opt: StoredOption) => {
+          if (opt.order_po === poNumber) {
+            return {
+              order_po: poNumber,
+              selectedOption: option
+            };
+          }
+          return opt;
+        });
 
-        // Update the specific order's option while preserving others
-        const updatedOptions = currentOptions.map((opt) => ({
-          order_po: opt.order_po,
-          selectedOption:
-            opt.order_po === poNumber ? option : opt.selectedOption,
-        }));
+        // If this order doesn't exist in the array yet, add it
+        if (!existingOptions.some((opt: StoredOption) => opt.order_po === poNumber)) {
+          updatedOptions.push({
+            order_po: poNumber,
+            selectedOption: option
+          });
+        }
 
         // Update store with new options
         dispatch(
