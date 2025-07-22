@@ -82,7 +82,6 @@ const SelectShippingOption: React.FC<{
   console.log("pooooo", poNumber);
   // Set initial preferred option if available
 
-
   useEffect(() => {
     if (shipping_details) {
       // Find the current order's option in the store
@@ -90,7 +89,7 @@ const SelectShippingOption: React.FC<{
         (opt: StoredOption) => opt.order_po === poNumber
       );
 
-      if (currentOrderOption?.selectedOption ) {
+      if (currentOrderOption?.selectedOption) {
         // If we have a previously selected option in the store, use that
         const orderShippingCode = orders?.data?.find(
           (order: any) => order.order_po == poNumber
@@ -100,42 +99,48 @@ const SelectShippingOption: React.FC<{
         const orderCodeToShippingOption =
           currentOrderOption?.selectedOption?.options?.find(
             (option: ShippingOption) => {
-              if(currentOrderOption?.selectedOption?.options?.length > 1){
+              if (currentOrderOption?.selectedOption?.options?.length > 1) {
                 console.log("option", option);
                 return option.shipping_code == orderShippingCode
-              }else{
-                return option
+                  ? option.shipping_code == orderShippingCode
+                  : option.shipping_class_code == orderShippingCode;
+              } else {
+                return option;
               }
-              
             }
           );
         console.log("orderCodeToShippingOption", orderCodeToShippingOption);
         const optionToSet = orderCodeToShippingOption
           ? orderCodeToShippingOption
           : currentOrderOption?.selectedOption;
-          
+
         setSelectedOption(optionToSet);
-        
-        if(orderCodeToShippingOption && orderCodeToShippingOption?.calculated_total){
+
+        if (
+          orderCodeToShippingOption &&
+          orderCodeToShippingOption?.calculated_total
+        ) {
           // Only update the current order's option in the allOptions array
           const existingOptions = currentOption?.allOptions || [];
           const updatedOptions = existingOptions.map((opt: StoredOption) => {
             if (opt.order_po === poNumber) {
               return {
                 order_po: poNumber,
-                selectedOption: orderCodeToShippingOption
+                selectedOption: orderCodeToShippingOption,
               };
             }
             return opt;
           });
-          
-          dispatch(updateCurrentOption({
-            allOptions: updatedOptions
-          }));
+
+          dispatch(
+            updateCurrentOption({
+              allOptions: updatedOptions,
+            })
+          );
         }
         console.log("firsteval");
         console.log("currentOrderOption", currentOrderOption);
-      } else if(!currentOrderOption?.selectedOption) {
+      } else if (!currentOrderOption?.selectedOption) {
         // If no previously selected option, use the preferred option
         console.log("evava", localOrder);
         const shippingOption = shipping_option?.find(
@@ -143,27 +148,29 @@ const SelectShippingOption: React.FC<{
         );
         setSelectedOption(shippingOption);
         console.log("secondeval");
-        
+
         // Only add THIS order's selected option to the store, don't try to manage all orders
         if (shippingOption) {
           const existingOptions = currentOption?.allOptions || [];
-          
+
           // Check if this order already exists in the store
-          const orderExists = existingOptions.some((opt: StoredOption) => opt.order_po === poNumber);
-          
+          const orderExists = existingOptions.some(
+            (opt: StoredOption) => opt.order_po === poNumber
+          );
+
           if (!orderExists) {
             // Only add this order if it doesn't exist yet
             const updatedOptions = [
               ...existingOptions,
               {
                 order_po: poNumber,
-                selectedOption: shippingOption
-              }
+                selectedOption: shippingOption,
+              },
             ];
-            
+
             dispatch(
               updateCurrentOption({
-                allOptions: updatedOptions
+                allOptions: updatedOptions,
               })
             );
           }
@@ -191,12 +198,16 @@ const SelectShippingOption: React.FC<{
         // Get existing options or initialize
         const existingOptions = currentOption?.allOptions || [];
         console.log("existingOptions", existingOptions);
-        
+
         // Check if this order already exists and if the option has changed
-        const existingOrderOption = existingOptions.find((opt: StoredOption) => opt.order_po === poNumber);
-        const hasChanged = !existingOrderOption || 
-          JSON.stringify(existingOrderOption.selectedOption) !== JSON.stringify(currentShippingOption);
-        
+        const existingOrderOption = existingOptions.find(
+          (opt: StoredOption) => opt.order_po === poNumber
+        );
+        const hasChanged =
+          !existingOrderOption ||
+          JSON.stringify(existingOrderOption.selectedOption) !==
+            JSON.stringify(currentShippingOption);
+
         if (hasChanged) {
           // Create updated options array
           const updatedOptions = existingOptions.map((opt: StoredOption) => {
@@ -204,36 +215,42 @@ const SelectShippingOption: React.FC<{
               // Update the matching order with latest shipping option
               return {
                 order_po: poNumber,
-                selectedOption: currentShippingOption
+                selectedOption: currentShippingOption,
               };
             }
             return opt;
           });
 
           // If order not found in existing options, add it
-          if (!existingOptions.some((opt: StoredOption) => opt.order_po === poNumber)) {
+          if (
+            !existingOptions.some(
+              (opt: StoredOption) => opt.order_po === poNumber
+            )
+          ) {
             updatedOptions.push({
               order_po: poNumber,
-              selectedOption: currentShippingOption
+              selectedOption: currentShippingOption,
             });
           }
 
           // Update the store only if changed
           dispatch(
             updateCurrentOption({
-              allOptions: updatedOptions
+              allOptions: updatedOptions,
             })
           );
 
           // Update selected option state only if different
-          if (JSON.stringify(selectedOption) !== JSON.stringify(currentShippingOption)) {
+          if (
+            JSON.stringify(selectedOption) !==
+            JSON.stringify(currentShippingOption)
+          ) {
             setSelectedOption(currentShippingOption);
           }
         }
       }
     }
   }, [shipping_option, poNumber, dispatch]);
-
 
   const handleOptionChange = useCallback(
     (value: string, order: any) => {
@@ -276,17 +293,21 @@ const SelectShippingOption: React.FC<{
           if (opt.order_po === poNumber) {
             return {
               order_po: poNumber,
-              selectedOption: option
+              selectedOption: option,
             };
           }
           return opt;
         });
 
         // If this order doesn't exist in the array yet, add it
-        if (!existingOptions.some((opt: StoredOption) => opt.order_po === poNumber)) {
+        if (
+          !existingOptions.some(
+            (opt: StoredOption) => opt.order_po === poNumber
+          )
+        ) {
           updatedOptions.push({
             order_po: poNumber,
-            selectedOption: option
+            selectedOption: option,
           });
         }
 
@@ -311,12 +332,9 @@ const SelectShippingOption: React.FC<{
     ]
   );
   console.log("productchange", productchange);
- 
 
   useEffect(() => {
-    if (
-      (localOrder?.order_items?.length > 0 || productchange ) 
-    ) {
+    if (localOrder?.order_items?.length > 0 || productchange) {
       console.log("firedddd", currentOption);
       const orderPostDataList = {
         order_po: localOrder.order_po,
