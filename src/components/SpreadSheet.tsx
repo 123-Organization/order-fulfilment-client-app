@@ -199,16 +199,38 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
       });
     }
 
+    // Find the index of ship_country_code for conditional validation
+    const countryCodeIndex = headers.indexOf("ship_country_code");
+
     // Validate data rows
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
       headers.forEach((header, columnIndex) => {
         if (requiredFields.includes(header) && !row[columnIndex]) {
-          errors.push({
-            row: i,
-            column: header,
-            message: `Missing required value for ${header}`,
-          });
+          // Special case for ship_state_code: only required if country is US
+          if (header === "ship_state_code") {
+            const countryCode = countryCodeIndex >= 0 ? row[countryCodeIndex] : "";
+            const isUSCountry = countryCode && 
+              (countryCode.toString().toLowerCase() === "us" || 
+               countryCode.toString().toLowerCase() === "usa" ||
+               countryCode.toString().toLowerCase() === "united states");
+            
+            // Only add error if country is US and state code is missing
+            if (isUSCountry) {
+              errors.push({
+                row: i,
+                column: header,
+                message: `Missing required value for ${header} (required for US addresses)`,
+              });
+            }
+          } else {
+            // For all other required fields, validate normally
+            errors.push({
+              row: i,
+              column: header,
+              message: `Missing required value for ${header}`,
+            });
+          }
         }
       });
     }
@@ -538,50 +560,3 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
     </Modal>
   );
 }
-
-// Add this CSS to your global styles or module CSS
-const styles = `
-.custom-hot-table .handsontable {
-  font-size: 14px;
-}
-
-.custom-hot-table .handsontable .custom-header {
-  background: #f0f2f5;
-  font-weight: 600;
-  text-align: center;
-}
-
-.custom-hot-table .handsontable td {
-  padding: 8px 4px;
-}
-
-.custom-modal .ant-modal-content {
-  padding: 0;
-}
-
-.custom-modal .ant-modal-header {
-  padding: 16px 24px;
-  border-bottom: 1px solid #f0f2f5;
-  margin-bottom: 0;
-}
-
-.custom-modal .ant-modal-body {
-  padding: 24px;
-}
-
-.custom-modal .ant-steps-item-title {
-  font-weight: 500;
-}
-
-${style.fileInput} {
-  padding: 8px;
-  border: 1px solid #d9d9d9;
-  border-radius: 6px;
-  background: white;
-  cursor: pointer;
-}
-
-${style.fileInput}:hover {
-  border-color: #1890ff;
-}
-`;
