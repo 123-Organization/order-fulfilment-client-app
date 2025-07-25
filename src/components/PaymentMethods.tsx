@@ -129,7 +129,7 @@ export default function PaymentMethods(remainingTotal: any = 0) {
         <></>
       ) : (
         <div className=" ">
-          <p className="w-full text-center pt-4">
+        { !isLoading && <p className="w-full text-center pt-4">
             <Button
               key="submit"
               className="max-md:w-6/12 w-[170px] md:mx-8 mt-2 text-gray-500 button-animation-secondary"
@@ -139,7 +139,7 @@ export default function PaymentMethods(remainingTotal: any = 0) {
             >
               Remove selected
             </Button>
-          </p>
+          </p>}
 
           <p className=" w-full text-center pt-2">
             <Button

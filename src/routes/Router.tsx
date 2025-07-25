@@ -107,7 +107,7 @@ console.log("islu", appLunched)
 
   if (!cookies.AccountGUID || !cookies.Session) {
     // Redirect to landing page if cookies don't exist
-    dispatch(clearCustomerInfo());
+    // dispatch(clearCustomerInfo());
     window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`
     return
   }
