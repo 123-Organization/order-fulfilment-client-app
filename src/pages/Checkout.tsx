@@ -25,6 +25,7 @@ const Checkout: React.FC = () => {
   const [value, setValue] = useState(1);
   const [paymentPopupEnable, setPaymentPopupEnable] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const submitStatus = useAppSelector((state) => state.order.submitStatus);
 
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
@@ -52,12 +53,12 @@ const Checkout: React.FC = () => {
   }, [checkedOrders, credit]);
 
   useEffect(() => {
-    if (paymentStatus === "loading") {
+    if (submitStatus === "loading") {
       setIsLoading(true);
     } else {
       setIsLoading(false);
     }
-  }, [paymentStatus]);
+  }, [submitStatus]);
 
   const onChangePaymentMethod = (e: RadioChangeEvent) => {
     setValue(e.target.value);

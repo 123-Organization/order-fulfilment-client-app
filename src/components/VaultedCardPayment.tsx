@@ -11,7 +11,7 @@ import {
 import { resetPaymentStatus } from "../store/features/paymentSlice";
 import style from "../pages/Pgaes.module.css";
 import { useNavigate } from "react-router-dom";
-import { updateCheckedOrders } from "../store/features/orderSlice";
+import { submitOrders,updateCheckedOrders, resetSubmitStatus } from "../store/features/orderSlice";
 import LoadingOverlay from "./LoadingOverlay";
 import { updateSubmitedOrders } from "../store/features/orderSlice";
 
@@ -31,6 +31,7 @@ export default function VaultedCardPayment({
   const [isLoading, setIsLoading] = useState(false);
   const [isTokenLoading, setIsTokenLoading] = useState(false);
   const [isPayButtonDisabled, setIsPayButtonDisabled] = useState(false);
+  const orders = useAppSelector((state) => state.order.orders);
   
   const payment_profile_id = companyInfo?.data?.payment_profile_id;
   const notificationApi = useNotificationContext();
@@ -42,8 +43,11 @@ export default function VaultedCardPayment({
   const tokenRetryCount = useRef(0);
   const maxRetries = 3;
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
+  const submitStatus = useAppSelector((state) => state.order.submitStatus);
   console.log("selectedCard",selectedCard);
   // Track token loading state
+
+
   useEffect(() => {
     if (paymentTokenStatus === "loading") {
       setIsTokenLoading(true);
@@ -96,7 +100,7 @@ export default function VaultedCardPayment({
           paymentProfileId: companyInfo.data.payment_profile_id,
         })
       );
-      dispatch(resetPaymentStatus());
+      dispatch(resetSubmitStatus());
     }
   }, [companyInfo, Card, dispatch]);
 
@@ -130,13 +134,45 @@ export default function VaultedCardPayment({
 
     notificationShownRef.current = false;
     setIsLoading(true);
+    const submittedOrders = checkedOrders?.map((order: any) => {
+      const orderToSubmit = orders?.data?.filter((o: any) => o.order_po === order.order_po);
+        return orderToSubmit;
+      
+    }).flat();
+    console.log("submittedOrders",submittedOrders);
+  const editedSubmittedOrders = submittedOrders.map((order: any) => {
+    return {
+      ...order,
+      order_items: order.order_items.map((item: any) => {
+        if(!item.product_sku.startsWith("AP")) {
+          return {
+            product_qty :item.product_qty ,
+            product_sku: item.product_sku,
+            product_cropping: item.product_cropping,
+            product_guid : item.product_guid,
+           product_image: {
+            pixel_width: 600,
+            pixel_height: 600,
+            product_url_file: item?.product_url_thumbnail,
+            product_url_thumbnail: item?.product_url_thumbnail,
+           }
+          }
+        }
+        return item;
+      })
+    }
+  })
+  console.log("editedSubmittedOrders",editedSubmittedOrders);
+    const payload = {
+      validate_only: false,
+      orders: [...editedSubmittedOrders],
+      account_key : companyInfo?.data?.account_key,
+      accountId: companyInfo?.data?.account_id,
+      payment_token: token?.token,
+    }
 
     dispatch(
-      processVaultedPayment({
-        paymentToken: token.token, 
-        amount: Amount,
-        customerId: companyInfo?.data?.payment_profile_id,
-      })
+      submitOrders(payload)   
     );
     
     dispatch(updateSubmitedOrders(checkedOrders));
@@ -148,16 +184,16 @@ export default function VaultedCardPayment({
   useEffect(() => {
     // Only show notification if we haven't shown it already for this status
     if (!notificationShownRef.current) {
-      if (paymentStatus === "succeeded") {
+      if (submitStatus === "succeeded") {
         setIsLoading(false);
         notificationApi.success({
           message: "Payment Successful",
           description: "Payment has been successfully processed.",
         });
-        dispatch(resetPaymentStatus());
+        dispatch(resetSubmitStatus());
         dispatch(updateCheckedOrders([] as any));
         notificationShownRef.current = true;
-      } else if (paymentStatus === "failed") {
+      } else if (submitStatus === "failed") {
         setIsLoading(false);
         notificationApi.error({
           message: "Payment Failed",
@@ -166,7 +202,7 @@ export default function VaultedCardPayment({
         notificationShownRef.current = true;
       }
     }
-  }, [paymentStatus, dispatch, notificationApi]);
+  }, [submitStatus, dispatch, notificationApi]);
 
 
   return (

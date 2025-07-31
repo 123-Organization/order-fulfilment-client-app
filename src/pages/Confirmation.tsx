@@ -5,7 +5,7 @@ import style from "./Pgaes.module.css";
 import { Steps } from "antd";
 import { useNavigate } from "react-router-dom";
 import { updateCheckedOrders, resetImport, DeleteAllOrders } from "../store/features/orderSlice";
-import { resetPaymentStatus } from "../store/features/paymentSlice";
+import { resetSubmitStatus } from "../store/features/orderSlice";
 import { InfoCircleOutlined } from "@ant-design/icons";
 import { resetExcludedOrders } from "../store/features/orderSlice";
 
@@ -33,7 +33,7 @@ export default function Confirmation() {
   );
   
   const dispatch = useAppDispatch();
-  const paymentStatus = useAppSelector((state) => state.Payment.status);
+  const submitStatus = useAppSelector((state) => state.order.submitStatus);
   const [confirmation, setConfirmation] = useState({first:"Finished", second:"Finished"});
   const [step , setStep] = useState(3);
   const [stepStatus, setStepStatus] = useState<"error" | "finish" | "wait" | "process" | undefined>("finish");
@@ -56,14 +56,14 @@ export default function Confirmation() {
   console.log("submitedOrders", submitedOrders);
  
   useEffect(() => {
-    if (paymentStatus === "succeeded") {
+    if (submitStatus === "succeeded") {
       setIsLoading(false);
       dispatch(updateCheckedOrders([] as any));
-      dispatch(resetPaymentStatus());
+      dispatch(resetSubmitStatus());
       dispatch(resetImport());
       dispatch(DeleteAllOrders({accountId: customerInfo?.data?.account_id}));
       dispatch(resetExcludedOrders());
-    } else if (paymentStatus === "failed") {
+    } else if (submitStatus === "failed") {
       setIsLoading(true);
       setIcon("error");
       setTitle("Transaction Failed");
@@ -72,7 +72,7 @@ export default function Confirmation() {
       setStep(1)
       setStepStatus("error")
     }
-  }, [paymentStatus]);
+  }, [submitStatus]);
 
   const description = "Select the orders";
   const step2_description = "Make A payment";
@@ -86,7 +86,7 @@ export default function Confirmation() {
       // sessionStorage.setItem('confirmationVisited', 'true');
       // Use replace to prevent back button from working
       navigate("/", { replace: true });
-      dispatch(resetPaymentStatus());
+      dispatch(resetSubmitStatus());
     }
   }
   
@@ -136,8 +136,8 @@ export default function Confirmation() {
           title={title}
           subTitle={
             <div className="flex items-center justify-center">
-              <span>Order number: {displayedOrders}</span>
-              {hasMoreOrders && (
+              <span>Order number: {confirmation.first === "Finished" ? displayedOrders : "N/A"}</span>
+              {hasMoreOrders &&confirmation.first === "Finished" && (
                 <Tooltip 
                   title={
                     <div>
@@ -161,7 +161,7 @@ export default function Confirmation() {
                   </Badge>
                 </Tooltip>
               )}
-              <span className="ml-1">- Confirmation takes 1-10 seconds</span>
+              {confirmation.first === "Finished" ?  <span className="ml-1">- Confirmation takes 1-10 seconds</span> : <span className="ml-1">- Payment Failed. Please try again.</span>}
             </div>
           }
           className=""
