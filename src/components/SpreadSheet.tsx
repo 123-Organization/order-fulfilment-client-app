@@ -284,7 +284,7 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
           ],
           order_status: "Processing",
           shipping_code: order.shipping_code,
-          test_mode: true,
+          test_mode: false,
         };
       });
       

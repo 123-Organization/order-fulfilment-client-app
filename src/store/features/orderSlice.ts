@@ -352,7 +352,7 @@ export const DeleteAllOrders = createAsyncThunk(
 );
 
 export const UploadOrdersExcel = createAsyncThunk("order/upload", async (postdata: any, thunkAPI) => {
-  const response = await fetch("https://a54pbrbqr7.execute-api.us-east-1.amazonaws.com/Prod/api/upload-orders-from-excel", {
+  const response = await fetch(BASE_URL + "upload-orders-from-excel", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
