@@ -657,9 +657,25 @@ const Landing: React.FC = (): JSX.Element => {
 
   useEffect(() => {
     if (companyInfo?.connections?.length) {
-      let obj = find(companyInfo.connections, { name: "WooCommerce" });
-      if (obj?.name) {
-        setOpenBtnConnected(true);
+      console.log("cococ", companyInfo.connections);
+      const connection = companyInfo.connections[0];
+      
+      if (connection?.data) {
+        try {
+          // Parse the JSON string from the data field
+          const parsedData = JSON.parse(connection.data);
+          console.log("parsedData", parsedData);
+          
+          // Check the isConnected property and set the button state accordingly
+          if (parsedData.isConnected === true) {
+            setOpenBtnConnected(true);
+          } else {
+            setOpenBtnConnected(false);
+          }
+        } catch (error) {
+          console.error("Error parsing connection data:", error);
+          setOpenBtnConnected(false);
+        }
       }
     }
   }, [companyInfo]);
@@ -670,11 +686,15 @@ const Landing: React.FC = (): JSX.Element => {
         className="w-full mt-8 md:mt-0 md:p-2 flex flex-col items-center "
         onClick={() => importData(image.name)}
       >
-        {image.name === "WooCommerce" && openBtnConnected && (
+        {image.name === "WooCommerce" && openBtnConnected ?(
           <Tag className="absolute ml-12 -mt-3" color="#52c41a">
             Connected
           </Tag>
-        )}
+        ): image.name === "WooCommerce" && !openBtnConnected ?(
+          <Tag className="absolute ml-12 -mt-3 bg-red-500 text-white " >
+            Disconnected
+          </Tag>
+        ): null}
         <img
           className={`block h-[100px] w-[100px] border-2 cursor-pointer rounded-lg object-cover object-center ${
             image.name === "WooCommerce" || image.name === "Excel"
