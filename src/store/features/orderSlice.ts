@@ -305,7 +305,8 @@ export const fetchWporder = createAsyncThunk(
   async (postData: any, thunkAPI) => {
     const sendData = {
       "orderIds": Array.isArray(postData?.orderId) ? postData?.orderId : [postData?.orderId],
-      "accountId": postData?.accountId
+      "accountId": postData?.accountId,
+      "domainName": postData?.domainName
     }
     console.log('Sending to API for fetchWporder:', sendData, 'platformName:', postData.platformName);
     try {

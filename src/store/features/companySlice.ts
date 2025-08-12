@@ -8,6 +8,7 @@ interface CompanyState {
         myBillingInfoFilled: any;
         iframeState: any;
         companyinfoStatus: any;
+        wordpress_connection_id: any;
 
 }
 
@@ -17,6 +18,7 @@ const initialState: CompanyState = {
         myBillingInfoFilled: {},
         iframeState: false,
         companyinfoStatus: "idle",
+        wordpress_connection_id: null,
 };
 
 const getCookie = (name: string) => {
@@ -78,6 +80,9 @@ export const Company = createSlice({
                 },
                 updateIframeState: (state, action: PayloadAction) => {
                         state.iframeState = action.payload;
+                },
+                updateWordpressConnectionId: (state, action: PayloadAction<any>) => {
+                        state.wordpress_connection_id = action.payload;
                 }
         },
         extraReducers: (builder) => {
@@ -96,5 +101,5 @@ export const Company = createSlice({
         },
 });
 
-export const { updateCompany, updateBilling, updateIframeState } = Company.actions;
+export const { updateCompany, updateBilling, updateIframeState, updateWordpressConnectionId } = Company.actions;
 

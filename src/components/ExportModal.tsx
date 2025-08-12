@@ -53,6 +53,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
   const exportResponse = useAppSelector(
     (state) => state.Inventory.exportResponse
   );
+  const wordpressConnectionId = useAppSelector((state) => state.company.wordpress_connection_id);
 
   console.log("exportResponse", exportResponse);
 
@@ -102,7 +103,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
       }
   
       // If no products have been exported, proceed with the export
-      await dispatch(exportOrders({ data: inventorySelection }));
+      await dispatch(exportOrders({ data: inventorySelection, domainName: wordpressConnectionId }));
       dispatch(resetStatus())
     }
     else if(imgname === "WooCommerce" && connected === "Disconnected"){

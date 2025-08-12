@@ -18,6 +18,7 @@ import { useNotificationContext } from "../context/NotificationContext";
 import { updateApp, UploadOrdersExcel } from "../store/features/orderSlice";
 import { resetStatus } from "../store/features/ecommerceSlice";
 import { updateOpenSheet } from "../store/features/orderSlice";
+import { updateWordpressConnectionId } from "../store/features/companySlice";
 // import { connectAdvanced } from "react-redux";
 import { find } from "lodash";
 import SpreadSheet from "../components/SpreadSheet";
@@ -659,7 +660,10 @@ const Landing: React.FC = (): JSX.Element => {
     if (companyInfo?.connections?.length) {
       console.log("cococ", companyInfo.connections);
       const connection = companyInfo.connections[0];
-      
+      let connectionId = connection?.id;
+      connectionId = connectionId.split("?")[0];
+      console.log("connectionId", connectionId);
+      dispatch(updateWordpressConnectionId(connectionId));
       if (connection?.data) {
         try {
           // Parse the JSON string from the data field

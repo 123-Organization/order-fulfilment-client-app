@@ -128,11 +128,11 @@ export const getInventoryImages = createAsyncThunk(
 //export orders from virtual inv https://v59dq0jx2e.execute-api.us-east-1.amazonaws.com/Prod/api/export-to-woocommerce
 export const exportOrders = createAsyncThunk(
         "export/orders",
-        async (args: { data: any }, thunkAPI: any) => {
+        async (args: { data: any, domainName: string }, thunkAPI: any) => {
                 const state = await thunkAPI.getState() as any;
                 args.data = {
 
-                        "domainName": "artsafenet.com",
+                        "domainName": args.domainName,
                         "auth_code": "f8df5ecd-6c85-4d2c-a402-676b0556c156",
                         "productsList": args.data
                 }

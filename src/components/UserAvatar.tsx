@@ -30,6 +30,7 @@ export default function UserAvatar() {
   const notificationApi = useNotificationContext();
   const companyInfo = useAppSelector((state) => state.company.company_info);
   console.log("ecommerceDisconnectInfo", ecommerceDisconnectInfo);
+  const wordpressConnectionId = useAppSelector((state) => state.company.wordpress_connection_id);
 
   const showDisconnectModal = () => {
     setIsModalOpen(true);
@@ -45,7 +46,8 @@ export default function UserAvatar() {
   const handleDisconnectConfirm = () => {
     dispatch(disconnectEcommerce({
       client_id: cookies.AccountGUID,
-      platformName: "woocommerce"
+      platformName: "woocommerce",
+      domainName: wordpressConnectionId
     }));
     // dispatch(updateCompanyInfo({
     //   connections:[

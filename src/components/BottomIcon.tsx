@@ -50,6 +50,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
 
   const orderEdited = useAppSelector((state) => state.order.orderEdited);
+  const wordpressConnectionId = useAppSelector((state) => state.company.wordpress_connection_id);
 
   const recipientStatus = useAppSelector(
     (state) => state.order.recipientStatus
@@ -176,6 +177,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                 orderId: orderIds,
                 platformName: "woocommerce",
                 accountId: customerInfo?.data?.account_id,
+                domainName: wordpressConnectionId
               })
             );
 
