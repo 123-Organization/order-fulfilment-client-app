@@ -26,6 +26,13 @@ const shippingPersistConfig = {
   whitelist: ['shippingOptions', 'currentOption',],
 };
 
+// Create a persist configuration for the company slice
+const companyPersistConfig = {
+  key: 'company',
+  storage,
+  whitelist: ['connectionVerificationStatus', 'hasVerifiedConnection', 'wordpress_connection_id'],
+};
+
 // Create a persist configuration for the root
 const rootPersistConfig = {
   key: 'root',
@@ -36,11 +43,12 @@ const rootPersistConfig = {
 // Apply the nested persist config to the order slice
 const persistedOrderReducer = persistReducer(orderPersistConfig, OrderSlice.reducer);
 const persistedShippingReducer = persistReducer(shippingPersistConfig, ShippingSlice.reducer);
+const persistedCompanyReducer = persistReducer(companyPersistConfig, Company.reducer);
 
 // Combine your reducers with the persisted order reducer
 const rootReducer = combineReducers({
   order: persistedOrderReducer,
-  company: Company.reducer,
+  company: persistedCompanyReducer,
   ProductSlice: ProductSlice.reducer,
   Ecommerce: EcommerceSlice.reducer,
   Payment: PaymentSlice.reducer,

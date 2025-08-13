@@ -9,7 +9,8 @@ interface CompanyState {
         iframeState: any;
         companyinfoStatus: any;
         wordpress_connection_id: any;
-
+        connectionVerificationStatus: 'idle' | 'verifying' | 'connected' | 'disconnected';
+        hasVerifiedConnection: boolean;
 }
 
 const initialState: CompanyState = {
@@ -19,6 +20,8 @@ const initialState: CompanyState = {
         iframeState: false,
         companyinfoStatus: "idle",
         wordpress_connection_id: null,
+        connectionVerificationStatus: 'idle',
+        hasVerifiedConnection: false,
 };
 
 const getCookie = (name: string) => {
@@ -83,6 +86,16 @@ export const Company = createSlice({
                 },
                 updateWordpressConnectionId: (state, action: PayloadAction<any>) => {
                         state.wordpress_connection_id = action.payload;
+                },
+                setConnectionVerificationStatus: (state, action: PayloadAction<'idle' | 'verifying' | 'connected' | 'disconnected'>) => {
+                        state.connectionVerificationStatus = action.payload;
+                },
+                setHasVerifiedConnection: (state, action: PayloadAction<boolean>) => {
+                        state.hasVerifiedConnection = action.payload;
+                },
+                resetVerificationStatus: (state) => {
+                        state.connectionVerificationStatus = 'idle';
+                        state.hasVerifiedConnection = false;
                 }
         },
         extraReducers: (builder) => {
@@ -101,5 +114,13 @@ export const Company = createSlice({
         },
 });
 
-export const { updateCompany, updateBilling, updateIframeState, updateWordpressConnectionId } = Company.actions;
+export const { 
+        updateCompany, 
+        updateBilling, 
+        updateIframeState, 
+        updateWordpressConnectionId,
+        setConnectionVerificationStatus,
+        setHasVerifiedConnection,
+        resetVerificationStatus
+} = Company.actions;
 

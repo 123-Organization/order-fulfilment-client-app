@@ -12,13 +12,18 @@ import wix from "../assets/images/store-wix.svg";
 import woocommerce from "../assets/images/store-woocommerce.svg";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ecommerceConnector } from "../store/features/ecommerceSlice";
-import { updateCompanyInfo } from "../store/features/companySlice";
+import { 
+  updateCompanyInfo,
+  updateWordpressConnectionId,
+  setConnectionVerificationStatus,
+  setHasVerifiedConnection,
+  resetVerificationStatus
+} from "../store/features/companySlice";
 import { useAppDispatch, useAppSelector } from "../store";
 import { useNotificationContext } from "../context/NotificationContext";
 import { updateApp, UploadOrdersExcel } from "../store/features/orderSlice";
 import { resetStatus } from "../store/features/ecommerceSlice";
 import { updateOpenSheet } from "../store/features/orderSlice";
-import { updateWordpressConnectionId } from "../store/features/companySlice";
 // import { connectAdvanced } from "react-redux";
 import { find } from "lodash";
 import SpreadSheet from "../components/SpreadSheet";
@@ -42,11 +47,20 @@ export enum StepType {
 }
 
 const Landing: React.FC = (): JSX.Element => {
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  
   const ecommerceGetImportOrders = useAppSelector(
     (state) => state.Ecommerce.ecommerceGetImportOrders
   );
   const companyInfo = useAppSelector(
     (state) => state.company?.company_info?.data
+  );
+  const connectionVerificationStatus = useAppSelector(
+    (state) => state.company?.connectionVerificationStatus
+  );
+  const hasVerifiedConnection = useAppSelector(
+    (state) => state.company?.hasVerifiedConnection
   );
   const [cookies] = useCookies(["Session", "AccountGUID"]);
   const order = useAppSelector((state) => state.order.orders);
@@ -63,7 +77,6 @@ const Landing: React.FC = (): JSX.Element => {
   console.log("ecommerceConnectorInfo", ecommerceConnectorInfo);
 
   const [openExcel, setOpenExcel] = useState<Boolean>(false);
-  const [openBtnConnected, setOpenBtnConnected] = useState(false);
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
   console.log("customerInfo", customerInfo);
   const location = useLocation();
@@ -138,7 +151,7 @@ const Landing: React.FC = (): JSX.Element => {
         description: "WooCommerce has been successfully disconnected.",
       });
       dispatch(resetStatus());
-      setOpenBtnConnected(false);
+      dispatch(setConnectionVerificationStatus('disconnected'));
     } else if (ecommerceDisconnectInfo === "failed") {
       notificationApi?.error({
         message: "WooCommerce  has been failed to disconnect",
@@ -146,7 +159,7 @@ const Landing: React.FC = (): JSX.Element => {
       });
       dispatch(resetStatus());
     }
-  }, [ecommerceDisconnectInfo, notificationApi, setOpenBtnConnected]);
+  }, [ecommerceDisconnectInfo, notificationApi, dispatch]);
 
   const fields = [
     {
@@ -583,9 +596,6 @@ const Landing: React.FC = (): JSX.Element => {
       ],
     },
   ] as const;
-
-  const dispatch = useAppDispatch();
-  const navigate = useNavigate();
   const importData = (imgname: string) => {
     if (imgname && imgname !== "WooCommerce" && imgname !== "Excel") {
       notificationApi.warning({
@@ -610,7 +620,7 @@ const Landing: React.FC = (): JSX.Element => {
 
       // If already connected, navigate to import filter
       // Otherwise connect to ecommerce
-      if (openBtnConnected) {
+      if (connectionVerificationStatus === 'connected') {
         navigate("/importfilter?type=WooCommerce");
       } else if(customerInfo?.data?.user_profile_complete === true){
         // Log the parameters to verify they're correct
@@ -634,7 +644,14 @@ const Landing: React.FC = (): JSX.Element => {
   };
   useEffect(() => {
     dispatch(updateApp(false));
-  }, []);
+  }, [dispatch]);
+
+  // Initialize verification status if idle
+  useEffect(() => {
+    if (connectionVerificationStatus === 'idle') {
+      dispatch(setConnectionVerificationStatus('verifying'));
+    }
+  }, [connectionVerificationStatus, dispatch]);
 
   useEffect(() => {
     if (ecommerceConnectorInfo.approval_url) {
@@ -650,39 +667,60 @@ const Landing: React.FC = (): JSX.Element => {
         })
       );
     }
-  }, [ecommerceConnectorInfo]);
+  }, [ecommerceConnectorInfo, dispatch]);
 
   useEffect(() => {
     dispatch(updateCompanyInfo({}));
-  }, []);
+  }, [dispatch]);
 
   useEffect(() => {
-    if (companyInfo?.connections?.length) {
+    if (companyInfo?.connections?.length && !hasVerifiedConnection) {
       console.log("cococ", companyInfo.connections);
       const connection = companyInfo.connections[0];
       let connectionId = connection?.id;
       connectionId = connectionId.split("?")[0];
       console.log("connectionId", connectionId);
       dispatch(updateWordpressConnectionId(connectionId));
+      
       if (connection?.data) {
         try {
           // Parse the JSON string from the data field
           const parsedData = JSON.parse(connection.data);
           console.log("parsedData", parsedData);
           
-          // Check the isConnected property and set the button state accordingly
-          if (parsedData.isConnected === true) {
-            setOpenBtnConnected(true);
-          } else {
-            setOpenBtnConnected(false);
-          }
+          // Add a delay to show verification state
+          setTimeout(() => {
+            // Check the isConnected property and set the button state accordingly
+            const isConnected = parsedData.isConnected === true || parsedData.isConnected === "true";
+            console.log("Final isConnected decision:", isConnected);
+            
+            // Update Redux state
+            dispatch(setConnectionVerificationStatus(isConnected ? 'connected' : 'disconnected'));
+            dispatch(setHasVerifiedConnection(true));
+          }, 1500); // 1.5 second delay to show "Verifying..." state
+          
         } catch (error) {
           console.error("Error parsing connection data:", error);
-          setOpenBtnConnected(false);
+          setTimeout(() => {
+            dispatch(setConnectionVerificationStatus('disconnected'));
+            dispatch(setHasVerifiedConnection(true));
+          }, 1500);
         }
+      } else {
+        // No data available
+        setTimeout(() => {
+          dispatch(setConnectionVerificationStatus('disconnected'));
+          dispatch(setHasVerifiedConnection(true));
+        }, 1500);
       }
+    } else if (!companyInfo?.connections?.length && !hasVerifiedConnection) {
+      // No connections available
+      setTimeout(() => {
+        dispatch(setConnectionVerificationStatus('disconnected'));
+        dispatch(setHasVerifiedConnection(true));
+      }, 1500);
     }
-  }, [companyInfo]);
+  }, [companyInfo, hasVerifiedConnection, dispatch]);
 
   const displayTurtles = images.map((image) => (
     <div className="flex w-1/3 max-sm:w-1/2 max-[400px]:w-full flex-wrap">
@@ -690,15 +728,19 @@ const Landing: React.FC = (): JSX.Element => {
         className="w-full mt-8 md:mt-0 md:p-2 flex flex-col items-center "
         onClick={() => importData(image.name)}
       >
-        {image.name === "WooCommerce" && openBtnConnected ?(
+        {image.name === "WooCommerce" && connectionVerificationStatus === 'verifying' ? (
+          <Tag className="absolute ml-12 -mt-3 bg-blue-500 text-white animate-pulse">
+            Verifying...
+          </Tag>
+        ) : image.name === "WooCommerce" && connectionVerificationStatus === 'connected' ? (
           <Tag className="absolute ml-12 -mt-3" color="#52c41a">
             Connected
           </Tag>
-        ): image.name === "WooCommerce" && !openBtnConnected ?(
-          <Tag className="absolute ml-12 -mt-3 bg-red-500 text-white " >
+        ) : image.name === "WooCommerce" && connectionVerificationStatus === 'disconnected' ? (
+          <Tag className="absolute ml-12 -mt-3 bg-red-500 text-white">
             Disconnected
           </Tag>
-        ): null}
+        ) : null}
         <img
           className={`block h-[100px] w-[100px] border-2 cursor-pointer rounded-lg object-cover object-center ${
             image.name === "WooCommerce" || image.name === "Excel"
