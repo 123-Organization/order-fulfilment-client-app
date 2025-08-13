@@ -237,6 +237,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
           await dispatch(
             getImportOrders({
               account_key: customerInfo?.data?.account_id,
+              domainName: wordpressConnectionId,
               ...myImport,
             })
           );

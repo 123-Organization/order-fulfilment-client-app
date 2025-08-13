@@ -80,9 +80,14 @@ export const ecommerceConnectorImport = createAsyncThunk(
 export const getImportOrders = createAsyncThunk(
         "import/order",
         async (postData: any, thunkAPI) => {
-                console.log('postData...', postData)
+                console.log('pos...', postData.domainName)
 
-                const response = await fetch(" https://artsafenet.com/wp-json/finerworks-media/v1/get-orders", {
+                // Ensure the domain has proper protocol
+                const domainWithProtocol = postData.domainName.startsWith('http') 
+                        ? postData.domainName 
+                        : `https://${postData.domainName}`;
+
+                const response = await fetch(`${domainWithProtocol}/wp-json/finerworks-media/v1/get-orders`, {
                         method: "POST",
                         headers: {
                                 "Content-Type": "application/json",
