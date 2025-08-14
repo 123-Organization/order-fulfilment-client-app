@@ -10,7 +10,6 @@ interface CompanyState {
         companyinfoStatus: any;
         wordpress_connection_id: any;
         connectionVerificationStatus: 'idle' | 'verifying' | 'connected' | 'disconnected';
-        hasVerifiedConnection: boolean;
 }
 
 const initialState: CompanyState = {
@@ -21,7 +20,6 @@ const initialState: CompanyState = {
         companyinfoStatus: "idle",
         wordpress_connection_id: null,
         connectionVerificationStatus: 'idle',
-        hasVerifiedConnection: false,
 };
 
 const getCookie = (name: string) => {
@@ -90,12 +88,8 @@ export const Company = createSlice({
                 setConnectionVerificationStatus: (state, action: PayloadAction<'idle' | 'verifying' | 'connected' | 'disconnected'>) => {
                         state.connectionVerificationStatus = action.payload;
                 },
-                setHasVerifiedConnection: (state, action: PayloadAction<boolean>) => {
-                        state.hasVerifiedConnection = action.payload;
-                },
                 resetVerificationStatus: (state) => {
                         state.connectionVerificationStatus = 'idle';
-                        state.hasVerifiedConnection = false;
                 }
         },
         extraReducers: (builder) => {
@@ -120,7 +114,6 @@ export const {
         updateIframeState, 
         updateWordpressConnectionId,
         setConnectionVerificationStatus,
-        setHasVerifiedConnection,
         resetVerificationStatus
 } = Company.actions;
 

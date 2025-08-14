@@ -16,7 +16,6 @@ import {
   updateCompanyInfo,
   updateWordpressConnectionId,
   setConnectionVerificationStatus,
-  setHasVerifiedConnection,
   resetVerificationStatus
 } from "../store/features/companySlice";
 import { useAppDispatch, useAppSelector } from "../store";
@@ -58,9 +57,6 @@ const Landing: React.FC = (): JSX.Element => {
   );
   const connectionVerificationStatus = useAppSelector(
     (state) => state.company?.connectionVerificationStatus
-  );
-  const hasVerifiedConnection = useAppSelector(
-    (state) => state.company?.hasVerifiedConnection
   );
   const [cookies] = useCookies(["Session", "AccountGUID"]);
   const order = useAppSelector((state) => state.order.orders);
@@ -673,8 +669,11 @@ const Landing: React.FC = (): JSX.Element => {
     dispatch(updateCompanyInfo({}));
   }, [dispatch]);
 
+  // Track the current connection data to detect changes
+  const [lastConnectionData, setLastConnectionData] = useState<string | null>(null);
+
   useEffect(() => {
-    if (companyInfo?.connections?.length && !hasVerifiedConnection) {
+    if (companyInfo?.connections?.length) {
       console.log("cococ", companyInfo.connections);
       const connection = companyInfo.connections[0];
       let connectionId = connection?.id;
@@ -688,39 +687,43 @@ const Landing: React.FC = (): JSX.Element => {
           const parsedData = JSON.parse(connection.data);
           console.log("parsedData", parsedData);
           
-          // Add a delay to show verification state
-          setTimeout(() => {
-            // Check the isConnected property and set the button state accordingly
-            const isConnected = parsedData.isConnected === true || parsedData.isConnected === "true";
-            console.log("Final isConnected decision:", isConnected);
+          // Check if the connection data has actually changed
+          const currentDataString = JSON.stringify(parsedData);
+          if (currentDataString !== lastConnectionData) {
+            console.log("Connection data changed, updating status...");
+            setLastConnectionData(currentDataString);
             
-            // Update Redux state
-            dispatch(setConnectionVerificationStatus(isConnected ? 'connected' : 'disconnected'));
-            dispatch(setHasVerifiedConnection(true));
-          }, 1500); // 1.5 second delay to show "Verifying..." state
+            // Set verifying status first
+            dispatch(setConnectionVerificationStatus('verifying'));
+            
+            // Add a delay to show verification state
+            setTimeout(() => {
+              // Check the isConnected property and set the button state accordingly
+              const isConnected = parsedData.isConnected === true || parsedData.isConnected === "true";
+              console.log("Final isConnected decision:", isConnected);
+              
+              // Update Redux state
+              dispatch(setConnectionVerificationStatus(isConnected ? 'connected' : 'disconnected'));
+            }, 1000); // 1 second delay to show "Verifying..." state
+          } else {
+            console.log("Connection data unchanged, skipping verification");
+          }
           
         } catch (error) {
           console.error("Error parsing connection data:", error);
-          setTimeout(() => {
-            dispatch(setConnectionVerificationStatus('disconnected'));
-            dispatch(setHasVerifiedConnection(true));
-          }, 1500);
+          dispatch(setConnectionVerificationStatus('disconnected'));
         }
       } else {
         // No data available
-        setTimeout(() => {
-          dispatch(setConnectionVerificationStatus('disconnected'));
-          dispatch(setHasVerifiedConnection(true));
-        }, 1500);
-      }
-    } else if (!companyInfo?.connections?.length && !hasVerifiedConnection) {
-      // No connections available
-      setTimeout(() => {
+        console.log("No connection data available");
         dispatch(setConnectionVerificationStatus('disconnected'));
-        dispatch(setHasVerifiedConnection(true));
-      }, 1500);
+      }
+    } else {
+      // No connections available
+      console.log("No connections available");
+      dispatch(setConnectionVerificationStatus('disconnected'));
     }
-  }, [companyInfo, hasVerifiedConnection, dispatch]);
+  }, [companyInfo, lastConnectionData, dispatch]);
 
   const displayTurtles = images.map((image) => (
     <div className="flex w-1/3 max-sm:w-1/2 max-[400px]:w-full flex-wrap">

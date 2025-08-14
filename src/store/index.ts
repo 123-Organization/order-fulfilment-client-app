@@ -30,7 +30,7 @@ const shippingPersistConfig = {
 const companyPersistConfig = {
   key: 'company',
   storage,
-  whitelist: ['connectionVerificationStatus', 'hasVerifiedConnection', 'wordpress_connection_id'],
+  whitelist: ['connectionVerificationStatus', 'wordpress_connection_id'],
 };
 
 // Create a persist configuration for the root
