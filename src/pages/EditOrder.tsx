@@ -203,6 +203,11 @@ console.log("company_info", phone);
       });
   };
 
+  // Determine if recipient has phone and if field should be editable
+  const hasRecipientPhone = Boolean(recipient?.phone && recipient.phone.trim());
+  const phoneValue = hasRecipientPhone ? recipient.phone : phone || "";
+  const isPhoneEditable = hasRecipientPhone;
+
   const initialValues = React.useMemo(
     () => ({
       country_code: order?.country_code || "US",
@@ -214,9 +219,9 @@ console.log("company_info", phone);
       city: recipient?.city || "",
       state: recipient?.state || stateCodeShort,
       zip_postal_code: recipient?.zip_postal_code.toString() || "",
-      phone: phone || "",
+      phone: phoneValue,
     }),
-    [order, recipient]
+    [order, recipient, phone, phoneValue]
   );
   // console.log("initialValues",convertUsStateAbbrAndName(recipient?.state ))
 
@@ -552,17 +557,18 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
         >
           <Input 
             className="fw-input" 
-            value={phone} 
-            disabled={true}
-            style={{ 
+            value={phoneValue} 
+            disabled={!isPhoneEditable}
+            style={!isPhoneEditable ? { 
               backgroundColor: "#f5f5f5", 
               color: "#999", 
               cursor: "not-allowed" 
-            }} 
+            } : {}}
+            placeholder={isPhoneEditable ? "Enter phone number" : "Phone from billing info"}
           />
         </Form.Item>
         <label htmlFor="floating_outlined" className="fw-label">
-          Phone
+          Phone {isPhoneEditable ? "(Recipient)" : "(From Billing)"}
         </label>
       </div>
 
