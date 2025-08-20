@@ -23,6 +23,7 @@ import { useLocation } from "react-router-dom";
 import FileManagementIframe from "./FileManagmentIframe";
 import UserAvatar from "./UserAvatar";
 import StoresMenu from "./StoresMenu";
+import DisconnectPlatformModal from "./DisconnectPlatformModal";
 import { useCookies } from "react-cookie";
 import more from "../assets/images/more.svg"
 
@@ -70,6 +71,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
   const navigate = useNavigate();
   const [myStores, setMyStores] = useState(false);
   const [moreMenuVisible, setMoreMenuVisible] = useState(false);
+  const [disconnectModalVisible, setDisconnectModalVisible] = useState(false);
 
   const handleMenuClick: MenuProps["onClick"] = (e) => {};
 
@@ -165,7 +167,27 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
           FinerWorks.com
         </a>
       ),
-    }, {
+    },
+    {
+      key: 'disconnect-platform',
+      label: (
+        <a
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            setDisconnectModalVisible(true);
+            setMoreMenuVisible(false);
+          }}
+          className="flex items-center text-gray-700 hover:text-red-600 transition-all duration-300 font-medium"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Disconnect Platform
+        </a>
+      ),
+    },
+    {
       key: 'Pending orders',
       label: (
         <a 
@@ -551,6 +573,13 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
           </div>
         )}
       </div>
+      
+      {/* Disconnect Platform Modal */}
+      <DisconnectPlatformModal
+        visible={disconnectModalVisible}
+        onClose={() => setDisconnectModalVisible(false)}
+      />
+      
       {/* <UploadFileModal    openModel={open} setOpen={setOpen}  /> */}
     </div>
   );
