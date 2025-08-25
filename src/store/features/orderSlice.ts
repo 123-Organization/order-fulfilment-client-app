@@ -27,6 +27,7 @@ interface OrderState {
   checkedOrders: any;
   orderEdited: any;
   submitedOrders: any;
+  submitOrdersResponse: any;
   Wporder: any;
   appLunched: boolean;
   iframeOpened: boolean;
@@ -45,6 +46,7 @@ interface OrderState {
   uploadStatus: "idle" | "loading" | "succeeded" | "failed";
   replaceCodeStatus: "idle" | "loading" | "succeeded" | "failed";
   submitStatus: "idle" | "loading" | "succeeded" | "failed";
+  sendOrderInfoStatus: "idle" | "loading" | "succeeded" | "failed";
 
 }
 
@@ -63,6 +65,7 @@ const initialState: OrderState = {
   orderEdited: { status: false, clicked: false, },
   status: "idle",
   submitedOrders: [],
+  submitOrdersResponse: null,
   validSKU: [],
   error: null,
   currentOrderFullFillmentId: null,
@@ -77,6 +80,7 @@ const initialState: OrderState = {
   uploadStatus: "idle",
   replaceCodeStatus: "idle",
   submitStatus: "idle",
+  sendOrderInfoStatus: "idle",
 };
 
 export const fetchOrder = createAsyncThunk(
@@ -395,6 +399,42 @@ export const submitOrders = createAsyncThunk("order/submit", async (postData: an
   return data
 })
 
+export const sendOrderInformation = createAsyncThunk(
+  "order/sendOrderInformation", 
+  async (postData: { 
+    domainName: string; 
+    account_key: string; 
+    orders: Array<{
+      order_po: string;
+      order_id: number;
+      order_confirmation_id: number;
+      orderFullFillmentId: number;
+      datetime: string;
+    }>
+  }, thunkAPI) => {
+    try {
+      const response = await fetch("https://ijbsrphg08.execute-api.us-east-1.amazonaws.com/Prod/api/send-order-information", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(postData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        return thunkAPI.rejectWithValue(errorData);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Failed to send order information:', error);
+      return thunkAPI.rejectWithValue('Failed to send order information');
+    }
+  }
+)
+
 export const OrderSlice = createSlice({
   name: "order",
   initialState,
@@ -482,6 +522,12 @@ export const OrderSlice = createSlice({
      },
      resetSubmitStatus: (state) => {
       state.submitStatus = "idle"
+     },
+     resetSendOrderInfoStatus: (state) => {
+      state.sendOrderInfoStatus = "idle"
+     },
+     resetSubmitOrdersResponse: (state) => {
+      state.submitOrdersResponse = null
      }
   },
   extraReducers: (builder) => {
@@ -602,6 +648,7 @@ export const OrderSlice = createSlice({
     })
     builder.addCase(submitOrders.fulfilled, (state, action) => {
       state.submitStatus = 'succeeded';
+      state.submitOrdersResponse = action.payload;
     })
     builder.addCase(submitOrders.rejected, (state, action) => {
       state.submitStatus = 'failed';
@@ -610,9 +657,19 @@ export const OrderSlice = createSlice({
     builder.addCase(submitOrders.pending, (state, action) => {
       state.submitStatus = 'loading';
     })
+    builder.addCase(sendOrderInformation.fulfilled, (state, action) => {
+      state.sendOrderInfoStatus = 'succeeded';
+    })
+    builder.addCase(sendOrderInformation.rejected, (state, action) => {
+      state.sendOrderInfoStatus = 'failed';
+      state.error = action.payload as string;
+    })
+    builder.addCase(sendOrderInformation.pending, (state, action) => {
+      state.sendOrderInfoStatus = 'loading';
+    })
   }
 
 });
 
 export default OrderSlice.reducer;
-export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, updateIframe, updateApp, updateOpenSheet, updateExcludedOrders, resetExcludedOrders, updateValidSKU, resetValidSKU, updateReplacingCode, resetReplacingCode, resetReplaceCodeResult, resetReplaceCodeStatus, resetSubmitStatus } = OrderSlice.actions;
+export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, updateIframe, updateApp, updateOpenSheet, updateExcludedOrders, resetExcludedOrders, updateValidSKU, resetValidSKU, updateReplacingCode, resetReplacingCode, resetReplaceCodeResult, resetReplaceCodeStatus, resetSubmitStatus, resetSendOrderInfoStatus, resetSubmitOrdersResponse } = OrderSlice.actions;

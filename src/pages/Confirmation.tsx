@@ -4,10 +4,8 @@ import { useAppSelector, useAppDispatch } from "../store";
 import style from "./Pgaes.module.css";
 import { Steps } from "antd";
 import { useNavigate } from "react-router-dom";
-import { updateCheckedOrders, resetImport, DeleteAllOrders } from "../store/features/orderSlice";
-import { resetSubmitStatus } from "../store/features/orderSlice";
+import { updateCheckedOrders, resetImport, DeleteAllOrders, resetSubmitStatus, resetExcludedOrders, sendOrderInformation, resetSendOrderInfoStatus } from "../store/features/orderSlice";
 import { InfoCircleOutlined } from "@ant-design/icons";
-import { resetExcludedOrders } from "../store/features/orderSlice";
 
 export default function Confirmation() {
   const [isLoadeing, setIsLoading] = useState(false);
@@ -15,6 +13,9 @@ export default function Confirmation() {
     "success"
   );
   const submitedOrders = useAppSelector((state) => state.order.submitedOrders);
+  const sendOrderInformationStatus = useAppSelector((state) => state.order.sendOrderInfoStatus);
+  const submitOrdersResponse = useAppSelector((state) => state.order.submitOrdersResponse);
+  const companyInfo = useAppSelector((state) => state.company.company_info);
   
   // Format orders for display, showing the first 3 directly
   const MAX_ORDERS_TO_DISPLAY = 3;
@@ -62,6 +63,7 @@ export default function Confirmation() {
       dispatch(resetSubmitStatus());
       dispatch(resetImport());
       dispatch(DeleteAllOrders({accountId: customerInfo?.data?.account_id}));
+      console.log("sendOrderInformationStatus", sendOrderInformationStatus);
       dispatch(resetExcludedOrders());
     } else if (submitStatus === "failed") {
       setIsLoading(true);
@@ -72,7 +74,36 @@ export default function Confirmation() {
       setStep(1)
       setStepStatus("error")
     }
-  }, [submitStatus]);
+  }, [submitStatus, dispatch, customerInfo?.data?.account_id, sendOrderInformationStatus]);
+
+  // Handle sending order information after successful order submission
+  useEffect(() => {
+    if (submitOrdersResponse && submitOrdersResponse.data && companyInfo?.data?.account_key) {
+      console.log("Sending order information:", submitOrdersResponse);
+      
+      // For now, using a placeholder domain name - you'll need to provide the actual domain
+      const domainName = "finerworks1.instawp.site"; // Replace this with actual domain from your app state
+      
+      const orderInfoPayload = {
+        domainName: domainName,
+        account_key: companyInfo.data.account_key,
+        orders: submitOrdersResponse.data
+      };
+
+      dispatch(sendOrderInformation(orderInfoPayload));
+    }
+  }, [submitOrdersResponse, companyInfo, dispatch]);
+
+  // Handle sendOrderInformation status changes
+  useEffect(() => {
+    if (sendOrderInformationStatus === "succeeded") {
+      console.log("Order information sent successfully");
+      dispatch(resetSendOrderInfoStatus());
+    } else if (sendOrderInformationStatus === "failed") {
+      console.log("Failed to send order information");
+      // You might want to show a notification here
+    }
+  }, [sendOrderInformationStatus, dispatch]);
 
   const description = "Select the orders";
   const step2_description = "Make A payment";
