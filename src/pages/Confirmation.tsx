@@ -80,16 +80,33 @@ export default function Confirmation() {
   useEffect(() => {
     if (submitOrdersResponse && submitOrdersResponse.data && companyInfo?.data?.account_key) {
       console.log("Sending order information:", submitOrdersResponse);
+      console.log("Company info for domain lookup:", companyInfo);
       
-      // For now, using a placeholder domain name - you'll need to provide the actual domain
-      const domainName = "finerworks1.instawp.site"; // Replace this with actual domain from your app state
+      // Get domain name from various possible sources in the state
+      // Check multiple possible locations where domain might be stored
+      const domainName = 
+        companyInfo?.data?.domain_name || 
+        companyInfo?.data?.domainName || 
+        companyInfo?.data?.domain ||
+        companyInfo?.data?.business_info?.domain_name ||
+        companyInfo?.data?.business_info?.domainName ||
+        localStorage.getItem('domainName') ||
+        sessionStorage.getItem('domainName') ||
+        "finerworks1.instawp.site"; // fallback default
+      
+      console.log("Using domain name:", domainName);
+      
+      // Construct the webhook URL dynamically using the domain name
+      const webhookUrl = `https://${domainName}/wp-json/finerworks-media/v1/order-status`;
       
       const orderInfoPayload = {
         domainName: domainName,
         account_key: companyInfo.data.account_key,
+        webhook_order_status_url: webhookUrl,
         orders: submitOrdersResponse.data
       };
 
+      console.log("Sending order info payload:", orderInfoPayload);
       dispatch(sendOrderInformation(orderInfoPayload));
     }
   }, [submitOrdersResponse, companyInfo, dispatch]);

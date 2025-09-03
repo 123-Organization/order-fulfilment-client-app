@@ -404,6 +404,7 @@ export const sendOrderInformation = createAsyncThunk(
   async (postData: { 
     domainName: string; 
     account_key: string; 
+    webhook_order_status_url: string;
     orders: Array<{
       order_po: string;
       order_id: number;
