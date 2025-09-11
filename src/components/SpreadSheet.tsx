@@ -41,8 +41,8 @@ const requiredFields = [
   "ship_phone",
   "product_qty",
   "product_sku",
-  "product_image_file_url",
-  "product_thumb_url"
+  // "product_image_file_url",
+  // "product_thumb_url"
 ];
 
 
