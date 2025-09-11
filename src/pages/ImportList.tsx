@@ -99,7 +99,7 @@ const ImportList: React.FC = () => {
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
   const excludedOrders = useAppSelector((state) => state.order.excludedOrders);
   const validSKUs = useAppSelector((state) => state.order.validSKU);
-  console.log("excludedOrders", excludedOrders);
+  // console.log("excludedOrders", excludedOrders);
   // Add ref to track if notification has been shown
   const deleteNotificationShown = useRef({
     succeeded: false,
@@ -118,13 +118,12 @@ const ImportList: React.FC = () => {
   const myImport = useAppSelector((state) => state.order.myImport);
   const wporder = useAppSelector((state) => state.order.Wporder);
   const notificationApi = useNotificationContext();
-  console.log("orderPostData", orderPostData);
+  // console.log("orderPostData", orderPostData);
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
   const customer_info = useAppSelector((state) => state.Customer.customer_info);
   const iframeState = useAppSelector((state) => state.company.iframeState);
-  console.log("product_details...", product_details);
+  // console.log("product_details...", product_details);
   const dispatch = useAppDispatch();
-  console.log("productdata", productData);
   const shipping_option = useAppSelector(
     (state) => state.Shipping.shippingOptions || []
   );
@@ -137,8 +136,6 @@ const ImportList: React.FC = () => {
   const currentOption = useAppSelector(
     (state) => state.Shipping.currentOption
   );
-  console.log("replaceCodeResult", replaceCodeResult);
-  console.log("excludedOrders", excludedOrders);
   const navigate = useNavigate();
 
   const AddProductsTemplate = () => {
@@ -251,12 +248,12 @@ const ImportList: React.FC = () => {
       setInvalidSKuOrderFullilment(invalidSkus);
     }
   }, [orders?.data, validSKUs]);
-  console.log("validd", validSKUs);
+  // console.log("validd", validSKUs);
 
   useEffect(() => {
     dispatch(resetSubmitedOrders());
   }, []);
-  console.log("wporder", wporder);
+  // console.log("wporder", wporder);
 
   // useEffect(() => {
   //   if (orders && !orders?.data?.length) {
@@ -269,7 +266,7 @@ const ImportList: React.FC = () => {
       dispatch(fetchOrder(customerInfo?.data?.account_id));
     }, 1000);
   }, [customerInfo?.data?.account_id, dispatch]);
-  console.log("oo", customerInfo?.data?.account_id);
+  // console.log("oo", customerInfo?.data?.account_id);
 
   // Add responsive character limit based on screen size
   useEffect(() => {
@@ -309,11 +306,11 @@ const ImportList: React.FC = () => {
         products[product?.product_guid] = product;
       });
 
-      console.log("products", products);
+      console.log("productdadsadata", productData);
       setProductData(products);
     }
   }, [product_details]);
-  console.log("productData", productData);
+  
 
   const onDeleteOrder = async (
     orderFullFillmentId: string,
@@ -371,7 +368,7 @@ const ImportList: React.FC = () => {
     const shippingForOrder = currentOption?.allOptions?.find(
       (option) => option.order_po == order_po
     );
-    console.log("shippingForOrder", shippingForOrder);
+    // console.log("shippingForOrder", shippingForOrder);
     if (shippingForOrder ) {
       const selectedOption = shippingForOrder?.selectedOption;
       const charges = {
@@ -391,6 +388,8 @@ const ImportList: React.FC = () => {
       const orderPostDataList = validOrders
         ?.map((order) => ({
           order_po: order?.order_po,
+          recipient: order?.recipient,
+          shipping_code: order?.shipping_code,
           order_items: order.order_items?.map((item) => ({
             product_order_po: item.product_order_po,
             product_qty: item.product_qty,
@@ -399,6 +398,8 @@ const ImportList: React.FC = () => {
               product_url_file: "https://via.placeholder.com/150",
               product_url_thumbnail: "https://via.placeholder.com/150",
             },
+           
+            
           })),
         }))
         ?.flat();
@@ -416,7 +417,7 @@ const ImportList: React.FC = () => {
         }))
       );
 
-      dispatch(fetchShippingOption(orderPostDataList));
+      dispatch(fetchShippingOption({orders: orderPostDataList,account_key: customerInfo?.data?.account_key,}));
       setOrderPostData(orderPostDataList);
       dispatch(fetchProductDetails(ProductDetails));
     }
@@ -475,7 +476,7 @@ const ImportList: React.FC = () => {
       );
     }
   };
-  console.log("checkedOrders", checkedOrders);
+  // console.log("checkedOrders", checkedOrders);
 
   const handleShippingOptionChange = (order_po: string, updatedPrice: any) => {
     let updatedOrders = [...checkedOrders];
@@ -904,7 +905,7 @@ const ImportList: React.FC = () => {
                                 <div className="flex justify-between items-center mt-0">
                                   <div></div>
                                   <div className="text-sm text-right h-4">
-                                    {order?.product_qty || 1}@ ${(productData[order?.product_guid]?.total_price / (order?.product_qty || 1)).toFixed(2)} ea
+                                    {order?.product_qty || 1}@ ${(productData[order?.product_guid]?.total_price)?.toFixed(2)} ea
                                   </div>
                                 </div>
                               </div>

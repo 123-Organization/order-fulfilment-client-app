@@ -6,14 +6,10 @@ import { HotTable } from "@handsontable/react-wrapper";
 import * as XLSX from "xlsx";
 import { Steps, Button, Alert, Modal, ConfigProvider, Result } from "antd";
 import {
-  UploadOutlined,
-  CheckCircleOutlined,
   ExclamationCircleOutlined,
-  InboxOutlined,
   FileExcelOutlined,
   ArrowRightOutlined,
 } from "@ant-design/icons";
-import style from "../pages/Pgaes.module.css";
 import cssModule from "./SpreadSheet.module.css";
 import { UploadOrdersExcel } from "../store/features/orderSlice";
 import { useAppDispatch, useAppSelector } from "../store";
@@ -45,7 +41,10 @@ const requiredFields = [
   "ship_phone",
   "product_qty",
   "product_sku",
+  "product_image_file_url",
+  "product_thumb_url"
 ];
+
 
 const hotSettings = {
   stretchH: "all" as const,
@@ -126,6 +125,51 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
     }
   };
 
+  const cleanupSpreadsheetData = (jsonData: SpreadsheetData): SpreadsheetData => {
+    if (jsonData.length <= 1) return jsonData; // No data rows to clean
+    
+    const headers = jsonData[0] as string[];
+    const countryCodeIndex = headers.indexOf("ship_country_code");
+    const stateCodeIndex = headers.indexOf("ship_state_code");
+    const provinceIndex = headers.indexOf("ship_province");
+    
+    // If we don't have the necessary columns, return as is
+    if (countryCodeIndex === -1 || (stateCodeIndex === -1 && provinceIndex === -1)) {
+      return jsonData;
+    }
+    
+    const cleanedData = [...jsonData];
+    
+    // Clean up data rows (skip header row)
+    for (let i = 1; i < cleanedData.length; i++) {
+      const row = [...(cleanedData[i] as any[])];
+      const countryCode = row[countryCodeIndex];
+      
+      if (countryCode) {
+        const isUSCountry = countryCode && 
+          (countryCode.toString().toLowerCase() === "us" || 
+           countryCode.toString().toLowerCase() === "usa" ||
+           countryCode.toString().toLowerCase() === "united states");
+           
+        if (isUSCountry) {
+          // For US addresses, clear province field
+          if (provinceIndex >= 0) {
+            row[provinceIndex] = "";
+          }
+        } else {
+          // For non-US addresses, clear state code field
+          if (stateCodeIndex >= 0) {
+            row[stateCodeIndex] = "";
+          }
+        }
+        
+        cleanedData[i] = row;
+      }
+    }
+    
+    return cleanedData;
+  };
+
   const processFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = (event: ProgressEvent<FileReader>) => {
@@ -139,7 +183,10 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
       const jsonData = XLSX.utils.sheet_to_json(ws, {
         header: 1,
       }) as SpreadsheetData;
-      setData(jsonData);
+      
+      // Clean up the data after loading
+      const cleanedData = cleanupSpreadsheetData(jsonData);
+      setData(cleanedData);
       setStep(1);
       setConfirmation({
         first: "Finished",
@@ -171,7 +218,10 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
       const jsonData = XLSX.utils.sheet_to_json(ws, {
         header: 1,
       }) as SpreadsheetData;
-      setData(jsonData);
+      
+      // Clean up the data after loading
+      const cleanedData = cleanupSpreadsheetData(jsonData);
+      setData(cleanedData);
       setStep(1);
       setConfirmation({
         first: "Finished",
@@ -187,7 +237,7 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
     const errors: ValidationError[] = [];
     const headers = data[0] as string[];
 
-    // Validate headers
+    // Validate headers - check for basic required fields
     const missingFields = requiredFields.filter(
       (field) => !headers.includes(field)
     );
@@ -199,40 +249,72 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
       });
     }
 
-    // Find the index of ship_country_code for conditional validation
+    // Check for addressing fields
+    const hasStateCode = headers.includes("ship_state_code");
+    const hasProvince = headers.includes("ship_province");
+    const hasCountryCode = headers.includes("ship_country_code");
+
+    // At least one addressing field is required
+    if (!hasStateCode && !hasProvince) {
+      errors.push({
+        row: 0,
+        column: "headers",
+        message: "Missing addressing fields: either 'ship_state_code' or 'ship_province' is required",
+      });
+    }
+
+    // Find indices for conditional validation
     const countryCodeIndex = headers.indexOf("ship_country_code");
+    const stateCodeIndex = headers.indexOf("ship_state_code");
+    const provinceIndex = headers.indexOf("ship_province");
 
     // Validate data rows
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
+      
+      // Validate all basic required fields (excluding ship_state_code since it's conditional)
       headers.forEach((header, columnIndex) => {
-        if (requiredFields.includes(header) && !row[columnIndex]) {
-          // Special case for ship_state_code: only required if country is US
-          if (header === "ship_state_code") {
-            const countryCode = countryCodeIndex >= 0 ? row[countryCodeIndex] : "";
-            const isUSCountry = countryCode && 
-              (countryCode.toString().toLowerCase() === "us" || 
-               countryCode.toString().toLowerCase() === "usa" ||
-               countryCode.toString().toLowerCase() === "united states");
-            
-            // Only add error if country is US and state code is missing
-            if (isUSCountry) {
-              errors.push({
-                row: i,
-                column: header,
-                message: `Missing required value for ${header} (required for US addresses)`,
-              });
-            }
-          } else {
-            // For all other required fields, validate normally
+        if (requiredFields.includes(header) && header !== "ship_state_code" && !row[columnIndex]) {
+          errors.push({
+            row: i,
+            column: header,
+            message: `Missing required value for ${header}`,
+          });
+        }
+      });
+
+      // Validate conditional state/province requirements
+      if (hasCountryCode && countryCodeIndex >= 0) {
+        const countryCode = row[countryCodeIndex];
+        const isUSCountry = countryCode && 
+          (countryCode.toString().toLowerCase() === "us" || 
+           countryCode.toString().toLowerCase() === "usa" ||
+           countryCode.toString().toLowerCase() === "united states");
+
+        if (isUSCountry) {
+          // US addresses require state code
+          if (hasStateCode && stateCodeIndex >= 0 && !row[stateCodeIndex]) {
             errors.push({
               row: i,
-              column: header,
-              message: `Missing required value for ${header}`,
+              column: "ship_state_code",
+              message: "Missing required value for ship_state_code (required for US addresses)",
+            });
+          }
+        } else {
+          // Non-US addresses require province (or state code if province not available)
+          const hasProvinceValue = hasProvince && provinceIndex >= 0 && row[provinceIndex];
+          const hasStateValue = hasStateCode && stateCodeIndex >= 0 && row[stateCodeIndex];
+          
+          if (!hasProvinceValue && !hasStateValue) {
+            const requiredField = hasProvince ? "ship_province" : "ship_state_code";
+            errors.push({
+              row: i,
+              column: requiredField,
+              message: `Missing required value for ${requiredField} (required for non-US addresses)`,
             });
           }
         }
-      });
+      }
     }
 
     setValidationErrors(errors);
@@ -249,13 +331,52 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
         headers.forEach((header, index) => {
           order[header] = row[index];
         });
+
+        // Clean up state/province based on country code
+        if (order.ship_country_code) {
+          const isUSCountry = order.ship_country_code && 
+            (order.ship_country_code.toString().toLowerCase() === "us" || 
+             order.ship_country_code.toString().toLowerCase() === "usa" ||
+             order.ship_country_code.toString().toLowerCase() === "united states");
+
+          if (isUSCountry) {
+            // For US addresses, clear province field
+            order.ship_province = "";
+          } else {
+            // For non-US addresses, clear state code field
+            order.ship_state_code = "";
+          }
+        }
+
         return order;
       });
 
       // Here you would typically send the orders to your API
       // await api.createOrders(orders);
       const postOrders = orders.map((order) => {
-        return {
+        // Determine if the country is US to decide between state and province
+        const isUSCountry = order.ship_country_code && 
+          (order.ship_country_code.toString().toLowerCase() === "us" || 
+           order.ship_country_code.toString().toLowerCase() === "usa" ||
+           order.ship_country_code.toString().toLowerCase() === "united states");
+
+        console.log(`Order ${order.order_po} after cleanup:`, {
+          country: order.ship_country_code,
+          isUSCountry: isUSCountry,
+          ship_state_code: order.ship_state_code,
+          ship_province: order.ship_province,
+          willMapTo: isUSCountry ? 'state' : 'province'
+        });
+
+        const mappedState = isUSCountry ? order.ship_state_code : "";
+        const mappedProvince = !isUSCountry ? order.ship_province : "";
+
+        console.log(`Final mapping for ${order.order_po}:`, {
+          state: mappedState,
+          province: mappedProvince
+        });
+
+        const orderData: any = {
           order_po: order.order_po,
           recipient: {
             first_name: order.ship_first_name,
@@ -265,8 +386,8 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
             address_2: order.ship_address_2,
             address_3: "",
             city: order.ship_city,
-            state: order.ship_state_code,
-            province: order.ship_province,
+            state: mappedState,
+            province: mappedProvince,
             zip_postal_code: order.ship_zip,
             country_code: order.ship_country_code,
             phone: order.ship_phone,
@@ -286,10 +407,18 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
           shipping_code: order.shipping_code,
           test_mode: false,
         };
+
+        // Add optional webhook_order_status_url if provided
+        if (order.webhook_order_status_url && order.webhook_order_status_url.trim() !== "") {
+          orderData.webhook_order_status_url = order.webhook_order_status_url;
+        }
+
+        return orderData;
       });
       
       dispatch(
         UploadOrdersExcel({
+          account_key: customerInfo?.data?.account_key,
           accountId: customerInfo?.data?.account_id,
           payment_token: customerInfo?.data?.payment_profile_id,
           orders: [...postOrders],

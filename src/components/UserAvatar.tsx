@@ -34,8 +34,8 @@ export default function UserAvatar() {
 
 
   const onLogout = ()=>{
-    localStorage.removeItem('hasVisitedCompanyPage');
     persistor.purge();
+    localStorage.removeItem('hasVisitedCompanyPage');
    dispatch(clearPaymentMethods());
     dispatch(resetValidSKU());
     dispatch(clearCustomerInfo())

@@ -91,7 +91,7 @@ export const fetchOrder = createAsyncThunk(
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ accountId: accountId, page: 1, limit: 10 })
+      body: JSON.stringify({ accountId: accountId, page: 1, limit: 50 })
     });
     const data = response.json();
 

@@ -57,8 +57,8 @@ const SelectShippingOption: React.FC<{
   productchange,
   clicking,
 }) => {
-  console.log("popo", poNumber);
-  console.log("localOrder", localOrder);
+  // console.log("popo", poNumber);
+  // console.log("localOrder", localOrder);
   const dispatch = useAppDispatch();
 
   const orders = useAppSelector((state) => state.order.orders || []);
@@ -66,20 +66,20 @@ const SelectShippingOption: React.FC<{
     (state) => state.Shipping.shippingOptions || []
   );
   const customerinfo = useAppSelector((state) => state.Customer.customer_info);
-  console.log("shipping_option", shipping_option);
-  console.log("shipping_option", shipping_option);
+  // console.log("shipping_option", shipping_option);
+  // console.log("shipping_option", shipping_option);
 
   let currentOption = useAppSelector((state) => state.Shipping.currentOption);
-  console.log("currentOption", currentOption);
+  // console.log("currentOption", currentOption);
 
   const shipping_details = useMemo(
     () => shipping_option?.find((option) => option.order_po === poNumber),
     [shipping_option, poNumber]
   );
-  console.log("shipping_details", shipping_details);
+  // console.log("shipping_details", shipping_details);
   const [selectedOption, setSelectedOption] = useState<any>([]);
-  console.log("selectedOption", selectedOption);
-  console.log("pooooo", poNumber);
+  // console.log("selectedOption", selectedOption);
+  // console.log("pooooo", poNumber);
   // Set initial preferred option if available
 
   useEffect(() => {
@@ -95,12 +95,12 @@ const SelectShippingOption: React.FC<{
           (order: any) => order.order_po == poNumber
         )?.shipping_code;
 
-        console.log("orderShippingCode", orderShippingCode);
+        // console.log("orderShippingCode", orderShippingCode);
         const orderCodeToShippingOption =
           currentOrderOption?.selectedOption?.options?.find(
             (option: ShippingOption) => {
               if (currentOrderOption?.selectedOption?.options?.length > 1) {
-                console.log("option", option);
+                // console.log("option", option);
                 return option.shipping_code == orderShippingCode
                   ? option.shipping_code == orderShippingCode
                   : option.shipping_class_code == orderShippingCode;
@@ -109,7 +109,7 @@ const SelectShippingOption: React.FC<{
               }
             }
           );
-        console.log("orderCodeToShippingOption", orderCodeToShippingOption);
+        // console.log("orderCodeToShippingOption", orderCodeToShippingOption);
         const optionToSet = orderCodeToShippingOption
           ? orderCodeToShippingOption
           : currentOrderOption?.selectedOption;
@@ -138,16 +138,16 @@ const SelectShippingOption: React.FC<{
             })
           );
         }
-        console.log("firsteval");
+        // console.log("firsteval");
         console.log("currentOrderOption", currentOrderOption);
       } else if (!currentOrderOption?.selectedOption) {
         // If no previously selected option, use the preferred option
-        console.log("evava", localOrder);
+        // console.log("evava", localOrder);
         const shippingOption = shipping_option?.find(
           (option: ShippingOption) => option.order_po == poNumber
         );
         setSelectedOption(shippingOption);
-        console.log("secondeval");
+        // console.log("secondeval");
 
         // Only add THIS order's selected option to the store, don't try to manage all orders
         if (shippingOption) {
@@ -192,12 +192,12 @@ const SelectShippingOption: React.FC<{
       const currentShippingOption = shipping_option.find(
         (option: ShippingOption) => option.order_po === poNumber
       );
-      console.log("currentShippingOption", currentShippingOption);
+      // console.log("currentShippingOption", currentShippingOption);
 
       if (currentShippingOption) {
         // Get existing options or initialize
         const existingOptions = currentOption?.allOptions || [];
-        console.log("existingOptions", existingOptions);
+        // console.log("existingOptions", existingOptions);
 
         // Check if this order already exists and if the option has changed
         const existingOrderOption = existingOptions.find(
@@ -331,11 +331,11 @@ const SelectShippingOption: React.FC<{
       currentOption,
     ]
   );
-  console.log("productchange", productchange);
+  // console.log("productchange", productchange);
 
   useEffect(() => {
     if (localOrder?.order_items?.length > 0 || productchange) {
-      console.log("firedddd", currentOption);
+      // console.log("firedddd", currentOption);
       const orderPostDataList = {
         order_po: localOrder.order_po,
         order_items: localOrder.order_items.map((item: OrderItem) => ({
@@ -350,12 +350,12 @@ const SelectShippingOption: React.FC<{
           },
         })),
       };
-      console.log("Product changed, refetching shipping options");
-      dispatch(fetchShippingOption([orderPostDataList]));
+      // console.log("Product changed, refetching shipping options");
+      dispatch(fetchShippingOption({orders: orderPostDataList,account_key: customerinfo?.data?.account_key,}));
     }
   }, [localOrder, productchange, dispatch]);
 
-  console.log("productchange", productchange);
+  // console.log("productchange", productchange);
 
   useEffect(() => {
     if (productchange) {
@@ -377,8 +377,8 @@ const SelectShippingOption: React.FC<{
         );
       }
     }
-  }, [shipping_details, currentOption, productchange, poNumber, dispatch]);
-  console.log("shipping_details", shipping_details);
+  }, [shipping_details, currentOption, productchange, poNumber]);
+  // console.log("shipping_details", shipping_details);
 
   if (!shipping_details || clicking) {
     return (
