@@ -16,6 +16,7 @@ import { useNotificationContext } from "../context/NotificationContext";
 import { updateCompanyInfo } from "../store/features/companySlice";
 import { disconnectInventory } from "../store/features/InventorySlice";
 import { resetValidSKU } from "../store/features/orderSlice";
+import { removeCurrentOption } from "../store/features/shippingSlice";
 
 const ColorList = ["#f56a00", "#7265e6", "#ffbf00", "#00a2ae"];
 
@@ -34,11 +35,13 @@ export default function UserAvatar() {
 
 
   const onLogout = ()=>{
-    persistor.purge();
+    
     localStorage.removeItem('hasVisitedCompanyPage');
    dispatch(clearPaymentMethods());
     dispatch(resetValidSKU());
     dispatch(clearCustomerInfo())
+    dispatch(removeCurrentOption())
+    persistor.purge();
   }
 
 

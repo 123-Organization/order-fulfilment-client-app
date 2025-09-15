@@ -265,7 +265,7 @@ const ImportList: React.FC = () => {
     setTimeout(() => {
       dispatch(fetchOrder(customerInfo?.data?.account_id));
     }, 1000);
-  }, [customerInfo?.data?.account_id, dispatch]);
+  }, []);
   // console.log("oo", customerInfo?.data?.account_id);
 
   // Add responsive character limit based on screen size
@@ -380,7 +380,7 @@ const ImportList: React.FC = () => {
   };
 
   useEffect(() => {
-    if (orders?.data?.length && !orderPostData.length) {
+    if (orders?.data?.length && !orderPostData.length ) {
       const validOrders = orders?.data?.filter(
         (order) => order?.order_items && order?.order_items?.length > 0
       );
@@ -416,10 +416,11 @@ const ImportList: React.FC = () => {
           },
         }))
       );
-
+      
       dispatch(fetchShippingOption({orders: orderPostDataList,account_key: customerInfo?.data?.account_key,}));
-      setOrderPostData(orderPostDataList);
-      dispatch(fetchProductDetails(ProductDetails));
+        setOrderPostData(orderPostDataList);
+        dispatch(fetchProductDetails(ProductDetails));
+      
     }
   }, [orders, product_details, orderPostData, dispatch]);
 

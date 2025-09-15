@@ -70,7 +70,7 @@ const SelectShippingOption: React.FC<{
   // console.log("shipping_option", shipping_option);
 
   let currentOption = useAppSelector((state) => state.Shipping.currentOption);
-  // console.log("currentOption", currentOption);
+  console.log("currentOption", currentOption);
 
   const shipping_details = useMemo(
     () => shipping_option?.find((option) => option.order_po === poNumber),
@@ -78,12 +78,19 @@ const SelectShippingOption: React.FC<{
   );
   // console.log("shipping_details", shipping_details);
   const [selectedOption, setSelectedOption] = useState<any>([]);
+
+  // Clear local state when currentOption is null (after logout/purge)
+  useEffect(() => {
+    if (!currentOption) {
+      setSelectedOption(null);
+    }
+  }, [currentOption]);
   // console.log("selectedOption", selectedOption);
   // console.log("pooooo", poNumber);
   // Set initial preferred option if available
 
   useEffect(() => {
-    if (shipping_details) {
+    if (shipping_details ) {
       // Find the current order's option in the store
       let currentOrderOption = currentOption?.allOptions?.find(
         (opt: StoredOption) => opt.order_po === poNumber
@@ -183,6 +190,7 @@ const SelectShippingOption: React.FC<{
     currentOption,
     shipping_option,
     orders,
+    selectedOption,
     dispatch,
   ]);
 
@@ -254,6 +262,7 @@ const SelectShippingOption: React.FC<{
 
   const handleOptionChange = useCallback(
     (value: string, order: any) => {
+      
       const option = shipping_details?.options?.find(
         (opt: ShippingOption) => `${opt.rate}-$${opt.shipping_method}` === value
       );
@@ -335,6 +344,7 @@ const SelectShippingOption: React.FC<{
 
   useEffect(() => {
     if (localOrder?.order_items?.length > 0 || productchange) {
+     
       // console.log("firedddd", currentOption);
       const orderPostDataList = {
         order_po: localOrder.order_po,
@@ -353,7 +363,7 @@ const SelectShippingOption: React.FC<{
       // console.log("Product changed, refetching shipping options");
       dispatch(fetchShippingOption({orders: orderPostDataList,account_key: customerinfo?.data?.account_key,}));
     }
-  }, [localOrder, productchange, dispatch]);
+  }, [localOrder, productchange, ]);
 
   // console.log("productchange", productchange);
 

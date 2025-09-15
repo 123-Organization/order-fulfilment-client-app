@@ -60,6 +60,9 @@ export const shipping = createSlice({
     updateCurrentOption: (state, action: PayloadAction<any>) => {
       state.currentOption = action.payload;
     },
+    removeCurrentOption: (state) => {
+      state.currentOption = null;
+    },
   },
   extraReducers: (builder) => {
     builder.addCase(fetchShippingOption.fulfilled, (state, action) => {
@@ -74,5 +77,5 @@ export const shipping = createSlice({
   },
 });
 
-export const { updateShipping, updateCurrentOption } = shipping.actions;
+export const { updateShipping, updateCurrentOption, removeCurrentOption } = shipping.actions;
 export default shipping;
