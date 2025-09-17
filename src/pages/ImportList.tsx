@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { Button, Form, Select, Skeleton, Tooltip, Modal } from "antd";
 import { InfoCircleOutlined, FullscreenOutlined } from "@ant-design/icons";
 import Spinner from "../components/Spinner";
@@ -36,6 +36,7 @@ import PopupModal from "../components/PopupModal";
 import ReplacingCode from "../components/ReplacingCode";
 import { updateIframeState } from "../store/features/companySlice";
 import { setProductData } from "../store/features/productSlice";
+import { convertGoogleDriveUrl, isGoogleDriveUrl, getGoogleDriveImageUrls } from "../helpers/fileHelper";
 
 const { Option } = Select;
 type SizeType = Parameters<typeof Form>[0]["size"];
@@ -96,6 +97,8 @@ const ImportList: React.FC = () => {
   const [skuModal, setSkuModal] = useState(false);
   const [replacingModal, setReplacingModal] = useState(false);
   const [skuToReplace, setSkuToReplace] = useState("");
+  const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({});
+  const [imageUrlIndex, setImageUrlIndex] = useState<{ [key: string]: number }>({});
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
   const excludedOrders = useAppSelector((state) => state.order.excludedOrders);
   const validSKUs = useAppSelector((state) => state.order.validSKU);
@@ -453,7 +456,7 @@ const ImportList: React.FC = () => {
 
       dispatch(updateCheckedOrders(CheckedOrders));
     }
-  }, [orders?.data, productData, excludedOrders , shipping_option]); // Add excludedOrders to dependencies
+  }, [orders?.data, excludedOrders, shipping_option, validSKUs]); // Removed productData to prevent excessive re-renders
 
   const handleCheckboxChange = (e: any) => {
     const { value, checked } = e.target;
@@ -514,6 +517,55 @@ const ImportList: React.FC = () => {
   const hasInvalidSKUs = (orderItems: any[]) => {
     return orderItems?.some(item => !validSKUs.includes(item.product_sku?.toString()));
   };
+
+  // Function to get the correct image URL, handling Google Drive links
+  const getImageUrl = useCallback((order: any, productSku: string): string => {
+    let imageUrl = "";
+    
+    // Try thumbnail first, then fallback to product data
+    if (order?.product_url_thumbnail) {
+      imageUrl = order.product_url_thumbnail;
+    } else if (productData[productSku]?.image_url_1) {
+      imageUrl = productData[productSku].image_url_1;
+    }
+    
+    // Convert Google Drive URLs to direct image URLs
+    if (imageUrl && isGoogleDriveUrl(imageUrl)) {
+      return convertGoogleDriveUrl(imageUrl);
+    }
+    
+    return imageUrl;
+  }, [productData]);
+
+  // Function to handle image load errors with URL fallback
+  const handleImageError = (imageKey: string, originalUrl: string) => {
+    if (isGoogleDriveUrl(originalUrl)) {
+      const possibleUrls = getGoogleDriveImageUrls(originalUrl);
+      const currentIndex = imageUrlIndex[imageKey] || 0;
+      
+      if (currentIndex < possibleUrls.length - 1) {
+        // Try next URL
+        setImageUrlIndex(prev => ({ ...prev, [imageKey]: currentIndex + 1 }));
+        return;
+      }
+    }
+    
+    // Mark as failed if all URLs tried
+    setImageErrors(prev => ({ ...prev, [imageKey]: true }));
+  };
+
+  // Get current image URL for a specific image key
+  const getCurrentImageUrl = useCallback((imageKey: string, originalUrl: string): string => {
+    if (!originalUrl) return "";
+    
+    if (isGoogleDriveUrl(originalUrl)) {
+      const possibleUrls = getGoogleDriveImageUrls(originalUrl);
+      const currentIndex = imageUrlIndex[imageKey] || 0;
+      return possibleUrls[currentIndex] || originalUrl;
+    }
+    
+    return originalUrl;
+  }, [imageUrlIndex]);
 
   // Function to show modal with full description
   const showFullDescription = (
@@ -866,23 +918,69 @@ const ImportList: React.FC = () => {
                                   <div
                                     className={`w-[50%]  ${style.importlist_pic}`}
                                   >
-                                    {productData[order?.product_sku]
-                                      ?.image_url_1 ? (
-                                      <img
-                                        src={
-                                          order?.product_url_thumbnail
-                                            ? order?.product_url_thumbnail
-                                            : productData[order?.product_sku]
-                                                .image_url_1
-                                        }
-                                        alt="product"
-                                        className=" max-md:w-40 w-32 h-[120px]"
-                                        width={125}
-                                        height={26}
-                                      />
-                                    ) : (
-                                      <Skeleton.Image active />
-                                    )}
+                                    {(() => {
+                                      const originalImageUrl = getImageUrl(order, order?.product_sku);
+                                      const imageKey = `${order?.product_sku}-${order?.product_order_po}`;
+                                      const currentImageUrl = getCurrentImageUrl(imageKey, originalImageUrl);
+                                      const hasError = imageErrors[imageKey];
+                                      
+                                      // Debug logging
+                                      if (isGoogleDriveUrl(originalImageUrl)) {
+                                        console.log(`[${imageKey}] Google Drive Image State:`, {
+                                          originalImageUrl,
+                                          currentImageUrl,
+                                          hasError,
+                                          urlIndex: imageUrlIndex[imageKey] || 0
+                                        });
+                                      }
+                                      
+                                      // Only show error state if explicitly marked as error
+                                      // Don't treat empty URL as error initially
+                                      if (currentImageUrl && !hasError) {
+                                        return (
+                                          <img
+                                            key={`${imageKey}-${imageUrlIndex[imageKey] || 0}`}
+                                            src={currentImageUrl}
+                                            alt="product"
+                                            className="max-md:w-40 w-32 h-[120px] object-cover rounded"
+                                            width={125}
+                                            height={120}
+                                            onError={() => {
+                                              console.log(`[${imageKey}] Image failed to load:`, currentImageUrl);
+                                              handleImageError(imageKey, originalImageUrl);
+                                            }}
+                                            onLoad={() => {
+                                              console.log(`[${imageKey}] Image loaded successfully:`, currentImageUrl);
+                                              // Clear any error state when image loads successfully
+                                              setImageErrors(prev => {
+                                                const newState = { ...prev };
+                                                delete newState[imageKey];
+                                                return newState;
+                                              });
+                                            }}
+                                          />
+                                        );
+                                      } else if (hasError || !currentImageUrl) {
+                                        // Only show fallback if we have explicitly marked it as error or no URL
+                                        return (
+                                          <div className="max-md:w-40 w-32 h-[120px] bg-gray-200 rounded flex items-center justify-center">
+                                            <div className="text-center text-gray-500 text-xs p-2">
+                                              <svg className="w-8 h-8 mx-auto mb-1" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+                                              </svg>
+                                              <span>No Image</span>
+                                              {originalImageUrl && isGoogleDriveUrl(originalImageUrl) && (
+                                                <div className="text-xs mt-1 text-blue-600">
+                                                  Google Drive link detected
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        );
+                                      } else {
+                                        return <Skeleton.Image active className="w-32 h-[120px]" />;
+                                      }
+                                    })()}
                                   </div>
 
                                   <div className="w-[100%]">
@@ -942,7 +1040,12 @@ const ImportList: React.FC = () => {
                               <SelectShippingOption
                                 poNumber={order?.order_po.toString()}
                                 orderItems={order?.order_items}
-                                onShippingOptionChange={handleShippingOptionChange}
+                                localOrder={order}
+                                productchange={false}
+                                clicking={false}
+                                onShippingOptionChange={(poNumber: string, total: any) => 
+                                  handleShippingOptionChange(poNumber, total)
+                                }
                               />
                             )
                           ) : (

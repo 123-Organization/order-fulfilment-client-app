@@ -35,6 +35,7 @@ interface OrderState {
   openSheet: boolean;
   excludedOrders: any;
   replacingCode: any;
+  validatedOrders: any;
   validSKU: any;
   status: "idle" | "loading" | "succeeded" | "failed"; // ✅ Add status here
   error: string | null;
@@ -67,6 +68,7 @@ const initialState: OrderState = {
   submitedOrders: [],
   submitOrdersResponse: null,
   validSKU: [],
+  validatedOrders: {},
   error: null,
   currentOrderFullFillmentId: null,
   replacingCode: false,
@@ -91,7 +93,7 @@ export const fetchOrder = createAsyncThunk(
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ accountId: accountId, page: 1, limit: 50 })
+      body: JSON.stringify({ accountId: accountId, page: 1, limit: 10 })
     });
     const data = response.json();
 
@@ -436,6 +438,38 @@ export const sendOrderInformation = createAsyncThunk(
   }
 )
 
+
+// curl --location 'https://ijbsrphg08.execute-api.us-east-1.amazonaws.com/Prod/api/validate-orders' \
+export const validateOrders = createAsyncThunk(
+  "order/validate",
+  async (postData: any, thunkAPI) => {
+    try {
+      const response = await fetch(BASE_URL + "validate-orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(postData),
+      });
+
+      const data = await response.json();
+      console.log("datdasdsadsadasda", data);
+
+      if (data.status === false) {
+        // return full response body, not just a string
+        return thunkAPI.rejectWithValue(data);
+      }
+
+      return data;
+
+    } catch (error: any) {
+      return thunkAPI.rejectWithValue({
+        message: error.message || "Something went wrong",
+      });
+    }
+  }
+);
+
 export const OrderSlice = createSlice({
   name: "order",
   initialState,
@@ -668,6 +702,14 @@ export const OrderSlice = createSlice({
     builder.addCase(sendOrderInformation.pending, (state, action) => {
       state.sendOrderInfoStatus = 'loading';
     })
+    builder.addCase(validateOrders.fulfilled, (state, action) => {
+      state.validatedOrders = action.payload;
+    })
+    builder.addCase(validateOrders.rejected, (state, action) => {
+      state.validatedOrders = action.payload as any;
+      state.error = action.payload as string;
+    })
+    
   }
 
 });

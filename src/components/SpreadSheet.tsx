@@ -1,6 +1,6 @@
 import "handsontable/styles/handsontable.min.css";
 import "handsontable/styles/ht-theme-main.min.css";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { registerAllModules } from "handsontable/registry";
 import { HotTable } from "@handsontable/react-wrapper";
 import * as XLSX from "xlsx";
@@ -11,9 +11,10 @@ import {
   ArrowRightOutlined,
 } from "@ant-design/icons";
 import cssModule from "./SpreadSheet.module.css";
-import { UploadOrdersExcel } from "../store/features/orderSlice";
+import { UploadOrdersExcel, validateOrders } from "../store/features/orderSlice";
 import { useAppDispatch, useAppSelector } from "../store";
 import { useNavigate } from "react-router-dom";
+import { getConstantValue } from "typescript";
 
 registerAllModules();
 
@@ -46,26 +47,7 @@ const requiredFields = [
 ];
 
 
-const hotSettings = {
-  stretchH: "all" as const,
-  autoWrapRow: true,
-  autoWrapCol: true,
-  rowHeaders: true,
-  colHeaders: true,
-  height: 400,
-  licenseKey: "non-commercial-and-evaluation",
-  className: cssModule.customHotTable,
-  contextMenu: true,
-  manualColumnResize: true,
-  manualRowResize: true,
-  filters: true,
-  dropdownMenu: true,
-  headerTooltips: true,
-  columnSorting: true,
-  afterGetColHeader: (col: number, TH: HTMLElement) => {
-    TH.className = "custom-header";
-  },
-} as const;
+
 
 export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
   const hotRef = useRef<any>(null);
@@ -74,6 +56,8 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>(
     []
   );
+  const validatedOrders = useAppSelector((state) => state.order.validatedOrders);
+  const [validatedData, setValidatedData] = useState<any>([]);
   const uploadStatus = useAppSelector((state) => state.order.uploadStatus);
   const [isLoading, setIsLoading] = useState(false);
   const [step, setStep] = useState(0);
@@ -140,6 +124,9 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
     
     const cleanedData = [...jsonData];
     
+    const handleChange = (changes: any) => {
+      console.log("changes", changes);
+    }
     // Clean up data rows (skip header row)
     for (let i = 1; i < cleanedData.length; i++) {
       const row = [...(cleanedData[i] as any[])];
@@ -233,14 +220,188 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
     reader.readAsBinaryString(file);
   };
 
-  const validateData = () => {
-    const errors: ValidationError[] = [];
-    const headers = data[0] as string[];
 
+  const handleReturnData = async () => {
+    try {
+      // Convert data to orders
+      const headers = data[0] as string[];
+      const orders = data.slice(1).map((row) => {
+        const order: Record<string, any> = {};
+        headers.forEach((header, index) => {
+          order[header] = row[index];
+        });
+
+        // Clean up state/province based on country code
+        if (order.ship_country_code) {
+          const isUSCountry = order.ship_country_code && 
+            (order.ship_country_code.toString().toLowerCase() === "us" || 
+             order.ship_country_code.toString().toLowerCase() === "usa" ||
+             order.ship_country_code.toString().toLowerCase() === "united states");
+
+          if (isUSCountry) {
+            // For US addresses, clear province field
+            order.ship_province = "";
+          } else {
+            // For non-US addresses, clear state code field
+            order.ship_state_code = "";
+          }
+        }
+
+        return order;
+      });
+
+      // Here you would typically send the orders to your API
+      // await api.createOrders(orders);
+      const postOrders = orders.map((order) => {
+        // Determine if the country is US to decide between state and province
+        const isUSCountry = order.ship_country_code && 
+          (order.ship_country_code.toString().toLowerCase() === "us" || 
+           order.ship_country_code.toString().toLowerCase() === "usa" ||
+           order.ship_country_code.toString().toLowerCase() === "united states");
+           console.log("adsadads", order);
+
+        console.log(`Order ${order.order_po} after cleanup:`, {
+          country: order.ship_country_code,
+          isUSCountry: isUSCountry,
+          ship_state_code: order.ship_state_code,
+          ship_province: order.ship_province,
+          willMapTo: isUSCountry ? 'state' : 'province'
+        });
+
+        const mappedState = isUSCountry ? order.ship_state_code : "";
+        const mappedProvince = !isUSCountry ? order.ship_province : "";
+
+        console.log(`Final mapping for ${order.order_po}:`, {
+          state: mappedState,
+          province: mappedProvince
+        });
+
+        const orderData: any = {
+          order_po: order.order_po,
+          recipient: {
+            first_name: order.ship_first_name,
+            last_name: order.ship_last_name,
+            company_name: order.ship_company_name,
+            address_1: order.ship_address_1,
+            address_2: order.ship_address_2,
+            address_3: "",
+            city: order.ship_city,
+            state_code: mappedState,
+            province: mappedProvince,
+            zip_postal_code: order.ship_zip,
+            country_code: order.ship_country_code,
+            phone: order.ship_phone,
+            email: "dumdum@gmail.com",
+            address_order_po: "",
+          },
+          order_items: [
+            {
+              product_qty: order.product_qty,
+              product_sku: order.product_sku,
+              product_image: {
+                pixel_width: 600,
+                pixel_height: 600,
+                product_url_file: order.product_image_file_url,
+                product_url_thumbnail: order.product_thumb_url ,
+              },
+              product_cropping: order.product_cropping,
+            },
+          ],
+          order_status: "Processing",
+          shipping_code: order.shipping_code,
+          test_mode: false,
+        };
+
+        // Add optional webhook_order_status_url if provided
+        if (order.webhook_order_status_url && order.webhook_order_status_url.trim() !== "") {
+          orderData.webhook_order_status_url = order.webhook_order_status_url;
+        }
+
+        return orderData;
+      });
+      return postOrders;
+  } catch (error) {
+    console.log("error", error);
+  }
+  }
+  const errors: ValidationError[] = [];
+  console.log("errors", validationErrors);
+  useEffect(() => {
+    console.log("Redux validatedOrders", validatedOrders);
+    if(validatedOrders.status === false) {
+      errors.push({
+        row: 0,
+        column: "response",
+        message: validatedOrders?.message,
+      });
+      setValidationErrors((prev) => [...prev, ...errors]);
+    }else if(validatedOrders.status === true){
+      console.log("validatedOrders", validatedOrders);
+      const filteredErrors = validationErrors.filter((error) => error.column !== "response");
+      setValidationErrors([ ...filteredErrors]);
+    }
+  }, [validatedOrders]);
+  useEffect(() => {
+    if(step === 1) {
+      validatePostOrders();
+    }
+  }, [step]);
+
+  const validatePostOrders = async () => {
+    const postOrders = await handleReturnData();
+    dispatch(validateOrders({
+      validate_only: true,
+      orders: [...postOrders],
+      account_key: customerInfo?.data?.account_key,
+      payment_token: customerInfo?.data?.payment_profile_id,
+    }))
+    console.log("asdsdadasd", postOrders);
+
+
+  }
+
+  const hotSettings = {
+    stretchH: "all" as const,
+    autoWrapRow: true,
+    autoWrapCol: true,
+    rowHeaders: true,
+    colHeaders: true,
+    height: 400,
+    licenseKey: "non-commercial-and-evaluation",
+    className: cssModule.customHotTable,
+    contextMenu: true,
+    manualColumnResize: true,
+    manualRowResize: true,
+    filters: true,
+    dropdownMenu: true,
+    headerTooltips: true,
+    columnSorting: true,
+    afterGetColHeader: (col: number, TH: HTMLElement) => {
+      TH.className = "custom-header";
+    },
+    afterChange: (changes: any, source: string) => {
+      if (source === "loadData") return;
+      if(changes?.length > 0) {
+        validatePostOrders();
+        validateData();
+      }
+      // validatePostOrders();
+      console.log("changes", changes);
+      
+     
+    },
+  } as const;
+  const validateData =  () => {
+   
+    const headers = data[0] as string[];
+    
+    validatePostOrders();
+  
     // Validate headers - check for basic required fields
     const missingFields = requiredFields.filter(
       (field) => !headers.includes(field)
     );
+    console.log("missingFields", missingFields);
     if (missingFields.length > 0) {
       errors.push({
         row: 0,
@@ -320,103 +481,14 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
     setValidationErrors(errors);
     return errors.length === 0;
   };
+  
 
   const handleSubmitOrders = async () => {
     setIsLoading(true);
     try {
-      // Convert data to orders
-      const headers = data[0] as string[];
-      const orders = data.slice(1).map((row) => {
-        const order: Record<string, any> = {};
-        headers.forEach((header, index) => {
-          order[header] = row[index];
-        });
-
-        // Clean up state/province based on country code
-        if (order.ship_country_code) {
-          const isUSCountry = order.ship_country_code && 
-            (order.ship_country_code.toString().toLowerCase() === "us" || 
-             order.ship_country_code.toString().toLowerCase() === "usa" ||
-             order.ship_country_code.toString().toLowerCase() === "united states");
-
-          if (isUSCountry) {
-            // For US addresses, clear province field
-            order.ship_province = "";
-          } else {
-            // For non-US addresses, clear state code field
-            order.ship_state_code = "";
-          }
-        }
-
-        return order;
-      });
-
-      // Here you would typically send the orders to your API
-      // await api.createOrders(orders);
-      const postOrders = orders.map((order) => {
-        // Determine if the country is US to decide between state and province
-        const isUSCountry = order.ship_country_code && 
-          (order.ship_country_code.toString().toLowerCase() === "us" || 
-           order.ship_country_code.toString().toLowerCase() === "usa" ||
-           order.ship_country_code.toString().toLowerCase() === "united states");
-
-        console.log(`Order ${order.order_po} after cleanup:`, {
-          country: order.ship_country_code,
-          isUSCountry: isUSCountry,
-          ship_state_code: order.ship_state_code,
-          ship_province: order.ship_province,
-          willMapTo: isUSCountry ? 'state' : 'province'
-        });
-
-        const mappedState = isUSCountry ? order.ship_state_code : "";
-        const mappedProvince = !isUSCountry ? order.ship_province : "";
-
-        console.log(`Final mapping for ${order.order_po}:`, {
-          state: mappedState,
-          province: mappedProvince
-        });
-
-        const orderData: any = {
-          order_po: order.order_po,
-          recipient: {
-            first_name: order.ship_first_name,
-            last_name: order.ship_last_name,
-            company_name: order.ship_company_name,
-            address_1: order.ship_address_1,
-            address_2: order.ship_address_2,
-            address_3: "",
-            city: order.ship_city,
-            state: mappedState,
-            province: mappedProvince,
-            zip_postal_code: order.ship_zip,
-            country_code: order.ship_country_code,
-            phone: order.ship_phone,
-            email: "dumdum@gmail.com",
-            address_order_po: "",
-          },
-          order_items: [
-            {
-              product_qty: order.product_qty,
-              product_sku: order.product_sku,
-              image_url_1: order.product_image_file_url,
-              product_url_thumbnail: order.product_image_file_url,
-              product_cropping: order.product_cropping,
-            },
-          ],
-          order_status: "Processing",
-          shipping_code: order.shipping_code,
-          test_mode: false,
-        };
-
-        // Add optional webhook_order_status_url if provided
-        if (order.webhook_order_status_url && order.webhook_order_status_url.trim() !== "") {
-          orderData.webhook_order_status_url = order.webhook_order_status_url;
-        }
-
-        return orderData;
-      });
+    const postOrders = await handleReturnData();
       
-      dispatch(
+     await dispatch(
         UploadOrdersExcel({
           account_key: customerInfo?.data?.account_key,
           accountId: customerInfo?.data?.account_id,
@@ -424,7 +496,7 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
           orders: [...postOrders],
         })
       );
-      console.log("to send", orders);
+      console.log("to send", postOrders);
 
       setStep(3);
       setStepStatus("finish");
@@ -444,7 +516,7 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
   const handleNext = () => {
     if (step === 1) {
       const isValid = validateData();
-      if (!isValid) {
+      if (!isValid || validatedOrders.status === false) {
         setStepStatus("error");
         return;
       }
