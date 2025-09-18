@@ -32,7 +32,9 @@ export default function VaultedCardPayment({
   const [isTokenLoading, setIsTokenLoading] = useState(false);
   const [isPayButtonDisabled, setIsPayButtonDisabled] = useState(false);
   const orders = useAppSelector((state) => state.order.orders);
-  console.log(orders,"ordeasasdadasrs")
+  const currentOption = useAppSelector((state) => state.Shipping.currentOption);
+  console.log(currentOption,"ordeasasdadasrs")
+  console.log(orders,"sdfsdf")
   
   const payment_profile_id = companyInfo?.data?.payment_profile_id;
   const notificationApi = useNotificationContext();
@@ -143,6 +145,7 @@ export default function VaultedCardPayment({
   const editedSubmittedOrders = submittedOrders.map((order: any) => {
     return {
       ...order,
+      shipping_code: currentOption?.allOptions?.find((option: any) => option.order_po === order.order_po)?.selectedOption?.id,
       order_items: order.order_items.map((item: any) => {
         if(!item.product_sku.startsWith("AP")) {
           return {
