@@ -142,33 +142,34 @@ export default function VaultedCardPayment({
       
     }).flat();
     console.log("submittedOrders",submittedOrders);
-  const editedSubmittedOrders = submittedOrders.map((order: any) => {
-    return {
-      ...order,
-      order_po: order.order_po.split("#")[1],
-      shipping_code: currentOption?.allOptions?.find((option: any) => option.order_po === order.order_po)?.selectedOption?.id,
-      order_items: order.order_items.map((item: any) => {
-        if(!item.product_sku.startsWith("AP")) {
-          return {
-            product_qty :item.product_qty ,
-            product_sku: item.product_sku,
-            product_cropping: item.product_cropping,
-            product_guid : item.product_guid,
-           product_image: {
-            pixel_width: 600,
-            pixel_height: 600,
-            product_url_file: item?.product_image
-            ?.product_url_file,
-            product_url_thumbnail: item?.product_image
-            ?.product_url_thumbnail,
-           
-           }
+    const editedSubmittedOrders = submittedOrders.map((order: any) => {
+      const poParts = order.order_po.split("#");
+    
+      return {
+        ...order,
+        order_po: poParts.length > 1 ? poParts[1] : order.order_po,
+        shipping_code: currentOption?.allOptions?.find(
+          (option: any) => option.order_po === order.order_po
+        )?.selectedOption?.id,
+        order_items: order.order_items.map((item: any) => {
+          if (!item.product_sku.startsWith("AP")) {
+            return {
+              product_qty: item.product_qty,
+              product_sku: item.product_sku,
+              product_cropping: item.product_cropping,
+              product_guid: item.product_guid,
+              product_image: {
+                pixel_width: 600,
+                pixel_height: 600,
+                product_url_file: item?.product_image?.product_url_file,
+                product_url_thumbnail: item?.product_image?.product_url_thumbnail,
+              },
+            };
           }
-        }
-        return item;
-      })
-    }
-  })
+          return item;
+        }),
+      };
+    });
   console.log("editedSubmittedOrders",editedSubmittedOrders);
     const payload = {
       validate_only: false,
