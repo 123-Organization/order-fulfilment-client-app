@@ -523,8 +523,8 @@ const ImportList: React.FC = () => {
     let imageUrl = "";
     
     // Try thumbnail first, then fallback to product data
-    if (order?.product_url_thumbnail) {
-      imageUrl = order.product_url_thumbnail;
+    if (order?.product_image?.product_url_thumbnail) {
+      imageUrl = order.product_image.product_url_thumbnail;
     } else if (productData[productSku]?.image_url_1) {
       imageUrl = productData[productSku].image_url_1;
     }
@@ -557,6 +557,8 @@ const ImportList: React.FC = () => {
   // Get current image URL for a specific image key
   const getCurrentImageUrl = useCallback((imageKey: string, originalUrl: string): string => {
     if (!originalUrl) return "";
+    console.log(originalUrl,"originalUrl")
+    console.log(imageKey,"imageKey")
     
     if (isGoogleDriveUrl(originalUrl)) {
       const possibleUrls = getGoogleDriveImageUrls(originalUrl);
@@ -922,7 +924,9 @@ const ImportList: React.FC = () => {
                                       const originalImageUrl = getImageUrl(order, order?.product_sku);
                                       const imageKey = `${order?.product_sku}-${order?.product_order_po}`;
                                       const currentImageUrl = getCurrentImageUrl(imageKey, originalImageUrl);
+                                      console.log(currentImageUrl,"currentImageUrl")
                                       const hasError = imageErrors[imageKey];
+                                      console.log(hasError,"hasError")
                                       
                                       // Debug logging
                                       if (isGoogleDriveUrl(originalImageUrl)) {
@@ -940,7 +944,7 @@ const ImportList: React.FC = () => {
                                         return (
                                           <img
                                             key={`${imageKey}-${imageUrlIndex[imageKey] || 0}`}
-                                            src={currentImageUrl}
+                                            src={originalImageUrl}
                                             alt="product"
                                             className="max-md:w-40 w-32 h-[120px] object-cover rounded"
                                             width={125}
@@ -961,21 +965,28 @@ const ImportList: React.FC = () => {
                                           />
                                         );
                                       } else if (hasError || !currentImageUrl) {
-                                        // Only show fallback if we have explicitly marked it as error or no URL
                                         return (
-                                          <div className="max-md:w-40 w-32 h-[120px] bg-gray-200 rounded flex items-center justify-center">
-                                            <div className="text-center text-gray-500 text-xs p-2">
-                                              <svg className="w-8 h-8 mx-auto mb-1" fill="currentColor" viewBox="0 0 20 20">
-                                                <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-                                              </svg>
-                                              <span>No Image</span>
-                                              {originalImageUrl && isGoogleDriveUrl(originalImageUrl) && (
-                                                <div className="text-xs mt-1 text-blue-600">
-                                                  Google Drive link detected
-                                                </div>
-                                              )}
-                                            </div>
-                                          </div>
+                                          <img
+                                            key={`${imageKey}-${imageUrlIndex[imageKey] || 0}`}
+                                            src={originalImageUrl}
+                                            alt="product"
+                                            className="max-md:w-40 w-32 h-[120px] object-cover rounded"
+                                            width={125}
+                                            height={120}
+                                            onError={() => {
+                                              console.log(`[${imageKey}] Image failed to load:`, currentImageUrl);
+                                              handleImageError(imageKey, originalImageUrl);
+                                            }}
+                                            onLoad={() => {
+                                              console.log(`[${imageKey}] Image loaded successfully:`, currentImageUrl);
+                                              // Clear any error state when image loads successfully
+                                              setImageErrors(prev => {
+                                                const newState = { ...prev };
+                                                delete newState[imageKey];
+                                                return newState;
+                                              });
+                                            }}
+                                          />
                                         );
                                       } else {
                                         return <Skeleton.Image active className="w-32 h-[120px]" />;

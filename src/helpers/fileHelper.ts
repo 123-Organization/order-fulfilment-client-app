@@ -71,7 +71,7 @@ export function convertGoogleDriveUrl(url: string): string {
   if (!url) return url;
   
   // Check if it's a Google Drive URL and extract file ID
-  const googleDriveRegex = /https:\/\/drive\.google\.com\/(?:file\/d\/|uc\?id=)([a-zA-Z0-9_-]+)/;
+  const googleDriveRegex = /(?:https?:\/\/)?(?:drive\.google\.com\/(?:file\/d\/|uc\?id=)|drive\.usercontent\.google\.com\/download\?id=|lh3\.googleusercontent\.com\/d\/)([a-zA-Z0-9_-]+)/;
   const match = url.match(googleDriveRegex);
   
   if (match && match[1]) {
@@ -91,7 +91,7 @@ export function convertGoogleDriveUrl(url: string): string {
 export function getGoogleDriveImageUrls(url: string): string[] {
   if (!url || !isGoogleDriveUrl(url)) return [url];
   
-  const googleDriveRegex = /https:\/\/drive\.google\.com\/(?:file\/d\/|uc\?id=)([a-zA-Z0-9_-]+)/;
+  const googleDriveRegex = /(?:https?:\/\/)?(?:drive\.google\.com\/(?:file\/d\/|uc\?id=)|drive\.usercontent\.google\.com\/download\?id=|lh3\.googleusercontent\.com\/d\/)([a-zA-Z0-9_-]+)/;
   const match = url.match(googleDriveRegex);
   
   if (match && match[1]) {
@@ -114,5 +114,5 @@ export function getGoogleDriveImageUrls(url: string): string[] {
  */
 export function isGoogleDriveUrl(url: string): boolean {
   if (!url) return false;
-  return /https:\/\/drive\.google\.com\//.test(url);
+  return /^https?:\/\/(drive\.google\.com|drive\.usercontent\.google\.com)\//.test(url);
 }
