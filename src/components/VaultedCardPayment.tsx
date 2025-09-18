@@ -32,6 +32,7 @@ export default function VaultedCardPayment({
   const [isTokenLoading, setIsTokenLoading] = useState(false);
   const [isPayButtonDisabled, setIsPayButtonDisabled] = useState(false);
   const orders = useAppSelector((state) => state.order.orders);
+  console.log(orders,"ordeasasdadasrs")
   
   const payment_profile_id = companyInfo?.data?.payment_profile_id;
   const notificationApi = useNotificationContext();
@@ -46,7 +47,6 @@ export default function VaultedCardPayment({
   const submitStatus = useAppSelector((state) => state.order.submitStatus);
   console.log("selectedCard",selectedCard);
   // Track token loading state
-
 
   useEffect(() => {
     if (paymentTokenStatus === "loading") {
@@ -153,8 +153,11 @@ export default function VaultedCardPayment({
            product_image: {
             pixel_width: 600,
             pixel_height: 600,
-            product_url_file: item?.product_url_thumbnail,
-            product_url_thumbnail: item?.product_url_thumbnail,
+            product_url_file: item?.product_image
+            ?.product_url_file,
+            product_url_thumbnail: item?.product_image
+            ?.product_url_thumbnail,
+           
            }
           }
         }

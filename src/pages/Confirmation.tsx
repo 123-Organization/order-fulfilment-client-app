@@ -62,7 +62,9 @@ export default function Confirmation() {
       dispatch(updateCheckedOrders([] as any));
       dispatch(resetSubmitStatus());
       dispatch(resetImport());
+      if(sendOrderInformationStatus === "succeeded" || sendOrderInformationStatus === "failed"){
       dispatch(DeleteAllOrders({accountId: customerInfo?.data?.account_id}));
+      }
       console.log("sendOrderInformationStatus", sendOrderInformationStatus);
       dispatch(resetExcludedOrders());
     } else if (submitStatus === "failed") {
