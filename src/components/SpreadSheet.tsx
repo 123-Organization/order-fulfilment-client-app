@@ -277,7 +277,7 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
         });
 
         const orderData: any = {
-          order_po: order.order_po,
+          order_po: order.order_po ? order.order_po.toString().replace(/^#/, '') : order.order_po,
           recipient: {
             first_name: order.ship_first_name,
             last_name: order.ship_last_name,
@@ -291,7 +291,7 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
             zip_postal_code: order.ship_zip,
             country_code: order.ship_country_code,
             phone: order.ship_phone,
-            email: "dumdum@gmail.com",
+            email: order.ship_email,
             address_order_po: "",
           },
           order_items: [
@@ -353,6 +353,7 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
       validate_only: true,
       orders: [...postOrders],
       account_key: customerInfo?.data?.account_key,
+      accountId: customerInfo?.data?.account_id,
       payment_token: customerInfo?.data?.payment_profile_id,
     }))
     console.log("asdsdadasd", postOrders);

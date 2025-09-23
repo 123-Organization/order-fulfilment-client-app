@@ -8,6 +8,7 @@ import {
   resetReplaceCodeResult,
   resetReplaceCodeStatus,
   updateCheckedOrders,
+  deleteOrder,
 } from "../store/features/orderSlice";
 import locked_Shipment from "../assets/images/package-delivery-box-8-svgrepo-com.svg";
 import { fetchOrder } from "../store/features/orderSlice";
@@ -20,7 +21,6 @@ import parse from "html-react-parser";
 import SelectShippingOption from "../components/SelectShippingOption";
 import style from "./Pgaes.module.css";
 import DeleteMessage from "../components/DeleteMessage";
-import { deleteOrder } from "../store/features/orderSlice";
 import Loading from "../components/Loading";
 import { useNotificationContext } from "../context/NotificationContext";
 import styles from "../components/ToggleButtons.module.css";
@@ -99,6 +99,7 @@ const ImportList: React.FC = () => {
   const [skuToReplace, setSkuToReplace] = useState("");
   const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({});
   const [imageUrlIndex, setImageUrlIndex] = useState<{ [key: string]: number }>({});
+  const [bulkDeleteModalVisible, setBulkDeleteModalVisible] = useState(false);
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
   const excludedOrders = useAppSelector((state) => state.order.excludedOrders);
   const validSKUs = useAppSelector((state) => state.order.validSKU);
@@ -140,6 +141,7 @@ const ImportList: React.FC = () => {
     (state) => state.Shipping.currentOption
   );
   const navigate = useNavigate();
+  console.log("productData", productData);
 
   const AddProductsTemplate = () => {
     return (
@@ -169,7 +171,7 @@ const ImportList: React.FC = () => {
       dispatch(resetReplaceCodeResult());
     }, 2000);
   };
-
+console.log("checkedOrders", checkedOrders);
   useEffect(() => {
     // Only show notifications if we have attempted to replace a code
     if (replaceCodeResult !== undefined) { // Check if we have a result (success or failure)
@@ -185,7 +187,7 @@ const ImportList: React.FC = () => {
           dispatch(fetchOrder(customerInfo?.data?.account_id));
           dispatch(clearProductData());
           if(iframeState){
-            dispatch(updateIframeState({ iframeState: false }));
+            dispatch(updateIframeState(false));
           }
           setOrderPostData([]);
           // setReplacingModal(false);
@@ -338,6 +340,29 @@ const ImportList: React.FC = () => {
   };
   const onProductCodeUpdate = (productCode: string) => {
     dispatch(fetchOrder(customerInfo?.data?.account_id));
+  };
+
+  const onBulkDeleteOrders = async () => {
+    if (!orders?.data || orders.data.length === 0) {
+      notificationApi.warning({
+        message: "No Orders to Delete",
+        description: "There are no orders available to delete.",
+      });
+      return;
+    }
+
+    const orderFullFillmentIds = orders.data.map((order: any) => order.orderFullFillmentId);
+    
+    await dispatch(
+      deleteOrder({
+        orderFullFillmentId: orderFullFillmentIds,
+        accountId: customerInfo?.data?.account_id,
+      })
+    );
+
+    setBulkDeleteModalVisible(false);
+    // Clear checked orders
+    dispatch(updateCheckedOrders([]));
   };
 
   useEffect(() => {
@@ -589,6 +614,38 @@ const ImportList: React.FC = () => {
       >
         <div className="flex justify-between items-center mb-10 px-9">
           <h1 className="text-left text-2xl font-bold mt-2">Orders</h1>
+          {orders?.data && orders.data.length > 0 && (
+            <Button
+              danger
+              type="primary"
+              size="large"
+              loading={deleteOrderStatus === "loading"}
+              onClick={() => setBulkDeleteModalVisible(true)}
+              className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 border-0 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 ease-in-out font-semibold px-6 py-2 rounded-lg"
+              icon={
+                !deleteOrderStatus || deleteOrderStatus !== "loading" ? (
+                  <svg
+                    className="w-4 h-4 mr-1"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
+                  </svg>
+                ) : null
+              }
+            >
+              <span className="text-white">
+                {deleteOrderStatus === "loading" ? "Deleting..." : "Delete All Orders"}
+              </span>
+            </Button>
+          )}
         </div>
         <div
           className={`mx-auto max-w-7xl justify-center px-6 md:flex md:space-x-6 xl:px-0 ${style.orderes_box}`}
@@ -924,9 +981,9 @@ const ImportList: React.FC = () => {
                                       const originalImageUrl = getImageUrl(order, order?.product_sku);
                                       const imageKey = `${order?.product_sku}-${order?.product_order_po}`;
                                       const currentImageUrl = getCurrentImageUrl(imageKey, originalImageUrl);
-                                      console.log(currentImageUrl,"currentImageUrl")
+                                      // console.log(imageKey,"imageKey")
                                       const hasError = imageErrors[imageKey];
-                                      console.log(hasError,"hasError")
+                                      // console.log(hasError,"hasError")
                                       
                                       // Debug logging
                                       if (isGoogleDriveUrl(originalImageUrl)) {
@@ -937,10 +994,12 @@ const ImportList: React.FC = () => {
                                           urlIndex: imageUrlIndex[imageKey] || 0
                                         });
                                       }
+                                      // setProductData(prev => ({ ...prev, [order?.product_sku]: { ...prev[order?.product_sku], image_url_1: currentImageUrl } }));
                                       
                                       // Only show error state if explicitly marked as error
                                       // Don't treat empty URL as error initially
                                       if (currentImageUrl && !hasError) {
+                                        
                                         return (
                                           <img
                                             key={`${imageKey}-${imageUrlIndex[imageKey] || 0}`}
@@ -1110,6 +1169,109 @@ const ImportList: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Bulk Delete Confirmation Modal */}
+      <Modal
+        title={
+          <div className="flex items-center text-lg text-red-700 font-medium border-b pb-2">
+            <svg
+              className="w-6 h-6 mr-2 text-red-500"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                fillRule="evenodd"
+                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                clipRule="evenodd"
+              />
+            </svg>
+            Delete All Orders
+          </div>
+        }
+        open={bulkDeleteModalVisible}
+        onCancel={() => setBulkDeleteModalVisible(false)}
+        footer={[
+          <div className="flex justify-center gap-4" key="footer">
+            <Button
+              key="cancel"
+              size="large"
+              onClick={() => setBulkDeleteModalVisible(false)}
+              className="border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-800 bg-white hover:bg-gray-50 shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200 ease-in-out font-medium px-8 py-2 rounded-lg"
+            >
+              Cancel
+            </Button>
+            <Button
+              key="delete"
+              danger
+              type="primary"
+              size="large"
+              loading={deleteOrderStatus === "loading"}
+              onClick={onBulkDeleteOrders}
+              className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 border-0 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 ease-in-out font-semibold px-8 py-2 rounded-lg"
+              icon={
+                !deleteOrderStatus || deleteOrderStatus !== "loading" ? (
+                  <svg
+                    className="w-4 h-4 mr-1"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
+                  </svg>
+                ) : null
+              }
+            >
+              <span className="text-white font-medium">
+                {deleteOrderStatus === "loading" ? "Deleting..." : "Delete All"}
+              </span>
+            </Button>
+          </div>,
+        ]}
+        width={500}
+        centered
+        className="bulk-delete-modal"
+      >
+        <div className="text-center py-4">
+          <div className="mb-4">
+            <svg
+              className="mx-auto w-16 h-16 text-red-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              />
+            </svg>
+          </div>
+          <p className="text-lg font-medium text-gray-900 mb-2">
+            Are you sure you want to delete all orders?
+          </p>
+          <p className="text-sm text-gray-500 mb-4">
+            This action will permanently delete{" "}
+            <span className="font-semibold text-red-600">
+              {orders?.data?.length || 0} order(s)
+            </span>{" "}
+            and cannot be undone.
+          </p>
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+            <p className="text-sm text-red-800">
+              <strong>Warning:</strong> This operation is irreversible. All order data will be permanently removed from the system.
+            </p>
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         title={

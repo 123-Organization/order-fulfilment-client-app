@@ -288,7 +288,7 @@ export const saveUserProfile = createAsyncThunk(
 
 export const deleteOrder = createAsyncThunk(
   "order/delete",
-  async (postData: any, thunkAPI) => {
+  async (postData: { orderFullFillmentId: string | string[], accountId: number }, thunkAPI) => {
 
     const sendData = {
       "orderFullFillmentId": postData.orderFullFillmentId,
@@ -305,6 +305,7 @@ export const deleteOrder = createAsyncThunk(
     return data;
   },
 );
+
 
 export const fetchWporder = createAsyncThunk(
   "order/fetch/wporder",

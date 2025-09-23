@@ -578,7 +578,7 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
   );
 
   
-  console.log("changeStatus", changeStatus);
+  console.log("localorder", localOrder);
 
   return (
     <div
@@ -677,8 +677,8 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
                       {productData[item.product_sku]?.image_url_1 ? (
                         <img
                           src={
-                            item?.product_url_thumbnail
-                              ? item?.product_url_thumbnail
+                            item?.product_image?.product_url_thumbnail
+                              ? item?.product_image?.product_url_thumbnail
                               : productData[item?.product_sku].image_url_1
                           }
                           alt="product"
