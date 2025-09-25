@@ -616,12 +616,11 @@ console.log("checkedOrders", checkedOrders);
           <h1 className="text-left text-2xl font-bold mt-2">Orders</h1>
           {orders?.data && orders.data.length > 0 && (
             <Button
-              danger
-              type="primary"
-              size="large"
+              type="default"
+              size="middle"
               loading={deleteOrderStatus === "loading"}
               onClick={() => setBulkDeleteModalVisible(true)}
-              className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 border-0 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 ease-in-out font-semibold px-6 py-2 rounded-lg"
+              className="bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200 border border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-800 shadow-sm hover:shadow-md transition-all duration-300 ease-in-out font-medium px-5 py-2 rounded-lg"
               icon={
                 !deleteOrderStatus || deleteOrderStatus !== "loading" ? (
                   <svg
@@ -641,8 +640,8 @@ console.log("checkedOrders", checkedOrders);
                 ) : null
               }
             >
-              <span className="text-white">
-                {deleteOrderStatus === "loading" ? "Deleting..." : "Delete All Orders"}
+              <span>
+                {deleteOrderStatus === "loading" ? "Deleting..." : "Delete All"}
               </span>
             </Button>
           )}

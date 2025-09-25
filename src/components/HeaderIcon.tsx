@@ -253,9 +253,6 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
 
           {1 ? (
             <div className="flex flex-row  w-full col-span-5 max-md:col-span-8 justify-end">
-              <div className="max-md:visible md:hidden mx-2 ">
-                <UserAvatar />
-              </div>
               <div className="max-md:hidden ">
                 <button
                   data-tooltip-target="tooltip-document"
@@ -286,7 +283,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                   <img src={truck} width={whPixel} height={whPixel} />
                   <span className=" ">Ship Perferences</span>
                 </button>
-                <ShipmentModal visible={open} onClose={() => setOpen(false)} />
+                <ShipmentModal visible={open} onClose={() => setOpen(false)} collapsed={collapsed} />
               </div>
 
               <div className="max-md:hidden">
@@ -309,7 +306,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                       <button
                         onClick={() => setDash(!openDash)}  
                         type="button"
-                        className="relative inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-gray-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
+                        className="relative inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:bg-gray-100 focus:text-gray-600"
                         aria-controls="mobile-menu11"
                         aria-expanded={false} 
                       >
@@ -433,8 +430,27 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
           )}
 
           {!openDash && (
-            <div className="md:hidden col-span-10" id="mobile-menu1 " >
-              <div className="space-y-1 px-2 pb-3 pt-2">
+            <div className="md:hidden col-span-10 bg-white shadow-lg rounded-b-lg border-t border-gray-200" id="mobile-menu1">
+              <div className="relative">
+                {/* Modern Profile Header with gradient background */}
+                <div className="bg-gradient-to-r from-blue-500 to-purple-600 px-4 py-6 rounded-t-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className="relative inline-block">
+                      <UserAvatar />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-white font-semibold text-lg">Welcome Back</h3>
+                      <div className="flex items-center gap-2">
+                        <p className="text-blue-100 text-sm">Manage your orders & settings</p>
+                        {/* Online status indicator */}
+                        <div className="w-3 h-3 bg-green-400 border-2 border-white rounded-full"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Menu Items with modern styling */}
+                <div className="px-4 py-2 space-y-2">
                 {
                   //Current: "bg-gray-900 text-white", Default: "text-gray-300 hover:bg-gray-700 hover:text-white"
                 }
@@ -459,83 +475,98 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                         My Files
                   </span>
                 </button>  */}
-                <div className="middle-div border-t-2  ">
                   <a
                     href="#/mycompany"
-                    className="w-full middle-div  text-gray-300 hover:bg-gray-700 hover:text-white block rounded-md px-3 py-2 text-sm font-medium"
+                    className="flex items-center w-full text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg px-3 py-3 text-sm font-medium transition-all duration-200 group"
                     aria-current="page"
                     onClick={toggleDash}
                   >
-                    <img
-                      src={briefcase}
-                      className="mr-2"
-                      width={whPixel}
-                      height={whPixel}
-                      
-                    />
-                    <span className="mt-1">My Company</span>
+                    <div className="flex items-center justify-center w-10 h-10 bg-gray-100 group-hover:bg-blue-100 rounded-lg mr-3 transition-colors duration-200">
+                      <img
+                        src={briefcase}
+                        className=""
+                        width="20"
+                        height="20"
+                        alt="My Company"
+                      />
+                    </div>
+                    <span className="font-medium">My Company</span>
                   </a>
-                </div>
                 
-                <div className="middle-div border-t-2">
                   <a
                     href="#/shippingpreference"
-                    className="w-full middle-div text-gray-300 hover:bg-gray-700 hover:text-white block rounded-md px-3 py-2 text-sm font-medium"
+                    className="flex items-center w-full text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg px-3 py-3 text-sm font-medium transition-all duration-200 group"
                     aria-current="page"
                     onClick={toggleDash}
                   >
-                    <img
-                      src={truck}
-                      className="mr-2"
-                      width={whPixel}
-                      height={whPixel}
-                    />
-                    <span className="mt-1">Ship Preferences</span>
+                    <div className="flex items-center justify-center w-10 h-10 bg-gray-100 group-hover:bg-blue-100 rounded-lg mr-3 transition-colors duration-200">
+                      <img
+                        src={truck}
+                        className=""
+                        width="20"
+                        height="20"
+                        alt="Ship Preferences"
+                      />
+                    </div>
+                    <span className="font-medium">Ship Preferences</span>
                   </a>
-                </div>
                 
-                <div className="middle-div border-t-2">
                   <a
                     href="#/billingaddress"
-                    className="w-full middle-div text-gray-300 hover:bg-gray-700 hover:text-white block rounded-md px-3 py-2 text-sm font-medium"
+                    className="flex items-center w-full text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg px-3 py-3 text-sm font-medium transition-all duration-200 group"
                     aria-current="page"
                     onClick={toggleDash}
                   >
-                    <img
-                      src={creditcard}
-                      className="mr-2"
-                      width={whPixel}
-                      height={whPixel}
-                    />
-                    <span className="mt-1">Billing</span>
+                    <div className="flex items-center justify-center w-10 h-10 bg-gray-100 group-hover:bg-blue-100 rounded-lg mr-3 transition-colors duration-200">
+                      <img
+                        src={creditcard}
+                        className=""
+                        width="20"
+                        height="20"
+                        alt="Billing"
+                      />
+                    </div>
+                    <span className="font-medium">Billing</span>
                   </a>
-                </div>
-                <div className="middle-div border-t-2">
                   <a
                     href="#/virtualinventory"
-                    className="w-full middle-div text-gray-300 hover:bg-gray-700 hover:text-white block rounded-md px-3 py-2 text-sm font-medium"
+                    className="flex items-center w-full text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg px-3 py-3 text-sm font-medium transition-all duration-200 group"
                     aria-current="page"
                     onClick={toggleDash}
                   >
-                   <ProfileOutlined style={{ fontSize: 30, color: "#BFBFBF", marginRight: "10px" }} />
-                    <span className="mt-1">Virtual Inventory</span>
+                    <div className="flex items-center justify-center w-10 h-10 bg-gray-100 group-hover:bg-blue-100 rounded-lg mr-3 transition-colors duration-200">
+                      <ProfileOutlined style={{ fontSize: 20, color: "#6B7280" }} className="group-hover:text-blue-600" />
+                    </div>
+                    <span className="font-medium">Virtual Inventory</span>
                   </a>
-                  {/* <a href="#" className="w-full bg-gray-900 text-white block rounded-md px-3 py-2 text-base font-medium" aria-current="page">My Stores</a> */}
-                </div>
-                <div className="middle-div border-t-2">
                   <a
                     href="#"
-                    className="w-full middle-div text-gray-300 hover:bg-gray-700 hover:text-white block rounded-md px-3 py-2 text-sm font-medium"
+                    className="flex items-center w-full text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg px-3 py-3 text-sm font-medium transition-all duration-200 group"
                     onClick={onIframeClick}
-                    
                   >
-                    <img
-                      src={image}
-                      className="mr-2 "
-                      width={whPixel}
-                      height={whPixel}
-                    />
-                    <span className="mt-1">My Files</span>
+                    <div className="flex items-center justify-center w-10 h-10 bg-gray-100 group-hover:bg-blue-100 rounded-lg mr-3 transition-colors duration-200">
+                      <img
+                        src={image}
+                        className=""
+                        width="20"
+                        height="20"
+                        alt="My Files"
+                      />
+                    </div>
+                    <span className="font-medium">My Files</span>
+                  </a>
+
+                  <a
+                    href="#/importlist"
+                    className="flex items-center w-full text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg px-3 py-3 text-sm font-medium transition-all duration-200 group"
+                    onClick={toggleDash}
+                  >
+                    <div className="flex items-center justify-center w-10 h-10 bg-gray-100 group-hover:bg-blue-100 rounded-lg mr-3 transition-colors duration-200">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600 group-hover:text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <span className="font-medium">Pending Orders</span>
                   </a>
                 </div>
               </div>

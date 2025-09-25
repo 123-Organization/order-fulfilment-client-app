@@ -90,7 +90,8 @@ const EditOrder: React.FC = () => {
   const [isModified, setIsModified] = useState(false); // Track if values are modified
   const [changedValues, setChangedValues] = useState<any>({});
   const [localOrder, setLocalOrder] = useState(order);
-  const[stateCodeShort, setStateCodeShort] = useState(recipient?.state)
+  const[stateCodeShort, setStateCodeShort] = useState(recipient?.state_code)
+  console.log("recipient", recipient);
   const product_details =
     useAppSelector(
       (state) => state.ProductSlice.product_details?.data?.product_list
@@ -217,16 +218,17 @@ console.log("company_info", phone);
       address_1: recipient?.address_1 || "",
       address_2: recipient?.address_2 || "",
       city: recipient?.city || "",
-      state: recipient?.state || stateCodeShort,
+      state_code: recipient?.state_code || stateCodeShort,
       zip_postal_code: recipient?.zip_postal_code.toString() || "",
       phone: phoneValue,
     }),
     [order, recipient, phone, phoneValue]
   );
   // console.log("initialValues",convertUsStateAbbrAndName(recipient?.state ))
+  console.log("recipient", recipient);
 
   useEffect(() => {
-    if(recipient?.state_code){
+    if(recipient?.state_code || recipient?.state){
     const stateCode = recipient?.state_code?.toLowerCase()
     setStateCodeShort(convertUsStateAbbrAndName(stateCode))}
   }, [recipient])
@@ -307,6 +309,10 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
       (key) => initialValues[key] !== allValues[key]
     );
     console.log("hasChanged:", hasChanged);
+    console.log("changedValues:", changedValues);
+    if(changedValues?.state_code){
+      changedValues.state_code = convertUsStateAbbrAndName(changedValues.state_code);
+    }
 
     // Exclude 'address_2' when checking for all fields filled
     const requiredFields = Object.keys(allValues).filter(
@@ -512,7 +518,7 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
 
       <div className="relative w-full">
         <Form.Item
-          name="state"
+          name="state_code"
           className="w-full "
           rules={[{ required: true, message: "Please enter your state" }]}
         >
@@ -524,7 +530,7 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
             className="fw-input1 "
             filterOption={filterOption}
             options={stateData}
-            value={recipient?.state || ""}
+            value={recipient?.state_code || ""}
           >
             
           </Select>

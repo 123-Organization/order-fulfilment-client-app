@@ -280,13 +280,14 @@ const SelectShippingOption: React.FC<{
         };
 
         // Map through all orders and only update the matching one
-        const updatedOrders = orders.data.map((ord: any) =>
+        const updatedOrders = orders.data.find((ord: any) =>
           ord.order_po === updatedOrder.order_po ? updatedOrder : ord
         );
+        console.log("updatedOrders", updatedOrders);
 
         // Update with all orders, not just the single one
         const data = {
-          orders: updatedOrders,
+          orders: [updatedOrder],
           accountId: customerinfo?.data?.account_id,
         };
 
@@ -459,3 +460,4 @@ const SelectShippingOption: React.FC<{
 };
 
 export default SelectShippingOption;
+
