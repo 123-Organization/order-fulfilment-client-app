@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Button, Form, Input, Select, Skeleton, List } from "antd";
 import { useLocation } from "react-router-dom";
 import { useParams, useNavigate } from "react-router-dom";
@@ -27,6 +27,7 @@ import { setQuantityUpdated } from "../store/features/productSlice";
 import convertUsStateAbbrAndName from "../services/state";
 import NewProduct from "../components/NewProduct";
 import { updateOrdersInfo } from "../store/features/orderSlice";
+import { convertGoogleDriveUrl, isGoogleDriveUrl, getGoogleDriveImageUrls } from "../helpers/fileHelper";
 
 import Quantity from "../components/Quantitiy";
 
@@ -58,7 +59,7 @@ const EditOrder: React.FC = () => {
   const orderData = useAppSelector((state) => state.order.order) || {};
   console.log("orderData", orderData);
   const order = orderData.data ? orderData.data[0] : {};
-  const { id } = useParams<{ orderFullFillmentId: string }>();
+  const { id } = useParams<{ id: string }>();
   const code = useAppSelector((state) => state.order.productCode) || {};
   console.log("full", id);
   const quantityUpdated = useAppSelector(
@@ -84,13 +85,15 @@ const EditOrder: React.FC = () => {
     );
   }, [dispatch]);
 
-  const [productData, setProductData] = useState({});
+  const [productData, setProductData] = useState<{ [key: string]: any }>({});
   const [orderPostData, setOrderPostData] = useState([]);
   const [form] = Form.useForm(); // Create form instance
   const [isModified, setIsModified] = useState(false); // Track if values are modified
   const [changedValues, setChangedValues] = useState<any>({});
   const [localOrder, setLocalOrder] = useState(order);
   const[stateCodeShort, setStateCodeShort] = useState(recipient?.state_code)
+  const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({});
+  const [imageUrlIndex, setImageUrlIndex] = useState<{ [key: string]: number }>({});
   console.log("recipient", recipient);
   const product_details =
     useAppSelector(
@@ -105,6 +108,55 @@ console.log("company_info", phone);
   const filterDescription = (descriptionLong: string): string => {
     return descriptionLong?.replace(/<[^>]*>?/gm, "");
   };
+
+  // Function to get the correct image URL, handling Google Drive links
+  const getImageUrl = useCallback((item: any, productSku: string): string => {
+    let imageUrl = "";
+    
+    // Try thumbnail first, then fallback to product data
+    if (item?.product_image?.product_url_thumbnail) {
+      imageUrl = item.product_image.product_url_thumbnail;
+    } else if (productData[productSku]?.image_url_1) {
+      imageUrl = productData[productSku].image_url_1;
+    }
+    
+    // Convert Google Drive URLs to direct image URLs
+    if (imageUrl && isGoogleDriveUrl(imageUrl)) {
+      return convertGoogleDriveUrl(imageUrl);
+    }
+    
+    return imageUrl;
+  }, [productData]);
+
+  // Function to handle image load errors with URL fallback
+  const handleImageError = (imageKey: string, originalUrl: string) => {
+    if (isGoogleDriveUrl(originalUrl)) {
+      const possibleUrls = getGoogleDriveImageUrls(originalUrl);
+      const currentIndex = imageUrlIndex[imageKey] || 0;
+      
+      if (currentIndex < possibleUrls.length - 1) {
+        // Try next URL
+        setImageUrlIndex(prev => ({ ...prev, [imageKey]: currentIndex + 1 }));
+        return;
+      }
+    }
+    
+    // Mark as failed if all URLs tried
+    setImageErrors(prev => ({ ...prev, [imageKey]: true }));
+  };
+
+  // Get current image URL for a specific image key
+  const getCurrentImageUrl = useCallback((imageKey: string, originalUrl: string): string => {
+    if (!originalUrl) return "";
+    
+    if (isGoogleDriveUrl(originalUrl)) {
+      const possibleUrls = getGoogleDriveImageUrls(originalUrl);
+      const currentIndex = imageUrlIndex[imageKey] || 0;
+      return possibleUrls[currentIndex] || originalUrl;
+    }
+    
+    return originalUrl;
+  }, [imageUrlIndex]);
   console.log("local", localOrder);
   console.log(orderPostData);
   useEffect(() => {
@@ -117,7 +169,7 @@ console.log("company_info", phone);
   console.log("locals", localOrder);
   const handleShippingOptionChange = (
     order_po: string,
-    updatedPrice: number
+    updatedPrice: any
   ) => {
     let updatedOrders = [...checkedOrders];
 
@@ -130,14 +182,14 @@ console.log("company_info", phone);
       // Update the shipping price for the existing order
       updatedOrders[orderIndex] = {
         ...updatedOrders[orderIndex],
-        Product_price: {grand_total: updatedPrice?.order_grand_total},
+        Product_price: {grand_total: updatedPrice?.order_grand_total || updatedPrice},
       };
     } else {
       // Add the order with the updated shipping price
       console.log("updatedPrice", updatedPrice);
       updatedOrders.push({
         order_po,
-        Product_price: {grand_total: updatedPrice?.order_grand_total},
+        Product_price: {grand_total: updatedPrice?.order_grand_total || updatedPrice},
       });
     }
 
@@ -149,7 +201,7 @@ console.log("company_info", phone);
   }, [])
 
   //send the orders array without the dedeleted product object
-  const onDeleteProduct = (product_guid) => {
+  const onDeleteProduct = (product_guid: string) => {
     const updatedOrderItems = localOrder?.order_items?.filter(
       (item) => item.product_guid !== product_guid
     );
@@ -611,6 +663,7 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
               id={id}
               onProductCodeUpdate={handleProductCodeUpdate}
               localorder={localOrder}
+              setOpenModal={setOpenModal}
             />
           </div>
           {localOrder?.order_items?.map((item, index) => (
@@ -680,21 +733,58 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
                 <div className="block relative pb-4 w-full">
                   <div className="justify-around pt-4 rounded-lg flex ">
                     <div className="flex pt-8 ">
-                      {productData[item.product_sku]?.image_url_1 ? (
-                        <img
-                          src={
-                            item?.product_image?.product_url_thumbnail
-                              ? item?.product_image?.product_url_thumbnail
-                              : productData[item?.product_sku].image_url_1
-                          }
-                          alt="product"
-                          className={`max-md:w-20 w-40 h-[100px] ${style.product_image} `}
-                          width={116}
-                          height={26}
-                        />
-                      ) : (
-                        <Skeleton.Image active className="mr-40" />
-                      )}
+                      {(() => {
+                        const originalImageUrl = getImageUrl(item, item?.product_sku);
+                        const imageKey = `${item?.product_sku}-${item?.product_guid}`;
+                        const currentImageUrl = getCurrentImageUrl(imageKey, originalImageUrl);
+                        const hasError = imageErrors[imageKey];
+                        
+                        // Debug logging for Google Drive images
+                        if (isGoogleDriveUrl(originalImageUrl)) {
+                          console.log(`[EditOrder-${imageKey}] Google Drive Image State:`, {
+                            originalImageUrl,
+                            currentImageUrl,
+                            hasError,
+                            urlIndex: imageUrlIndex[imageKey] || 0
+                          });
+                        }
+                        
+                        if (currentImageUrl && !hasError) {
+                          return (
+                            <img
+                              key={`${imageKey}-${imageUrlIndex[imageKey] || 0}`}
+                              src={currentImageUrl}
+                              alt="product"
+                              className={`max-md:w-20 w-40 h-[100px] ${style.product_image} `}
+                              width={116}
+                              height={100}
+                              onError={() => {
+                                console.log(`[EditOrder-${imageKey}] Image failed to load:`, currentImageUrl);
+                                handleImageError(imageKey, originalImageUrl);
+                              }}
+                              onLoad={() => {
+                                console.log(`[EditOrder-${imageKey}] Image loaded successfully:`, currentImageUrl);
+                                // Clear any error state when image loads successfully
+                                setImageErrors(prev => {
+                                  const newState = { ...prev };
+                                  delete newState[imageKey];
+                                  return newState;
+                                });
+                              }}
+                            />
+                          );
+                        } else if (hasError || !currentImageUrl) {
+                          return (
+                            <div className="max-md:w-20 w-40 h-[100px] bg-gray-200 rounded flex items-center justify-center">
+                              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                          );
+                        } else {
+                          return <Skeleton.Image active className="mr-40" />;
+                        }
+                      })()}
 
                       <div className="sm:ml-4 flex flex-col w-full sm:justify-between max-md:px-2">
                         {(Object.keys(productData)?.length && (
@@ -753,6 +843,7 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
                         onClose={setDeleteMessageVisible}
                         onDeleteProduct={onDeleteProduct}
                         deleteItem={product_guid}
+                        order_po=""
                       />
                       {productCode && (
                         <Button
@@ -770,6 +861,7 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
                         open={openModal}
                         setOpenModal={setOpenModal}
                         productImage={productData[item.product_sku]?.image_url_1}
+                        ProductName={productData[item.product_sku]?.description_long || "Product"}
                       />
                     </div>
                     <div className="text-sm font-medium">
@@ -806,7 +898,7 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
           <UpdatePopup
             ChangedValues={changedValues}
             visible={orderEdited.clicked}
-            onClose={() => dispatch(updateOrderStatus({ clicked: false }))}
+            onClose={() => dispatch(updateOrderStatus({ status: false, clicked: false }))}
             
           /> 
           
