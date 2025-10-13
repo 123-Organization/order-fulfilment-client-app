@@ -323,7 +323,7 @@ console.log("checkedOrders", checkedOrders);
   ) => {
     await dispatch(
       deleteOrder({
-        orderFullFillmentId,
+        orderFullFillmentId: [orderFullFillmentId],
         accountId: customerInfo?.data?.account_id,
       })
     );
