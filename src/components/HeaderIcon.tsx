@@ -181,25 +181,9 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
           className="flex items-center text-gray-700 hover:text-red-600 transition-all duration-300 font-medium"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
           </svg>
           Disconnect Platform
-        </a>
-      ),
-    },
-    {
-      key: 'Pending orders',
-      label: (
-        <a 
-          href="#/importlist" 
-          target="" 
-          rel="noopener noreferrer" 
-          className="flex items-center text-gray-700 hover:text-blue-600 transition-all duration-300 font-medium"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          Pending Orders
         </a>
       ),
     },
@@ -225,12 +209,12 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
   return (
     <div className={`flex w-full ${!openDash ? addtional : ""}`}>
       <div className=" fixed left-0 z-50 w-full top-0 h-18 bg-white pt-3 pb-3  mb-2 border-gray-200 dark:bg-gray-700 dark:border-gray-600 flex justify-between items-center">
-        <div className="grid   md:place-items-center  max-md:grid-cols-10  max-md:grid-rows-1 w-[720px] max-md:w-full grid-rows-1 grid-cols-6 font-medium max-md:font-normal ">
+        <div className="grid   md:place-items-center  max-md:grid-cols-10  max-md:grid-rows-1 w-[950px] max-md:w-full grid-rows-1 grid-cols-8 font-medium max-md:font-normal ">
           {!logo ? (
             <div
               className=" cursor-pointer   "
               onClick={() => {
-                window.location.href = "/";
+                window.location.href = "";
               }}
             >
               <Skeleton.Avatar
@@ -244,7 +228,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
             <img
               src={finerWorks}
               onClick={() => {
-                window.location.href = "/";
+                window.location.href = "https://finerworks.com/";
               }}
               className="App-logo-icon cursor-pointer flex flex-row z-100 w-12 h-14 max-md:mx-2 "
               alt="logo"
@@ -252,7 +236,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
           )}
 
           {1 ? (
-            <div className="flex flex-row  w-full col-span-5 max-md:col-span-8 justify-end">
+            <div className="flex flex-row  w-full col-span-6 max-md:col-span-8 justify-end">
               <div className="max-md:hidden ">
                 <button
                   data-tooltip-target="tooltip-document"
@@ -263,9 +247,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                   }}
                 >
                   <img src={briefcase} width={whPixel} height={whPixel} />
-                  <span className="max-md:text-sm max-md:font-normal text-gray-500 whitespace-nowrap dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500">
-                    My Company
-                  </span>
+                  <span className="mt-1">My Company</span>
                 </button>
               </div>
               
@@ -281,7 +263,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                   //   setOpen(true)}}
                 >
                   <img src={truck} width={whPixel} height={whPixel} />
-                  <span className=" ">Ship Perferences</span>
+                  <span className="mt-1">Ship Perferences</span>
                 </button>
                 <ShipmentModal visible={open} onClose={() => setOpen(false)} collapsed={collapsed} />
               </div>
@@ -295,7 +277,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                   }}
                 >
                   <img src={creditcard} width={whPixel} height={whPixel} />
-                  <span className="">Billing</span>
+                  <span className="mt-1">Billing</span>
                 </button>
               </div>
               <div className="relative flex h-16 items-center justify-between md:hidden"></div>
@@ -364,7 +346,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                   {/* <img src={store} width={whPixel} height={whPixel} /> */}
                   <ProfileOutlined style={{ fontSize: 30, color: "#BFBFBF" }} />
                   {/* <ContainerOutlined  /> */}
-                  <span className="pt-0.5 ">Virtual Inventory</span>
+                  <span className="mt-1 ">Virtual Inventory</span>
                 </button>
               </div>
               
@@ -392,32 +374,77 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                   {cookies.AccountGUID && <StoresMenu setMyStores={setMyStores}/>}
                 </div>
               </div>
+              
+              <div className="max-md:hidden">
+                <button
+                  type="button"
+                  className="fw-icon-btn "
+                  onClick={() => {
+                    navigate("/importlist");
+                  }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width={whPixel} height={whPixel} fill="none" viewBox="0 0 24 24" stroke="#BFBFBF">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="mt-1">Pending Orders</span>
+                </button>
+              </div>
               <div className="max-md:hidden relative">
                 <button
                   type="button"
                   className="fw-icon-btn group"
                   onClick={handleMoreClick}
                 >
-                  <img 
-                    src={more} 
-                    width={"30px"} 
-                    height={whPixel} 
-                    className="transform transition-transform duration-300 group-hover:rotate-90"
-                  />
-                  <span className="pt-1">More</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width={whPixel} height={whPixel} fill="none" viewBox="0 0 24 24" stroke="#BFBFBF" className="transform transition-transform duration-300 group-hover:rotate-90">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                  </svg>
+                  <span className="mt-1">More</span>
                 </button>
                 <div
-                  className={`absolute top-20 left flex items-center ${
-                    moreMenuVisible ? "visible" : "hidden"
+                  className={`absolute top-20 left z-50 ${
+                    moreMenuVisible ? "block" : "hidden"
                   }`}
                 >
-                  <Menu
-                    onClick={() => setMoreMenuVisible(false)}
-                    style={{ width: 170 }}
-                    mode="vertical"
-                    items={moreMenuItems}
-                    onMouseLeave={() => setMoreMenuVisible(false)}
-                  />
+                  <div className="bg-white shadow-lg rounded-lg border border-gray-200 py-2 w-48">
+                    <a 
+                      href="https://support.finerworks.com/how-to-use-the-order-fulfillment-app/" 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-all duration-300 font-medium text-sm"
+                      onClick={() => setMoreMenuVisible(false)}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <span>Documentation</span>
+                    </a>
+                    <a 
+                      href="https://finerworks.com" 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-all duration-300 font-medium text-sm"
+                      onClick={() => setMoreMenuVisible(false)}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                      <span>FinerWorks.com</span>
+                    </a>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setDisconnectModalVisible(true);
+                        setMoreMenuVisible(false);
+                      }}
+                      className="flex items-center px-4 py-2 text-gray-700 hover:bg-red-50 hover:text-red-600 transition-all duration-300 font-medium text-sm"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                      </svg>
+                      <span>Disconnect Platform</span>
+                    </a>
+                  </div>
                 </div>
               </div>
               
