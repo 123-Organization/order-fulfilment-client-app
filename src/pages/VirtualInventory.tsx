@@ -1,45 +1,29 @@
-import React, { CSSProperties, useEffect, useState } from "react";
-import { Empty, message, Skeleton, Space, Spin, notification } from "antd";
-import { Typography } from "antd";
+import React, { useEffect, useState } from "react";
+import { Empty, Skeleton, Spin, notification } from "antd";
 import FilterSortModal from "../components/FilterSortModal";
-import { FileSearchOutlined, SortDescendingOutlined } from "@ant-design/icons";
 import { useAppDispatch, useAppSelector } from "../store";
-import { remove, find } from "lodash";
+import { find } from "lodash";
 import wordpress from "../assets/images/wordpress-svgrepo-com (1).svg";
-import {
-  exportOrders,
-  updateVirtualInventory,
-} from "../store/features/InventorySlice";
 import {
   listVirtualInventory,
   inventorySelectionUpdate,
   inventorySelectionDelete,
   inventorySelectionClean,
 } from "../store/features/InventorySlice";
-import { ecommerceConnectorExport } from "../store/features/ecommerceSlice";
 import HTMLReactParser from "html-react-parser";
 import { useLocation } from "react-router-dom";
 import ExportModal from "../components/ExportModal";
 import { AddProductToOrder } from "../store/features/orderSlice";
-let userInfoMultiselectOptions = true;
 
 
 /**
  * ****************************************************************** Outer Function **********************************************************
  */
 
-const { Text } = Typography;
-const IMAGE_STYLES: CSSProperties = {
-  width: 300,
-  height: 300,
-};
-
-interface ImageType {
-  public_thumbnail_uri?: string;
-  sku?: string;
-  public_preview_uri?: string;
-  isSelected?: false;
-  title?: string;
+interface NotificationAlertProps {
+  type: 'success' | 'info' | 'warning' | 'error';
+  message: string;
+  description: string;
 }
 /**
  * ****************************************************************** Function Components *******************************************************
@@ -52,13 +36,12 @@ interface VirtualInventoryProps {
 const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Element => { 
   const location = useLocation();
   console.log("location", location.pathname);
-  const [open, setOpen] = useState(false);
   const [spinLoader, setSpinLoader] = useState(false);
   const [openFilter, setOpenFilter] = useState(false);
   const [openExport, setOpenExport] = useState(false);
   let listVirtualInventoryData = useAppSelector(
     (state) => state.Inventory.listVirtualInventory?.data
-  )?.map((data) => {
+  )?.map((data: any) => {
     return { ...data, ...{ isSelected: false } };
   });
   const currentOrderFullFillmentId = useAppSelector(
@@ -75,13 +58,6 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
     (state) => state.Inventory.inventorySelection
   );
   const dispatch = useAppDispatch();
-  // const [images, setImages] = useState<Array<ImageType>>([]);
-  const [imgData, setImgData] = useState({});
-  const [referrerImages, setReferrerImages] = useState<
-    Array<String | undefined>
-  >([]);
-  const [images, setImages] = useState<Array<ImageType>>([]);
-  // const [messageApi, contextHolder] = message.useMessage();
   const [api, contextHolder] = notification.useNotification();
   const openNotificationWithIcon = ({
     type,
@@ -94,25 +70,33 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
     });
   };
 
-  const exportToWPInv = () => {
-    setOpenExport(true);
+  // Copy to clipboard function
+  const copyToClipboard = (text: string, label: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent selecting the item when copying
+    navigator.clipboard.writeText(text).then(() => {
+      notification.success({
+        message: 'Copied!',
+        description: `${label} "${text}" copied to clipboard`,
+        placement: 'topRight',
+        duration: 2,
+      });
+    }).catch((err) => {
+      notification.error({
+        message: 'Copy Failed',
+        description: 'Failed to copy to clipboard',
+        placement: 'topRight',
+        duration: 2,
+      });
+    });
   };
 
-  const exportToWP = () => {
-    if (spinLoader) return false;
-    setSpinLoader(true);
-    // let guids = referrer.fileSelected.map((image: { guid: string })=>image.sku);
-    // printImagesDataFn({guids});
-    // // window.open(`https://finerworks.com/apps/orderform/post.aspx?guids=${guids}`, "_blank")
-  };
   console.log("currentOrderFullFillmentId", currentOrderFullFillmentId);
 
   const handleSelect = (skuObj: any) => {
     console.log("inventorySelection", inventorySelection);
     console.log("sku", skuObj);
-    console.log("referrerImages", referrerImages);
 
-    listVirtualInventoryData = listVirtualInventoryData.map((data) => {
+    listVirtualInventoryData = listVirtualInventoryData.map((data: any) => {
       if (data.sku === skuObj.sku) {
         if (find(inventorySelection, { sku: skuObj?.sku }))
           dispatch(inventorySelectionDelete(skuObj));
@@ -131,16 +115,6 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
       "handleSelect listVirtualInventoryData",
       listVirtualInventoryData
     );
-  };
-
-  const exportInventoryFn = () => {
-    if (inventorySelection.length) {
-      dispatch(
-        ecommerceConnectorExport({
-          products: inventorySelection,
-        })
-      );
-    }
   };
 
   const exportInventory = () => {
@@ -167,10 +141,29 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
     productCode: "",
     orderFullFillmentId: "",
   });
+  
+  // Quick filter states
+  const [searchFilter, setSearchFilter] = useState("");
+  const [sortField, setSortField] = useState("id");
+  const [sortDirection, setSortDirection] = useState("DESC");
+  const [perPage, setPerPage] = useState(12);
+
   const AddProduct = () => {
     dispatch(AddProductToOrder(productData));
     dispatch(inventorySelectionClean());
     onClose();
+  };
+
+  // Apply filters function
+  const applyFilters = () => {
+    dispatch(
+      listVirtualInventory({
+        search_filter: searchFilter,
+        sort_field: sortField,
+        sort_direction: sortDirection,
+        per_page: perPage,
+      })
+    );
   };
 
   useEffect(() => {
@@ -197,156 +190,288 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
    */
 
   return (
-    <div className="relative">
+    <div className="relative bg-gray-50 min-h-screen">
       <div className="fixed1">
-        <div className=" flex flex-row p-5 mr-5">
-          <div id="docsearch" className=" hidden md:flex ml-4 basis-11/12">
-            <button
-              type="button"
-              className="DocSearch DocSearch-Button"
-              aria-label="Search"
-              onClick={() => setOpenFilter(true)}
-            >
-              <span className="DocSearch-Button-Container flex flex-row">
-                {/* <svg
-                width="20"
-                height="20"
-                className="DocSearch-Search-Icon"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  d="M14.386 14.386l4.0877 4.0877-4.0877-4.0877c-2.9418 2.9419-7.7115 2.9419-10.6533 0-2.9419-2.9418-2.9419-7.7115 0-10.6533 2.9418-2.9419 7.7115-2.9419 10.6533 0 2.9419 2.9418 2.9419 7.7115 0 10.6533z"
-                  stroke="currentColor"
+        {/* Quick Filters Bar */}
+        <div className="bg-white shadow-sm sticky top-16 z-10 border-b border-gray-200 ml-20">
+          <div className="p-4 space-y-4 max-w-7xl mx-auto">
+            {/* First Row - Search and Selection Count */}
+            <div className="flex items-center gap-4">
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  placeholder="Search by name, title or description..."
+                  value={searchFilter}
+                  onChange={(e) => setSearchFilter(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && applyFilters()}
+                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400"
                   fill="none"
-                  fill-rule="evenodd"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                ></path>
-              </svg> */}
-                <FileSearchOutlined
-                  className="mr-5 "
-                  style={{ fontSize: "20px" }}
-                />
-                <span className="border-l-2"></span>
-                <SortDescendingOutlined
-                  className="ml-5"
-                  style={{ fontSize: "20px" }}
-                />
-                <span className="mr-10 DocSearch-Button-Placeholder"></span>
-              </span>
-            </button>
-          </div>
-          {!!inventorySelection.length && (
-            <div
-              // onClick={exportToWPInv}
-              className="fw-sky-btn mr-4 basis-1/12 max-md:row-1 max-md:col-span-4 max-md:relative"
-            >
-              <Spin spinning={spinLoader} size="small">
-                {location.pathname === "/virtualinventory" ? (
-                  <button
-                    type="button"
-                    onClick={() => exportInventory()}
-                    className="  
-                            "
-                  >
-                    {"Export"}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => AddProduct()}
-                    className="  
-                            "
-                  >
-                    {"Add"}
-                  </button>
-                )}
-              </Spin>
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+
+              {!!inventorySelection.length && (
+                <div className="bg-blue-100 text-blue-700 px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {inventorySelection.length} selected
+                </div>
+              )}
+
+              {!!inventorySelection.length && (
+                <Spin spinning={spinLoader} size="small">
+                  {location.pathname === "/virtualinventory" ? (
+                    <button
+                      type="button"
+                      onClick={() => exportInventory()}
+                      className="px-6 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-all duration-200 hover:shadow-lg"
+                    >
+                      Export
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => AddProduct()}
+                      className="px-6 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-all duration-200 hover:shadow-lg"
+                    >
+                      Add
+                    </button>
+                  )}
+                </Spin>
+              )}
             </div>
-          )}
+
+            {/* Second Row - Sort Options */}
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* Sort By */}
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-600">Sort:</label>
+                <select
+                  value={sortField}
+                  onChange={(e) => setSortField(e.target.value)}
+                  className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
+                >
+                  <option value="id">ID</option>
+                  <option value="name">Name</option>
+                  <option value="created_at">Created Date</option>
+                </select>
+              </div>
+
+              {/* Sort Direction */}
+              <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setSortDirection("ASC")}
+                  className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${
+                    sortDirection === "ASC"
+                      ? "bg-white text-blue-600 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                  </svg>
+                  Asc
+                </button>
+                <button
+                  onClick={() => setSortDirection("DESC")}
+                  className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${
+                    sortDirection === "DESC"
+                      ? "bg-white text-blue-600 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                  Desc
+                </button>
+              </div>
+
+              {/* Items Per Page */}
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-600">Show:</label>
+                <select
+                  value={perPage}
+                  onChange={(e) => setPerPage(Number(e.target.value))}
+                  className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
+                >
+                  <option value={50}>50</option>
+                  <option value={25}>25</option>
+                  <option value={15}>15</option>
+                  <option value={12}>12</option>
+                  <option value={10}>10</option>
+                  <option value={8}>8</option>
+                  <option value={6}>6</option>
+                </select>
+              </div>
+
+              {/* Apply Filters Button */}
+              <button
+                onClick={applyFilters}
+                className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-all duration-200 hover:shadow-md flex items-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                Search
+              </button>
+
+              {/* Advanced Filters Button */}
+              <button
+                onClick={() => setOpenFilter(true)}
+                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-all duration-200 flex items-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                </svg>
+                Advanced
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-      <div className="grid max-sm:grid-cols-1 max-xl:grid-cols-2 grid-cols-4 gap-8 p-8 max-md:pt-20 content-center">
+      <div className="flex flex-col gap-4 p-8 max-md:pt-20 max-w-7xl mx-auto w-full ml-20">
         {contextHolder}
         {listVirtualInventoryLoader ? (
-          <div className="center-div1  md:col-span-4">
-            <Space size={"large"} className="text-center" wrap>
-              <Skeleton.Image style={IMAGE_STYLES} active />
-              <Skeleton.Image style={IMAGE_STYLES} active />
-              <Skeleton.Image style={IMAGE_STYLES} active />
-              <Skeleton.Image style={IMAGE_STYLES} active />
-            </Space>
-            <Space className="pt-4 text-center" size={"large"} wrap>
-              <Skeleton.Image style={IMAGE_STYLES} active />
-              <Skeleton.Image style={IMAGE_STYLES} active />
-              <Skeleton.Image style={IMAGE_STYLES} active />
-              <Skeleton.Image style={IMAGE_STYLES} active />
-            </Space>
-            <Space className="pt-4 text-center" size={"large"} wrap>
-              <Skeleton.Image style={IMAGE_STYLES} active />
-              <Skeleton.Image style={IMAGE_STYLES} active />
-              <Skeleton.Image style={IMAGE_STYLES} active />
-              <Skeleton.Image style={IMAGE_STYLES} active />
-            </Space>
+          <div className="flex flex-col gap-4">
+            <Skeleton.Button active block style={{ height: '140px' }} />
+            <Skeleton.Button active block style={{ height: '140px' }} />
+            <Skeleton.Button active block style={{ height: '140px' }} />
+            <Skeleton.Button active block style={{ height: '140px' }} />
+            <Skeleton.Button active block style={{ height: '140px' }} />
           </div>
         ) : listVirtualInventoryData &&
           Object.keys(listVirtualInventoryData).length ? (
           <>
-            {listVirtualInventoryData.map((image, i) => (
+            {listVirtualInventoryData.map((image: any, i: number) => (
               <div
                 key={i}
-                className={`border rounded-lg shadow-lg   border-gray-100 ${
+                onClick={() => handleSelect(image)}
+                className={`bg-white border rounded-xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer ${
                   image?.isSelected ||
                   (inventorySelection?.length &&
                     find(inventorySelection, { sku: image?.sku }))
-                    ? // inventorySelection.includes(image?.sku)
-                      "isSelectedImg"
-                    : ""
+                    ? "ring-4 ring-blue-500 shadow-blue-200"
+                    : "border-gray-200 hover:border-gray-300"
                 }`}
               >
-                <div
-                  onClick={() => handleSelect(image)}
-                  className="min-h-[300px] flex justify-center items-center relative"
-                >
-                  <div className="">
-                    <img
-                      className={`m-2 min-h-[200px] cursor-pointer  max-w-[200px]   object-contain    `}
-                      src={image.image_url_1}
-                      alt=""
-                    />
+                <div className="flex flex-row items-center gap-6 p-4">
+                  {/* Image Section */}
+                  <div className="relative flex-shrink-0">
+                    <div className="w-32 h-32 bg-gradient-to-br from-gray-50 to-white rounded-lg flex items-center justify-center p-2">
+                      <img
+                        className="max-w-full max-h-full object-contain transform group-hover:scale-105 transition-transform duration-300"
+                        src={image.image_url_1}
+                        alt={image.name}
+                      />
+                    </div>
+                    {(image?.isSelected ||
+                      (inventorySelection?.length > 0 &&
+                        find(inventorySelection, { sku: image?.sku }))) && (
+                      <div className="absolute -top-2 -left-2 bg-blue-500 text-white rounded-full p-2 shadow-lg z-10">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                    )}
                   </div>
-                  {image?.third_party_integrations?.woocommerce_product_id ? (
-                    <img
-                      src={wordpress}
-                      alt=""
-                      className="absolute top-0 right-0 w-8 h-8"
-                    />
-                  ) : null}
-                </div>
-                <div className="flex relative w-full justify-center pb-2">
-                  <div className="text-sm pt-2">
-                    {/* <Text
-                                        style={{ width: 100 } }
-                                        ellipsis={{ tooltip: image.title } }
-                                      >
-                                        {image.title}
-                                      </Text> */}
-                  </div>
-                  <div>
-                    {/* <svg onClick={() => {
-                                        setOpen(true)
-                                        setImgData(image)
 
-                                        
-                                    }}  className="absolute cursor-pointer right-0 bottom-0  w-5 h-5 mb-2 mr-2 text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
-                                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9h2v5m-2 0h4M9.408 5.5h.01M19 10a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
-                                    </svg> */}
-                  </div>
-                  <div>
-                    <h2 className="px-4">{image.name}</h2>
-                    <h2 className="px-4">SKU - {image.sku}</h2>
-                    <div className="px-4">
-                      {HTMLReactParser(image.description_long)}
+                  {/* Content Section */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <h2 className="font-semibold text-gray-800 text-lg mb-2" title={image.name}>
+                          {image.name}
+                        </h2>
+                        <div className="flex flex-wrap items-center gap-4 text-sm">
+                          <div className="flex items-center gap-1.5 text-gray-500 font-medium">
+                            <span>SKU:</span>
+                            <span className="text-gray-700">{image.sku}</span>
+                            <button
+                              onClick={(e) => copyToClipboard(image.sku, 'SKU', e)}
+                              className="p-1 hover:bg-gray-100 rounded transition-all duration-200 group"
+                              title="Copy SKU"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 group-hover:text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                            </button>
+                          </div>
+                          {image.asking_price && (
+                            <p className="text-base font-semibold text-green-600">
+                              ${parseFloat(image.asking_price).toFixed(2)}
+                            </p>
+                          )}
+                          {image.product_code && (
+                            <div className="flex items-center gap-1.5 text-sm text-gray-500">
+                              <span>Product Code:</span>
+                              <span className="font-medium text-gray-700">
+                                {image.product_code}
+                              </span>
+                              <button
+                                onClick={(e) => copyToClipboard(image.product_code, 'Product Code', e)}
+                                className="p-1 hover:bg-gray-100 rounded transition-all duration-200 group"
+                                title="Copy Product Code"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 group-hover:text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        {image.parent_sku && (
+                          <div className="flex items-center gap-1.5 text-sm text-purple-600 font-medium mt-1">
+                            <span>↳ Parent SKU: {image.parent_sku}</span>
+                            <button
+                              onClick={(e) => copyToClipboard(image.parent_sku, 'Parent SKU', e)}
+                              className="p-1 hover:bg-purple-50 rounded transition-all duration-200 group"
+                              title="Copy Parent SKU"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-purple-400 group-hover:text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                            </button>
+                          </div>
+                        )}
+                        {image.description_long && (
+                          <div className="text-sm text-gray-600 line-clamp-2 mt-2">
+                            {HTMLReactParser(image.description_long)}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Badges Section */}
+                      <div className="flex flex-col gap-2 items-end flex-shrink-0">
+                        {image?.third_party_integrations?.woocommerce_product_id && (
+                          <div className="bg-white border border-gray-200 rounded-full p-2 shadow-sm">
+                            <img
+                              src={wordpress}
+                              alt="WordPress"
+                              className="w-6 h-6"
+                              title="Connected to WooCommerce"
+                            />
+                          </div>
+                        )}
+                        {image?.parent_sku && (
+                          <div className="bg-purple-100 text-purple-700 rounded-full px-3 py-1 shadow-sm text-xs font-semibold" title={`Child of ${image.parent_sku}`}>
+                            Child
+                          </div>
+                        )}
+                        {image?.has_children && (
+                          <div className="bg-green-100 text-green-700 rounded-full px-3 py-1 shadow-sm text-xs font-semibold" title="Has child images">
+                            Parent
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

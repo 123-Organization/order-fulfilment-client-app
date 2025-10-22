@@ -19,7 +19,6 @@ import { getImportOrders } from "../store/features/ecommerceSlice";
 import NotificationAlert from "./notification";
 import ShippingPreference from "../pages/ShippingPreference";
 import UpdatePopup from "./UpdatePopup";
-import { loadavg } from "os";
 import { updateCompanyInfo } from "../store/features/companySlice";
 import { resetRecipientStatus } from "../store/features/orderSlice";
 import style from "./Components.module.css";
@@ -650,132 +649,91 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
       </Spin>
     </div>
   ) : (
-    <div className="flex ">
+    <div className="flex">
       <div>{contextHolder}</div>
-      <div
-        className={`flex fixed bottom-0 left-0  w-full h-16 bg-white  border-b mt-2 border-gray-200 dark:bg-gray-700 dark:border-gray-600 z-50 `}
-      >
-        <div className="grid h-full max-w-full grid-cols-2 font-medium basis-[45%] ">
-          {false && (
-            <>
-              {1 && (
-                <button
-                  onClick={onDownloadHandler}
-                  type="button"
-                  className="max-md:ml-4 inline-flex flex-col items-center ml-20 justify-center px-5 hover:bg-gray-50 dark:hover:bg-gray-800 group"
-                >
-                  <svg
-                    className="w-5 h-5 mb-1 text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500"
-                    aria-hidden="true"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 20 19"
-                  >
-                    <path
-                      stroke="currentColor"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M15 15h.01M4 12H2a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-4a1 1 0 0 0-1-1h-3M9.5 1v10.93m4-3.93-4 4-4-4"
-                    />
+
+      {/* Glassmorphism Bottom Navigation */}
+      <div className="fixed bottom-6 left-28 right-6 z-40 flex items-center justify-between gap-4">
+          {backVisiable && (
+            <div className="backdrop-blur-xl bg-white/70 border border-white/40 rounded-2xl shadow-2xl hover:shadow-blue-200/50 transition-all duration-300 hover:-translate-y-1">
+              <Button
+                key="submit"
+                className={`min-w-[110px] h-12 rounded-2xl font-semibold bg-transparent border-0 hover:bg-white/50 ${style.backButton}`}
+                size="large"
+                type="default"
+                onClick={onBackHandler}
+                icon={
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
-                  <span className="max-md:whitespace-normal text-sm whitespace-nowrap text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500">
-                    Download Selected
-                  </span>
-                </button>
-              )}
-              <button
-                onClick={onDeleteHandler}
-                data-tooltip-target="tooltip-document"
-                type="button"
-                className="max-md:pl-2 inline-flex ml-20 flex-col items-center justify-center px-5 hover:bg-gray-50 dark:hover:bg-gray-800 group"
+                }
               >
-                <svg
-                  className="w-5 h-5 mb-1 text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500"
-                  aria-hidden="true"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 18 20"
-                >
-                  <path
-                    stroke="currentColor"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M1 5h16M7 8v8m4-8v8M7 1h4a1 1 0 0 1 1 1v3H6V2a1 1 0 0 1 1-1ZM3 5h12v13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5Z"
-                  />
-                </svg>
-                {/* <span className="sr-only">New document</span> */}
-                <span className="max-md:whitespace-normal text-sm text-gray-500 whitespace-nowrap dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500">
-                  Delete Selected
-                </span>
-              </button>
-            </>
+                Back
+              </Button>
+            </div>
           )}
 
-          {backVisiable && (
-            <Button
-              key="submit"
-              className={`  w-44 mx-8 mt-2  text-gray-500 ${style.backButton} `}
-              size={"large"}
-              type="default"
-              onClick={onBackHandler}
-            >
-              Back
-            </Button>
-          )}
-        </div>
-        <div className="grid h-full max-w-full grid-cols-1 font-medium basis-[35%] ">
           {totalVisiable && (
-            <div
-              className={`flex flex-col font-bold text-gray-400 pt-2 ${style.bottomDescription}`}
-            >
-              <span className="w-full block ">
-                Selected orders: {checkedOrders.length} /{orders?.data?.length}
-              </span>
-              <span className="flex  justify-center ">
-                Grand Total :{" "}
-                {product_details?.totalPrice && "$" + grandTotal.toFixed(2)}
-              </span>
+            <div className="flex-1 mx-4 backdrop-blur-xl bg-gradient-to-r from-blue-500/20 to-indigo-500/20 border border-white/40 rounded-3xl shadow-2xl px-6 py-3.5">
+              <div className="flex items-center justify-center gap-8 text-sm font-medium">
+                <span className="flex items-center gap-3">
+                  <div className="p-2 bg-white/80 backdrop-blur-sm rounded-xl shadow-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-gray-900 text-lg">{checkedOrders.length}</span>
+                    <span className="text-gray-700 font-medium">of {orders?.data?.length} selected</span>
+                  </div>
+                </span>
+                {product_details?.totalPrice && (
+                  <>
+                    <div className="h-8 w-px bg-white/40"></div>
+                    <span className="flex items-center gap-3 bg-white/90 backdrop-blur-sm px-5 py-2 rounded-xl shadow-lg">
+                      <span className="text-gray-700 font-semibold">Total:</span>
+                      <span className="font-bold text-blue-600 text-xl">${grandTotal.toFixed(2)}</span>
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {!!(location.pathname === "/virtualinventory" && listVirtualInventoryDataCount) && (
+            <div className="flex-1 mx-4 backdrop-blur-xl bg-white/70 border border-white/40 rounded-3xl shadow-2xl px-6 py-3.5 flex items-center justify-center">
+              <Pagination
+                simple
+                showSizeChanger={false}
+                onChange={onChange}
+                current={current}
+                pageSize={pageSize}
+                total={listVirtualInventoryDataCount}
+              />
+            </div>
+          )}
+
+          {nextVisiable && (
+            <div className="backdrop-blur-xl bg-gradient-to-r from-blue-600/90 to-indigo-600/90 border border-white/30 rounded-2xl shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 hover:-translate-y-1 hover:scale-105">
+              <Spin tip="Updating..." spinning={nextSpinning}>
+                <Button
+                  onClick={onNextHandler}
+                  className={`min-w-[130px] h-12 rounded-2xl font-bold border-0 bg-transparent hover:bg-white/10 text-white ${style.bottomIcon}`}
+                  type="primary"
+                  size="large"
+                  icon={
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  }
+                  iconPosition="end"
+                >
+                  {location.pathname === "/shippingpreference" || location.pathname.includes("/editorder") ? "Update" : "Next"}
+                </Button>
+              </Spin>
             </div>
           )}
         </div>
-        <div className="grid h-full max-w-full grid-cols-2/3 font-medium basis-[50%] relative z-50  ">
-          {nextVisiable && (
-            <Spin tip="Updating..." spinning={nextSpinning}>
-              <Button
-                onClick={onNextHandler}
-                className={`my-2 w-44 absolute right-2 z-50 ${style.bottomIcon}`}
-                type="primary"
-                size="large"
-              >
-                {location.pathname === "/shippingpreference" ||
-                location.pathname.includes("/editorder")
-                  ? "Update"
-                  : "Next"}
-              </Button>
-            </Spin>
-          )}
-        </div>
-
-        {!!(
-          location.pathname === "/virtualinventory" &&
-          listVirtualInventoryDataCount
-        ) && (
-          <div className="flex w-full justify-end">
-            <Pagination
-              simple
-              className=" mt-5 mr-3 "
-              // defaultCurrent={current}
-              showSizeChanger={false}
-              onChange={onChange}
-              current={current}
-              pageSize={pageSize}
-              total={listVirtualInventoryDataCount}
-            />
-          </div>
-        )}
-      </div>
     </div>
   );
 };

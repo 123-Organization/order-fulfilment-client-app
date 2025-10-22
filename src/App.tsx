@@ -9,6 +9,7 @@ import { useLocation } from "react-router-dom";
 import { notification } from "antd";
 import FileManagementIframe from "./components/FileManagmentIframe";
 import { NotificationProvider } from "./context/NotificationContext";
+import { SearchProvider } from "./context/SearchContext";
 
 const { Header, Footer, Content } = Layout;
 
@@ -23,6 +24,7 @@ function App() {
   } = theme.useToken();
   return (
     <NotificationProvider>
+      <SearchProvider>
       <Layout className="min-h-screen">
         <Header
           style={{
@@ -50,6 +52,7 @@ function App() {
 
         {/* Floating Help Button */}
       </Layout>
+      </SearchProvider>
     </NotificationProvider>
   );
 }

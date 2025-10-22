@@ -37,6 +37,7 @@ import ReplacingCode from "../components/ReplacingCode";
 import { updateIframeState } from "../store/features/companySlice";
 import { setProductData } from "../store/features/productSlice";
 import { convertGoogleDriveUrl, isGoogleDriveUrl, getGoogleDriveImageUrls } from "../helpers/fileHelper";
+import { useSearch } from "../context/SearchContext";
 
 const { Option } = Select;
 type SizeType = Parameters<typeof Form>[0]["size"];
@@ -142,6 +143,9 @@ const ImportList: React.FC = () => {
   );
   const navigate = useNavigate();
   console.log("productData", productData);
+  
+  // Search functionality
+  const { searchTerm } = useSearch();
 
   const AddProductsTemplate = () => {
     return (
@@ -605,6 +609,43 @@ console.log("checkedOrders", checkedOrders);
     setModalVisible(true);
   };
 
+  // Filter orders based on search term
+  const filteredOrders = useMemo(() => {
+    if (!orders?.data || !searchTerm.trim()) {
+      return orders?.data || [];
+    }
+
+    const searchLower = searchTerm.toLowerCase().trim();
+    
+    return orders.data.filter((order: any) => {
+      // Search by order number (order_po)
+      const orderNumber = order?.order_po?.toLowerCase() || "";
+      if (orderNumber.includes(searchLower)) {
+        return true;
+      }
+
+      // Search by product description
+      if (order?.order_items && order.order_items.length > 0) {
+        return order.order_items.some((item: any) => {
+          const productSku = item?.product_sku?.toString() || "";
+          const product = productData[productSku];
+          
+          if (product?.description_long) {
+            // Strip HTML tags for searching
+            const tempDiv = document.createElement("div");
+            tempDiv.innerHTML = product.description_long;
+            const textContent = (tempDiv.textContent || tempDiv.innerText || "").toLowerCase();
+            return textContent.includes(searchLower);
+          }
+          
+          return false;
+        });
+      }
+
+      return false;
+    });
+  }, [orders?.data, searchTerm, productData]);
+
   return (
     <div
       className={`flex justify-end items-center  h-full p-8 ${style.overAll_box}`}
@@ -614,7 +655,7 @@ console.log("checkedOrders", checkedOrders);
       >
         <div className="flex justify-between items-center mb-10 px-9">
           <h1 className="text-left text-2xl font-bold mt-2">Orders</h1>
-          {orders?.data && orders.data.length > 0 && (
+          {filteredOrders && filteredOrders.length > 0 && (
             <Button
               type="default"
               size="middle"
@@ -650,8 +691,8 @@ console.log("checkedOrders", checkedOrders);
           className={`mx-auto max-w-7xl justify-center px-6 md:flex md:space-x-6 xl:px-0 ${style.orderes_box}`}
         >
           <div className="rounded-lg md:w-full">
-            {orders?.data && orders.data.length > 0 ? (
-              orders?.data?.map((order, index) => (
+            {filteredOrders && filteredOrders.length > 0 ? (
+              filteredOrders?.map((order, index) => (
                 <div
                   key={index}
                   className="justify-between mb-6  rounded-lg bg-white p-6 shadow-md sm:flex-row sm:justify-start space-y-2 "
@@ -1153,6 +1194,29 @@ console.log("checkedOrders", checkedOrders);
                 >
                   Import Orders
                 </Button>
+              </div>
+            ) : orders?.data && orders.data.length > 0 && filteredOrders.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-64 bg-white rounded-lg shadow-md p-6 mb-20">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="w-20 h-20 mb-4 text-gray-300"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+                <h3 className="text-xl font-medium text-gray-500 mb-2">
+                  No Results Found
+                </h3>
+                <p className="text-gray-400 text-center mb-4">
+                  No orders match your search: "{searchTerm}"
+                </p>
               </div>
             ) : (
               <SkeletonOrderCard count={3} />
