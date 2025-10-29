@@ -13,6 +13,7 @@ import {
 import HTMLReactParser from "html-react-parser";
 import { useLocation } from "react-router-dom";
 import ExportModal from "../components/ExportModal";
+import EditInventoryModal from "../components/EditInventoryModal";
 import { AddProductToOrder } from "../store/features/orderSlice";
 
 
@@ -39,6 +40,8 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
   const [spinLoader, setSpinLoader] = useState(false);
   const [openFilter, setOpenFilter] = useState(false);
   const [openExport, setOpenExport] = useState(false);
+  const [openEditModal, setOpenEditModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
   let listVirtualInventoryData = useAppSelector(
     (state) => state.Inventory.listVirtualInventory?.data
   )?.map((data: any) => {
@@ -154,6 +157,26 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
     onClose();
   };
 
+  // Open edit modal handler
+  const handleEditProduct = (product: any, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent selecting the item when clicking edit
+    setSelectedProduct(product);
+    setOpenEditModal(true);
+  };
+
+  // Save edited product handler
+  const handleSaveProduct = (updatedProduct: any) => {
+    // TODO: Dispatch an action to update the product in the backend/state
+    // For now, we'll just log it. You'll need to create an action in InventorySlice
+    console.log('Updated Product:', updatedProduct);
+    
+    // You can add your API call here to save the changes
+    // Example: dispatch(updateVirtualInventoryProduct(updatedProduct));
+    
+    // Refresh the list after update
+    listInventory();
+  };
+
   // Apply filters function
   const applyFilters = () => {
     dispatch(
@@ -191,6 +214,14 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
 
   return (
     <div className="relative bg-gray-50 min-h-screen">
+      {/* Hide bottom bar when modal is open */}
+      {openEditModal && (
+        <style>{`
+          .fixed.bottom-6 {
+            display: none !important;
+          }
+        `}</style>
+      )}
       <div className="fixed1">
         {/* Quick Filters Bar */}
         <div className="bg-white shadow-sm sticky top-16 z-10 border-b border-gray-200 ml-20">
@@ -443,7 +474,7 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
                           </div>
                         )}
                         {image.description_long && (
-                          <div className="text-sm text-gray-600 line-clamp-2 mt-2">
+                          <div className="text-sm text-gray-600 line-clamp-4 mt-2">
                             {HTMLReactParser(image.description_long)}
                           </div>
                         )}
@@ -451,6 +482,28 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
 
                       {/* Badges Section */}
                       <div className="flex flex-col gap-2 items-end flex-shrink-0">
+                        {/* Edit Button */}
+                        <button
+                          onClick={(e) => handleEditProduct(image, e)}
+                          className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-blue-50 hover:border-blue-500 transition-all duration-200 group shadow-sm hover:shadow-md"
+                          title="Edit Product"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-5 w-5 text-gray-600 group-hover:text-blue-600"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                            />
+                          </svg>
+                        </button>
+                        
                         {image?.third_party_integrations?.woocommerce_product_id && (
                           <div className="bg-white border border-gray-200 rounded-full p-2 shadow-sm">
                             <img
@@ -487,6 +540,12 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
           onClose={() => setOpenExport(false)}
           inventorySelection={inventorySelection}
           listInventory={listInventory}
+        />
+        <EditInventoryModal
+          visible={openEditModal}
+          onClose={() => setOpenEditModal(false)}
+          productData={selectedProduct}
+          onSave={handleSaveProduct}
         />
       </div>
     </div>
