@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { notification } from 'antd';
-
+import { useAppDispatch, useAppSelector } from "../store";
 interface EditInventoryModalProps {
   visible: boolean;
   onClose: () => void;
@@ -28,7 +28,7 @@ const EditInventoryModal: React.FC<EditInventoryModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [plainTextDescription, setPlainTextDescription] = useState('');
   const [originalLabels, setOriginalLabels] = useState<Array<{key: string, value: string, priority: number}>>([]);
-
+  const customerInfo = useAppSelector((state) => state.Customer.customer_info);
   // Function to strip HTML tags
   const stripHtmlTags = (html: string) => {
     const tmp = document.createElement('DIV');
@@ -159,7 +159,7 @@ const EditInventoryModal: React.FC<EditInventoryModalProps> = ({
           third_party_integrations: productData.third_party_integrations || {}
         }
       ],
-      account_key: "04129d94-10b5-4d85-b584-584d936c8e73"
+     account_key: customerInfo?.data?.account_key
     };
 
     try {
