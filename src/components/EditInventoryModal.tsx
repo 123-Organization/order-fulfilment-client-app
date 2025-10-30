@@ -27,6 +27,7 @@ const EditInventoryModal: React.FC<EditInventoryModalProps> = ({
   const [dimensions, setDimensions] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [plainTextDescription, setPlainTextDescription] = useState('');
+  const [originalLabels, setOriginalLabels] = useState<Array<{key: string, value: string, priority: number}>>([]);
 
   // Function to strip HTML tags
   const stripHtmlTags = (html: string) => {
@@ -59,6 +60,14 @@ const EditInventoryModal: React.FC<EditInventoryModalProps> = ({
     if (productData && visible) {
       const extractedDimensions = extractDimensions(productData.description_long || '');
       setDimensions(extractedDimensions);
+      
+      // Extract and store original labels (skip first one which is SKU)
+      if (productData.labels && Array.isArray(productData.labels)) {
+        const labelsWithoutSku = productData.labels.slice(1); // Skip first label (SKU)
+        setOriginalLabels(labelsWithoutSku);
+      } else {
+        setOriginalLabels([]);
+      }
       
       // Convert HTML description to plain text
       const plainText = stripHtmlTags(productData.description_long || '');
@@ -105,29 +114,38 @@ const EditInventoryModal: React.FC<EditInventoryModalProps> = ({
 
     setIsSaving(true);
 
-    // Build final description with dimensions
-    let finalDescription = plainTextDescription.trim();
+    // Check if description is empty
+    let htmlDescription = '';
+    const trimmedDescription = plainTextDescription.trim();
     
-    // Add dimensions if they were extracted and not already in the description
-    if (dimensions && !finalDescription.includes(dimensions)) {
-      finalDescription = `${finalDescription} ${dimensions}`;
-    }
-
-    // Convert plain text back to HTML format in <ul><li> structure
-    const lines = finalDescription.split('\n').filter(line => line.trim());
-    let htmlDescription = '<ul></ul><ul>';
-    
-    // If there are multiple lines, add each as a list item
-    if (lines.length > 1) {
-      lines.forEach(line => {
-        htmlDescription += `<li>${line.trim()}</li>`;
-      });
+    if (trimmedDescription === '') {
+      // Case 3: Customer deleted the description - send empty
+      htmlDescription = '';
     } else {
-      // Single line, still wrap in li tag
-      htmlDescription += `<li>${finalDescription}</li>`;
+      // Build final description with dimensions
+      let finalDescription = trimmedDescription;
+      
+      // Add dimensions if they were extracted and not already in the description
+      if (dimensions && !finalDescription.includes(dimensions)) {
+        finalDescription = `${finalDescription} ${dimensions}`;
+      }
+
+      // Convert plain text back to HTML format in <ul><li> structure
+      const lines = finalDescription.split('\n').filter(line => line.trim());
+      htmlDescription = '<ul></ul><ul>';
+      
+      // If there are multiple lines, add each as a list item
+      if (lines.length > 1) {
+        lines.forEach(line => {
+          htmlDescription += `<li>${line.trim()}</li>`;
+        });
+      } else {
+        // Single line, still wrap in li tag
+        htmlDescription += `<li>${finalDescription}</li>`;
+      }
+      
+      htmlDescription += '</ul>';
     }
-    
-    htmlDescription += '</ul>';
 
     const updatePayload = {
       virtual_inventory: [
@@ -425,6 +443,38 @@ const EditInventoryModal: React.FC<EditInventoryModalProps> = ({
                 placeholder="Enter short description"
               />
             </div>
+
+            {/* Original Labels - Static/Read-only */}
+            {originalLabels.length > 0 && (
+              <div>
+                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                  </svg>
+                  Original Product Labels
+                </label>
+                <div className="p-4 bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200 rounded-xl">
+                  <div className="space-y-2">
+                    {originalLabels.map((label, index) => (
+                      <div key={index} className="flex items-start gap-2 text-sm">
+                        <span className="inline-block px-2 py-1 bg-purple-600 text-white rounded-md font-semibold text-xs min-w-[120px] text-center">
+                          {label.key}
+                        </span>
+                        <span className="text-gray-800 font-medium flex-1 py-1">
+                          {label.value}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-purple-700 mt-3 flex items-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    These labels are locked and cannot be edited
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Description - Plain Text Editable */}
             <div className="group">

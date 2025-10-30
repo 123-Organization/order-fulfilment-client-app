@@ -473,11 +473,27 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
                             </button>
                           </div>
                         )}
-                        {image.description_long && (
-                          <div className="text-sm text-gray-600 line-clamp-4 mt-2">
-                            {HTMLReactParser(image.description_long)}
-                          </div>
-                        )}
+                        {/* Display description_long as priority, then labels */}
+                        <div className="mt-2">
+                          {/* Priority: description_long */}
+                          {image.description_long && (
+                            <div className="text-sm text-gray-600 line-clamp-3 mb-2">
+                              {HTMLReactParser(image.description_long)}
+                            </div>
+                          )}
+                          
+                          {/* Additional: Display labels (skip first label which is SKU) */}
+                          {image.labels && Array.isArray(image.labels) && image.labels.length > 1 && (
+                            <div className="text-sm text-gray-600 space-y-1 border-t pt-2">
+                              {image.labels.slice(1).map((label: any, idx: number) => (
+                                <div key={idx} className="flex items-start gap-2">
+                                  <span className="text-blue-600 font-semibold text-xs">{label.key}:</span>
+                                  <span className="text-xs">{label.value}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       {/* Badges Section */}
