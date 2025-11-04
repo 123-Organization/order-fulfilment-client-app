@@ -36,6 +36,7 @@ const ShippingPreference = lazy(() => import("../pages/ShippingPreference"));
 const Checkout = lazy(() => import("../pages/Checkout"));
 const ImportFilter = lazy(() => import("../pages/ImportFilter"));
 const Confirmation = lazy(() => import("../pages/Confirmation"));
+const ShopifyAuth = lazy(() => import("../pages/ShopifyAuth"));
 
 // ProtectedRoute component to check for authentication
 interface ProtectedRouteProps {
@@ -220,6 +221,7 @@ const Router: React.FC = (): JSX.Element => {
         {/* Public routes */}
         <Route path="/" element={<Landing />} />
         <Route path={routes.landingPage} element={<Landing />} />
+        <Route path="/auth/shopify" element={<ShopifyAuth />} />
 
         {/* Protected routes */}
         <Route

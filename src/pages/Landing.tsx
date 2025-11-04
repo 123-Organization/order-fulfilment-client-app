@@ -58,6 +58,7 @@ const Landing: React.FC = (): JSX.Element => {
   const connectionVerificationStatus = useAppSelector(
     (state) => state.company?.connectionVerificationStatus
   );
+  const [shopifyConnectionStatus, setShopifyConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('idle');
   const [cookies] = useCookies(["Session", "AccountGUID"]);
   const order = useAppSelector((state) => state.order.orders);
   const opensheet = useAppSelector((state) => state.order.openSheet);
@@ -593,7 +594,7 @@ const Landing: React.FC = (): JSX.Element => {
     },
   ] as const;
   const importData = (imgname: string) => {
-    if (imgname && imgname !== "WooCommerce" && imgname !== "Excel") {
+    if (imgname && imgname !== "WooCommerce" && imgname !== "Excel" && imgname !== "Shopify") {
       notificationApi.warning({
         message: "Coming Soon",
         description: "This platform is under development ",
@@ -637,10 +638,65 @@ const Landing: React.FC = (): JSX.Element => {
         });
       }
     }
+    
+    // Shopify integration
+    if (imgname === "Shopify") {
+      // Check if user is logged in first
+      if (!customerInfo?.data?.account_key && !cookies.AccountGUID) {
+        window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`;
+        return;
+      }
+
+      // If already connected, navigate to import filter
+      if (shopifyConnectionStatus === 'connected') {
+        navigate("/importfilter?type=Shopify");
+      } else {
+        // TODO: Replace with actual Shopify app installation URL
+        // For now, redirect to auth page which will handle the OAuth flow
+        notificationApi.info({
+          message: 'Connect to Shopify',
+          description: 'You will be redirected to Shopify to authorize the connection...',
+        });
+        
+        // This would typically be your Shopify OAuth URL
+        // Example: window.location.href = `https://YOUR_SHOPIFY_APP_URL/install?shop=${shopDomain}`;
+        // For testing, we'll show a message
+        setTimeout(() => {
+          notificationApi.warning({
+            message: 'Shopify Integration',
+            description: 'Shopify OAuth URL will be provided by backend team.',
+          });
+        }, 2000);
+      }
+    }
   };
   useEffect(() => {
     dispatch(updateApp(false));
   }, [dispatch]);
+
+  // Check if user is returning from Shopify auth
+  useEffect(() => {
+    const queryParams = new URLSearchParams(location.search);
+    const type = queryParams.get('type');
+    const connected = queryParams.get('connected');
+    const error = queryParams.get('error');
+
+    if (type === 'shopify') {
+      if (connected === 'true') {
+        setShopifyConnectionStatus('connected');
+        notificationApi.success({
+          message: 'Shopify Connected',
+          description: 'Your Shopify store has been successfully connected!',
+        });
+      } else if (error) {
+        setShopifyConnectionStatus('disconnected');
+        notificationApi.error({
+          message: 'Shopify Connection Failed',
+          description: 'Failed to connect to your Shopify store. Please try again.',
+        });
+      }
+    }
+  }, [location.search, notificationApi]);
 
   // Initialize verification status if idle
   useEffect(() => {
@@ -728,29 +784,46 @@ const Landing: React.FC = (): JSX.Element => {
   const displayTurtles = images.map((image) => (
     <div className="flex w-1/3 max-sm:w-1/2 max-[400px]:w-full flex-wrap">
       <div
-        className="w-full mt-8 md:mt-0 md:p-2 flex flex-col items-center "
+        className="w-full mt-8 md:mt-0 md:p-2 flex flex-col items-center relative"
         onClick={() => importData(image.name)}
       >
+        {/* WooCommerce Status */}
         {image.name === "WooCommerce" && connectionVerificationStatus === 'verifying' ? (
-          <Tag className="absolute ml-12 -mt-3 bg-blue-500 text-white animate-pulse">
+          <Tag className="absolute top-0 right-4 z-10 bg-blue-500 text-white animate-pulse shadow-lg">
             Verifying...
           </Tag>
         ) : image.name === "WooCommerce" && connectionVerificationStatus === 'connected' ? (
-          <Tag className="absolute ml-12 -mt-3" color="#52c41a">
+          <Tag className="absolute top-0 right-4 z-10 shadow-lg" color="#52c41a">
             Connected
           </Tag>
         ) : image.name === "WooCommerce" && connectionVerificationStatus === 'disconnected' ? (
-          <Tag className="absolute ml-12 -mt-3 bg-red-500 text-white">
+          <Tag className="absolute top-0 right-4 z-10 bg-red-500 text-white shadow-lg">
+            Disconnected
+          </Tag>
+        ) : null}
+        
+        {/* Shopify Status */}
+        {image.name === "Shopify" && shopifyConnectionStatus === 'verifying' ? (
+          <Tag className="absolute top-0 right-4 z-10 bg-blue-500 text-white animate-pulse shadow-lg">
+            Verifying...
+          </Tag>
+        ) : image.name === "Shopify" && shopifyConnectionStatus === 'connected' ? (
+          <Tag className="absolute top-0 right-4 z-10 shadow-lg" color="#52c41a">
+            Connected
+          </Tag>
+        ) : image.name === "Shopify" && shopifyConnectionStatus === 'disconnected' ? (
+          <Tag className="absolute top-0 right-4 z-10 bg-red-500 text-white shadow-lg">
             Disconnected
           </Tag>
         ) : null}
         <img
           className={`block h-[100px] w-[100px] border-2 cursor-pointer rounded-lg object-cover object-center ${
-            image.name === "WooCommerce" || image.name === "Excel"
-              ? "grayscale-100"
+            image.name === "WooCommerce" || image.name === "Excel" || image.name === "Shopify"
+              ? "grayscale-0"
               : "grayscale"
           }`}
           src={image.img}
+          alt={image.name}
         />
         <p className="text-center pt-2 font-bold text-gray-400">{image.name}</p>
       </div>
@@ -781,6 +854,8 @@ const Landing: React.FC = (): JSX.Element => {
           <p>Edit basic account and payment information </p>
           <p>needed in order to import orders from your stores. </p>
         </div>
+        
+        {/* Test Button for Shopify Auth - Remove this in production */}
        
       </div>
       
