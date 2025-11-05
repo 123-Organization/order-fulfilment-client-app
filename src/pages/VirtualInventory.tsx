@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { Empty, Skeleton, Spin, notification } from "antd";
 import FilterSortModal from "../components/FilterSortModal";
 import { useAppDispatch, useAppSelector } from "../store";
@@ -42,11 +42,27 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
   const [openExport, setOpenExport] = useState(false);
   const [openEditModal, setOpenEditModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
-  let listVirtualInventoryData = useAppSelector(
-    (state) => state.Inventory.listVirtualInventory?.data
-  )?.map((data: any) => {
-    return { ...data, ...{ isSelected: false } };
-  });
+  
+  // Infinite scroll states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [allInventoryData, setAllInventoryData] = useState<any[]>([]);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
+  const observerTarget = useRef<HTMLDivElement>(null);
+  
+  // Accordion state for descriptions
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set());
+  
+  // Smart search bar states
+  const [isSearchCollapsed, setIsSearchCollapsed] = useState(false);
+  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  
+  // Get raw response from Redux
+  const listVirtualInventoryResponse = useAppSelector(
+    (state) => state.Inventory.listVirtualInventory
+  );
   const currentOrderFullFillmentId = useAppSelector(
     (state) => state.order.currentOrderFullFillmentId
   );
@@ -56,7 +72,6 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
   const ecommerceConnectorExportInfo = useAppSelector(
     (state) => state.Ecommerce.ecommerceConnectorExportInfo
   );
-  console.log("listVirtualInventoryData", listVirtualInventoryData);
   const inventorySelection = useAppSelector(
     (state) => state.Inventory.inventorySelection
   );
@@ -99,24 +114,21 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
     console.log("inventorySelection", inventorySelection);
     console.log("sku", skuObj);
 
-    listVirtualInventoryData = listVirtualInventoryData.map((data: any) => {
-      if (data.sku === skuObj.sku) {
-        if (find(inventorySelection, { sku: skuObj?.sku }))
-          dispatch(inventorySelectionDelete(skuObj));
-        else dispatch(inventorySelectionUpdate(skuObj));
-        setProductData({
-          skuCode: skuObj.sku,
-          productCode: "",
-          orderFullFillmentId: currentOrderFullFillmentId,
-        });
+    setAllInventoryData((prevData) => 
+      prevData.map((data: any) => {
+        if (data.sku === skuObj.sku) {
+          if (find(inventorySelection, { sku: skuObj?.sku }))
+            dispatch(inventorySelectionDelete(skuObj));
+          else dispatch(inventorySelectionUpdate(skuObj));
+          setProductData({
+            skuCode: skuObj.sku,
+            productCode: "",
+            orderFullFillmentId: currentOrderFullFillmentId,
+          });
 
-        return { ...data, ...{ isSelected: !data.isSelected } };
-      } else return data;
-    });
-
-    console.log(
-      "handleSelect listVirtualInventoryData",
-      listVirtualInventoryData
+          return { ...data, isSelected: !data.isSelected };
+        } else return data;
+      })
     );
   };
 
@@ -124,32 +136,35 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
     setOpenExport(true);
   };
 
-  const listInventory = () => {
-    dispatch(
-      listVirtualInventory({
-        search_filter: "",
-        sort_field: "id",
-        sort_direction: "DESC",
-        per_page: 12,
-      })
-    );
-    // dispatch(
-    //   updateVirtualInventory({
-    //     data: listVirtualInventoryData,
-    //   })
-    // );
-  };
   const [productData, setProductData] = useState({
     skuCode: "",
     productCode: "",
     orderFullFillmentId: "",
   });
   
-  // Quick filter states
+  // Quick filter states - MUST be declared before listInventory function
   const [searchFilter, setSearchFilter] = useState("");
   const [sortField, setSortField] = useState("id");
   const [sortDirection, setSortDirection] = useState("DESC");
-  const [perPage, setPerPage] = useState(12);
+
+  const listInventory = useCallback((page: number = 1, resetData: boolean = false) => {
+    if (resetData) {
+      setAllInventoryData([]);
+      setCurrentPage(1);
+      setHasMore(true);
+    }
+    
+    setIsLoadingMore(true);
+    dispatch(
+      listVirtualInventory({
+        search_filter: searchFilter,
+        sort_field: sortField,
+        sort_direction: sortDirection,
+        per_page: 20, // Fixed at 20 items per page
+        page_number: page,
+      })
+    );
+  }, [dispatch, searchFilter, sortField, sortDirection]);
 
   const AddProduct = () => {
     dispatch(AddProductToOrder(productData));
@@ -177,21 +192,146 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
     listInventory();
   };
 
-  // Apply filters function
-  const applyFilters = () => {
-    dispatch(
-      listVirtualInventory({
-        search_filter: searchFilter,
-        sort_field: sortField,
-        sort_direction: sortDirection,
-        per_page: perPage,
-      })
-    );
+  // Toggle description expansion
+  const toggleDescription = (sku: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedDescriptions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(sku)) {
+        newSet.delete(sku);
+      } else {
+        newSet.add(sku);
+      }
+      return newSet;
+    });
   };
 
+  // Apply filters function
+  const applyFilters = () => {
+    setCurrentPage(1);
+    setAllInventoryData([]);
+    setHasMore(true);
+    listInventory(1, true);
+  };
+
+  // Scroll detection for smart search bar
   useEffect(() => {
-    listInventory();
+    let lastScrollY = 0;
+    let ticking = false;
+
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const currentScrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+          
+          // Collapse search bar when scrolling down past 100px (but keep expanded state if user opened it)
+          if (currentScrollY > 100 && currentScrollY > lastScrollY) {
+            setIsSearchCollapsed(true);
+            // Don't auto-close if user manually expanded it - let them close it with the X button
+          }
+          // Show full search bar when at top
+          else if (currentScrollY < 50) {
+            setIsSearchCollapsed(false);
+            setIsSearchExpanded(false);
+          }
+          
+          lastScrollY = currentScrollY <= 0 ? 0 : currentScrollY;
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    // Attach scroll listener
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, []);
+
+  // Handle search icon click to expand
+  const handleSearchIconClick = () => {
+    console.log('🔍 Search button clicked, expanding...');
+    setIsSearchExpanded(true);
+    setTimeout(() => {
+      console.log('🎯 Focusing search input');
+      searchInputRef.current?.focus();
+    }, 100);
+  };
+
+  // Handle search blur to collapse if empty
+  const handleSearchBlur = () => {
+    if (!searchFilter && isSearchCollapsed) {
+      setTimeout(() => {
+        setIsSearchExpanded(false);
+      }, 200);
+    }
+  };
+
+  // Handle closing expanded search
+  const handleCloseSearch = () => {
+    setIsSearchExpanded(false);
+  };
+
+  // Initial load
+  useEffect(() => {
+    listInventory(1, true);
+  }, []);
+
+  // Process API response and accumulate data
+  useEffect(() => {
+    if (listVirtualInventoryResponse?.data && listVirtualInventoryResponse?.status) {
+      const newData = listVirtualInventoryResponse.data.map((data: any) => ({
+        ...data,
+        isSelected: false,
+      }));
+
+      setAllInventoryData((prevData) => {
+        // If it's page 1, replace; otherwise append
+        if (currentPage === 1) {
+          return newData;
+        } else {
+          // Avoid duplicates by filtering out SKUs that already exist
+          const existingSKUs = new Set(prevData.map((item: any) => item.sku));
+          const uniqueNewData = newData.filter((item: any) => !existingSKUs.has(item.sku));
+          return [...prevData, ...uniqueNewData];
+        }
+      });
+
+      setTotalCount(listVirtualInventoryResponse.count || 0);
+      
+      // Check if there are more items to load
+      const currentCount = currentPage === 1 ? newData.length : allInventoryData.length + newData.length;
+      setHasMore(currentCount < (listVirtualInventoryResponse.count || 0));
+      setIsLoadingMore(false);
+    }
+  }, [listVirtualInventoryResponse]);
+
+  // Intersection Observer for infinite scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoadingMore && !listVirtualInventoryLoader) {
+          // Load more when user scrolls near bottom
+          const nextPage = currentPage + 1;
+          setCurrentPage(nextPage);
+          listInventory(nextPage, false);
+        }
+      },
+      { threshold: 0.1, rootMargin: '100px' } // Trigger 100px before reaching the element
+    );
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    return () => {
+      if (observerTarget.current) {
+        observer.unobserve(observerTarget.current);
+      }
+    };
+  }, [hasMore, isLoadingMore, listVirtualInventoryLoader, currentPage, listInventory]);
 
   useEffect(() => {
     if (ecommerceConnectorExportInfo.status === 200 && spinLoader) {
@@ -204,10 +344,13 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
       setSpinLoader(false);
       //  window.location.reload()
       dispatch(inventorySelectionClean());
-      listInventory();
+      listInventory(1, true);
     }
   }, [ecommerceConnectorExportInfo]);
-  console.log("listVirtualInventoryData", listVirtualInventoryData);
+  
+  console.log("allInventoryData", allInventoryData);
+  console.log("Total Count:", totalCount, "Current Count:", allInventoryData.length);
+  console.log("🔍 Search State - Collapsed:", isSearchCollapsed, "Expanded:", isSearchExpanded);
   /**
    * ****************************************************************** JSX  ***************************************************************************
    */
@@ -222,156 +365,243 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
           }
         `}</style>
       )}
-      <div className="fixed1">
-        {/* Quick Filters Bar */}
-        <div className="bg-white shadow-sm sticky top-16 z-10 border-b border-gray-200 ml-20">
-          <div className="p-4 space-y-4 max-w-7xl mx-auto">
-            {/* First Row - Search and Selection Count */}
-            <div className="flex items-center gap-4">
-              <div className="flex-1 relative">
-                <input
-                  type="text"
-                  placeholder="Search by name, title or description..."
-                  value={searchFilter}
-                  onChange={(e) => setSearchFilter(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && applyFilters()}
-                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                />
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
+      {/* Smart Collapsible Search Bar - Sticky positioned */}
+      <div className={`bg-white shadow-md sticky top-0 z-50 border-b border-gray-200 transition-all duration-300 ${
+        isSearchCollapsed && !isSearchExpanded ? 'py-3 px-4' : 'p-4'
+      } ${location.pathname === "/virtualinventory" ? 'ml-20' : ''}`}>
+          <div className="max-w-7xl mx-auto">
+            {/* Collapsed State - Floating Search Icon */}
+            {isSearchCollapsed && !isSearchExpanded && (
+              <div className="flex items-center justify-between gap-3">
+                <button
+                  onClick={handleSearchIconClick}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-full hover:from-blue-700 hover:to-blue-800 transition-all duration-300 shadow-lg hover:shadow-xl group"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
-
-              {!!inventorySelection.length && (
-                <div className="bg-blue-100 text-blue-700 px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
-                  {inventorySelection.length} selected
-                </div>
-              )}
+                  <span className="text-sm font-semibold">Search Products</span>
+                </button>
 
-              {!!inventorySelection.length && (
-                <Spin spinning={spinLoader} size="small">
-                  {location.pathname === "/virtualinventory" ? (
-                    <button
-                      type="button"
-                      onClick={() => exportInventory()}
-                      className="px-6 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-all duration-200 hover:shadow-lg"
-                    >
-                      Export
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => AddProduct()}
-                      className="px-6 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-all duration-200 hover:shadow-lg"
-                    >
-                      Add
-                    </button>
+                <div className="flex items-center gap-3">
+                  {!!inventorySelection.length && (
+                    <div className="bg-blue-100 text-blue-700 px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2 shadow-md">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      {inventorySelection.length}
+                    </div>
                   )}
-                </Spin>
-              )}
-            </div>
 
-            {/* Second Row - Sort Options */}
-            <div className="flex items-center gap-3 flex-wrap">
-              {/* Sort By */}
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-gray-600">Sort:</label>
-                <select
-                  value={sortField}
-                  onChange={(e) => setSortField(e.target.value)}
-                  className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
-                >
-                  <option value="id">ID</option>
-                  <option value="name">Name</option>
-                  <option value="created_at">Created Date</option>
-                </select>
+                  {!!inventorySelection.length && (
+                    <Spin spinning={spinLoader} size="small">
+                      {location.pathname === "/virtualinventory" ? (
+                        <button
+                          type="button"
+                          onClick={() => exportInventory()}
+                          className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-full hover:bg-blue-700 transition-all duration-200 hover:shadow-lg shadow-md"
+                        >
+                          Export
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => AddProduct()}
+                          className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-full hover:bg-blue-700 transition-all duration-200 hover:shadow-lg shadow-md"
+                        >
+                          Add
+                        </button>
+                      )}
+                    </Spin>
+                  )}
+                </div>
               </div>
+            )}
 
-              {/* Sort Direction */}
-              <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
-                <button
-                  onClick={() => setSortDirection("ASC")}
-                  className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${
-                    sortDirection === "ASC"
-                      ? "bg-white text-blue-600 shadow-sm"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                  </svg>
-                  Asc
-                </button>
-                <button
-                  onClick={() => setSortDirection("DESC")}
-                  className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${
-                    sortDirection === "DESC"
-                      ? "bg-white text-blue-600 shadow-sm"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                  Desc
-                </button>
+            {/* Expanded State - Full Search Bar */}
+            {(!isSearchCollapsed || isSearchExpanded) && (
+              <div className="space-y-4 animate-slideDown">
+                {/* First Row - Search and Selection Count */}
+                <div className="flex items-center gap-4">
+                  <div className="flex-1 relative">
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      placeholder="Search by name, title or description..."
+                      value={searchFilter}
+                      onChange={(e) => setSearchFilter(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && applyFilters()}
+                      onBlur={handleSearchBlur}
+                      className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    
+                    {/* Close button when expanded in collapsed mode */}
+                    {isSearchExpanded && isSearchCollapsed && (
+                      <button
+                        onClick={handleCloseSearch}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1.5 hover:bg-gray-200 rounded-full transition-all"
+                        title="Close search"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 hover:text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+
+                  {!!inventorySelection.length && (
+                    <div className="bg-blue-100 text-blue-700 px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      {inventorySelection.length} selected
+                    </div>
+                  )}
+
+                  {!!inventorySelection.length && (
+                    <Spin spinning={spinLoader} size="small">
+                      {location.pathname === "/virtualinventory" ? (
+                        <button
+                          type="button"
+                          onClick={() => exportInventory()}
+                          className="px-6 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-all duration-200 hover:shadow-lg"
+                        >
+                          Export
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => AddProduct()}
+                          className="px-6 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-all duration-200 hover:shadow-lg"
+                        >
+                          Add
+                        </button>
+                      )}
+                    </Spin>
+                  )}
+                </div>
+
+                {/* Second Row - Sort Options */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  {/* Sort By */}
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-600">Sort:</label>
+                    <select
+                      value={sortField}
+                      onChange={(e) => setSortField(e.target.value)}
+                      className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
+                    >
+                      <option value="id">ID</option>
+                      <option value="name">Name</option>
+                      <option value="created_at">Created Date</option>
+                    </select>
+                  </div>
+
+                  {/* Sort Direction */}
+                  <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
+                    <button
+                      onClick={() => setSortDirection("ASC")}
+                      className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${
+                        sortDirection === "ASC"
+                          ? "bg-white text-blue-600 shadow-sm"
+                          : "text-gray-600 hover:text-gray-900"
+                      }`}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                      </svg>
+                      Asc
+                    </button>
+                    <button
+                      onClick={() => setSortDirection("DESC")}
+                      className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${
+                        sortDirection === "DESC"
+                          ? "bg-white text-blue-600 shadow-sm"
+                          : "text-gray-600 hover:text-gray-900"
+                      }`}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                      Desc
+                    </button>
+                  </div>
+
+                  {/* Total Count Display */}
+                  <div className="flex items-center gap-2 bg-gradient-to-r from-blue-50 to-purple-50 px-4 py-2 rounded-lg border border-blue-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                    <span className="text-sm font-semibold text-gray-700">
+                      {allInventoryData.length} of {totalCount} items
+                    </span>
+                  </div>
+
+                  {/* Apply Filters Button */}
+                  <button
+                    onClick={applyFilters}
+                    className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-all duration-200 hover:shadow-md flex items-center gap-2"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    Search
+                  </button>
+
+                  {/* Advanced Filters Button */}
+                  <button
+                    onClick={() => setOpenFilter(true)}
+                    className="px-4 py-2 bg-white border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-all duration-200 flex items-center gap-2"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                    </svg>
+                    Advanced
+                  </button>
+                </div>
               </div>
-
-              {/* Items Per Page */}
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-gray-600">Show:</label>
-                <select
-                  value={perPage}
-                  onChange={(e) => setPerPage(Number(e.target.value))}
-                  className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
-                >
-                  <option value={50}>50</option>
-                  <option value={25}>25</option>
-                  <option value={15}>15</option>
-                  <option value={12}>12</option>
-                  <option value={10}>10</option>
-                  <option value={8}>8</option>
-                  <option value={6}>6</option>
-                </select>
-              </div>
-
-              {/* Apply Filters Button */}
-              <button
-                onClick={applyFilters}
-                className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-all duration-200 hover:shadow-md flex items-center gap-2"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                Search
-              </button>
-
-              {/* Advanced Filters Button */}
-              <button
-                onClick={() => setOpenFilter(true)}
-                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-all duration-200 flex items-center gap-2"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                </svg>
-                Advanced
-              </button>
-            </div>
+            )}
           </div>
-        </div>
+        
+
+        {/* Custom CSS for animations */}
+        <style>{`
+          @keyframes slideDown {
+            from {
+              opacity: 0;
+              transform: translateY(-10px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+          
+          .animate-slideDown {
+            animation: slideDown 0.3s ease-out;
+          }
+        `}</style>
       </div>
-      <div className="flex flex-col gap-4 p-8 max-md:pt-20 max-w-7xl mx-auto w-full ml-20">
+      
+      {/* Content Area */}
+      <div className={`flex flex-col gap-4 p-8 max-md:pt-20 max-w-7xl mx-auto w-full ${location.pathname === "/virtualinventory" ? 'ml-20' : ''}`}>
         {contextHolder}
-        {listVirtualInventoryLoader ? (
+        {listVirtualInventoryLoader && currentPage === 1 ? (
           <div className="flex flex-col gap-4">
             <Skeleton.Button active block style={{ height: '140px' }} />
             <Skeleton.Button active block style={{ height: '140px' }} />
@@ -379,10 +609,9 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
             <Skeleton.Button active block style={{ height: '140px' }} />
             <Skeleton.Button active block style={{ height: '140px' }} />
           </div>
-        ) : listVirtualInventoryData &&
-          Object.keys(listVirtualInventoryData).length ? (
+        ) : allInventoryData && allInventoryData.length > 0 ? (
           <>
-            {listVirtualInventoryData.map((image: any, i: number) => (
+            {allInventoryData.map((image: any, i: number) => (
               <div
                 key={i}
                 onClick={() => handleSelect(image)}
@@ -473,24 +702,60 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
                             </button>
                           </div>
                         )}
-                        {/* Display description_long as priority, then labels */}
+                        {/* Display description_long as priority, then labels with accordion */}
                         <div className="mt-2">
                           {/* Priority: description_long */}
                           {image.description_long && (
-                            <div className="text-sm text-gray-600 line-clamp-3 mb-2">
-                              {HTMLReactParser(image.description_long)}
+                            <div className="mb-2">
+                              <div 
+                                className={`text-sm text-gray-600 overflow-hidden transition-all duration-300 ease-in-out ${
+                                  expandedDescriptions.has(image.sku) ? 'max-h-[1000px]' : 'max-h-[60px]'
+                                }`}
+                              >
+                                {HTMLReactParser(image.description_long)}
+                              </div>
                             </div>
                           )}
                           
                           {/* Additional: Display labels (skip first label which is SKU) */}
                           {image.labels && Array.isArray(image.labels) && image.labels.length > 1 && (
-                            <div className="text-sm text-gray-600 space-y-1 border-t pt-2">
+                            <div 
+                              className={`text-sm text-gray-600 space-y-1 border-t pt-2 overflow-hidden transition-all duration-300 ease-in-out ${
+                                expandedDescriptions.has(image.sku) ? 'max-h-[1000px]' : 'max-h-[80px]'
+                              }`}
+                            >
                               {image.labels.slice(1).map((label: any, idx: number) => (
                                 <div key={idx} className="flex items-start gap-2">
                                   <span className="text-blue-600 font-semibold text-xs">{label.key}:</span>
                                   <span className="text-xs">{label.value}</span>
                                 </div>
                               ))}
+                            </div>
+                          )}
+                          
+                          {/* Show More/Less Button */}
+                          {((image.description_long && image.description_long.length > 100) || 
+                            (image.labels && image.labels.length > 4)) && (
+                            <div className="mt-2 pt-2 border-t border-gray-100">
+                              <button
+                                onClick={(e) => toggleDescription(image.sku, e)}
+                                className="w-full flex items-center justify-center gap-2 py-2 text-gray-600 hover:text-blue-600 text-sm font-medium transition-all duration-200 group hover:bg-gray-50 rounded-md"
+                              >
+                                <span className="text-xs">
+                                  {expandedDescriptions.has(image.sku) ? 'Show less details' : 'Show more details'}
+                                </span>
+                                <svg 
+                                  xmlns="http://www.w3.org/2000/svg" 
+                                  className={`h-4 w-4 transition-transform duration-300 ${
+                                    expandedDescriptions.has(image.sku) ? 'rotate-180' : 'rotate-0'
+                                  }`} 
+                                  fill="none" 
+                                  viewBox="0 0 24 24" 
+                                  stroke="currentColor"
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </button>
                             </div>
                           )}
                         </div>
@@ -546,9 +811,33 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
                 </div>
               </div>
             ))}
+            
+            {/* Infinite scroll loading indicator */}
+            {hasMore && (
+              <div ref={observerTarget} className="flex justify-center items-center py-8">
+                {isLoadingMore && (
+                  <div className="flex flex-col items-center gap-3">
+                    <Spin size="large" />
+                    <p className="text-gray-500 text-sm font-medium">Loading more products...</p>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* End of list indicator */}
+            {!hasMore && allInventoryData.length > 0 && (
+              <div className="flex justify-center items-center py-8">
+                <div className="flex items-center gap-2 text-gray-500 text-sm">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="font-medium">You've reached the end of the list</span>
+                </div>
+              </div>
+            )}
           </>
         ) : (
-          <Empty />
+          <Empty description="No products found" />
         )}
         <FilterSortModal openModel={openFilter} setOpen={setOpenFilter} />
         <ExportModal

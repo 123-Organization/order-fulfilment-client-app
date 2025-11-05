@@ -1,19 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import shopifyLogo from '../assets/images/store-shopify.svg';
+import { useAppSelector } from '../store';
 
 interface ShopifyAuthWaitingProps {
   onAuthComplete?: () => void;
   authCode?: string;
+  accessToken?: string;
   shop?: string;
 }
 
 const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({ 
   onAuthComplete,
   authCode,
+  accessToken,
   shop 
 }) => {
   const navigate = useNavigate();
+  const customerInfo = useAppSelector((state) => state.Customer.customer_info);
   const [status, setStatus] = useState<'authenticating' | 'success' | 'error'>('authenticating');
   const [message, setMessage] = useState('Connecting to Shopify...');
   const [progress, setProgress] = useState(0);
@@ -38,29 +42,43 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
       try {
         setMessage('Verifying your credentials...');
         
-        // TODO: Replace 'YOUR_BACKEND_API_ENDPOINT' with your actual backend URL
-        const response = await fetch('YOUR_BACKEND_API_ENDPOINT/shopify/auth', {
+        // Get account_key from Redux store
+        const accountKey = customerInfo?.data?.account_key;
+        
+        if (!accountKey) {
+          throw new Error('Account key not found. Please log in again.');
+        }
+        
+        // Use access_token if available, otherwise use code
+        const tokenToSend = accessToken || authCode;
+        
+        if (!tokenToSend) {
+          throw new Error('No authentication token found.');
+        }
+        
+        console.log('🔐 Authenticating with Shopify:', { shop, accountKey });
+        
+        // Make API call to backend
+        const response = await fetch('https://ijbsrphg08.execute-api.us-east-1.amazonaws.com/Prod/api/shopify/callback', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            code: authCode,
             shop: shop,
-            // Add any other required parameters from your backend
-            // account_key: customerInfo?.data?.account_key,
+            access_token: tokenToSend,
+            account_key: accountKey,
           }),
         });
 
         const data = await response.json();
         
-        if (response.ok && data.success) {
+        console.log('📦 Shopify API Response:', data);
+        
+        if (response.ok && (data.success || data.message === 'Shop connected successfully')) {
           setProgress(100);
           setStatus('success');
           setMessage('Successfully connected to Shopify!');
-          
-          // Store connection info in Redux/localStorage if needed
-          // dispatch(updateShopifyConnection(data));
           
           // Wait 2 seconds to show success message then redirect
           setTimeout(() => {
@@ -70,13 +88,13 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
             navigate('/?type=shopify&connected=true');
           }, 2000);
         } else {
-          throw new Error(data.message || 'Authentication failed');
+          throw new Error(data.message || data.error || 'Authentication failed');
         }
         
-      } catch (error) {
-        console.error('Shopify authentication error:', error);
+      } catch (error: any) {
+        console.error('❌ Shopify authentication error:', error);
         setStatus('error');
-        setMessage('Failed to connect to Shopify. Please try again.');
+        setMessage(error.message || 'Failed to connect to Shopify. Please try again.');
         setProgress(0);
         
         // Redirect to landing after error
@@ -86,10 +104,10 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
       }
     };
 
-    if (authCode && shop) {
+    if ((authCode || accessToken) && shop) {
       authenticateWithShopify();
     }
-  }, [authCode, shop, navigate, onAuthComplete]);
+  }, [authCode, accessToken, shop, customerInfo, navigate, onAuthComplete]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-green-50 via-white to-blue-50">

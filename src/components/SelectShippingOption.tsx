@@ -8,6 +8,7 @@ import { fetchShippingOption } from "../store/features/shippingSlice";
 import { updateOrdersInfo } from "../store/features/orderSlice";
 
 interface ShippingOption {
+  id?: number | string;
   rate: number;
   shipping_method: string;
   order_po: string;
@@ -108,9 +109,19 @@ const SelectShippingOption: React.FC<{
             (option: ShippingOption) => {
               if (currentOrderOption?.selectedOption?.options?.length > 1) {
                 // console.log("option", option);
-                return option.shipping_code == orderShippingCode
-                  ? option.shipping_code == orderShippingCode
-                  : option.shipping_class_code == orderShippingCode;
+                // Check if orderShippingCode is a number or numeric string
+                const isNumeric = !isNaN(Number(orderShippingCode)) && orderShippingCode !== null && orderShippingCode !== '';
+                
+                if (isNumeric) {
+                  // If it's numeric (or numeric string like "70"), convert to number and compare with option.id
+                  const numericCode = Number(orderShippingCode);
+                  return option.id == numericCode;
+                } else {
+                  // If it's a pure string (like "pp"), compare with option.shipping_code or shipping_class_code
+                  return option.shipping_code == orderShippingCode
+                    ? option.shipping_code == orderShippingCode
+                    : option.shipping_class_code == orderShippingCode;
+                }
               } else {
                 return option;
               }
@@ -274,9 +285,20 @@ const SelectShippingOption: React.FC<{
 
       if (updateOrder && orders?.data) {
         // Create new order with updated shipping code
+        // Determine if we should use option.id or option.shipping_class_code
+        let shippingCodeValue = option?.id !== undefined ? option.id : option?.shipping_class_code;
+        
+        // If the value is numeric (or numeric string), convert it to a number
+        if (shippingCodeValue !== undefined && shippingCodeValue !== null && shippingCodeValue !== '') {
+          const isNumeric = !isNaN(Number(shippingCodeValue));
+          if (isNumeric) {
+            shippingCodeValue = Number(shippingCodeValue);
+          }
+        }
+        
         const updatedOrder = {
           ...updateOrder,
-          shipping_code: option?.shipping_code,
+          shipping_code: shippingCodeValue,
         };
 
         // Map through all orders and only update the matching one

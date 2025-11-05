@@ -1,10 +1,8 @@
 import React, { useEffect, useState } from "react";
 import {
   Button,
-  PaginationProps,
   Spin,
   notification,
-  Pagination,
   Skeleton,
 } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -62,9 +60,6 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const ecommerceGetImportOrders = useAppSelector(
     (state) => state.Ecommerce.ecommerceGetImportOrders
   );
-  let listVirtualInventoryDataCount = useAppSelector(
-    (state) => state.Inventory.listVirtualInventory?.count
-  );
   const updatedValues =
     useAppSelector((state) => state.order.updatedValues) || {};
 
@@ -76,9 +71,6 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const [nextVisiable, setNextVisiable] = useState<boolean>(false);
   const [totalVisiable, setTotalVisiable] = useState<boolean>(false);
   const [nextSpinning, setNextSpinning] = useState<boolean>(false);
-  const [currentStep, setCurrentStep] = useState(1);
-  const [current, setCurrent] = useState(1);
-  const [pageSize, setPageSize] = useState(12);
   const [grandTotal, setGrandtotal] = useState<number>(0);
   const [api, contextHolder] = notification.useNotification();
 
@@ -134,20 +126,6 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   }
 
   const navigate = useNavigate();
-  const onChange: PaginationProps["onChange"] | any = (
-    filterPageNumber: number
-  ) => {
-    setCurrent(filterPageNumber);
-    dispatch(
-      listVirtualInventory({
-        search_filter: "",
-        sort_field: "id",
-        sort_direction: "DESC",
-        per_page: 12,
-        page_number: filterPageNumber,
-      })
-    );
-  };
 
   const onNextHandler = async () => {
     try {
@@ -697,19 +675,6 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   </>
                 )}
               </div>
-            </div>
-          )}
-
-          {!!(location.pathname === "/virtualinventory" && listVirtualInventoryDataCount) && (
-            <div className="flex-1 mx-4 backdrop-blur-xl bg-white/70 border border-white/40 rounded-3xl shadow-2xl px-6 py-3.5 flex items-center justify-center">
-              <Pagination
-                simple
-                showSizeChanger={false}
-                onChange={onChange}
-                current={current}
-                pageSize={pageSize}
-                total={listVirtualInventoryDataCount}
-              />
             </div>
           )}
 

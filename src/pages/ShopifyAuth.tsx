@@ -12,17 +12,18 @@ const ShopifyAuth: React.FC = () => {
   
   // Extract Shopify parameters from URL
   const code = queryParams.get('code');
+  const accessToken = queryParams.get('access_token');
   const shop = queryParams.get('shop');
   const hmac = queryParams.get('hmac');
   const timestamp = queryParams.get('timestamp');
 
   useEffect(() => {
-    // If no code or shop, redirect to landing
-    if (!code || !shop) {
+    // If no code/access_token or shop, redirect to landing
+    if ((!code && !accessToken) || !shop) {
       console.error('Missing Shopify auth parameters');
       navigate('/?type=shopify&error=missing_params');
     }
-  }, [code, shop, navigate]);
+  }, [code, accessToken, shop, navigate]);
 
   const handleAuthComplete = () => {
     // Update connection status in Redux
@@ -32,6 +33,7 @@ const ShopifyAuth: React.FC = () => {
   return (
     <ShopifyAuthWaiting 
       authCode={code || undefined}
+      accessToken={accessToken || undefined}
       shop={shop || undefined}
       onAuthComplete={handleAuthComplete}
     />
@@ -39,6 +41,7 @@ const ShopifyAuth: React.FC = () => {
 };
 
 export default ShopifyAuth;
+
 
 
 

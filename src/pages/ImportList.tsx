@@ -9,6 +9,7 @@ import {
   resetReplaceCodeStatus,
   updateCheckedOrders,
   deleteOrder,
+  updateOrdersInfo,
 } from "../store/features/orderSlice";
 import locked_Shipment from "../assets/images/package-delivery-box-8-svgrepo-com.svg";
 import { fetchOrder } from "../store/features/orderSlice";
@@ -101,6 +102,8 @@ const ImportList: React.FC = () => {
   const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({});
   const [imageUrlIndex, setImageUrlIndex] = useState<{ [key: string]: number }>({});
   const [bulkDeleteModalVisible, setBulkDeleteModalVisible] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<{ product_guid: string; order_po: string } | null>(null);
+  const [deleteProductModalVisible, setDeleteProductModalVisible] = useState(false);
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
   const excludedOrders = useAppSelector((state) => state.order.excludedOrders);
   const validSKUs = useAppSelector((state) => state.order.validSKU);
@@ -367,6 +370,74 @@ console.log("checkedOrders", checkedOrders);
     setBulkDeleteModalVisible(false);
     // Clear checked orders
     dispatch(updateCheckedOrders([]));
+  };
+
+  const onDeleteProductFromOrder = async () => {
+    if (!productToDelete) return;
+
+    const { product_guid, order_po } = productToDelete;
+
+    // Find the order
+    const targetOrder = orders?.data?.find((order: any) => order.order_po === order_po);
+    if (!targetOrder) return;
+
+    // Remove the product from order items
+    const updatedOrderItems = targetOrder.order_items?.filter(
+      (item: any) => item.product_guid !== product_guid
+    );
+
+    // Create updated order
+    const updatedOrder = {
+      ...targetOrder,
+      order_items: updatedOrderItems,
+    };
+
+    // Update all orders
+    const updatedOrders = orders?.data?.map((order: any) => {
+      if (order.order_po === order_po) {
+        return updatedOrder;
+      }
+      return order;
+    });
+
+    // Format the data for the API
+    const postData = {
+      updatedValues: updatedOrders,
+      customerId: customerInfo?.data?.account_id,
+    };
+
+    // Dispatch the update
+    dispatch(updateOrdersInfo(postData))
+      .then((result: any) => {
+        if (updateOrdersInfo.fulfilled.match(result)) {
+          notificationApi.success({
+            message: "Product Deleted",
+            description: "Product has been successfully deleted from the order.",
+          });
+          
+          // Refresh orders
+          setTimeout(() => {
+            dispatch(fetchOrder(customerInfo?.data?.account_id));
+            setOrderPostData([]);
+            dispatch(clearProductData());
+          }, 1000);
+        } else {
+          notificationApi.error({
+            message: "Error",
+            description: "Failed to delete product from order.",
+          });
+        }
+      })
+      .catch((error: any) => {
+        notificationApi.error({
+          message: "Error",
+          description: "An error occurred while deleting the product.",
+        });
+      })
+      .finally(() => {
+        setDeleteProductModalVisible(false);
+        setProductToDelete(null);
+      });
   };
 
   useEffect(() => {
@@ -895,7 +966,7 @@ console.log("checkedOrders", checkedOrders);
                                   </div>
                                 </div>
                               </div>
-                              <div className="mt-4 ml-7">
+                              <div className="mt-4 ml-7 flex gap-2">
                                 <button
                                   className="h-9 inline-flex items-center px-4 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 hover:border-red-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
                                   onClick={() => {
@@ -924,6 +995,34 @@ console.log("checkedOrders", checkedOrders);
                                     />
                                   </svg>
                                   Replace SKU
+                                </button>
+                                <button
+                                  className="h-9 inline-flex items-center px-4 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 hover:border-red-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
+                                  onClick={() => {
+                                    setProductToDelete({
+                                      product_guid: order?.product_guid,
+                                      order_po: orders?.data?.find((o: any) => 
+                                        o.order_items?.some((item: any) => item.product_guid === order?.product_guid)
+                                      )?.order_po || ""
+                                    });
+                                    setDeleteProductModalVisible(true);
+                                  }}
+                                >
+                                  <svg
+                                    className="w-4 h-4 mr-2"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth="2"
+                                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                    />
+                                  </svg>
+                                  Delete Product
                                 </button>
                               </div>
                               {replacingModal && (
@@ -1362,6 +1461,106 @@ console.log("checkedOrders", checkedOrders);
         <div className="max-h-[60vh] overflow-auto p-4 bg-gray-50 rounded-lg">
           <div className="bg-white p-4 rounded-lg shadow-sm mb-4">
             {parse(modalContent)}
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Product Confirmation Modal */}
+      <Modal
+        title={
+          <div className="flex items-center text-lg text-red-700 font-medium border-b pb-2">
+            <svg
+              className="w-6 h-6 mr-2 text-red-500"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                fillRule="evenodd"
+                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                clipRule="evenodd"
+              />
+            </svg>
+            Delete Product
+          </div>
+        }
+        open={deleteProductModalVisible}
+        onCancel={() => {
+          setDeleteProductModalVisible(false);
+          setProductToDelete(null);
+        }}
+        footer={[
+          <div className="flex justify-center gap-4" key="footer">
+            <Button
+              key="cancel"
+              size="large"
+              onClick={() => {
+                setDeleteProductModalVisible(false);
+                setProductToDelete(null);
+              }}
+              className="border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-800 bg-white hover:bg-gray-50 shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200 ease-in-out font-medium px-8 py-2 rounded-lg"
+            >
+              Cancel
+            </Button>
+            <Button
+              key="delete"
+              danger
+              type="primary"
+              size="large"
+              onClick={onDeleteProductFromOrder}
+              className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 border-0 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 ease-in-out font-semibold px-8 py-2 rounded-lg"
+              icon={
+                <svg
+                  className="w-4 h-4 mr-1"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
+                </svg>
+              }
+            >
+              <span className="text-white font-medium">Delete Product</span>
+            </Button>
+          </div>,
+        ]}
+        width={500}
+        centered
+        className="delete-product-modal"
+      >
+        <div className="text-center py-4">
+          <div className="mb-4">
+            <svg
+              className="mx-auto w-16 h-16 text-red-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              />
+            </svg>
+          </div>
+          <p className="text-lg font-medium text-gray-900 mb-2">
+            Are you sure you want to delete this product?
+          </p>
+          <p className="text-sm text-gray-500 mb-4">
+            This action will permanently remove the product with invalid SKU from the order.
+          </p>
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+            <p className="text-sm text-red-800">
+              <strong>Warning:</strong> This operation cannot be undone. The product will be removed from the order.
+            </p>
           </div>
         </div>
       </Modal>

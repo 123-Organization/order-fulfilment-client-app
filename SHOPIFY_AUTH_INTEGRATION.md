@@ -25,58 +25,32 @@ Landing Page → User clicks Shopify → Redirects to Shopify OAuth
 → Redirects to Landing Page with connection status
 ```
 
-### 2. Backend API Integration
+### 2. Backend API Integration ✅ IMPLEMENTED
 
-You need to create an endpoint for authenticating Shopify. Update the `ShopifyAuthWaiting.tsx` file:
+The Shopify authentication now makes a real API call to:
 
-```typescript
-// In src/components/ShopifyAuthWaiting.tsx around line 38-50
+**Endpoint:** `https://ijbsrphg08.execute-api.us-east-1.amazonaws.com/Prod/api/shopify/callback`
 
-const authenticateWithShopify = async () => {
-  try {
-    setMessage('Verifying your credentials...');
-    
-    // **REPLACE THIS WITH YOUR ACTUAL API ENDPOINT**
-    const response = await fetch('YOUR_BACKEND_API_ENDPOINT/shopify/auth', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        code: authCode,
-        shop: shop,
-        // Add any other required parameters from your backend
-        account_key: customerInfo?.data?.account_key,
-      }),
-    });
+**Request Format:**
+```json
+{
+  "shop": "store-name.myshopify.com",
+  "access_token": "shpua_xxx...",
+  "account_key": "04129d94-10b5-4d85-b584-584d936c8e73"
+}
+```
 
-    const data = await response.json();
-    
-    if (response.ok && data.success) {
-      setProgress(100);
-      setStatus('success');
-      setMessage('Successfully connected to Shopify!');
-      
-      // Store connection info in Redux/localStorage if needed
-      // dispatch(updateShopifyConnection(data));
-      
-      // Redirect after success
-      setTimeout(() => {
-        if (onAuthComplete) {
-          onAuthComplete();
-        }
-        navigate('/?type=shopify&connected=true');
-      }, 2000);
-    } else {
-      throw new Error(data.message || 'Authentication failed');
-    }
-  } catch (error) {
-    console.error('Shopify authentication error:', error);
-    setStatus('error');
-    setMessage('Failed to connect to Shopify. Please try again.');
-    // ... rest of error handling
-  }
-};
+**Parameters:**
+- `shop`: Extracted from URL query parameter
+- `access_token`: Extracted from URL query parameter (or `code` if access_token not present)
+- `account_key`: Retrieved from Redux store (`customerInfo.data.account_key`)
+
+**Response Expected:**
+```json
+{
+  "success": true,
+  "message": "Shop connected successfully"
+}
 ```
 
 ### 3. Shopify OAuth URL Setup
@@ -106,26 +80,40 @@ if (imgname === "Shopify") {
 }
 ```
 
-## Backend Requirements
+## Backend Requirements ✅ CONFIGURED
 
-Your backend API should:
+**API Endpoint:** `https://ijbsrphg08.execute-api.us-east-1.amazonaws.com/Prod/api/shopify/callback`
 
-1. **Receive OAuth Code**: Accept `code`, `shop`, and `account_key` from the frontend
-2. **Exchange for Access Token**: Exchange the code with Shopify for an access token
-3. **Store Connection**: Save the Shopify store connection details linked to the user account
-4. **Return Success**: Return success status and any relevant connection data
+The backend should:
 
-### Example Backend Response:
+1. **Receive Parameters**: Accept `shop`, `access_token`, and `account_key` from the frontend
+2. **Validate Token**: Verify the access token with Shopify
+3. **Store Connection**: Save the Shopify store connection linked to the account_key
+4. **Return Success**: Return success status
+
+### Request (from Frontend):
+```json
+{
+  "shop": "finerworks-dev-store.myshopify.com",
+  "access_token": "shpua_24a839fa41ed2c3e391bc5abfe357e1f",
+  "account_key": "04129d94-10b5-4d85-b584-584d936c8e73"
+}
+```
+
+### Expected Response:
 ```json
 {
   "success": true,
-  "message": "Shopify store connected successfully",
-  "data": {
-    "shop": "store-name.myshopify.com",
-    "access_token": "encrypted_or_hashed_token",
-    "connection_id": "unique_connection_id",
-    "isConnected": true
-  }
+  "message": "Shop connected successfully"
+}
+```
+
+### Error Response:
+```json
+{
+  "success": false,
+  "error": "Error message here",
+  "message": "Detailed error description"
 }
 ```
 
@@ -152,13 +140,27 @@ Your backend API should:
 
 ## Testing
 
-To test the complete flow:
-1. Update the backend API endpoint in `ShopifyAuthWaiting.tsx` (line 42)
-2. Click Shopify on Landing page
-3. User will be redirected to Shopify OAuth
-4. After authorization, Shopify redirects to `/auth/shopify?code=XXX&shop=YYY`
-5. Waiting screen appears and calls your API
-6. On success, user is redirected back to Landing page with connection status
+### Local Testing (Development):
+```
+http://localhost:3000/auth/shopify?access_token=shpua_xxx&shop=finerworks-dev-store.myshopify.com
+```
+
+### Production Testing:
+```
+https://fa.finerworks.com/auth/shopify?access_token=shpua_xxx&shop=finerworks-dev-store.myshopify.com
+```
+
+**Note:** Make sure CloudFront is configured with custom error page (404 → /index.html) for production routing to work.
+
+### Complete Flow:
+1. Click Shopify on Landing page
+2. Backend redirects user to Shopify OAuth
+3. User authorizes the app
+4. Shopify redirects to `/auth/shopify?access_token=XXX&shop=YYY`
+5. Waiting screen appears with animations
+6. API call is made to backend with shop, access_token, and account_key
+7. On success: Redirects to Landing page with `?type=shopify&connected=true`
+8. On error: Shows error message and redirects to Landing with `?type=shopify&error=auth_failed`
 
 ## Environment Variables
 
