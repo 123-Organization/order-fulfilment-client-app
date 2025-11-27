@@ -9,6 +9,7 @@ import {
   inventorySelectionUpdate,
   inventorySelectionDelete,
   inventorySelectionClean,
+  updateVirtualInventory,
 } from "../store/features/InventorySlice";
 import HTMLReactParser from "html-react-parser";
 import { useLocation } from "react-router-dom";
@@ -53,6 +54,9 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
   
   // Accordion state for descriptions
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set());
+  
+  // Recently edited product tracking (for showing badge)
+  const [recentlyEditedSku, setRecentlyEditedSku] = useState<string | null>(null);
   
   // Smart search bar states
   const [isSearchCollapsed, setIsSearchCollapsed] = useState(false);
@@ -144,7 +148,7 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
   
   // Quick filter states - MUST be declared before listInventory function
   const [searchFilter, setSearchFilter] = useState("");
-  const [sortField, setSortField] = useState("id");
+  const [sortField, setSortField] = useState("updated");
   const [sortDirection, setSortDirection] = useState("DESC");
 
   const listInventory = useCallback((page: number = 1, resetData: boolean = false) => {
@@ -204,6 +208,48 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
       }
       return newSet;
     });
+  };
+
+  // Extract GUID from image URL
+  const extractGuidFromImageUrl = (imageUrl: string): string | null => {
+    if (!imageUrl) return null;
+    
+    // Match pattern: buynow-{guid}.png
+    const match = imageUrl.match(/buynow-([a-f0-9-]+)\.png/i);
+    return match ? match[1] : null;
+  };
+
+  // Handle edit product details on Finerworks
+  const handleEditProductDetails = (product: any, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent selecting the item
+    
+    // Extract GUID from image URL
+    const guid = extractGuidFromImageUrl(product.image_url_1);
+    
+    if (!guid) {
+      notification.error({
+        message: 'Error',
+        description: 'Unable to extract product ID from image URL',
+        placement: 'topRight',
+        duration: 3,
+      });
+      return;
+    }
+    
+    // Store the ENTIRE product object in localStorage so we can show it at the top when user returns
+    console.log('💾 Saving edited product to localStorage:', product.sku);
+    localStorage.setItem('recentlyEditedProductSku', product.sku);
+    localStorage.setItem('recentlyEditedProductData', JSON.stringify(product));
+    localStorage.setItem('recentlyEditedProductTimestamp', Date.now().toString());
+    
+    // Use current page URL as return destination
+    const returnUrl = encodeURIComponent(window.location.href);
+    
+    // Build the Finerworks edit URL and navigate directly
+    const editUrl = `https://finerworks.com/apps/orderform/post4.aspx?mode=store&guid=${guid}&ReturnUrl=${returnUrl}`;
+    
+    // Navigate to the edit page
+    window.location.href = editUrl;
   };
 
   // Apply filters function
@@ -274,9 +320,129 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
     setIsSearchExpanded(false);
   };
 
-  // Initial load
+  // Check for recently edited product on mount AND when page becomes visible
   useEffect(() => {
-    listInventory(1, true);
+    let hasChecked = false; // Prevent duplicate checks
+    
+    const checkForEditedProduct = async () => {
+      if (hasChecked) {
+        console.log('⏭️ Already checked for edited product, skipping...');
+        return;
+      }
+      hasChecked = true;
+      
+      const editedSku = localStorage.getItem('recentlyEditedProductSku');
+      const editedProductJson = localStorage.getItem('recentlyEditedProductData');
+      const timestamp = localStorage.getItem('recentlyEditedProductTimestamp');
+      
+      console.log('🔎 Checking for edited product... SKU:', editedSku, 'Has data:', !!editedProductJson);
+      
+      if (editedSku && editedProductJson && timestamp) {
+        // Check if edit happened within last 5 minutes (300000 ms)
+        const timeSinceEdit = Date.now() - parseInt(timestamp);
+        if (timeSinceEdit < 300000) {
+          console.log('🎨 Detected recently edited product:', editedSku);
+          
+          try {
+            // Parse the saved product data
+            const savedProduct = JSON.parse(editedProductJson);
+            console.log('✅ Retrieved saved product data:', savedProduct.name);
+            
+            // Call API to update the product's timestamp in the database
+            console.log('🔄 Calling API to update product timestamp...');
+            
+            // Get current date/time in ISO format
+            const currentDateTime = new Date().toISOString().slice(0, 19).replace('T', 'T');
+            console.log('📅 Current date/time:', currentDateTime);
+            
+            const updatePayload = {
+              data: [{
+                sku: savedProduct.sku,
+                asking_price: parseFloat(savedProduct.asking_price) || 0,
+                name: savedProduct.name,
+                description: savedProduct.description_long || '',
+                quantity_in_stock: parseInt(savedProduct.quantity_in_stock) || 0,
+                updated: currentDateTime,
+              }]
+            };
+            
+            // Dispatch the update action to refresh the timestamp
+            await dispatch(updateVirtualInventory(updatePayload));
+            
+            console.log('✅ Product timestamp updated successfully');
+            
+            // Set the recently edited SKU to show the badge
+            setRecentlyEditedSku(editedSku);
+            
+            // Show welcome back notification
+            console.log('🔔 Showing welcome back notification');
+            notification.success({
+              message: 'Welcome Back!',
+              description: 'Your edited product appears at the top of the list.',
+              placement: 'topRight',
+              duration: 5,
+            });
+            
+            // Clear localStorage immediately since we've updated the DB
+            localStorage.removeItem('recentlyEditedProductSku');
+            localStorage.removeItem('recentlyEditedProductData');
+            localStorage.removeItem('recentlyEditedProductTimestamp');
+            
+            // Reload the list to get the updated product at the top
+            console.log('📍 Reloading inventory list...');
+            setCurrentPage(1);
+            setAllInventoryData([]);
+            listInventory(1, true);
+            
+            // Clear the badge after 30 seconds
+            setTimeout(() => {
+              console.log('⏰ Clearing edited product badge');
+              setRecentlyEditedSku(null);
+            }, 30000);
+            
+          } catch (error) {
+            console.error('❌ Error updating product timestamp:', error);
+            // Clear localStorage on error
+            localStorage.removeItem('recentlyEditedProductSku');
+            localStorage.removeItem('recentlyEditedProductData');
+            localStorage.removeItem('recentlyEditedProductTimestamp');
+            if (allInventoryData.length === 0) {
+              listInventory(1, true);
+            }
+          }
+        } else {
+          // Too old, clear it
+          console.log('⏰ Edit too old, clearing...');
+          localStorage.removeItem('recentlyEditedProductSku');
+          localStorage.removeItem('recentlyEditedProductData');
+          localStorage.removeItem('recentlyEditedProductTimestamp');
+          if (allInventoryData.length === 0) {
+            listInventory(1, true);
+          }
+        }
+      } else if (allInventoryData.length === 0) {
+        // No edited product, load normally only if no data
+        console.log('📋 No edited product, loading normally...');
+        listInventory(1, true);
+      }
+    };
+
+    // Check on mount
+    checkForEditedProduct();
+    
+    // Also check when page becomes visible (when returning from external link)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('👁️ Page became visible, checking for edited product...');
+        checkForEditedProduct();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   // Process API response and accumulate data
@@ -288,15 +454,19 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
       }));
 
       setAllInventoryData((prevData) => {
+        let dataToSet;
+        
         // If it's page 1, replace; otherwise append
         if (currentPage === 1) {
-          return newData;
+          dataToSet = newData;
         } else {
           // Avoid duplicates by filtering out SKUs that already exist
           const existingSKUs = new Set(prevData.map((item: any) => item.sku));
           const uniqueNewData = newData.filter((item: any) => !existingSKUs.has(item.sku));
-          return [...prevData, ...uniqueNewData];
+          dataToSet = [...prevData, ...uniqueNewData];
         }
+        
+        return dataToSet;
       });
 
       setTotalCount(listVirtualInventoryResponse.count || 0);
@@ -366,9 +536,11 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
         `}</style>
       )}
       {/* Smart Collapsible Search Bar - Sticky positioned */}
-      <div className={`bg-white shadow-md sticky top-0 z-50 border-b border-gray-200 transition-all duration-300 ${
+      <div className={`bg-white shadow-md sticky top-0 border-b border-gray-200 transition-all duration-300 ${
         isSearchCollapsed && !isSearchExpanded ? 'py-3 px-4' : 'p-4'
-      } ${location.pathname === "/virtualinventory" ? 'ml-20' : ''}`}>
+      } ${location.pathname === "/virtualinventory" ? 'ml-20' : ''} ${
+        openEditModal ? 'z-10 blur-sm pointer-events-none' : 'z-50'
+      }`}>
           <div className="max-w-7xl mx-auto">
             {/* Collapsed State - Floating Search Icon */}
             {isSearchCollapsed && !isSearchExpanded && (
@@ -509,6 +681,7 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
                       <option value="id">ID</option>
                       <option value="name">Name</option>
                       <option value="created_at">Created Date</option>
+                      <option value="updated">Last Updated</option>
                     </select>
                   </div>
 
@@ -595,6 +768,21 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
           .animate-slideDown {
             animation: slideDown 0.3s ease-out;
           }
+          
+          @keyframes pulse-slow {
+            0%, 100% {
+              opacity: 1;
+              transform: scale(1);
+            }
+            50% {
+              opacity: 0.95;
+              transform: scale(1.01);
+            }
+          }
+          
+          .animate-pulse-slow {
+            animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+          }
         `}</style>
       </div>
       
@@ -611,14 +799,18 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
           </div>
         ) : allInventoryData && allInventoryData.length > 0 ? (
           <>
-            {allInventoryData.map((image: any, i: number) => (
+            {allInventoryData.map((image: any, i: number) => {
+              const isRecentlyEdited = recentlyEditedSku === image.sku;
+              const isSelected = image?.isSelected || (inventorySelection?.length && find(inventorySelection, { sku: image?.sku }));
+              
+              return (
               <div
                 key={i}
                 onClick={() => handleSelect(image)}
-                className={`bg-white border rounded-xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer ${
-                  image?.isSelected ||
-                  (inventorySelection?.length &&
-                    find(inventorySelection, { sku: image?.sku }))
+                className={`relative bg-white border rounded-xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer ${
+                  isRecentlyEdited
+                    ? "ring-4 ring-green-500 shadow-green-200 animate-pulse-slow"
+                    : isSelected
                     ? "ring-4 ring-blue-500 shadow-blue-200"
                     : "border-gray-200 hover:border-gray-300"
                 }`}
@@ -763,27 +955,62 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
 
                       {/* Badges Section */}
                       <div className="flex flex-col gap-2 items-end flex-shrink-0">
-                        {/* Edit Button */}
-                        <button
-                          onClick={(e) => handleEditProduct(image, e)}
-                          className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-blue-50 hover:border-blue-500 transition-all duration-200 group shadow-sm hover:shadow-md"
-                          title="Edit Product"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-5 w-5 text-gray-600 group-hover:text-blue-600"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
+                        {/* Action Buttons Row */}
+                        <div className="flex gap-2">
+                          {/* Edit Button */}
+                          <button
+                            onClick={(e) => handleEditProduct(image, e)}
+                            className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-blue-50 hover:border-blue-500 transition-all duration-200 group shadow-sm hover:shadow-md"
+                            title="Edit Product"
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                            />
-                          </svg>
-                        </button>
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-5 w-5 text-gray-600 group-hover:text-blue-600"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                              />
+                            </svg>
+                          </button>
+                          
+                          {/* Edit Product Details Button */}
+                          <button
+                            onClick={(e) => handleEditProductDetails(image, e)}
+                            className="p-2 bg-gradient-to-r from-purple-500 to-purple-600 border border-purple-600 rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all duration-200 group shadow-sm hover:shadow-md"
+                            title="Edit Frame & Color Details"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-5 w-5 text-white"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                        
+                        {/* Recently Edited Badge */}
+                        {isRecentlyEdited && (
+                          <div className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-full px-3 py-1 shadow-lg text-xs font-bold animate-pulse flex items-center gap-1" title="You just edited this product!">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            Just Edited
+                          </div>
+                        )}
                         
                         {image?.third_party_integrations?.woocommerce_product_id && (
                           <div className="bg-white border border-gray-200 rounded-full p-2 shadow-sm">
@@ -810,7 +1037,8 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
                   </div>
                 </div>
               </div>
-            ))}
+            );
+            })}
             
             {/* Infinite scroll loading indicator */}
             {hasMore && (

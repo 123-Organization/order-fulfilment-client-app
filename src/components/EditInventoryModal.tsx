@@ -24,11 +24,11 @@ const EditInventoryModal: React.FC<EditInventoryModalProps> = ({
     quantity: '',
   });
   
-  const [dimensions, setDimensions] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [plainTextDescription, setPlainTextDescription] = useState('');
   const [originalLabels, setOriginalLabels] = useState<Array<{key: string, value: string, priority: number}>>([]);
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
+  
   // Function to strip HTML tags
   const stripHtmlTags = (html: string) => {
     const tmp = document.createElement('DIV');
@@ -36,31 +36,8 @@ const EditInventoryModal: React.FC<EditInventoryModalProps> = ({
     return tmp.textContent || tmp.innerText || '';
   };
 
-  // Function to extract dimensions from description
-  const extractDimensions = (description: string) => {
-    if (!description) return '';
-    
-    // Match patterns like: 10 x 8", 8X10, 10x8", etc.
-    const patterns = [
-      /(\d+\s*x\s*\d+\s*"?\s*\w*)/gi,  // Matches: 10 x 8", 8x10, etc.
-      /(\d+"\s*x\s*\d+")/gi,            // Matches: 10" x 8"
-    ];
-    
-    for (const pattern of patterns) {
-      const match = description.match(pattern);
-      if (match && match[0]) {
-        return match[0];
-      }
-    }
-    
-    return '';
-  };
-
   useEffect(() => {
     if (productData && visible) {
-      const extractedDimensions = extractDimensions(productData.description_long || '');
-      setDimensions(extractedDimensions);
-      
       // Extract and store original labels (skip first one which is SKU)
       if (productData.labels && Array.isArray(productData.labels)) {
         const labelsWithoutSku = productData.labels.slice(1); // Skip first label (SKU)
@@ -119,19 +96,11 @@ const EditInventoryModal: React.FC<EditInventoryModalProps> = ({
     const trimmedDescription = plainTextDescription.trim();
     
     if (trimmedDescription === '') {
-      // Case 3: Customer deleted the description - send empty
+      // Customer deleted the description - send empty
       htmlDescription = '';
     } else {
-      // Build final description with dimensions
-      let finalDescription = trimmedDescription;
-      
-      // Add dimensions if they were extracted and not already in the description
-      if (dimensions && !finalDescription.includes(dimensions)) {
-        finalDescription = `${finalDescription} ${dimensions}`;
-      }
-
       // Convert plain text back to HTML format in <ul><li> structure
-      const lines = finalDescription.split('\n').filter(line => line.trim());
+      const lines = trimmedDescription.split('\n').filter(line => line.trim());
       htmlDescription = '<ul></ul><ul>';
       
       // If there are multiple lines, add each as a list item
@@ -141,7 +110,7 @@ const EditInventoryModal: React.FC<EditInventoryModalProps> = ({
         });
       } else {
         // Single line, still wrap in li tag
-        htmlDescription += `<li>${finalDescription}</li>`;
+        htmlDescription += `<li>${trimmedDescription}</li>`;
       }
       
       htmlDescription += '</ul>';
@@ -262,7 +231,7 @@ const EditInventoryModal: React.FC<EditInventoryModalProps> = ({
 
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 bg-gradient-to-br from-black/60 to-black/40 transition-all duration-700 ease-in-out z-40 ${
+        className={`fixed inset-0 bg-gradient-to-br from-black/60 to-black/40 transition-all duration-700 ease-in-out z-[60] ${
           visible ? 'backdrop-blur-md opacity-100' : 'backdrop-blur-none opacity-0 pointer-events-none'
         }`}
         onClick={onClose}
@@ -270,7 +239,7 @@ const EditInventoryModal: React.FC<EditInventoryModalProps> = ({
 
       {/* Modal */}
       <div
-        className={`fixed right-0 top-0 h-full w-full md:w-[600px] lg:w-[700px] bg-white shadow-[0_0_50px_rgba(0,0,0,0.3)] z-50 ${
+        className={`fixed right-0 top-0 h-full w-full md:w-[600px] lg:w-[700px] bg-white shadow-[0_0_50px_rgba(0,0,0,0.3)] z-[70] ${
           visible ? 'animate-[slideInRight_0.6s_cubic-bezier(0.34,1.56,0.64,1)_forwards]' : 'animate-[slideOutRight_0.4s_ease-in_forwards]'
         }`}
         style={{
@@ -488,23 +457,6 @@ const EditInventoryModal: React.FC<EditInventoryModalProps> = ({
                 className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none text-sm leading-relaxed transition-all duration-300 hover:border-gray-400"
                 placeholder="Enter product description"
               />
-              
-              {/* Show extracted dimensions */}
-              {dimensions && (
-                <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <p className="text-xs font-medium text-blue-800">
-                      Detected Dimensions: <span className="font-bold">{dimensions}</span>
-                    </p>
-                  </div>
-                  <p className="text-xs text-blue-600 mt-1">
-                    These dimensions will be automatically added to your description when you save
-                  </p>
-                </div>
-              )}
               
               {/* Info about HTML formatting */}
               <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded-lg">
