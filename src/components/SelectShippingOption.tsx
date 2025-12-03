@@ -115,14 +115,17 @@ const SelectShippingOption: React.FC<{
                 if (isNumeric) {
                   // If it's numeric (or numeric string like "70"), convert to number and compare with option.id
                   const numericCode = Number(orderShippingCode);
+                 
                   return option.id == numericCode;
                 } else {
                   // If it's a pure string (like "pp"), compare with option.shipping_code or shipping_class_code
+                  
                   return option.shipping_code == orderShippingCode
                     ? option.shipping_code == orderShippingCode
-                    : option.shipping_class_code == orderShippingCode;
+                    :  currentOrderOption?.selectedOption?.preferred_option
                 }
               } else {
+                
                 return option;
               }
             }
