@@ -11,7 +11,7 @@ import {
 import { resetPaymentStatus } from "../store/features/paymentSlice";
 import style from "../pages/Pgaes.module.css";
 import { useNavigate } from "react-router-dom";
-import { submitOrders,updateCheckedOrders, resetSubmitStatus } from "../store/features/orderSlice";
+import { submitOrders, submitShopifyOrders, updateCheckedOrders, resetSubmitStatus } from "../store/features/orderSlice";
 import LoadingOverlay from "./LoadingOverlay";
 import { updateSubmitedOrders } from "../store/features/orderSlice";
 
@@ -136,52 +136,97 @@ export default function VaultedCardPayment({
 
     notificationShownRef.current = false;
     setIsLoading(true);
-    const submittedOrders = checkedOrders?.map((order: any) => {
-      const orderToSubmit = orders?.data?.filter((o: any) => o.order_po === order.order_po);
-        return orderToSubmit;
-      
-    }).flat();
-    console.log("submittedOrders",submittedOrders);
-    const editedSubmittedOrders = submittedOrders.map((order: any) => {
-      const poParts = order.order_po.split("#");
     
-      return {
-        ...order,
-        order_po: poParts.length > 1 ? poParts[1] : order.order_po,
-        shipping_code: currentOption?.allOptions?.find(
-          (option: any) => option.order_po === order.order_po
-        )?.selectedOption?.id,
-        order_items: order.order_items.map((item: any) => {
-          if (!item.product_sku.startsWith("AP")) {
-            return {
-              product_qty: item.product_qty,
-              product_sku: item.product_sku,
-              product_cropping: item.product_cropping,
-              product_guid: item.product_guid,
-              product_image: {
-                pixel_width: 600,
-                pixel_height: 600,
-                product_url_file: item?.product_image?.product_url_file,
-                product_url_thumbnail: item?.product_image?.product_url_thumbnail,
-              },
-            };
-          }
-          return item;
-        }),
-      };
-    });
-  console.log("editedSubmittedOrders",editedSubmittedOrders);
-    const payload = {
-      validate_only: false,
-      orders: [...editedSubmittedOrders],
-      account_key : companyInfo?.data?.account_key,
-      accountId: companyInfo?.data?.account_id,
-      payment_token: token?.token,
-    }
-
-    dispatch(
-      submitOrders(payload)   
+    // Filter orders by source (case-insensitive)
+    const shopifyOrders = checkedOrders?.filter((order: any) => 
+      order.source?.toLowerCase() === "shopify"
     );
+    const normalOrders = checkedOrders?.filter((order: any) => 
+      order.source?.toLowerCase() !== "shopify"
+    );
+    
+    // Handle Shopify orders separately
+    if (shopifyOrders && shopifyOrders.length > 0) {
+      // Extract Shopify connection data from company info
+      const shopifyConnection = companyInfo?.data?.connections?.find(
+        (conn: any) => conn.name === "Shopify"
+      );
+      
+      let shopifyData = { shop: "", access_token: "" };
+      if (shopifyConnection?.data) {
+        try {
+          shopifyData = JSON.parse(shopifyConnection.data);
+        } catch (e) {
+          console.error("Failed to parse Shopify connection data:", e);
+        }
+      }
+      
+      const shopifyPayload = shopifyOrders.map((order: any) => ({
+        orderId: order.order_key ,
+        orderName: order.order_po,
+        storeName: shopifyData.shop,
+        access_token: shopifyConnection?.id || shopifyData.access_token,
+        trackingInfo: {
+          number: order.trackingNumber || "TRACKING_PENDING"
+        }
+      }));
+      
+      console.log("shopifyPayload", shopifyPayload);
+      dispatch(submitShopifyOrders(shopifyPayload));
+    }
+    
+    // Handle normal orders with the ORIGINAL flow
+    if (normalOrders && normalOrders.length > 0) {
+      const submittedOrders = normalOrders?.map((order: any) => {
+        const orderToSubmit = orders?.data?.filter((o: any) => o.order_po === order.order_po);
+        return orderToSubmit;
+      }).flat().filter((order: any) => order.source?.toLowerCase() !== "shopify");
+      
+      console.log("submittedOrders (filtered, no Shopify)", submittedOrders);
+      
+      const editedSubmittedOrders = submittedOrders.map((order: any) => {
+        const poParts = order.order_po.split("#");
+      
+        return {
+          ...order,
+          order_po: poParts.length > 1 ? poParts[1] : order.order_po,
+          shipping_code: currentOption?.allOptions?.find(
+            (option: any) => option.order_po === order.order_po
+          )?.selectedOption?.id,
+          order_items: order.order_items.map((item: any) => {
+            if (!item.product_sku.startsWith("AP")) {
+              return {
+                product_qty: item.product_qty,
+                product_sku: item.product_sku,
+                product_cropping: item.product_cropping,
+                product_guid: item.product_guid,
+                product_image: {
+                  pixel_width: 600,
+                  pixel_height: 600,
+                  product_url_file: item?.product_image?.product_url_file ? 
+                  item?.product_image?.product_url_file : item?.product_url_file,
+                  product_url_thumbnail: item?.product_image?.product_url_thumbnail ?
+                  item?.product_image?.product_url_thumbnail : item?.product_url_thumbnail,
+                },
+              };
+            }
+            return item;
+          }),
+        };
+      });
+      
+      console.log("editedSubmittedOrders (no Shopify)", editedSubmittedOrders);
+      
+      const payload = {
+        validate_only: false,
+        orders: [...editedSubmittedOrders],
+        account_key: companyInfo?.data?.account_key,
+        accountId: companyInfo?.data?.account_id,
+        payment_token: token?.token,
+      }
+
+      dispatch(submitOrders(payload));
+    }
     
     dispatch(updateSubmitedOrders(checkedOrders));
     setTimeout(() => {

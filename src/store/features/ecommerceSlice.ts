@@ -133,6 +133,9 @@ const ecommerceSlice = createSlice({
                 resetStatus: (state) => {
                         state.status = "idle";
                 },
+                resetEcommerceGetImportOrders: (state) => {
+                        state.ecommerceGetImportOrders = {};
+                },
         },
         extraReducers: (builder) => {
                 builder.addCase(ecommerceConnector.fulfilled, (state, action) => {
@@ -169,4 +172,4 @@ const ecommerceSlice = createSlice({
 });
 
 export default ecommerceSlice;
-export const { resetStatus } = ecommerceSlice.actions;
+export const { resetStatus, resetEcommerceGetImportOrders } = ecommerceSlice.actions;

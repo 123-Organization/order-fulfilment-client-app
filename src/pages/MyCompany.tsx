@@ -59,7 +59,7 @@ const MyCompany: React.FC = () => {
   /*////////////////////////////////////////////////////*/
 
   const openIframe = () => {
-    dispatch(updateIframeState({ iframeState: true }));
+    dispatch(updateIframeState(true));
   };
 
   const setStates = (value: string = "us") => {

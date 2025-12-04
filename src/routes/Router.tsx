@@ -209,6 +209,9 @@ const Router: React.FC = (): JSX.Element => {
   }, [location.pathname, checkedOrders]);
 
   console.log("checked", checkedOrders.length);
+  console.log("🔍 Current path:", location.pathname);
+  console.log("🔍 Full URL:", window.location.href);
+  
   return (
     <Suspense
       fallback={
@@ -221,7 +224,12 @@ const Router: React.FC = (): JSX.Element => {
         {/* Public routes */}
         <Route path="/" element={<Landing />} />
         <Route path={routes.landingPage} element={<Landing />} />
-        <Route path="/auth/shopify" element={<ShopifyAuth />} />
+        <Route path="/auth/shopify" element={
+          <>
+            {console.log("✅ /auth/shopify route matched!")}
+            <ShopifyAuth />
+          </>
+        } />
 
         {/* Protected routes */}
         <Route

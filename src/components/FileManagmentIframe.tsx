@@ -12,6 +12,7 @@ import { useCookies } from "react-cookie";
 
 import {
   AddProductToOrder,
+  fetchOrder,
   resetProductDataStatus,
 } from "../store/features/orderSlice";
 import { clearProductData, clearSelectedImage, setProductData, setSelectedImage } from "../store/features/productSlice";
@@ -32,7 +33,8 @@ export default function FileManagementIframe({ iframe, setIframe }) {
 
   const location = useLocation();
   console.log("SelectedImage", SelectedImage);
-  const { iframeState } = useAppSelector((state) => state.company.iframeState);
+  const iframeState = useAppSelector((state) => state.company.iframeState);
+  console.log("🎬 FileManagementIframe - iframeState:", iframeState);
   const productData = useAppSelector((state) => state.ProductSlice.productData);
   const ordersStatus = useAppSelector((state) => state.order.status);
   const companyinfoStatus = useAppSelector(
@@ -79,19 +81,19 @@ export default function FileManagementIframe({ iframe, setIframe }) {
 
     // Add an event listener for the iframe load event
     const handleIframeLoad = () => {
-      const iframeElement = document.getElementById("file-manager-iframe");
+      const iframeElement = document.getElementById("file-manager-iframe") as HTMLIFrameElement | null;
       if (iframeElement?.contentWindow) {
         iframeElement.contentWindow.postMessage(settings, "*");
       }
     };
 
-    const iframeElement = document.getElementById("file-manager-iframe");
+    const iframeElement = document.getElementById("file-manager-iframe") as HTMLIFrameElement | null;
     if (iframeElement) {
       iframeElement.addEventListener("load", handleIframeLoad);
     }
 
     return () => {
-      const iframeElement = document.getElementById("file-manager-iframe");
+      const iframeElement = document.getElementById("file-manager-iframe") as HTMLIFrameElement | null;
       if (iframeElement) {
         iframeElement.removeEventListener("load", handleIframeLoad);
       }
@@ -159,7 +161,12 @@ export default function FileManagementIframe({ iframe, setIframe }) {
 
   const filterImages = (data: any) => {
     return data?.data?.fileSelected.map(
-      (image: any) => image?.public_thumbnail_uri
+      (image: any) => ( 
+        {
+          public_thumbnail_uri: image?.public_thumbnail_uri,
+          public_preview_uri: image?.private_hires_uri,
+        }
+      )
     );
   };
 
@@ -200,15 +207,19 @@ export default function FileManagementIframe({ iframe, setIframe }) {
     // Process images one by one with sequential delays
     const data = {
       ...productData,
-      product_url_file: productData?.product_url_file,
-      product_url_thumbnail: productData?.product_url_file,
+      product_url_file: [productData?.product_url_file?.[0]?.public_preview_uri]  ,
+      product_url_thumbnail:[ productData?.product_url_file?.[0]?.public_thumbnail_uri],
+      account_key: companyinfo?.data?.account_key,
       };
       dispatch(AddProductToOrder(data));
+      setTimeout(() => {
+        dispatch(fetchOrder(companyinfo?.data?.account_id));
+      }, 1000);
     }
   };
   useEffect(() => {
     if (productDataStatus === "succeeded") {
-      dispatch(updateIframeState({ iframeState: false }));
+      dispatch(updateIframeState(false));
       dispatch(clearSelectedImage());
       dispatch(resetProductDataStatus());
     }
@@ -222,13 +233,13 @@ export default function FileManagementIframe({ iframe, setIframe }) {
 
     // Set logoUpdate to true to trigger refresh
     setLogoUpdate(true);
-    dispatch(updateIframeState({ iframeState: false }));
+    dispatch(updateIframeState(false));
     setLogo("");
   };
 
   useEffect(() => {
     if (iframeState === false || iframe === false) {
-      const iframeElement = document.getElementById("file-manager-iframe");
+      const iframeElement = document.getElementById("file-manager-iframe") as HTMLIFrameElement | null;
       if (iframeElement) {
         // Store the current src
         const currentSrc = iframeElement.src;
@@ -278,9 +289,8 @@ export default function FileManagementIframe({ iframe, setIframe }) {
         onCancel={() => {
           setIframe(false);
           setLogoUpdate(false); 
-          dispatch(clearProductData())// Reset logoUpdate when closing
-          dispatch(updateIframeState({ iframeState: false }));
-          ;
+          dispatch(clearProductData());// Reset logoUpdate when closing
+          dispatch(updateIframeState(false));
         }}
         footer={null}
       >
@@ -318,13 +328,13 @@ export default function FileManagementIframe({ iframe, setIframe }) {
               };
               const iframeElement = document.getElementById(
                 "file-manager-iframe"
-              );
+              ) as HTMLIFrameElement | null;
               if (iframeElement?.contentWindow) {
-                iframeElement.contentWindow.postMessage(settings, "*");
+                iframeElement?.contentWindow.postMessage(settings, "*");
               }
             }}
           />
-          {productData?.product_url_file[0]?.length > 0  &&
+          {productData?.product_url_file?.[0]?.public_preview_uri?.length > 0  &&
             (location.pathname.includes("/editorder") ||
               location.pathname.includes("/importlist")) && (
               <button

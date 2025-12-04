@@ -9,18 +9,21 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store";
 import {
   saveOrder,
+  saveShopifyOrder,
   updateOrderStatus,
   updateOrdersInfo,
+  resetSaveOrderInfo,
+  resetImport,
 } from "../store/features/orderSlice";
 import { listVirtualInventory } from "../store/features/InventorySlice";
-import { getImportOrders } from "../store/features/ecommerceSlice";
+import { getImportOrders, resetEcommerceGetImportOrders } from "../store/features/ecommerceSlice";
 import NotificationAlert from "./notification";
 import ShippingPreference from "../pages/ShippingPreference";
 import UpdatePopup from "./UpdatePopup";
 import { updateCompanyInfo } from "../store/features/companySlice";
 import { resetRecipientStatus } from "../store/features/orderSlice";
 import style from "./Components.module.css";
-import { fetchWporder } from "../store/features/orderSlice";
+import { fetchWporder, fetchShopifyOrders } from "../store/features/orderSlice";
 type NotificationType = "success" | "info" | "warning" | "error";
 interface NotificationAlertProps {
   type: NotificationType;
@@ -48,6 +51,8 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
 
   const orderEdited = useAppSelector((state) => state.order.orderEdited);
   const wordpressConnectionId = useAppSelector((state) => state.company.wordpress_connection_id);
+  const shopifyShop = useAppSelector((state) => state.company.shopify_shop);
+  const shopifyAccessToken = useAppSelector((state) => state.company.shopify_access_token);
 
   const recipientStatus = useAppSelector(
     (state) => state.order.recipientStatus
@@ -144,80 +149,208 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
       }
 
       if (location.pathname === "/importfilter") {
-        if (wporder.length > 0) {
-          setNextSpinning(true);
-          const orderIds = wporder.split(",");
+        const queryParams = new URLSearchParams(location.search);
+        const platformType = queryParams.get("type");
 
-          try {
-            const result = await dispatch(
-              fetchWporder({
-                orderId: orderIds,
-                platformName: "woocommerce",
-                accountId: customerInfo?.data?.account_id,
-                domainName: wordpressConnectionId
-              })
-            );
+        // Handle Shopify orders
+        if (platformType === "Shopify") {
+          console.log('Shopify Import Data:', {
+            myImport,
+            shopifyShop,
+            shopifyAccessToken,
+            hasStartDate: !!myImport?.start_date,
+            hasEndDate: !!myImport?.end_date,
+            hasShop: !!shopifyShop,
+            hasToken: !!shopifyAccessToken
+          });
 
-            if (result.payload) {
-              if (result.payload.orderDetails) {
-                const orderDetails = result.payload.orderDetails.map(
-                  (order: any) => ({
-                    orders: order.orders.map((order: any) => ({
-                      order: order,
-                    })),
-                  })
-                );
+          if (
+            myImport?.start_date &&
+            myImport?.end_date &&
+            shopifyShop &&
+            shopifyAccessToken
+          ) {
+            setNextSpinning(true);
+            try {
+              const result = await dispatch(
+                fetchShopifyOrders({
+                  shop: shopifyShop,
+                  access_token: shopifyAccessToken,
+                  startDate: myImport.start_date,
+                  endDate: myImport.end_date,
+                  status: myImport.status,
+                })
+              );
 
-                const sendData = {
-                  orders: orderDetails.map(
-                    (order: any) => order.orders[0]?.order
-                  ),
-                  accountId: result.payload.orderDetails[0].accountId,
-                  payment_token: result.payload.orderDetails[0].payment_token,
-                };
-                dispatch(saveOrder(sendData));
-                notification.success({
-                  message: "Success",
-                  description: "Order imported successfully",
-                });
-                setTimeout(()=>{
-                  navigate("/importlist");
-                },2000)
+              if (result.payload) {
+                console.log("Shopify orders response:", result.payload);
+                
+                // Check if we have orders in the Shopify response
+                if (result.payload.success && result.payload.orders && result.payload.orders.length > 0) {
+                  // Transform Shopify orders to the format expected by upload-orders API
+                  const transformedOrders = result.payload.orders.map((shopifyOrder: any, orderIndex: number) => {
+                    // Extract and transform line items to match the expected format
+                    const orderItems = shopifyOrder.lineItems?.edges?.map((edge: any, itemIndex: number) => ({
+                      product_order_po: `SHOPIFY_P_${orderIndex}_${itemIndex}`,
+                      product_qty: edge.node.quantity || 1,
+                      product_sku: edge.node.sku || "",
+                      product_title: edge.node.title || "",
+                      product_guid: edge.node.id || "", // Using Shopify's line item ID as GUID
+                    })) || [];
+
+                    // Get shipping address or fall back to billing address
+                    const shippingAddr = shopifyOrder.shippingAddress || shopifyOrder.billingAddress || {};
+                    
+                    // Transform to the expected order format
+                    return {
+                      order_po: `SHOPIFY_${shopifyOrder.name.replace('#', '')}`, // e.g., "SHOPIFY_1005"
+                      order_key: shopifyOrder.id, // Shopify's unique order ID
+                      recipient: {
+                        first_name: shippingAddr.firstName || "",
+                        last_name: shippingAddr.lastName || "",
+                        company_name: shippingAddr.company || "",
+                        address_1: shippingAddr.address1 || "",
+                        address_2: shippingAddr.address2 || "",
+                        address_3: "",
+                        city: shippingAddr.city || "",
+                        state_code: shippingAddr.provinceCode || "",
+                        province: shippingAddr.province || "",
+                        zip_postal_code: shippingAddr.zip || "",
+                        country_code: shippingAddr.countryCodeV2 || "US",
+                        phone: shippingAddr.phone || shopifyOrder.customer?.phone || "",
+                        email: shopifyOrder.customer?.email || "",
+                        address_order_po: "",
+                      },
+                      order_items: orderItems,
+                      order_status: shopifyOrder.displayFulfillmentStatus === "UNFULFILLED" ? "Processing" : "Completed",
+                      shipping_code: "GD", // Default shipping code, you may want to map this from Shopify shipping lines
+                      test_mode: true, // Set based on your environment
+                    };
+                  });
+
+                  const sendData = {
+                    accountId: customerInfo?.data?.account_id,
+                    payment_token: customerInfo?.data?.account_key,
+                    orders: transformedOrders,
+                  };
+                  
+                  console.log("Sending Shopify orders to upload-orders-shopify:", sendData);
+                  dispatch(saveShopifyOrder(sendData));
+                  
+                  notification.success({
+                    message: "Success",
+                    description: `${result.payload.count} Shopify order(s) imported successfully`,
+                  });
+                  
+                  setTimeout(() => {
+                    navigate("/importlist");
+                  }, 2000);
+                } else {
+                  notification.warning({
+                    message: "Warning",
+                    description: result.payload.message || "No orders found for the selected criteria",
+                  });
+                  console.error("No orders in response:", result.payload);
+                }
               } else {
-                notification.warning({
-                  message: "Warning",
-                  description: result.payload.message,
+                notification.error({
+                  message: "Error",
+                  description: "Failed to fetch Shopify orders",
                 });
-                console.error("Invalid payload format:", result.payload);
               }
-            } else {
+            } catch (error) {
+              console.error("Error fetching Shopify orders:", error);
               notification.error({
                 message: "Error",
-                description: "Failed to fetch order details",
+                description: "An error occurred while fetching Shopify orders",
               });
+            } finally {
+              setNextSpinning(false);
             }
-          } catch (error) {
-            console.error("Error fetching WP order:", error);
-            notification.error({
-              message: "Error",
-              description: "An error occurred while fetching order details",
+          } else {
+            notification.warning({
+              message: "Missing Information",
+              description: "Please select both start and end dates",
             });
-          } finally {
-            setNextSpinning(false);
           }
-        } else if (
-          myImport?.start_date ||
-          myImport?.end_date ||
-          myImport?.status
-        ) {
-          setNextSpinning(true);
-          await dispatch(
-            getImportOrders({
-              account_key: customerInfo?.data?.account_id,
-              domainName: wordpressConnectionId,
-              ...myImport,
-            })
-          );
+        }
+        // Handle WooCommerce orders
+        else if (platformType === "WooCommerce") {
+          if (wporder.length > 0) {
+            setNextSpinning(true);
+            const orderIds = wporder.split(",");
+
+            try {
+              const result = await dispatch(
+                fetchWporder({
+                  orderId: orderIds,
+                  platformName: "woocommerce",
+                  accountId: customerInfo?.data?.account_id,
+                  domainName: wordpressConnectionId,
+                })
+              );
+
+              if (result.payload) {
+                if (result.payload.orderDetails) {
+                  const orderDetails = result.payload.orderDetails.map(
+                    (order: any) => ({
+                      orders: order.orders.map((order: any) => ({
+                        order: order,
+                      })),
+                    })
+                  );
+
+                  let sendData = {
+                    orders: orderDetails.map(
+                      (order: any) => order.orders[0]?.order
+                    ),
+                    accountId: result.payload.orderDetails[0].accountId,
+                    payment_token: result.payload.orderDetails[0].payment_token,
+                  };
+                  dispatch(saveOrder(sendData));
+                  notification.success({
+                    message: "Success",
+                    description: "Order imported successfully",
+                  });
+                  setTimeout(() => {
+                    navigate("/importlist");
+                  }, 2000);
+                } else {
+                  notification.warning({
+                    message: "Warning",
+                    description: result.payload.message,
+                  });
+                  console.error("Invalid payload format:", result.payload);
+                }
+              } else {
+                notification.error({
+                  message: "Error",
+                  description: "Failed to fetch order details",
+                });
+              }
+            } catch (error) {
+              console.error("Error fetching WP order:", error);
+              notification.error({
+                message: "Error",
+                description: "An error occurred while fetching order details",
+              });
+            } finally {
+              setNextSpinning(false);
+            }
+          } else if (
+            myImport?.start_date ||
+            myImport?.end_date ||
+            myImport?.status
+          ) {
+            setNextSpinning(true);
+            await dispatch(
+              getImportOrders({
+                account_key: customerInfo?.data?.account_id,
+                domainName: wordpressConnectionId,
+                ...myImport,
+              })
+            );
+          }
         }
       }
 
@@ -433,6 +566,8 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
 
               // Import only the new orders
               dispatch(saveOrder(filteredImportData));
+              // Reset ecommerceGetImportOrders to prevent re-triggering
+              dispatch(resetEcommerceGetImportOrders());
             } else if (
               alreadyImportedOrders?.length > 0 &&
               newOrders?.length === 0
@@ -444,10 +579,15 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                 description:
                   "All selected orders are already imported into the system.",
               });
+              // Reset states before navigating to prevent re-triggering on return
+              dispatch(resetEcommerceGetImportOrders());
+              dispatch(resetImport());
               navigate("/importlist");
             } else {
               // No duplicates found, proceed with normal import
               dispatch(saveOrder(ecommerceGetImportOrders));
+              // Reset ecommerceGetImportOrders to prevent re-triggering
+              dispatch(resetEcommerceGetImportOrders());
             }
           }
         } else if (
@@ -480,6 +620,10 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
             description: "Import and Export have been done successfully",
           });
 
+          // Reset all import-related states before navigating to prevent re-triggering on return
+          dispatch(resetSaveOrderInfo());
+          dispatch(resetEcommerceGetImportOrders());
+          dispatch(resetImport());
           navigate("/importlist");
         } else if (saveOrderInfo?.statusCode === 400) {
           openNotificationWithIcon({
@@ -489,6 +633,8 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
           });
           setNextSpinning(false);
           !nextVisiable && setNextVisiable(true);
+          // Also reset on error so user can try again
+          dispatch(resetSaveOrderInfo());
         } else {
           nextVisiable && setNextVisiable(false);
         }

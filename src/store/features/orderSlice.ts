@@ -28,6 +28,7 @@ interface OrderState {
   orderEdited: any;
   submitedOrders: any;
   submitOrdersResponse: any;
+  shopifyOrdersResponse: any;
   Wporder: any;
   appLunched: boolean;
   iframeOpened: boolean;
@@ -67,6 +68,7 @@ const initialState: OrderState = {
   status: "idle",
   submitedOrders: [],
   submitOrdersResponse: null,
+  shopifyOrdersResponse: null,
   validSKU: [],
   validatedOrders: {},
   error: null,
@@ -205,7 +207,9 @@ export const AddProductToOrder = createAsyncThunk(
       "pixel_width": postData.pixel_width,
       "pixel_height": postData.pixel_height,
       "product_url_file": postData.product_url_file,
-      "product_url_thumbnail": postData.product_url_thumbnail
+      "product_url_thumbnail": postData.product_url_thumbnail,
+      "account_key":postData.account_key,
+      
     }
     console.log('pepee', postData)
     try {
@@ -260,6 +264,21 @@ export const saveOrder = createAsyncThunk(
   "order/save",
   async (postData: any, thunkAPI) => {
     const response = await fetch(BASE_URL + "upload-orders", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(postData),
+    });
+    const data = await response.json();
+    return data;
+  },
+);
+
+export const saveShopifyOrder = createAsyncThunk(
+  "order/save/shopify",
+  async (postData: any, thunkAPI) => {
+    const response = await fetch(BASE_URL + "upload-orders-shopify", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -340,6 +359,34 @@ export const fetchWporder = createAsyncThunk(
   },
 );
 
+export const fetchShopifyOrders = createAsyncThunk(
+  "order/fetch/shopify",
+  async (postData: { shop: string; access_token: string; startDate: string; endDate: string; status?: string }, thunkAPI) => {
+    console.log('Fetching Shopify orders with:', postData);
+    try {
+      const response = await fetch('https://ijbsrphg08.execute-api.us-east-1.amazonaws.com/Prod/api/shopify/orders', {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(postData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('API error in fetchShopifyOrders:', errorData);
+        return thunkAPI.rejectWithValue(errorData);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('API call failed in fetchShopifyOrders:', error);
+      return thunkAPI.rejectWithValue('Failed to fetch Shopify orders');
+    }
+  },
+);
+
 export const DeleteAllOrders = createAsyncThunk(
   "order/delete/all",
   async (postData: any, thunkAPI) => {
@@ -400,6 +447,29 @@ export const submitOrders = createAsyncThunk("order/submit", async (postData: an
   }
   const data = await response.json()
   return data
+})
+
+export const submitShopifyOrders = createAsyncThunk("order/submit/shopify", async (postData: any, thunkAPI) => {
+  try {
+    const response = await fetch("https://ijbsrphg08.execute-api.us-east-1.amazonaws.com/Prod/api/shopify/fulfill-order", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(postData),
+    })
+    
+    if (!response.ok) {
+      const errorData = await response.json()
+      return thunkAPI.rejectWithValue(errorData)
+    }
+    
+    const data = await response.json()
+    return data
+  } catch (error) {
+    console.error('Failed to submit Shopify orders:', error);
+    return thunkAPI.rejectWithValue('Failed to submit Shopify orders');
+  }
 })
 
 export const sendOrderInformation = createAsyncThunk(
@@ -564,6 +634,12 @@ export const OrderSlice = createSlice({
      },
      resetSubmitOrdersResponse: (state) => {
       state.submitOrdersResponse = null
+     },
+     resetShopifyOrdersResponse: (state) => {
+      state.shopifyOrdersResponse = null
+     },
+     resetSaveOrderInfo: (state) => {
+      state.saveOrderInfo = {}
      }
   },
   extraReducers: (builder) => {
@@ -618,6 +694,14 @@ export const OrderSlice = createSlice({
     builder.addCase(saveOrder.pending, (state, action) => {
       state.saveOrderInfo = action.payload;
     });
+
+    builder.addCase(saveShopifyOrder.fulfilled, (state, action) => {
+      state.saveOrderInfo = action.payload;
+    });
+
+    builder.addCase(saveShopifyOrder.pending, (state, action) => {
+      state.saveOrderInfo = action.payload;
+    });
     builder.addCase(fetchSingleOrderDetails.fulfilled, (state, action) => {
       state.order = action.payload;
     }
@@ -645,6 +729,23 @@ export const OrderSlice = createSlice({
     );
 
     builder.addCase(fetchWporder.rejected, (state, action) => {
+      state.importStatus = 'failed';
+      state.error = action.payload as string;
+    }
+    );
+
+    builder.addCase(fetchShopifyOrders.pending, (state, action) => {
+      state.importStatus = 'loading';
+    }
+    );
+
+    builder.addCase(fetchShopifyOrders.fulfilled, (state, action) => {
+      state.Wporder = action.payload;
+      state.importStatus = 'succeeded';
+    }
+    );
+
+    builder.addCase(fetchShopifyOrders.rejected, (state, action) => {
       state.importStatus = 'failed';
       state.error = action.payload as string;
     }
@@ -693,6 +794,17 @@ export const OrderSlice = createSlice({
     builder.addCase(submitOrders.pending, (state, action) => {
       state.submitStatus = 'loading';
     })
+    builder.addCase(submitShopifyOrders.fulfilled, (state, action) => {
+      state.submitStatus = 'succeeded';
+      state.shopifyOrdersResponse = action.payload;
+    })
+    builder.addCase(submitShopifyOrders.rejected, (state, action) => {
+      state.submitStatus = 'failed';
+      state.error = action.payload as string;
+    })
+    builder.addCase(submitShopifyOrders.pending, (state, action) => {
+      state.submitStatus = 'loading';
+    })
     builder.addCase(sendOrderInformation.fulfilled, (state, action) => {
       state.sendOrderInfoStatus = 'succeeded';
     })
@@ -716,4 +828,4 @@ export const OrderSlice = createSlice({
 });
 
 export default OrderSlice.reducer;
-export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, updateIframe, updateApp, updateOpenSheet, updateExcludedOrders, resetExcludedOrders, updateValidSKU, resetValidSKU, updateReplacingCode, resetReplacingCode, resetReplaceCodeResult, resetReplaceCodeStatus, resetSubmitStatus, resetSendOrderInfoStatus, resetSubmitOrdersResponse } = OrderSlice.actions;
+export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, updateIframe, updateApp, updateOpenSheet, updateExcludedOrders, resetExcludedOrders, updateValidSKU, resetValidSKU, updateReplacingCode, resetReplacingCode, resetReplaceCodeResult, resetReplaceCodeStatus, resetSubmitStatus, resetSendOrderInfoStatus, resetSubmitOrdersResponse, resetShopifyOrdersResponse, resetSaveOrderInfo } = OrderSlice.actions;

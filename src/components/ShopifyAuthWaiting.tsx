@@ -42,10 +42,15 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
       try {
         setMessage('Verifying your credentials...');
         
+        console.log('🔍 ShopifyAuthWaiting - Customer Info:', customerInfo);
+        
         // Get account_key from Redux store
         const accountKey = customerInfo?.data?.account_key;
         
+        console.log('🔑 Account Key:', accountKey);
+        
         if (!accountKey) {
+          console.error('❌ No account key found in Redux store');
           throw new Error('Account key not found. Please log in again.');
         }
         

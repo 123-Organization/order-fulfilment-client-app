@@ -4,18 +4,19 @@ import VirtualInventory from "../pages/VirtualInventory";
 interface VirtualInvProps {
   visible: boolean;
   onClose: () => void;
+  onProductAdded?: () => void;
 }
 
-const VirtualInvModal: React.FC<VirtualInvProps> = ({ visible, onClose }) => {
+const VirtualInvModal: React.FC<VirtualInvProps> = ({ visible, onClose, onProductAdded }) => {
   return (
     <Modal
-      title="Enter Product Code"
+      title="Select from Inventory"
       width={1000}
       visible={visible}
       onCancel={onClose}
       footer={[]}
     >
-      <VirtualInventory onClose={onClose} />
+      <VirtualInventory onClose={onClose} onProductAdded={onProductAdded} />
     </Modal>
   );
 };

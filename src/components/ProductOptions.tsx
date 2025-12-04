@@ -78,6 +78,7 @@ useEffect(() => {
         pixel_width: 1200,
         pixel_height: 900,
         orderFullFillmentId: id,
+        account_key: cookies.AccountGUID,
       };
       return postData;
     });

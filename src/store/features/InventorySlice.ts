@@ -165,7 +165,8 @@ export const updateVirtualInventory = createAsyncThunk(
                                 "quantity_in_stock": data.quantity_in_stock,
                                 "track_inventory": true,
                                 "third_party_integrations": {
-                                }
+                                },
+                                ...(data.updated && { "updated": data.updated })
                         }
                 ))
                 

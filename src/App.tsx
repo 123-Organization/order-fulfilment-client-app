@@ -16,6 +16,7 @@ const { Header, Footer, Content } = Layout;
 function App() {
   const [collapsed, setCollapsed] = useState(false);
   const [helpVisible, setHelpVisible] = useState(false);
+  const [iframe, setIframe] = useState(false);
   
   const location = useLocation();
 
@@ -49,6 +50,9 @@ function App() {
             <BottomIcon collapsed={collapsed} setCollapsed={setCollapsed} />
           </Footer>
         )}
+
+        {/* File Management Iframe - globally available */}
+        <FileManagementIframe iframe={iframe} setIframe={setIframe} />
 
         {/* Floating Help Button */}
       </Layout>

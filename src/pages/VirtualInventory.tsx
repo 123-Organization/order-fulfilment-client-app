@@ -33,9 +33,10 @@ interface NotificationAlertProps {
 
 interface VirtualInventoryProps {
   onClose: () => void;
+  onProductAdded?: () => void;
 }
 
-const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Element => { 
+const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductAdded }): JSX.Element => { 
   const location = useLocation();
   console.log("location", location.pathname);
   const [spinLoader, setSpinLoader] = useState(false);
@@ -174,6 +175,12 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose }): JSX.Ele
     dispatch(AddProductToOrder(productData));
     dispatch(inventorySelectionClean());
     onClose();
+    // Call the callback to refresh the parent's order list
+    if (onProductAdded) {
+      setTimeout(() => {
+        onProductAdded();
+      }, 1000);
+    }
   };
 
   // Open edit modal handler

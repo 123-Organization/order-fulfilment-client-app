@@ -10,6 +10,8 @@ interface CompanyState {
         companyinfoStatus: any;
         wordpress_connection_id: any;
         connectionVerificationStatus: 'idle' | 'verifying' | 'connected' | 'disconnected';
+        shopify_shop: string | null;
+        shopify_access_token: string | null;
 }
 
 const initialState: CompanyState = {
@@ -20,6 +22,8 @@ const initialState: CompanyState = {
         companyinfoStatus: "idle",
         wordpress_connection_id: null,
         connectionVerificationStatus: 'idle',
+        shopify_shop: null,
+        shopify_access_token: null,
 };
 
 const getCookie = (name: string) => {
@@ -90,6 +94,10 @@ export const Company = createSlice({
                 },
                 resetVerificationStatus: (state) => {
                         state.connectionVerificationStatus = 'idle';
+                },
+                updateShopifyCredentials: (state, action: PayloadAction<{ shop: string; access_token: string }>) => {
+                        state.shopify_shop = action.payload.shop;
+                        state.shopify_access_token = action.payload.access_token;
                 }
         },
         extraReducers: (builder) => {
@@ -114,6 +122,7 @@ export const {
         updateIframeState, 
         updateWordpressConnectionId,
         setConnectionVerificationStatus,
-        resetVerificationStatus
+        resetVerificationStatus,
+        updateShopifyCredentials
 } = Company.actions;
 

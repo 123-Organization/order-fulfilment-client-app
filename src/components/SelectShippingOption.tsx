@@ -108,18 +108,11 @@ const SelectShippingOption: React.FC<{
           currentOrderOption?.selectedOption?.options?.find(
             (option: ShippingOption) => {
               if (currentOrderOption?.selectedOption?.options?.length > 1) {
-                // console.log("option", option);
-                // Check if orderShippingCode is a number or numeric string
                 const isNumeric = !isNaN(Number(orderShippingCode)) && orderShippingCode !== null && orderShippingCode !== '';
-                
                 if (isNumeric) {
-                  // If it's numeric (or numeric string like "70"), convert to number and compare with option.id
                   const numericCode = Number(orderShippingCode);
-                 
-                  return option.id == numericCode;
+                  return option.id == numericCode ? option.id  == numericCode : currentOrderOption?.selectedOption?.preferred_option;
                 } else {
-                  // If it's a pure string (like "pp"), compare with option.shipping_code or shipping_class_code
-                  
                   return option.shipping_code == orderShippingCode
                     ? option.shipping_code == orderShippingCode
                     :  currentOrderOption?.selectedOption?.preferred_option
@@ -130,7 +123,6 @@ const SelectShippingOption: React.FC<{
               }
             }
           );
-        // console.log("orderCodeToShippingOption", orderCodeToShippingOption);
         const optionToSet = orderCodeToShippingOption
           ? orderCodeToShippingOption
           : currentOrderOption?.selectedOption;
@@ -421,6 +413,18 @@ const SelectShippingOption: React.FC<{
       <div className="flex-col items-center text-center p-12">
         {" "}
         <Spinner message={"Retrieving shipping options"} />{" "}
+      </div>
+    );
+  }else if(currentOption === null){
+    return (
+      <div className="flex-col items-center text-center p-12">
+        {" "}
+        <p className="text-gray-500 text-center text-sm font-medium">
+          Shipping Locked
+        </p>
+        <p className="text-gray-400 text-center text-xs mt-1">
+          Fix invalid SKUs to unlock
+        </p>
       </div>
     );
   }

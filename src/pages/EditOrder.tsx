@@ -114,8 +114,8 @@ console.log("company_info", phone);
     let imageUrl = "";
     
     // Try thumbnail first, then fallback to product data
-    if (item?.product_image?.product_url_thumbnail) {
-      imageUrl = item.product_image.product_url_thumbnail;
+    if (item?.product_url_thumbnail) {
+      imageUrl = item?.product_url_thumbnail;
     } else if (productData[productSku]?.image_url_1) {
       imageUrl = productData[productSku].image_url_1;
     }
@@ -845,18 +845,15 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
                         deleteItem={product_guid}
                         order_po=""
                       />
-                      {productCode && (
-                        <Button
-                          key="submit"
-                          className="text-gray-500 border border-gray-400 rounded-lg text-center font-semibold"
-                          size="small"
-                          onClick={() => setOpenModal(true)}
-                          style={{ backgroundColor: "#f5f4f4" }}
-                          type="link"
-                        >
-                          Add / Change Image
-                        </Button>
-                      )}
+                      <button
+                        onClick={() => setOpenModal(true)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-300 rounded-lg hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600 transition-all duration-200"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Change Image
+                      </button>
                       <FilesGallery
                         open={openModal}
                         setOpenModal={setOpenModal}
@@ -880,12 +877,14 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
                           />
                         </div>
                       ) : (
+                        //Bugggggggggggggggggggggggggggggggggggggggggggg
                         `$${
                           product_details?.find((element) => {
                             return element.product_guid === item.product_guid
                           })?.total_price ||  item.per_item_price
                         }`
                       )}
+                      
                     </div>
                   </div>
                 </div>

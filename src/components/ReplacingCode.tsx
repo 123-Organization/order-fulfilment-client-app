@@ -83,6 +83,9 @@ const ReplacingCode: React.FC<ReplacingCodeProps> = ({
   const handleClose = () => {
     dispatch(clearSelectedImage());
     setInputValue("");
+    setIsLoading(false);
+    // Ensure iframe is closed when modal closes
+    dispatch(updateIframeState(false));
     onClose();
   };
 
@@ -109,15 +112,21 @@ const ReplacingCode: React.FC<ReplacingCodeProps> = ({
         onClose();
       }, 1000);
     } else {
-      dispatch(updateIframeState({ iframeState: true }));
-      notificationApi.success({
-        message: "Choose A Product Image",
-        description:
-          "Please choose the product image you want to add to the order.",
-      });
+      console.log("🔄 ReplacingCode - Opening file manager for product code:", inputValue);
+      // First ensure iframe is closed, then open it to force re-render
+      dispatch(updateIframeState(false));
       setTimeout(() => {
-        onClose();
-      }, 500);
+        console.log("🎬 ReplacingCode - Setting iframeState to TRUE");
+        dispatch(updateIframeState(true));
+        notificationApi.success({
+          message: "Choose A Product Image",
+          description:
+            "Please choose the product image you want to add to the order.",
+        });
+        setTimeout(() => {
+          onClose();
+        }, 500);
+      }, 100);
     }
   };
 
@@ -186,6 +195,9 @@ const ReplacingCode: React.FC<ReplacingCodeProps> = ({
   useEffect(() => {
     if (!visible) {
       dispatch(clearSelectedImage());
+      dispatch(updateIframeState(false));
+      setIsLoading(false);
+      setInputValue("");
     }
   }, [visible, dispatch]);
 

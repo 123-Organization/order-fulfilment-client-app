@@ -4,7 +4,7 @@ import { useAppSelector, useAppDispatch } from "../store";
 import style from "./Pgaes.module.css";
 import { Steps } from "antd";
 import { useNavigate } from "react-router-dom";
-import { updateCheckedOrders, resetImport, DeleteAllOrders, resetSubmitStatus, resetExcludedOrders, sendOrderInformation, resetSendOrderInfoStatus } from "../store/features/orderSlice";
+import { updateCheckedOrders, resetImport, DeleteAllOrders, resetSubmitStatus, resetExcludedOrders, sendOrderInformation, resetSendOrderInfoStatus, resetShopifyOrdersResponse, resetSubmitOrdersResponse } from "../store/features/orderSlice";
 import { InfoCircleOutlined } from "@ant-design/icons";
 
 export default function Confirmation() {
@@ -15,6 +15,7 @@ export default function Confirmation() {
   const submitedOrders = useAppSelector((state) => state.order.submitedOrders);
   const sendOrderInformationStatus = useAppSelector((state) => state.order.sendOrderInfoStatus);
   const submitOrdersResponse = useAppSelector((state) => state.order.submitOrdersResponse);
+  const shopifyOrdersResponse = useAppSelector((state) => state.order.shopifyOrdersResponse);
   const companyInfo = useAppSelector((state) => state.company.company_info);
   
   // Format orders for display, showing the first 3 directly
@@ -80,8 +81,13 @@ export default function Confirmation() {
 
   // Handle sending order information after successful order submission
   useEffect(() => {
-    if (submitOrdersResponse && submitOrdersResponse.data && companyInfo?.data?.account_key) {
-      console.log("Sending order information:", submitOrdersResponse);
+    // Combine normal and Shopify order responses
+    const hasNormalOrders = submitOrdersResponse && submitOrdersResponse.data;
+    const hasShopifyOrders = shopifyOrdersResponse && shopifyOrdersResponse.data;
+    
+    if ((hasNormalOrders || hasShopifyOrders) && companyInfo?.data?.account_key) {
+      console.log("Sending order information - Normal:", submitOrdersResponse);
+      console.log("Sending order information - Shopify:", shopifyOrdersResponse);
       console.log("Company info for domain lookup:", companyInfo);
       
       // Get domain name from various possible sources in the state
@@ -101,23 +107,34 @@ export default function Confirmation() {
       // Construct the webhook URL dynamically using the domain name
       const webhookUrl = `https://${domainName}/wp-json/finerworks-media/v1/order-status`;
       
+      // Combine orders from both responses
+      let combinedOrders: any[] = [];
+      if (hasNormalOrders) {
+        combinedOrders = [...submitOrdersResponse.data];
+      }
+      if (hasShopifyOrders) {
+        combinedOrders = [...combinedOrders, ...shopifyOrdersResponse.data];
+      }
+      
       const orderInfoPayload = {
         domainName: domainName,
         account_key: companyInfo.data.account_key,
         webhook_order_status_url: webhookUrl,
-        orders: submitOrdersResponse.data
+        orders: combinedOrders
       };
 
-      console.log("Sending order info payload:", orderInfoPayload);
+      console.log("Sending combined order info payload:", orderInfoPayload);
       dispatch(sendOrderInformation(orderInfoPayload));
     }
-  }, [submitOrdersResponse, companyInfo, dispatch]);
+  }, [submitOrdersResponse, shopifyOrdersResponse, companyInfo, dispatch]);
 
   // Handle sendOrderInformation status changes
   useEffect(() => {
     if (sendOrderInformationStatus === "succeeded") {
       console.log("Order information sent successfully");
       dispatch(resetSendOrderInfoStatus());
+      dispatch(resetSubmitOrdersResponse());
+      dispatch(resetShopifyOrdersResponse());
     } else if (sendOrderInformationStatus === "failed") {
       console.log("Failed to send order information");
       // You might want to show a notification here

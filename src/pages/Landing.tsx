@@ -16,7 +16,8 @@ import {
   updateCompanyInfo,
   updateWordpressConnectionId,
   setConnectionVerificationStatus,
-  resetVerificationStatus
+  resetVerificationStatus,
+  updateShopifyCredentials
 } from "../store/features/companySlice";
 import { useAppDispatch, useAppSelector } from "../store";
 import { useNotificationContext } from "../context/NotificationContext";
@@ -26,6 +27,9 @@ import { updateOpenSheet } from "../store/features/orderSlice";
 // import { connectAdvanced } from "react-redux";
 import { find } from "lodash";
 import SpreadSheet from "../components/SpreadSheet";
+// Set to true when Shopify integration is fully ready
+const SHOPIFY_ENABLED = false;
+
 const images = [
   { name: "Squarespace", img: squarespace },
   { name: "Shopify", img: shopify },
@@ -59,6 +63,7 @@ const Landing: React.FC = (): JSX.Element => {
     (state) => state.company?.connectionVerificationStatus
   );
   const [shopifyConnectionStatus, setShopifyConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('idle');
+  const [lastShopifyConnectionData, setLastShopifyConnectionData] = useState<string | null>(null);
   const [cookies] = useCookies(["Session", "AccountGUID"]);
   const order = useAppSelector((state) => state.order.orders);
   const opensheet = useAppSelector((state) => state.order.openSheet);
@@ -594,7 +599,13 @@ const Landing: React.FC = (): JSX.Element => {
     },
   ] as const;
   const importData = (imgname: string) => {
-    if (imgname && imgname !== "WooCommerce" && imgname !== "Excel" && imgname !== "Shopify") {
+    // Check for platforms that are not yet available (including Shopify when disabled)
+    const availablePlatforms = ["WooCommerce", "Excel"];
+    if (SHOPIFY_ENABLED) {
+      availablePlatforms.push("Shopify");
+    }
+    
+    if (imgname && !availablePlatforms.includes(imgname)) {
       notificationApi.warning({
         message: "Coming Soon",
         description: "This platform is under development ",
@@ -650,23 +661,26 @@ const Landing: React.FC = (): JSX.Element => {
       // If already connected, navigate to import filter
       if (shopifyConnectionStatus === 'connected') {
         navigate("/importfilter?type=Shopify");
-      } else {
-        // TODO: Replace with actual Shopify app installation URL
-        // For now, redirect to auth page which will handle the OAuth flow
+      } else if (customerInfo?.data?.user_profile_complete === true) {
+        // TODO: In production, redirect to Shopify OAuth flow
+        // For now, show a notification that OAuth setup is needed
         notificationApi.info({
           message: 'Connect to Shopify',
-          description: 'You will be redirected to Shopify to authorize the connection...',
+          description: 'Please set up your Shopify connection through the admin panel.',
         });
         
-        // This would typically be your Shopify OAuth URL
-        // Example: window.location.href = `https://YOUR_SHOPIFY_APP_URL/install?shop=${shopDomain}`;
-        // For testing, we'll show a message
-        setTimeout(() => {
-          notificationApi.warning({
-            message: 'Shopify Integration',
-            description: 'Shopify OAuth URL will be provided by backend team.',
-          });
-        }, 2000);
+        // Temporarily for testing - use hardcoded credentials
+        // Remove this block once OAuth is implemented
+        dispatch(updateShopifyCredentials({
+          shop: "finerworks-dev-store.myshopify.com",
+          access_token: "shpua_9c16eb994c4401fa6c9d19a95a930795"
+        }));
+        navigate("/importfilter?type=Shopify");
+      } else {
+        notificationApi.warning({
+          message: "Please complete your profile",
+          description: "Please complete your profile to connect to Shopify",
+        });
       }
     }
   };
@@ -730,56 +744,158 @@ const Landing: React.FC = (): JSX.Element => {
 
   useEffect(() => {
     if (companyInfo?.connections?.length) {
-      console.log("cococ", companyInfo.connections);
-      const connection = companyInfo.connections[0];
-      let connectionId = connection?.id;
-      connectionId = connectionId.split("?")[0];
-      console.log("connectionId", connectionId);
-      dispatch(updateWordpressConnectionId(connectionId));
+      console.log("All connections:", companyInfo.connections);
       
-      if (connection?.data) {
-        try {
-          // Parse the JSON string from the data field
-          const parsedData = JSON.parse(connection.data);
-          console.log("parsedData", parsedData);
-          
-          // Check if the connection data has actually changed
-          const currentDataString = JSON.stringify(parsedData);
-          if (currentDataString !== lastConnectionData) {
-            console.log("Connection data changed, updating status...");
-            setLastConnectionData(currentDataString);
+      // Handle WooCommerce connection
+      const wooConnection = companyInfo.connections.find((conn: any) => conn.name === "WooCommerce");
+      if (wooConnection) {
+        let connectionId = wooConnection?.id;
+        connectionId = connectionId.split("?")[0];
+        console.log("WooCommerce connectionId", connectionId);
+        dispatch(updateWordpressConnectionId(connectionId));
+        
+        if (wooConnection?.data) {
+          try {
+            // Parse the JSON string from the data field
+            const parsedData = JSON.parse(wooConnection.data);
+            console.log("WooCommerce parsedData", parsedData);
             
-            // Set verifying status first
-            dispatch(setConnectionVerificationStatus('verifying'));
-            
-            // Add a delay to show verification state
-            setTimeout(() => {
-              // Check the isConnected property and set the button state accordingly
-              const isConnected = parsedData.isConnected === true || parsedData.isConnected === "true";
-              console.log("Final isConnected decision:", isConnected);
+            // Check if the connection data has actually changed
+            const currentDataString = JSON.stringify(parsedData);
+            if (currentDataString !== lastConnectionData) {
+              console.log("WooCommerce connection data changed, updating status...");
+              setLastConnectionData(currentDataString);
               
-              // Update Redux state
-              dispatch(setConnectionVerificationStatus(isConnected ? 'connected' : 'disconnected'));
-            }, 1000); // 1 second delay to show "Verifying..." state
-          } else {
-            console.log("Connection data unchanged, skipping verification");
+              // Set verifying status first
+              dispatch(setConnectionVerificationStatus('verifying'));
+              
+              // Add a delay to show verification state
+              setTimeout(() => {
+                // Check the isConnected property and set the button state accordingly
+                const isConnected = parsedData.isConnected === true || parsedData.isConnected === "true";
+                console.log("WooCommerce Final isConnected decision:", isConnected);
+                
+                // Update Redux state
+                dispatch(setConnectionVerificationStatus(isConnected ? 'connected' : 'disconnected'));
+              }, 1000); // 1 second delay to show "Verifying..." state
+            } else {
+              console.log("WooCommerce connection data unchanged, skipping verification");
+            }
+            
+          } catch (error) {
+            console.error("Error parsing WooCommerce connection data:", error);
+            dispatch(setConnectionVerificationStatus('disconnected'));
           }
-          
-        } catch (error) {
-          console.error("Error parsing connection data:", error);
+        } else {
+          // No data available
+          console.log("No WooCommerce connection data available");
           dispatch(setConnectionVerificationStatus('disconnected'));
         }
       } else {
-        // No data available
-        console.log("No connection data available");
+        // No WooCommerce connection available
+        console.log("No WooCommerce connection available");
         dispatch(setConnectionVerificationStatus('disconnected'));
       }
+
+      // Handle Shopify connection
+      const shopifyConnection = companyInfo.connections.find((conn: any) => conn.name === "Shopify");
+      console.log("=== SHOPIFY CONNECTION CHECK ===");
+      console.log("Shopify connection found?:", !!shopifyConnection);
+      
+      if (shopifyConnection) {
+        console.log("Full Shopify connection object:", shopifyConnection);
+        console.log("Shopify connection.id:", shopifyConnection.id);
+        console.log("Shopify connection.data:", shopifyConnection.data);
+        
+        // Create a unique identifier for this connection state
+        const connectionIdentifier = `${shopifyConnection.id}_${shopifyConnection.data || 'empty'}`;
+        
+        // Only process if this is a new/changed connection
+        if (connectionIdentifier !== lastShopifyConnectionData) {
+          console.log("Shopify connection changed or first load, processing...");
+          setLastShopifyConnectionData(connectionIdentifier);
+          
+          // If connection exists with an ID (access token), it's connected
+          if (shopifyConnection.id) {
+            console.log("Setting Shopify to verifying...");
+            setShopifyConnectionStatus('verifying');
+            
+            // Process the connection
+            let isConnected = false;
+            let shop = "";
+            let access_token = shopifyConnection.id; // Use ID as access token by default
+            
+            // Try to parse data field if it exists
+            if (shopifyConnection.data && shopifyConnection.data.trim() !== "") {
+              try {
+                const parsedData = JSON.parse(shopifyConnection.data);
+                console.log("Shopify parsedData:", parsedData);
+                
+                // Check if explicitly disconnected, otherwise assume connected if data exists
+                if (parsedData.isConnected === false || parsedData.isConnected === "false") {
+                  isConnected = false;
+                } else {
+                  // If we have shop and access_token, or if isConnected is true, mark as connected
+                  isConnected = true;
+                }
+                
+                shop = parsedData.shop || "";
+                access_token = parsedData.access_token || shopifyConnection.id;
+              } catch (error) {
+                console.error("Error parsing Shopify connection data:", error);
+                // If parsing fails but connection exists, assume it's connected
+                isConnected = true;
+              }
+            } else {
+              // If no data field or empty, but connection exists, it's connected
+              console.log("No Shopify data field, but connection exists with ID - marking as connected");
+              isConnected = true;
+            }
+            
+            console.log("Shopify Final isConnected decision:", isConnected);
+            console.log("Shopify access_token to use:", access_token);
+            console.log("Shopify shop to use:", shop);
+            
+            // Update state after a short delay
+            setTimeout(() => {
+              if (isConnected) {
+                console.log("Setting Shopify status to CONNECTED");
+                setShopifyConnectionStatus('connected');
+                
+                // Store Shopify credentials
+                dispatch(updateShopifyCredentials({
+                  shop: shop || "finerworks-dev-store.myshopify.com",
+                  access_token: access_token
+                }));
+              } else {
+                console.log("Setting Shopify status to DISCONNECTED (not connected)");
+                setShopifyConnectionStatus('disconnected');
+              }
+            }, 1000);
+          } else {
+            console.log("Shopify connection exists but no ID - marking as disconnected");
+            setShopifyConnectionStatus('disconnected');
+          }
+        } else {
+          console.log("Shopify connection unchanged, skipping processing");
+          console.log("Current status:", shopifyConnectionStatus);
+        }
+      } else {
+        // No Shopify connection available
+        console.log("No Shopify connection found in connections array");
+        if (lastShopifyConnectionData !== null) {
+          setLastShopifyConnectionData(null);
+          setShopifyConnectionStatus('disconnected');
+        }
+      }
+      console.log("=== END SHOPIFY CONNECTION CHECK ===");
     } else {
       // No connections available
       console.log("No connections available");
       dispatch(setConnectionVerificationStatus('disconnected'));
+      setShopifyConnectionStatus('disconnected');
     }
-  }, [companyInfo, lastConnectionData, dispatch]);
+  }, [companyInfo, lastConnectionData, lastShopifyConnectionData, dispatch, shopifyConnectionStatus]);
 
   const displayTurtles = images.map((image) => (
     <div className="flex w-1/3 max-sm:w-1/2 max-[400px]:w-full flex-wrap">
@@ -802,23 +918,23 @@ const Landing: React.FC = (): JSX.Element => {
           </Tag>
         ) : null}
         
-        {/* Shopify Status */}
-        {image.name === "Shopify" && shopifyConnectionStatus === 'verifying' ? (
+        {/* Shopify Status - Only show when Shopify is enabled */}
+        {SHOPIFY_ENABLED && image.name === "Shopify" && shopifyConnectionStatus === 'verifying' ? (
           <Tag className="absolute top-0 right-4 z-10 bg-blue-500 text-white animate-pulse shadow-lg">
             Verifying...
           </Tag>
-        ) : image.name === "Shopify" && shopifyConnectionStatus === 'connected' ? (
+        ) : SHOPIFY_ENABLED && image.name === "Shopify" && shopifyConnectionStatus === 'connected' ? (
           <Tag className="absolute top-0 right-4 z-10 shadow-lg" color="#52c41a">
             Connected
           </Tag>
-        ) : image.name === "Shopify" && shopifyConnectionStatus === 'disconnected' ? (
+        ) : SHOPIFY_ENABLED && image.name === "Shopify" && shopifyConnectionStatus === 'disconnected' ? (
           <Tag className="absolute top-0 right-4 z-10 bg-red-500 text-white shadow-lg">
             Disconnected
           </Tag>
         ) : null}
         <img
           className={`block h-[100px] w-[100px] border-2 cursor-pointer rounded-lg object-cover object-center ${
-            image.name === "WooCommerce" || image.name === "Excel" || image.name === "Shopify"
+            image.name === "WooCommerce" || image.name === "Excel" || (image.name === "Shopify" && SHOPIFY_ENABLED)
               ? "grayscale-0"
               : "grayscale"
           }`}
