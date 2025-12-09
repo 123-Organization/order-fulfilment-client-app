@@ -112,10 +112,12 @@ console.log("company_info", phone);
   // Function to get the correct image URL, handling Google Drive links
   const getImageUrl = useCallback((item: any, productSku: string): string => {
     let imageUrl = "";
-    
+    console.log("daasdasda", item);
     // Try thumbnail first, then fallback to product data
     if (item?.product_url_thumbnail) {
       imageUrl = item?.product_url_thumbnail;
+    }else if(item?.product_image?.product_url_thumbnail) {
+      imageUrl = item?.product_image?.product_url_thumbnail;
     } else if (productData[productSku]?.image_url_1) {
       imageUrl = productData[productSku].image_url_1;
     }

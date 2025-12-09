@@ -109,9 +109,16 @@ const SelectShippingOption: React.FC<{
             (option: ShippingOption) => {
               if (currentOrderOption?.selectedOption?.options?.length > 1) {
                 const isNumeric = !isNaN(Number(orderShippingCode)) && orderShippingCode !== null && orderShippingCode !== '';
+                console.log("isNumeric", isNumeric, orderShippingCode);
                 if (isNumeric) {
                   const numericCode = Number(orderShippingCode);
-                  return option.id == numericCode ? option.id  == numericCode : currentOrderOption?.selectedOption?.preferred_option;
+                  console.log("numericCode", option);
+
+                  if(option.id === numericCode){
+                    return option.id;
+                  }else if (option.id !== numericCode && option.shipping_code == orderShippingCode){
+                    return currentOrderOption?.selectedOption?.preferred_option;
+                  }
                 } else {
                   return option.shipping_code == orderShippingCode
                     ? option.shipping_code == orderShippingCode

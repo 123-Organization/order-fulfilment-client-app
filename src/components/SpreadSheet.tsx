@@ -169,6 +169,8 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
 
       const jsonData = XLSX.utils.sheet_to_json(ws, {
         header: 1,
+        raw: false,
+        defval: "",
       }) as SpreadsheetData;
       
       // Clean up the data after loading
@@ -204,6 +206,8 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
 
       const jsonData = XLSX.utils.sheet_to_json(ws, {
         header: 1,
+        raw: false,
+        defval: "",
       }) as SpreadsheetData;
       
       // Clean up the data after loading
@@ -288,9 +292,9 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
             city: order.ship_city,
             state_code: mappedState,
             province: mappedProvince,
-            zip_postal_code: order.ship_zip,
+            zip_postal_code: String(order.ship_zip || ""),
             country_code: order.ship_country_code,
-            phone: order.ship_phone,
+            phone: String(order.ship_phone || ""),
             email: order.ship_email,
             address_order_po: "",
           },
@@ -377,6 +381,7 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
     dropdownMenu: true,
     headerTooltips: true,
     columnSorting: true,
+    type: "text" as const,
     afterGetColHeader: (col: number, TH: HTMLElement) => {
       TH.className = "custom-header";
     },
