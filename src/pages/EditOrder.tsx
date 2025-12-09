@@ -257,7 +257,7 @@ console.log("company_info", phone);
   };
 
   // Determine if recipient has phone and if field should be editable
-  const hasRecipientPhone = Boolean(recipient?.phone && recipient?.phone?.trim());
+  const hasRecipientPhone = Boolean(recipient?.phone && String(recipient.phone).trim());
   const phoneValue = hasRecipientPhone ? recipient.phone : phone || "";
   const isPhoneEditable = hasRecipientPhone;
 
