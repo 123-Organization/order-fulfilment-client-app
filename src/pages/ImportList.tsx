@@ -573,7 +573,7 @@ console.log("checkedOrders", checkedOrders);
         order.order_items?.map((item) => ({
           order_po: order.order_po,
           product_sku: item.product_sku,
-          product_guid: crypto.randomUUID(),
+          product_guid: item.product_guid,
           product_qty: item.product_qty,
           product_image: {
             product_url_file: "https://via.placeholder.com/150",

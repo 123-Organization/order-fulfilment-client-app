@@ -19,6 +19,7 @@ phases:
     commands:
       - echo Invalidating CloudFront cache...
       - aws cloudfront create-invalidation --distribution-id E1ZX5098G7KNLS --paths "/*"
+      - echo Post-build complete
 
 artifacts:
   files:
