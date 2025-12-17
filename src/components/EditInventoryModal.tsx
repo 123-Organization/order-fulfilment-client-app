@@ -91,30 +91,8 @@ const EditInventoryModal: React.FC<EditInventoryModalProps> = ({
 
     setIsSaving(true);
 
-    // Check if description is empty
-    let htmlDescription = '';
-    const trimmedDescription = plainTextDescription.trim();
-    
-    if (trimmedDescription === '') {
-      // Customer deleted the description - send empty
-      htmlDescription = '';
-    } else {
-      // Convert plain text back to HTML format in <ul><li> structure
-      const lines = trimmedDescription.split('\n').filter(line => line.trim());
-      htmlDescription = '<ul></ul><ul>';
-      
-      // If there are multiple lines, add each as a list item
-      if (lines.length > 1) {
-        lines.forEach(line => {
-          htmlDescription += `<li>${line.trim()}</li>`;
-        });
-      } else {
-        // Single line, still wrap in li tag
-        htmlDescription += `<li>${trimmedDescription}</li>`;
-      }
-      
-      htmlDescription += '</ul>';
-    }
+    // Send description as plain text
+    const description = plainTextDescription.trim();
 
     const updatePayload = {
       virtual_inventory: [
@@ -122,7 +100,7 @@ const EditInventoryModal: React.FC<EditInventoryModalProps> = ({
           sku: formData.sku,
           asking_price: parseFloat(formData.asking_price) || 0,
           name: formData.name,
-          description: htmlDescription,
+          description: description,
           quantity_in_stock: parseInt(formData.quantity) || 0,
           track_inventory: true,
           third_party_integrations: productData.third_party_integrations || {}
@@ -147,7 +125,7 @@ const EditInventoryModal: React.FC<EditInventoryModalProps> = ({
           placement: 'topRight',
           duration: 3,
         });
-        onSave({ ...productData, ...formData, description_long: htmlDescription });
+        onSave({ ...productData, ...formData, description_long: description });
         onClose();
       } else {
         throw new Error('Failed to update product');
@@ -458,13 +436,13 @@ const EditInventoryModal: React.FC<EditInventoryModalProps> = ({
                 placeholder="Enter product description"
               />
               
-              {/* Info about HTML formatting */}
+              {/* Info about description */}
               <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded-lg">
                 <p className="text-xs text-gray-600">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  Your description will be formatted as HTML with list items when saved
+                  Your description will be saved as plain text
                 </p>
               </div>
             </div>
