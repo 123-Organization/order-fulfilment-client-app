@@ -83,14 +83,22 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
         if (response.ok && (data.success || data.message === 'Shop connected successfully')) {
           setProgress(100);
           setStatus('success');
-          setMessage('Successfully connected to Shopify!');
+          setMessage('Successfully connected to Shopify! Redirecting to your store...');
           
-          // Wait 2 seconds to show success message then redirect
+          // Wait 2 seconds to show success message then redirect to Shopify store with account_key
           setTimeout(() => {
             if (onAuthComplete) {
               onAuthComplete();
             }
-            navigate('/?type=shopify&connected=true');
+            
+            // Redirect back to Shopify store admin with account_key in URL
+            // Format: https://{shop}/admin/apps/{app-name}?finerworks_connected=true&account_key={accountKey}
+            const shopifyRedirectUrl = `https://${shop}/admin/apps/finerworks-order-fulfillment?finerworks_connected=true&account_key=${encodeURIComponent(accountKey)}`;
+            
+            console.log('🔄 Redirecting to Shopify store:', shopifyRedirectUrl);
+            
+            // Redirect to Shopify store
+            window.location.href = shopifyRedirectUrl;
           }, 2000);
         } else {
           throw new Error(data.message || data.error || 'Authentication failed');
