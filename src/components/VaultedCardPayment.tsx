@@ -11,7 +11,7 @@ import {
 import { resetPaymentStatus } from "../store/features/paymentSlice";
 import style from "../pages/Pgaes.module.css";
 import { useNavigate } from "react-router-dom";
-import { submitOrders, updateCheckedOrders, resetSubmitStatus } from "../store/features/orderSlice";
+import { submitOrders, resetSubmitStatus } from "../store/features/orderSlice";
 import LoadingOverlay from "./LoadingOverlay";
 import { updateSubmitedOrders } from "../store/features/orderSlice";
 
@@ -222,28 +222,31 @@ export default function VaultedCardPayment({
     
     if (submitStatus === "succeeded") {
       setIsLoading(false);
-      setHasAttemptedSubmit(false); // Reset for next submission
+      setHasAttemptedSubmit(false);
+      
       notificationApi.success({
         message: "Payment Successful",
         description: isFullyCoveredByCredits 
           ? "Your order has been processed using account credits."
           : "Payment has been successfully processed.",
       });
-      dispatch(resetSubmitStatus());
-      dispatch(updateCheckedOrders([] as any));
-      // Only navigate to confirmation on SUCCESS
+      
+      // DON'T reset submitStatus here - let Confirmation page see it and handle it
+      // Navigate to confirmation page
       navigate("/confirmation");
     } else if (submitStatus === "failed") {
       setIsLoading(false);
-      setHasAttemptedSubmit(false); // Reset for next attempt
+      setHasAttemptedSubmit(false);
       
-      // Show error - the actual order submission API failed
+      // Show error notification
       notificationApi.error({
         message: "Order Submission Failed",
-        description: "An error occurred while submitting your order. Please try again.",
+        description: "An error occurred while submitting your order.",
       });
-      dispatch(resetSubmitStatus());
-      // Stay on checkout page so user can retry
+      
+      // DON'T reset submitStatus here - let Confirmation page see it and show error state
+      // Navigate to confirmation page which will show the failure status
+      navigate("/confirmation");
     }
   }, [submitStatus, dispatch, notificationApi, isFullyCoveredByCredits, hasAttemptedSubmit, navigate]);
 
