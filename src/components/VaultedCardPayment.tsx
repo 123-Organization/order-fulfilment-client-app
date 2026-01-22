@@ -31,6 +31,7 @@ export default function VaultedCardPayment({
   const [isLoading, setIsLoading] = useState(false);
   const [isTokenLoading, setIsTokenLoading] = useState(false);
   const [isPayButtonDisabled, setIsPayButtonDisabled] = useState(false);
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false); // Track if we actually tried to submit orders
   const orders = useAppSelector((state) => state.order.orders);
   const currentOption = useAppSelector((state) => state.Shipping.currentOption);
   console.log(currentOption,"ordeasasdadasrs")
@@ -50,9 +51,13 @@ export default function VaultedCardPayment({
   console.log("selectedCard",selectedCard);
   // Track token loading state
 
+  // Check if credits cover the full amount
+  const isFullyCoveredByCredits = Amount === 0 || Amount === "0";
+
   useEffect(() => {
     // If credits cover the full amount (Amount === 0), always enable the button
-    if (Amount === 0 || Amount === "0") {
+    // and don't worry about payment token status
+    if (isFullyCoveredByCredits) {
       setIsTokenLoading(false);
       setIsPayButtonDisabled(false);
       return;
@@ -91,7 +96,8 @@ export default function VaultedCardPayment({
       setIsTokenLoading(false);
       setIsPayButtonDisabled(false); // Enable the button even if token failed, we'll show error on click
       
-      if (!notificationShownRef.current) {
+      // Only show warning if credits DON'T cover the full amount
+      if (!notificationShownRef.current && !isFullyCoveredByCredits) {
         notificationApi.warning({
           message: "Payment Setup Issue",
           description: "There was a problem retrieving your payment details. You may need to retry payment.",
@@ -99,7 +105,7 @@ export default function VaultedCardPayment({
         notificationShownRef.current = true;
       }
     }
-  }, [paymentTokenStatus, paymentToken, selectedCard, companyInfo, dispatch, notificationApi, Amount]);
+  }, [paymentTokenStatus, paymentToken, selectedCard, companyInfo, dispatch, notificationApi, Amount, isFullyCoveredByCredits]);
 
   useEffect(() => {
     if (companyInfo?.data?.payment_profile_id) {
@@ -124,9 +130,6 @@ export default function VaultedCardPayment({
   console.log("tooot",token);
 
   const proccessPayment = () => {
-    // Check if credits cover the full amount (no payment token needed)
-    const isFullyCoveredByCredits = Amount === 0 || Amount === "0";
-    
     // If still loading tokens or no token available (and credits don't cover full amount)
     if (!isFullyCoveredByCredits) {
       if (isTokenLoading) {
@@ -200,43 +203,56 @@ export default function VaultedCardPayment({
         ...(isFullyCoveredByCredits ? {} : { payment_token: token?.token }),
       }
 
+      // Log payload to verify payment_token is not sent when using credits only
+      console.log("📦 Submit payload:", payload);
+      console.log("💳 Credits cover full amount:", isFullyCoveredByCredits);
+      console.log("🔑 Payment token included:", !isFullyCoveredByCredits && !!token?.token);
+
+      // Mark that we've actually attempted to submit orders
+      setHasAttemptedSubmit(true);
       dispatch(submitOrders(payload));
+      dispatch(updateSubmitedOrders(checkedOrders));
     }
-    
-    dispatch(updateSubmitedOrders(checkedOrders));
-    setTimeout(() => {
-      navigate("/confirmation");
-    }, 1000);
+    // Don't navigate here - wait for submitStatus to confirm success/failure
   };
 
   useEffect(() => {
-    // Only show notification if we haven't shown it already for this status
-    if (!notificationShownRef.current) {
-      if (submitStatus === "succeeded") {
-        setIsLoading(false);
-        notificationApi.success({
-          message: "Payment Successful",
-          description: "Payment has been successfully processed.",
-        });
-        dispatch(resetSubmitStatus());
-        dispatch(updateCheckedOrders([] as any));
-        notificationShownRef.current = true;
-      } else if (submitStatus === "failed") {
-        setIsLoading(false);
-        notificationApi.error({
-          message: "Payment Failed",
-          description: "An error occurred while processing the payment.",
-        });
-        notificationShownRef.current = true;
-      }
+    // Only process if we actually attempted to submit orders
+    if (!hasAttemptedSubmit) return;
+    
+    if (submitStatus === "succeeded") {
+      setIsLoading(false);
+      setHasAttemptedSubmit(false); // Reset for next submission
+      notificationApi.success({
+        message: "Payment Successful",
+        description: isFullyCoveredByCredits 
+          ? "Your order has been processed using account credits."
+          : "Payment has been successfully processed.",
+      });
+      dispatch(resetSubmitStatus());
+      dispatch(updateCheckedOrders([] as any));
+      // Only navigate to confirmation on SUCCESS
+      navigate("/confirmation");
+    } else if (submitStatus === "failed") {
+      setIsLoading(false);
+      setHasAttemptedSubmit(false); // Reset for next attempt
+      
+      // Show error - the actual order submission API failed
+      notificationApi.error({
+        message: "Order Submission Failed",
+        description: "An error occurred while submitting your order. Please try again.",
+      });
+      dispatch(resetSubmitStatus());
+      // Stay on checkout page so user can retry
     }
-  }, [submitStatus, dispatch, notificationApi]);
+  }, [submitStatus, dispatch, notificationApi, isFullyCoveredByCredits, hasAttemptedSubmit, navigate]);
 
 
   return (
     <div>
-      <LoadingOverlay isLoading={isLoading} message="Processing Payment..." />
-      <LoadingOverlay isLoading={isTokenLoading && !isLoading} message="Setting up payment details..." />
+      <LoadingOverlay isLoading={isLoading} message={isFullyCoveredByCredits ? "Processing with Credits..." : "Processing Payment..."} />
+      {/* Don't show token loading overlay if credits cover the full amount */}
+      <LoadingOverlay isLoading={isTokenLoading && !isLoading && !isFullyCoveredByCredits} message="Setting up payment details..." />
       <Button
         key="submit"
         className={`max-md:w-6/12 w-[170px] md:mx-8 mt-2 ${style.pay_button} ${isTokenLoading || isPayButtonDisabled ? style.disabled_button || 'opacity-50' : ''}`}
