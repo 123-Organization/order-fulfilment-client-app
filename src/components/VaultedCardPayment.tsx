@@ -48,6 +48,7 @@ export default function VaultedCardPayment({
   const maxRetries = 3;
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
   const submitStatus = useAppSelector((state) => state.order.submitStatus);
+  const submitError = useAppSelector((state) => state.order.error);
   console.log("selectedCard",selectedCard);
   // Track token loading state
 
@@ -238,17 +239,50 @@ export default function VaultedCardPayment({
       setIsLoading(false);
       setHasAttemptedSubmit(false);
       
-      // Show error notification
+      // Parse error to show specific messages
+      let errorMessage = "An error occurred while submitting your order.";
+      let errorDescription = "";
+      
+      try {
+        // Check if it's a duplicate order error
+        const errorData = typeof submitError === 'string' ? JSON.parse(submitError) : submitError;
+        
+        if (errorData?.message?.ModelState) {
+          const modelState = errorData.message.ModelState;
+          // Check for duplicate order message
+          const duplicateKey = Object.keys(modelState).find(key => 
+            modelState[key]?.some((msg: string) => msg.includes("Duplicate order_po"))
+          );
+          
+          if (duplicateKey) {
+            const duplicateMessage = modelState[duplicateKey].find((msg: string) => 
+              msg.includes("Duplicate order_po")
+            );
+            errorMessage = "Duplicate Order Detected";
+            errorDescription = duplicateMessage || "This order has already been submitted. Please delete the duplicate order and try again.";
+          }
+        } else if (errorData?.message?.Message) {
+          errorDescription = errorData.message.Message;
+        } else if (typeof errorData?.message === 'string') {
+          errorDescription = errorData.message;
+        }
+      } catch (e) {
+        // If parsing fails, use generic message
+        console.log("Error parsing submit error:", e);
+      }
+      
+      // Show error notification with specific message
       notificationApi.error({
-        message: "Order Submission Failed",
-        description: "An error occurred while submitting your order.",
+        message: errorMessage,
+        description: errorDescription || "Please try again or contact support if the issue persists.",
+        duration: 8, // Show longer for important errors
       });
       
       // DON'T reset submitStatus here - let Confirmation page see it and show error state
       // Navigate to confirmation page which will show the failure status
       navigate("/confirmation");
     }
-  }, [submitStatus, dispatch, notificationApi, isFullyCoveredByCredits, hasAttemptedSubmit, navigate]);
+  }, [submitStatus, submitError, dispatch, notificationApi, isFullyCoveredByCredits, hasAttemptedSubmit, navigate]);
 
 
   return (
