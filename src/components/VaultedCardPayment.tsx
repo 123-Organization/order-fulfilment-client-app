@@ -11,7 +11,7 @@ import {
 import { resetPaymentStatus } from "../store/features/paymentSlice";
 import style from "../pages/Pgaes.module.css";
 import { useNavigate } from "react-router-dom";
-import { submitOrders, submitShopifyOrders, updateCheckedOrders, resetSubmitStatus } from "../store/features/orderSlice";
+import { submitOrders, updateCheckedOrders, resetSubmitStatus } from "../store/features/orderSlice";
 import LoadingOverlay from "./LoadingOverlay";
 import { updateSubmitedOrders } from "../store/features/orderSlice";
 
@@ -51,6 +51,13 @@ export default function VaultedCardPayment({
   // Track token loading state
 
   useEffect(() => {
+    // If credits cover the full amount (Amount === 0), always enable the button
+    if (Amount === 0 || Amount === "0") {
+      setIsTokenLoading(false);
+      setIsPayButtonDisabled(false);
+      return;
+    }
+    
     if (paymentTokenStatus === "loading") {
       setIsTokenLoading(true);
       setIsPayButtonDisabled(true);
@@ -92,7 +99,7 @@ export default function VaultedCardPayment({
         notificationShownRef.current = true;
       }
     }
-  }, [paymentTokenStatus, paymentToken, selectedCard, companyInfo, dispatch, notificationApi]);
+  }, [paymentTokenStatus, paymentToken, selectedCard, companyInfo, dispatch, notificationApi, Amount]);
 
   useEffect(() => {
     if (companyInfo?.data?.payment_profile_id) {
@@ -117,72 +124,39 @@ export default function VaultedCardPayment({
   console.log("tooot",token);
 
   const proccessPayment = () => {
-    // If still loading tokens or no token available, show notification and prevent processing
-    if (isTokenLoading) {
-      notificationApi.warning({
-        message: "Payment Setup In Progress",
-        description: "Please wait while we set up your payment details.",
-      });
-      return;
-    }
+    // Check if credits cover the full amount (no payment token needed)
+    const isFullyCoveredByCredits = Amount === 0 || Amount === "0";
+    
+    // If still loading tokens or no token available (and credits don't cover full amount)
+    if (!isFullyCoveredByCredits) {
+      if (isTokenLoading) {
+        notificationApi.warning({
+          message: "Payment Setup In Progress",
+          description: "Please wait while we set up your payment details.",
+        });
+        return;
+      }
 
-    if (!token?.token) {
-      notificationApi.error({
-        message: "Payment Setup Error",
-        description: "Your payment method isn't properly configured. Please select a different payment method or try again later.",
-      });
-      return;
+      if (!token?.token) {
+        notificationApi.error({
+          message: "Payment Setup Error",
+          description: "Your payment method isn't properly configured. Please select a different payment method or try again later.",
+        });
+        return;
+      }
     }
 
     notificationShownRef.current = false;
     setIsLoading(true);
     
-    // Filter orders by source (case-insensitive)
-    const shopifyOrders = checkedOrders?.filter((order: any) => 
-      order.source?.toLowerCase() === "shopify"
-    );
-    const normalOrders = checkedOrders?.filter((order: any) => 
-      order.source?.toLowerCase() !== "shopify"
-    );
-    
-    // Handle Shopify orders separately
-    if (shopifyOrders && shopifyOrders.length > 0) {
-      // Extract Shopify connection data from company info
-      const shopifyConnection = companyInfo?.data?.connections?.find(
-        (conn: any) => conn.name === "Shopify"
-      );
-      
-      let shopifyData = { shop: "", access_token: "" };
-      if (shopifyConnection?.data) {
-        try {
-          shopifyData = JSON.parse(shopifyConnection.data);
-        } catch (e) {
-          console.error("Failed to parse Shopify connection data:", e);
-        }
-      }
-      
-      const shopifyPayload = shopifyOrders.map((order: any) => ({
-        orderId: order.order_key ,
-        orderName: order.order_po,
-        storeName: shopifyData.shop,
-        access_token: shopifyConnection?.id || shopifyData.access_token,
-        trackingInfo: {
-          number: order.trackingNumber || "TRACKING_PENDING"
-        }
-      }));
-      
-      console.log("shopifyPayload", shopifyPayload);
-      dispatch(submitShopifyOrders(shopifyPayload));
-    }
-    
-    // Handle normal orders with the ORIGINAL flow
-    if (normalOrders && normalOrders.length > 0) {
-      const submittedOrders = normalOrders?.map((order: any) => {
+    // Process all orders using submitOrders API
+    if (checkedOrders && checkedOrders.length > 0) {
+      const submittedOrders = checkedOrders?.map((order: any) => {
         const orderToSubmit = orders?.data?.filter((o: any) => o.order_po === order.order_po);
         return orderToSubmit;
-      }).flat().filter((order: any) => order.source?.toLowerCase() !== "shopify");
+      }).flat().filter((order: any) => order && order.order_po);
       
-      console.log("submittedOrders (filtered, no Shopify)", submittedOrders);
+      console.log("submittedOrders", submittedOrders);
       
       const editedSubmittedOrders = submittedOrders.map((order: any) => {
         const poParts = order.order_po.split("#");
@@ -215,14 +189,15 @@ export default function VaultedCardPayment({
         };
       });
       
-      console.log("editedSubmittedOrders (no Shopify)", editedSubmittedOrders);
+      console.log("editedSubmittedOrders", editedSubmittedOrders);
       
       const payload = {
         validate_only: false,
         orders: [...editedSubmittedOrders],
         account_key: companyInfo?.data?.account_key,
         accountId: companyInfo?.data?.account_id,
-        payment_token: token?.token,
+        // Only include payment_token if credits don't cover the full amount
+        ...(isFullyCoveredByCredits ? {} : { payment_token: token?.token }),
       }
 
       dispatch(submitOrders(payload));

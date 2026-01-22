@@ -25,7 +25,8 @@ export default function PaymentMethods(remainingTotal: any = 0) {
   const [modalVisble, setModalVisble] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [paymentMethodmessag, setPaymentMethodmessag] = useState("Searching for payment methods...");
-  const credit = 40;
+  const customerInfo = useAppSelector((state) => state.Customer.customer_info);
+  const credit = parseFloat((customerInfo?.data?.user_account_credits || 0).toFixed(2));
   const notificationApi = useNotificationContext();
   const companyInfo = useAppSelector((state) => state.company.company_info);
   const location = useLocation();
@@ -225,7 +226,7 @@ export default function PaymentMethods(remainingTotal: any = 0) {
                 displayTurtles
               ) : (
                 <Radio className="text-gray-400 pt-3" value={4}>
-                  <strong>Account Credit - ${credit || 0}</strong>
+                  <strong>Account Credit - ${credit.toFixed(2)}</strong>
                 </Radio>
               )}
             </Space>
