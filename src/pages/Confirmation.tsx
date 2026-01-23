@@ -5,6 +5,7 @@ import style from "./Pgaes.module.css";
 import { Steps } from "antd";
 import { useNavigate } from "react-router-dom";
 import { updateCheckedOrders, resetImport, DeleteAllOrders, resetSubmitStatus, resetExcludedOrders, sendOrderInformation, resetSendOrderInfoStatus, resetShopifyOrdersResponse, resetSubmitOrdersResponse } from "../store/features/orderSlice";
+import { getCustomerInfo } from "../store/features/customerSlice";
 import { InfoCircleOutlined } from "@ant-design/icons";
 
 export default function Confirmation() {
@@ -68,6 +69,9 @@ export default function Confirmation() {
       }
       console.log("sendOrderInformationStatus", sendOrderInformationStatus);
       dispatch(resetExcludedOrders());
+      
+      // Refresh customer info to update credits after successful checkout
+      dispatch(getCustomerInfo());
     } else if (submitStatus === "failed") {
       setIsLoading(true);
       setIcon("error");
