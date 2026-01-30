@@ -30,6 +30,7 @@ import SkeletonOrderCard from "../components/SkeletonOrderCard";
 import {
   resetExcludedOrders,
   updateExcludedOrders,
+  updateOrdersInfo,
 } from "../store/features/orderSlice";
 import { updateValidSKU, resetValidSKU } from "../store/features/orderSlice";
 import PopupModal from "../components/PopupModal";
@@ -58,6 +59,8 @@ const ImportList: React.FC = () => {
 
   const firstTimeRender = useRef(true);
   const isFirstRender = useRef(true);
+  // Track which SKUs we've already fetched details for
+  const fetchedSkusRef = useRef<Set<string>>(new Set());
 
   // Utility function to truncate text with character count control
   const truncateText = (htmlString: string, maxLength: number): string => {
@@ -108,6 +111,24 @@ const ImportList: React.FC = () => {
   const [addProductDropdownVisible, setAddProductDropdownVisible] = useState<string | null>(null);
   const [currentOrderForAddProduct, setCurrentOrderForAddProduct] = useState<string>("");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  // State for product deletion within an order
+  const [productDeleteModalVisible, setProductDeleteModalVisible] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<{ product_guid: string; orderFullFillmentId: string; order_po: string } | null>(null);
+  // State for expanded labels
+  const [expandedLabels, setExpandedLabels] = useState<Set<string>>(new Set());
+  
+  const toggleLabels = (productSku: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedLabels(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(productSku)) {
+        newSet.delete(productSku);
+      } else {
+        newSet.add(productSku);
+      }
+      return newSet;
+    });
+  };
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
   const excludedOrders = useAppSelector((state) => state.order.excludedOrders);
   const validSKUs = useAppSelector((state) => state.order.validSKU);
@@ -235,7 +256,7 @@ const ImportList: React.FC = () => {
     // Set refreshing state to prevent "No Orders Found" flash
     setIsRefreshing(true);
     // Wait for the fetch to complete before clearing orderPostData
-    
+    dispatch(fetchOrder(customerInfo?.data?.account_id));
     // Add a small delay to ensure state is updated
     setTimeout(() => {
       setOrderPostData([]);
@@ -367,7 +388,7 @@ console.log("checkedOrders", checkedOrders);
 
   // Keep your second useEffect separate
   useEffect(() => {
-    if (orders?.data && validSKUs.length > 0) {
+    if (orders?.data ) {
       const invalidSkus = Array.isArray(orders.data)
         ? orders.data.reduce((acc: any[], order: any) => {
             const invalidItems = order?.order_items?.filter(
@@ -390,6 +411,7 @@ console.log("checkedOrders", checkedOrders);
     }
   }, [orders?.data, validSKUs]);
   // console.log("validd", validSKUs);
+  console.log("invalidSKuOrderFullilment", invalidSKuOrderFullilment);
 
   useEffect(() => {
     dispatch(resetSubmitedOrders());
@@ -502,6 +524,80 @@ console.log("checkedOrders", checkedOrders);
     dispatch(fetchOrder(customerInfo?.data?.account_id));
   };
 
+  // Delete a product from an order
+  const onDeleteProductFromOrder = (product_guid: string) => {
+    if (!productToDelete) return;
+    
+    const { orderFullFillmentId, order_po } = productToDelete;
+    
+    // Find the order containing this product
+    const orderToUpdate = orders?.data?.find(
+      (order: any) => order.orderFullFillmentId === orderFullFillmentId
+    );
+    
+    if (!orderToUpdate) {
+      notificationApi.error({
+        message: "Error",
+        description: "Could not find the order to update.",
+      });
+      return;
+    }
+    
+    // Remove the product from the order items
+    const updatedOrderItems = orderToUpdate.order_items?.filter(
+      (item: any) => item.product_guid !== product_guid
+    );
+    
+    const updatedOrder = {
+      ...orderToUpdate,
+      order_items: updatedOrderItems,
+    };
+    
+    // Update all orders with the modified order
+    const updatedOrders = orders?.data?.map((order: any) => {
+      if (order.orderFullFillmentId === orderFullFillmentId) {
+        return updatedOrder;
+      }
+      return order;
+    });
+    
+    // Format the data for the API
+    const postData = {
+      updatedValues: updatedOrders,
+      customerId: customerInfo?.data?.account_id,
+    };
+    
+    dispatch(updateOrdersInfo(postData))
+      .then((result: any) => {
+        if (updateOrdersInfo.fulfilled.match(result)) {
+          notificationApi.success({
+            message: "Product Deleted",
+            description: "Product has been successfully deleted from the order.",
+          });
+          // Refresh orders
+          dispatch(fetchOrder(customerInfo?.data?.account_id));
+          setOrderPostData([]);
+          // Clear the fetchedSkusRef to allow re-fetching product details
+          fetchedSkusRef.current.clear();
+        } else {
+          notificationApi.error({
+            message: "Error",
+            description: "Failed to delete product from order.",
+          });
+        }
+      })
+      .catch((error: any) => {
+        console.error("Error deleting product:", error);
+        notificationApi.error({
+          message: "Error",
+          description: "An error occurred while deleting the product.",
+        });
+      });
+    
+    setProductDeleteModalVisible(false);
+    setProductToDelete(null);
+  };
+
   useEffect(() => {
     if (
       deleteOrderStatus === "succeeded" &&
@@ -573,7 +669,7 @@ console.log("checkedOrders", checkedOrders);
         order.order_items?.map((item) => ({
           order_po: order.order_po,
           product_sku: item.product_sku,
-          product_guid: item.product_guid,
+          product_guid: order.source === "shopify" ? crypto.randomUUID() : item.product_guid,
           product_qty: item.product_qty,
           product_image: {
             product_url_file: "https://via.placeholder.com/150",
@@ -582,12 +678,87 @@ console.log("checkedOrders", checkedOrders);
         }))
       );
       
+      // Track the SKUs we're fetching
+      ProductDetails?.forEach((item) => {
+        if (item?.product_sku) {
+          fetchedSkusRef.current.add(item.product_sku.toString());
+        }
+      });
+      
       dispatch(fetchShippingOption({orders: orderPostDataList,account_key: customerInfo?.data?.account_key,}));
         setOrderPostData(orderPostDataList);
         dispatch(fetchProductDetails(ProductDetails));
       
     }
   }, [orders, product_details, orderPostData, dispatch]);
+
+  // Separate useEffect to fetch product details for newly added products
+  useEffect(() => {
+    if (!orders?.data?.length) return;
+    
+    // Collect all current SKUs from orders
+    const allCurrentSkus: string[] = [];
+    orders.data.forEach((order: any) => {
+      order.order_items?.forEach((item: any) => {
+        if (item?.product_sku) {
+          allCurrentSkus.push(item.product_sku.toString());
+        }
+      });
+    });
+    
+    // Find SKUs that haven't been fetched yet
+    const newSkus = allCurrentSkus.filter(sku => !fetchedSkusRef.current.has(sku));
+    
+    if (newSkus.length > 0) {
+      console.log("Fetching details for new SKUs:", newSkus);
+      
+      // Build product details for new SKUs only
+      const newProductDetails = orders.data.flatMap((order: any) =>
+        order.order_items
+          ?.filter((item: any) => item?.product_sku && newSkus.includes(item.product_sku.toString()))
+          ?.map((item: any) => ({
+            order_po: order.order_po,
+            product_sku: item.product_sku,
+            product_guid: order.source === "shopify" ? crypto.randomUUID() : item.product_guid,
+            product_qty: item.product_qty,
+            product_image: {
+              product_url_file: "https://via.placeholder.com/150",
+              product_url_thumbnail: "https://via.placeholder.com/150",
+            },
+          }))
+      ).filter(Boolean);
+      
+      if (newProductDetails.length > 0) {
+        // Mark these SKUs as being fetched
+        newSkus.forEach(sku => fetchedSkusRef.current.add(sku));
+        dispatch(fetchProductDetails(newProductDetails));
+        
+        // Also update shipping options for orders with new products
+        const validOrders = orders.data.filter(
+          (order: any) => (order?.order_items && order?.order_items?.length > 0) && order?.shipping_code != null && order?.shipping_code !== ""
+        );
+        const orderPostDataList = validOrders?.map((order: any) => ({
+          order_po: order?.order_po,
+          recipient: order?.recipient,
+          shipping_code: order?.shipping_code,
+          order_items: order.order_items?.map((item: any) => ({
+            product_order_po: item.product_order_po,
+            product_qty: item.product_qty,
+            product_sku: item.product_sku,
+            product_image: {
+              product_url_file: "https://via.placeholder.com/150",
+              product_url_thumbnail: "https://via.placeholder.com/150",
+            },
+          })),
+        }))?.flat();
+        
+        if (orderPostDataList?.length) {
+          dispatch(fetchShippingOption({orders: orderPostDataList, account_key: customerInfo?.data?.account_key}));
+          setOrderPostData(orderPostDataList);
+        }
+      }
+    }
+  }, [orders?.data, dispatch, customerInfo?.data?.account_key]);
 
   // Update the useEffect that handles setting checked orders
   useEffect(() => {
@@ -945,11 +1116,11 @@ console.log("checkedOrders", checkedOrders);
                   </ul>
 
                   <ul
-                    className="grid w-full gap-6 md:grid-cols-3  "
+                    className="grid w-full gap-4 md:grid-cols-[minmax(180px,1fr)_minmax(300px,2fr)_minmax(200px,1fr)]"
                     key={index}
                   >
                     <li className="">
-                      <label className="h-[220px] inline-flex items-center justify-between w-full p-5 text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700">
+                      <label className="h-[220px] inline-flex items-center justify-between w-full p-3 text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700">
                         <div className="block">
                           <div className="w-full text-sm text-red-800">
                             {order?.order_po}
@@ -998,204 +1169,120 @@ console.log("checkedOrders", checkedOrders);
                         className="hidden peer"
                       />
                       {order?.order_items.length > 0 ? (
-                        order?.order_items?.map((order) =>
-                          product_details.length > 0 &&
-                          !validSKUs.includes(order.product_sku.toString()) ? (
-                            <div className="mb-4 p-4 border-2 border-red-200 rounded-lg bg-red-50 h-[220px]">
-                              <div className="flex items-center justify-between">
-                                <div className="flex-1">
-                                  <div className="flex items-center mb-2">
+                        <>
+                          {order?.order_items?.map((orderItem) =>
+                            product_details.length > 0 &&
+                            !validSKUs.includes(orderItem.product_sku.toString()) ? (
+                              <div key={orderItem.product_sku} className="mb-4 p-4 border-2 border-red-200 rounded-lg bg-red-50 h-[220px]">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex-1">
+                                    <div className="flex items-center mb-2">
+                                      <svg
+                                        className="w-5 h-5 text-red-500 mr-2"
+                                        fill="currentColor"
+                                        viewBox="0 0 20 20"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                      >
+                                        <path
+                                          fillRule="evenodd"
+                                          d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                                          clipRule="evenodd"
+                                        />
+                                      </svg>
+                                      <h2 className="text-lg font-semibold text-red-700">
+                                        Invalid SKU Detected
+                                      </h2>
+                                    </div>
+                                    <div className="ml-7">
+                                      <p className="text-red-600 mb-2">
+                                        Current SKU:{" "}
+                                        <span className="font-mono bg-red-100 px-2 py-1 rounded">
+                                          {orderItem?.product_sku}
+                                        </span>
+                                      </p>
+                                      <p className="text-sm text-red-600">
+                                        This SKU is not recognized in the system.
+                                        Please add a valid SKU to proceed.
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="mt-4 ml-7">
+                                  <button
+                                    className="h-9 inline-flex items-center px-4 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 hover:border-red-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
+                                    onClick={() => {
+                                      setReplacingModal(true);
+                                      setSkuToReplace(orderItem?.product_sku);
+                                      setSkuOrderFullilment(
+                                        invalidSKuOrderFullilment?.find(
+                                          (item: any) =>
+                                            orderItem?.product_sku === item.sku
+                                        )?.orderFullFillmentId || ""
+                                      );
+                                    }}
+                                  >
                                     <svg
-                                      className="w-5 h-5 text-red-500 mr-2"
-                                      fill="currentColor"
-                                      viewBox="0 0 20 20"
+                                      className="w-4 h-4 mr-2"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
                                       xmlns="http://www.w3.org/2000/svg"
                                     >
                                       <path
-                                        fillRule="evenodd"
-                                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                                        clipRule="evenodd"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth="2"
+                                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
                                       />
                                     </svg>
-                                    <h2 className="text-lg font-semibold text-red-700">
-                                      Invalid SKU Detected
-                                    </h2>
-                                  </div>
-                                  <div className="ml-7">
-                                    <p className="text-red-600 mb-2">
-                                      Current SKU:{" "}
-                                      <span className="font-mono bg-red-100 px-2 py-1 rounded">
-                                        {order?.product_sku}
-                                      </span>
-                                    </p>
-                                    <p className="text-sm text-red-600">
-                                      This SKU is not recognized in the system.
-                                      Please add a valid SKU to proceed.
-                                    </p>
-                                  </div>
+                                    Replace SKU
+                                  </button>
                                 </div>
-                              </div>
-                              <div className="mt-4 ml-7">
-                                <button
-                                  className="h-9 inline-flex items-center px-4 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 hover:border-red-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
-                                  onClick={() => {
-                                    setReplacingModal(true);
-                                    setSkuToReplace(order?.product_sku);
-                                    setSkuOrderFullilment(
-                                      invalidSKuOrderFullilment?.find(
-                                        (item: any) =>
-                                          order?.product_sku === item.sku
-                                      )?.orderFullFillmentId || ""
-                                    );
-                                  }}
-                                >
-                                  <svg
-                                    className="w-4 h-4 mr-2"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth="2"
-                                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                                    />
-                                  </svg>
-                                  Replace SKU
-                                </button>
-                              </div>
-                              {replacingModal && (
-                                
-                                <ReplacingCode
-                                  visible={replacingModal}
-                                  onClose={() => setReplacingModal(false)}
-                                  orderFullFillmentId={skuOrderFullilment}
-                                  toReplace={skuToReplace}
-                                  accountId={customerInfo?.data?.account_id}
-                                  onProductCodeUpdate={onProductCodeReplace}
-                                />
-                              )}
-                            </div>
-                          ) : (
-                            <label
-                              className={`h-[220px] inline-flex mb-2 justify-between w-full hover:border-gray-600 transition-all duration-75 pt-5 pb-5 px-2 text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700 overflow-hidden ${style.orderes_lable}`}
-                            >
-                              <div className="block relative pb-4 w-full overflow-hidden ">
-                                <img
-                                  src={shoppingCart}
-                                  width="26"
-                                  alt="product"
-                                  height="26"
-                                />
-                                {productData[order?.product_sku]
-                                  ?.description_long && (
-                                  <Tooltip
-                                    title={
-                                      <div>
-                                        <div className="text-right mb-2">
-                                          <span
-                                            className="cursor-pointer text-blue-600 hover:text-blue-800 flex items-center justify-end"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              showFullDescription(
-                                                "Product Details",
-                                                productData[order?.product_sku]
-                                                  ?.description_long || "",
-                                                order?.product_sku
-                                              );
-                                            }}
-                                          >
-                                            <FullscreenOutlined className="mr-1" />{" "}
-                                            View full description
-                                          </span>
-                                        </div>
-                                        <div className="">
-                                          {parse(
-                                            productData[order?.product_sku]
-                                              ?.description_long || ""
-                                          )}
-                                        </div>
-                                      </div>
-                                    }
-                                    color="#fff"
-                                    overlayInnerStyle={{
-                                      color: "#333",
-                                      maxWidth: "400px",
-                                      maxHeight: "300px",
-                                      overflow: "auto",
-                                      padding: "12px",
-                                      boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                                      borderRadius: "8px",
-                                    }}
-                                    placement="rightTop"
-                                    overlayClassName="description-tooltip"
-                                    mouseEnterDelay={0.3}
-                                  >
-                                    <div
-                                      className={`absolute top-1 right-2 w-6 h-6 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center cursor-help text-white shadow-md hover:shadow-lg transition-all duration-300 hover:scale-110 z-10 ${style["info-button-pulse"]}`}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        showFullDescription(
-                                          "Product Details",
-                                          productData[order?.product_sku]
-                                            ?.description_long || "",
-                                          order?.product_sku
-                                        );
-                                      }}
-                                    >
-                                      <InfoCircleOutlined
-                                        style={{ fontSize: "16px" }}
-                                      />
-                                    </div>
-                                  </Tooltip>
+                                {replacingModal && (
+                                  
+                                  <ReplacingCode
+                                    visible={replacingModal}
+                                    onClose={() => setReplacingModal(false)}
+                                    orderFullFillmentId={skuOrderFullilment}
+                                    toReplace={skuToReplace}
+                                    accountId={customerInfo?.data?.account_id}
+                                    onProductCodeUpdate={onProductCodeReplace}
+                                  />
                                 )}
-                                <div
-                                  className={`justify-between pt-4 rounded-lg sm:flex sm:justify-start flex  ${style.description_box}`}
-                                >
-                                  <div
-                                    className={`w-[50%]  ${style.importlist_pic}`}
-                                  >
-                                    {(() => {
-                                      const originalImageUrl = getImageUrl(order, order?.product_sku);
-                                      const imageKey = `${order?.product_sku}-${order?.product_order_po}`;
-                                      const currentImageUrl = getCurrentImageUrl(imageKey, originalImageUrl);
-                                      // console.log(imageKey,"imageKey")
-                                      const hasError = imageErrors[imageKey];
-                                      // console.log(hasError,"hasError")
-                                      
-                                      // Debug logging
-                                      if (isGoogleDriveUrl(originalImageUrl)) {
-                                        console.log(`[${imageKey}] Google Drive Image State:`, {
-                                          originalImageUrl,
-                                          currentImageUrl,
-                                          hasError,
-                                          urlIndex: imageUrlIndex[imageKey] || 0
-                                        });
-                                      }
-                                      // setProductData(prev => ({ ...prev, [order?.product_sku]: { ...prev[order?.product_sku], image_url_1: currentImageUrl } }));
-                                      
-                                      // Only show error state if explicitly marked as error
-                                      // Don't treat empty URL as error initially
-                                      if (currentImageUrl && !hasError) {
+                              </div>
+                            ) : (
+                              <div
+                                key={orderItem.product_sku}
+                                className={`mb-3 w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 ${style.orderes_lable}`}
+                              >
+                                {/* Main content area */}
+                                <div className="p-4 min-h-[120px]">
+                                  <div className={`flex gap-3 ${style.description_box}`}>
+                                    {/* Image */}
+                                    <div className={`flex-shrink-0 ${style.importlist_pic}`}>
+                                      {(() => {
+                                        const originalImageUrl = getImageUrl(orderItem, orderItem?.product_sku);
+                                        const imageKey = `${orderItem?.product_sku}-${orderItem?.product_order_po}`;
+                                        const currentImageUrl = getCurrentImageUrl(imageKey, originalImageUrl);
+                                        const hasError = imageErrors[imageKey];
                                         
-                                        console.log(currentImageUrl,"currentImageUrl")
+                                        if (isGoogleDriveUrl(originalImageUrl)) {
+                                          console.log(`[${imageKey}] Google Drive Image State:`, {
+                                            originalImageUrl,
+                                            currentImageUrl,
+                                            hasError,
+                                            urlIndex: imageUrlIndex[imageKey] || 0
+                                          });
+                                        }
+                                        
                                         return (
                                           <img
                                             key={`${imageKey}-${imageUrlIndex[imageKey] || 0}`}
                                             src={originalImageUrl}
                                             alt="product"
-                                            className="max-md:w-40 w-32 h-[120px] object-cover rounded"
-                                            width={125}
-                                            height={120}
-                                            onError={() => {
-                                              console.log(`[${imageKey}] Image failed to load:`, currentImageUrl);
-                                              handleImageError(imageKey, originalImageUrl);
-                                            }}
+                                            className="w-24 h-24 object-contain rounded border border-gray-100"
+                                            onError={() => handleImageError(imageKey, originalImageUrl)}
                                             onLoad={() => {
-                                              console.log(`[${imageKey}] Image loaded successfully:`, currentImageUrl);
-                                              // Clear any error state when image loads successfully
                                               setImageErrors(prev => {
                                                 const newState = { ...prev };
                                                 delete newState[imageKey];
@@ -1204,64 +1291,203 @@ console.log("checkedOrders", checkedOrders);
                                             }}
                                           />
                                         );
-                                      } else if (hasError || !currentImageUrl) {
-                                        return (
-                                          <img
-                                            key={`${imageKey}-${imageUrlIndex[imageKey] || 0}`}
-                                            src={originalImageUrl}
-                                            alt="product"
-                                            className="max-md:w-40 w-32 h-[120px] object-cover rounded"
-                                            width={125}
-                                            height={120}
-                                            onError={() => {
-                                              console.log(`[${imageKey}] Image failed to load:`, currentImageUrl);
-                                              handleImageError(imageKey, originalImageUrl);
-                                            }}
-                                            onLoad={() => {
-                                              console.log(`[${imageKey}] Image loaded successfully:`, currentImageUrl);
-                                              // Clear any error state when image loads successfully
-                                              setImageErrors(prev => {
-                                                const newState = { ...prev };
-                                                delete newState[imageKey];
-                                                return newState;
-                                              });
-                                            }}
-                                          />
-                                        );
-                                      } else {
-                                        return <Skeleton.Image active className="w-32 h-[120px]" />;
-                                      }
-                                    })()}
-                                  </div>
+                                      })()}
+                                    </div>
 
-                                  <div className="w-[100%]">
-                                    {(Object.keys(productData)?.length && (
-                                      <div className="flex flex-col w-full sm:justify-between p-2 max-lg:p-2">
-                                        <div
-                                          className={`w-full text-sm ${style.order_description} font-seri `}
-                                        >
-                                          {parse(
-                                            truncateText(
-                                              productData[order?.product_sku]
-                                                ?.description_long || "",
-                                              descriptionCharLimit
-                                            )
+                                    {/* Labels */}
+                                    <div className="flex-1 min-w-0">
+                                      {(Object.keys(productData)?.length && (
+                                        <div className="w-full">
+                                          {productData[orderItem?.product_sku]?.labels?.length > 0 ? (
+                                            (() => {
+                                              const labels = productData[orderItem?.product_sku]?.labels || [];
+                                              const typeLabel = labels.find((label: any) => label.key?.toLowerCase() === "type");
+                                              const otherLabels = labels.filter((label: any) => label.key?.toLowerCase() !== "type");
+                                              
+                                              return (
+                                                <>
+                                                  {/* Type label as header */}
+                                                  {typeLabel && (
+                                                    <div className="text-[13px] font-semibold text-gray-800 mb-1.5 pb-1 border-b border-gray-100">
+                                                      {typeLabel.value}
+                                                    </div>
+                                                  )}
+                                                  {/* Remaining labels */}
+                                                  <div className={`space-y-1 overflow-hidden transition-all duration-300 ${
+                                                    expandedLabels.has(orderItem?.product_sku) ? '' : 'max-h-[90px]'
+                                                  }`}>
+                                                    {otherLabels.map((label: any, idx: number) => (
+                                                      <div key={idx} className="text-[12px] text-gray-700 leading-tight">
+                                                        <span className="text-blue-600 font-medium">{label.key}:</span> {label.value}
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                  {labels.length > 4 && (
+                                                    <button
+                                                      onClick={(e) => toggleLabels(orderItem?.product_sku, e)}
+                                                      className="text-[11px] text-blue-600 hover:text-blue-800 font-medium mt-1 inline-flex items-center gap-0.5"
+                                                    >
+                                                      {expandedLabels.has(orderItem?.product_sku) ? 'Less' : 'More'}
+                                                      <svg className={`w-3 h-3 transition-transform ${expandedLabels.has(orderItem?.product_sku) ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                      </svg>
+                                                    </button>
+                                                  )}
+                                                </>
+                                              );
+                                            })()
+                                          ) : (
+                                            <div className={`w-full text-xs text-gray-600 ${style.order_description}`}>
+                                              {parse(truncateText(productData[orderItem?.product_sku]?.description_long || "", descriptionCharLimit))}
+                                            </div>
                                           )}
                                         </div>
-                                      </div>
-                                    )) || <Skeleton active />}
+                                      )) || <Skeleton active />}
+                                    </div>
+
+                                    {/* Info button */}
+                                    {productData[orderItem?.product_sku]?.description_long && (
+                                      <Tooltip
+                                        title={
+                                          <div>
+                                            <div className="text-right mb-2">
+                                              <span
+                                                className="cursor-pointer text-blue-600 hover:text-blue-800 flex items-center justify-end"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  showFullDescription(
+                                                    "Product Details",
+                                                    productData[orderItem?.product_sku]?.description_long || "",
+                                                    orderItem?.product_sku
+                                                  );
+                                                }}
+                                              >
+                                                <FullscreenOutlined className="mr-1" /> View full
+                                              </span>
+                                            </div>
+                                            <div>{parse(productData[orderItem?.product_sku]?.description_long || "")}</div>
+                                          </div>
+                                        }
+                                        color="#fff"
+                                        overlayInnerStyle={{
+                                          color: "#333",
+                                          maxWidth: "400px",
+                                          maxHeight: "300px",
+                                          overflow: "auto",
+                                          padding: "12px",
+                                          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                                          borderRadius: "8px",
+                                        }}
+                                        placement="left"
+                                        overlayClassName="description-tooltip"
+                                        mouseEnterDelay={0.3}
+                                      >
+                                        <div
+                                          className={`flex-shrink-0 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center cursor-help text-white hover:bg-blue-600 transition-colors ${style["info-button-pulse"]}`}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            showFullDescription(
+                                              "Product Details",
+                                              productData[orderItem?.product_sku]?.description_long || "",
+                                              orderItem?.product_sku
+                                            );
+                                          }}
+                                        >
+                                          <InfoCircleOutlined style={{ fontSize: "11px" }} />
+                                        </div>
+                                      </Tooltip>
+                                    )}
                                   </div>
                                 </div>
-                                <div className="flex justify-between items-center mt-0">
-                                  <div></div>
-                                  <div className="text-sm text-right h-4">
-                                    {order?.product_qty || 1}@ ${(productData[order?.product_guid]?.total_price)?.toFixed(2)} ea
+                                
+                                {/* Footer bar */}
+                                <div className="flex justify-between items-center px-3 py-2 bg-gray-50 border-t border-gray-100 rounded-b-lg">
+                                  <button
+                                    type="button"
+                                    className="inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-red-500 transition-colors"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setProductToDelete({
+                                        product_guid: orderItem?.product_guid,
+                                        orderFullFillmentId: order?.orderFullFillmentId,
+                                        order_po: order?.order_po,
+                                      });
+                                      setProductDeleteModalVisible(true);
+                                    }}
+                                    title="Delete product"
+                                  >
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                    Remove
+                                  </button>
+                                  <div className="text-sm text-gray-600">
+                                    {orderItem?.product_qty || 1}@ ${(productData[orderItem?.product_guid]?.total_price)?.toFixed(2)} ea
+                                    {console.log(orderItem?.product_guid,"productData[orderItem?.product_guid]?.total_price")}
                                   </div>
                                 </div>
                               </div>
-                            </label>
-                          )
-                        )
+                            )
+                          )}
+                          {/* Add More Products Button */}
+                          <div className="mt-4 flex justify-center">
+                            <Dropdown
+                              menu={{ items: getAddProductMenuItems(order?.orderFullFillmentId) }}
+                              trigger={["click"]}
+                              placement="bottom"
+                              open={addProductDropdownVisible === `add-more-${order?.orderFullFillmentId}`}
+                              onOpenChange={(visible) => setAddProductDropdownVisible(visible ? `add-more-${order?.orderFullFillmentId}` : null)}
+                            >
+                              <button
+                                className="group relative inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl overflow-hidden transition-all duration-300 ease-out hover:scale-[1.02] active:scale-[0.98]"
+                                style={{
+                                  background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.15) 100%)',
+                                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                                  boxShadow: '0 2px 8px rgba(16, 185, 129, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.5)',
+                                }}
+                                onClick={() => setAddProductDropdownVisible(
+                                  addProductDropdownVisible === `add-more-${order?.orderFullFillmentId}` ? null : `add-more-${order?.orderFullFillmentId}`
+                                )}
+                              >
+                                {/* Animated background gradient on hover */}
+                                <span 
+                                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                                  style={{
+                                    background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.25) 100%)',
+                                  }}
+                                />
+                                
+                                {/* Plus icon with animated circle background */}
+                                <span className="relative flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 shadow-sm group-hover:shadow-md group-hover:shadow-emerald-500/30 transition-all duration-300">
+                                  <svg 
+                                    className="w-3.5 h-3.5 text-white transition-transform duration-300 group-hover:rotate-90" 
+                                    fill="none" 
+                                    stroke="currentColor" 
+                                    strokeWidth="2.5"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                                  </svg>
+                                </span>
+                                
+                                {/* Text */}
+                                <span className="relative text-emerald-700 group-hover:text-emerald-800 transition-colors duration-200">
+                                  Add More
+                                </span>
+                                
+                                {/* Chevron icon */}
+                                <svg 
+                                  className="relative w-4 h-4 text-emerald-500 group-hover:text-emerald-600 transition-all duration-300 group-hover:translate-y-0.5" 
+                                  fill="none" 
+                                  stroke="currentColor" 
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </button>
+                            </Dropdown>
+                          </div>
+                        </>
                       ) : (
                         <AddProductsTemplate orderFullFillmentId={order?.orderFullFillmentId} />
                       )}
@@ -1403,6 +1629,15 @@ console.log("checkedOrders", checkedOrders);
               onDeleteProduct={onDeleteOrder}
               deleteItem={orderFullFillmentId}
               order_po={order_po}
+            />
+            
+            {/* Delete Product from Order Modal */}
+            <DeleteMessage
+              visible={productDeleteModalVisible}
+              onClose={setProductDeleteModalVisible}
+              onDeleteProduct={onDeleteProductFromOrder}
+              deleteItem={productToDelete?.product_guid || ""}
+              order_po={productToDelete?.order_po || ""}
             />
           </div>
         </div>

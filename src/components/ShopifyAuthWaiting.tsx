@@ -64,7 +64,7 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
         console.log('🔐 Authenticating with Shopify:', { shop, accountKey });
         
         // Make API call to backend
-        const response = await fetch('https://ijbsrphg08.execute-api.us-east-1.amazonaws.com/Prod/api/shopify/callback', {
+        const response = await fetch('https://dwe8rzhebf.execute-api.us-east-1.amazonaws.com/Prod/api/shopify/callback', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -92,8 +92,7 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
             }
             
             // Redirect back to Shopify store admin with account_key in URL
-            // Format: https://{shop}/admin/apps/{app-name}?finerworks_connected=true&account_key={accountKey}
-            const shopifyRedirectUrl = `https://${shop}/admin/apps/finerworks-order-fulfillment?finerworks_connected=true&account_key=${encodeURIComponent(accountKey)}`;
+            const shopifyRedirectUrl = `http://indicated-laundry-anti-decor.trycloudflare.com/auth/finerworks-callback?shop=finerworks-dev-3.myshopify.com&account_key=${accountKey}`;
             
             console.log('🔄 Redirecting to Shopify store:', shopifyRedirectUrl);
             

@@ -205,9 +205,7 @@ export default function VaultedCardPayment({
       }
 
       // Log payload to verify payment_token is not sent when using credits only
-      console.log("📦 Submit payload:", payload);
-      console.log("💳 Credits cover full amount:", isFullyCoveredByCredits);
-      console.log("🔑 Payment token included:", !isFullyCoveredByCredits && !!token?.token);
+    
 
       // Mark that we've actually attempted to submit orders
       setHasAttemptedSubmit(true);

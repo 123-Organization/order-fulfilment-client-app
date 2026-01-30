@@ -135,6 +135,7 @@ console.log("inputvalue ",inputValue)
       };
       console.log("dbdb", data);
       dispatch(setProductData(data));
+      dispatch(updateValidSKU([...validSKU, data.productCode]));
     }
   }, [SelectedImage, inputValue, orderFullFillmentId]);
 
@@ -163,7 +164,7 @@ console.log("inputvalue ",inputValue)
         message: "Product Added",
         description: "Product has been successfully added to the order.",
       });
-
+      dispatch(updateValidSKU([...validSKU, productCode]));
       // Clear selected image on successful add
       dispatch(clearSelectedImage());
       onClose();
@@ -179,7 +180,7 @@ console.log("inputvalue ",inputValue)
       
       setIsLoading(false);
     }
-  }, [productDataStatus, notificationApi]);
+  }, [productDataStatus, notificationApi, validSKU, productCode]);
 
   // UseEffect to handle changes in productCode
   useEffect(() => {

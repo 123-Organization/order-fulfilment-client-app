@@ -137,19 +137,57 @@ export const ProductSlice = createSlice({
                         state.status = "idle";
                 }
         },
-        extraReducers: (builder) => {
-                builder.addCase(fetchProductDetails.fulfilled, (state, action) => {
-                        state.product_details = action.payload;
-                        state.status = "succeeded";
-                });
-                builder.addCase(fetchProductDetails.pending, (state, action) => {
-                        state.status = "loading";
-                        state.product_details = action.payload;
-                });
-                builder.addCase(fetchProductDetails.rejected, (state, action) => {
-                        state.status = "failed";
-                        state.error = action.payload as string;
-                });
+	extraReducers: (builder) => {
+		builder.addCase(fetchProductDetails.fulfilled, (state, action) => {
+			// Merge new product details with existing ones instead of replacing
+			if (state.product_details?.data?.product_list && action.payload?.data?.product_list) {
+				const existingProducts = state.product_details.data.product_list;
+				const newProducts = action.payload.data.product_list;
+				
+				// Create a map of existing products by SKU for quick lookup
+				const existingSkuMap = new Map();
+				existingProducts.forEach((product: any) => {
+					const key = product.sku || product.product_code || product.product_guid;
+					if (key) existingSkuMap.set(key, product);
+				});
+				
+				// Add only new products that don't already exist
+				newProducts.forEach((product: any) => {
+					const key = product.sku || product.product_code || product.product_guid;
+					if (key && !existingSkuMap.has(key)) {
+						existingProducts.push(product);
+					} else if (key && existingSkuMap.has(key)) {
+						// Update existing product with new data
+						const index = existingProducts.findIndex((p: any) => 
+							(p.sku || p.product_code || p.product_guid) === key
+						);
+						if (index !== -1) {
+							existingProducts[index] = { ...existingProducts[index], ...product };
+						}
+					}
+				});
+				
+				state.product_details = {
+					...action.payload,
+					data: {
+						...action.payload.data,
+						product_list: existingProducts
+					}
+				};
+			} else {
+				// If no existing data, just set the new payload
+				state.product_details = action.payload;
+			}
+			state.status = "succeeded";
+		});
+		builder.addCase(fetchProductDetails.pending, (state, action) => {
+			state.status = "loading";
+			// Don't overwrite product_details during pending state
+		});
+		builder.addCase(fetchProductDetails.rejected, (state, action) => {
+			state.status = "failed";
+			state.error = action.payload as string;
+		});
                 builder.addCase(increaseProductQuantity.fulfilled, (state, action) => {
                         state.product_details = action.payload;
                         

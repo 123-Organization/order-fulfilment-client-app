@@ -20,7 +20,8 @@ interface InventoryState {
         inventoryImages: any;
         status: "idle" | "loading" | "success" | "error"
         exportResponse: any;
-
+        deleteStatus: "idle" | "loading" | "success" | "error";
+        deleteError: string | null;
 }
 
 const referrer: IFileExport = {
@@ -39,6 +40,8 @@ const initialState: InventoryState = {
         inventoryImages: {},
         status: "idle",
         exportResponse: {},
+        deleteStatus: "idle",
+        deleteError: null,
 };
 const getCookie = (name: string) => {
         const value = `; ${document.cookie}`;
@@ -127,29 +130,61 @@ export const getInventoryImages = createAsyncThunk(
 );
 //export orders from virtual inv https://v59dq0jx2e.execute-api.us-east-1.amazonaws.com/Prod/api/export-to-woocommerce
 export const exportOrders = createAsyncThunk(
-        "export/orders",
-        async (args: { data: any, domainName: string }, thunkAPI: any) => {
-                const state = await thunkAPI.getState() as any;
-                args.data = {
+	"export/orders",
+	async (args: { data: any, domainName: string }, thunkAPI: any) => {
+		const state = await thunkAPI.getState() as any;
+		args.data = {
 
-                        "domainName": args.domainName,
-                        "auth_code": "f8df5ecd-6c85-4d2c-a402-676b0556c156",
-                        "productsList": args.data
-                }
-                const response = await fetch(`${BASE_URL}export-to-woocommerce`, {
-                        method: "POST",
-                        headers: {
-                                "Content-Type": "application/json",
-                        },
-                
-                        body: JSON.stringify(args.data)
-                });
-                if (!response.ok) {
-                        throw new Error('Failed to export orders');
-                }
-                const data = await response.json();
-                return data;
-        },
+			"domainName": args.domainName,
+			"auth_code": "f8df5ecd-6c85-4d2c-a402-676b0556c156",
+			"productsList": args.data
+		}
+		const response = await fetch(`${BASE_URL}export-to-woocommerce`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+		
+			body: JSON.stringify(args.data)
+		});
+		if (!response.ok) {
+			throw new Error('Failed to export orders');
+		}
+		const data = await response.json();
+		return data;
+	},
+);
+
+// Shopify API base URL
+const SHOPIFY_API_URL = "https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/";
+
+// Export products to Shopify
+export const exportToShopify = createAsyncThunk(
+	"export/shopify",
+	async (args: { productsList: any[], storeName: string, accessToken: string, accountKey: string }, thunkAPI: any) => {
+		const payload = {
+			account_key: args.accountKey,
+			productsList: args.productsList,
+			storeName: args.storeName,
+			access_token: args.accessToken
+		};
+		
+		const response = await fetch(`${SHOPIFY_API_URL}shopify/sync-products`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				"Accept": "*/*",
+			},
+			body: JSON.stringify(payload)
+		});
+		
+		if (!response.ok) {
+			throw new Error('Failed to export products to Shopify');
+		}
+		
+		const data = await response.json();
+		return data;
+	},
 );
 
 export const updateVirtualInventory = createAsyncThunk(
@@ -201,10 +236,38 @@ export const disconnectInventory = createAsyncThunk(
 
 );
 
+// Delete single product from virtual inventory
+export const deleteVirtualInventoryProduct = createAsyncThunk(
+        "delete/virtual/inventory",
+        async (args: { skus: string[], account_key?: string }, thunkAPI: any) => {
+                const accountKey = args.account_key || getCookie("AccountGUID");
+                const payload = {
+                        skus: args.skus,
+                        account_key: accountKey
+                };
+                
+                const response = await fetch(BASE_URL + "delete-virtual-inventory", {
+                        method: "DELETE",
+                        headers: {
+                                "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(payload)
+                });
+                
+                if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.message || 'Failed to delete product from virtual inventory');
+                }
+                
+                const data = await response.json();
+                return { ...data, deletedSkus: args.skus };
+        },
+);
+
 export const InventorySlice = createSlice({
         name: "inventory",
         initialState,
-        reducers: {
+	reducers: {
                 inventorySelectionUpdate: (state, action: PayloadAction) => {
                         console.log('inventorySelectionUpdateAction', action)
                         if (!find(state.inventorySelection, { sku: action?.payload?.sku })) {
@@ -223,6 +286,10 @@ export const InventorySlice = createSlice({
                 },
                 resetStatus:(state) =>{
                         state.status = "idle"
+                },
+                resetDeleteStatus: (state) => {
+                        state.deleteStatus = "idle";
+                        state.deleteError = null;
                 },
         },
         extraReducers: (builder) => {
@@ -243,18 +310,30 @@ export const InventorySlice = createSlice({
                 builder.addCase(getInventoryImages.pending, (state, action) => {
                         state.inventoryImages = { loading: true }
                 });
-                builder.addCase(exportOrders.fulfilled, (state, action) => {
-                        state.status = "success"
-                        state.inventorySelection = action.payload
-                        state.exportResponse = action.payload
-                });
-                builder.addCase(exportOrders.pending, (state, action) => {
-                        state.status = "loading"
-                });
-                builder.addCase(exportOrders.rejected, (state, action) => {
-                        state.status = "error"
-                        state.exportResponse = action.payload
-                });
+			builder.addCase(exportOrders.fulfilled, (state, action) => {
+				state.status = "success"
+				state.inventorySelection = action.payload
+				state.exportResponse = action.payload
+			});
+			builder.addCase(exportOrders.pending, (state, action) => {
+				state.status = "loading"
+			});
+			builder.addCase(exportOrders.rejected, (state, action) => {
+				state.status = "error"
+				state.exportResponse = action.payload
+			});
+			// Shopify export handlers
+			builder.addCase(exportToShopify.fulfilled, (state, action) => {
+				state.status = "success"
+				state.exportResponse = action.payload
+			});
+			builder.addCase(exportToShopify.pending, (state, action) => {
+				state.status = "loading"
+			});
+			builder.addCase(exportToShopify.rejected, (state, action) => {
+				state.status = "error"
+				state.exportResponse = action.payload
+			});
                 builder.addCase(updateVirtualInventory.fulfilled, (state, action) => {
                         state.exportResponse = action.payload
                 });
@@ -268,6 +347,19 @@ export const InventorySlice = createSlice({
                         state.status = "error"
                         state.exportResponse = action.payload
                 });
+                // Delete virtual inventory product handlers
+                builder.addCase(deleteVirtualInventoryProduct.fulfilled, (state, action) => {
+                        state.deleteStatus = "success";
+                        state.deleteError = null;
+                });
+                builder.addCase(deleteVirtualInventoryProduct.pending, (state, action) => {
+                        state.deleteStatus = "loading";
+                        state.deleteError = null;
+                });
+                builder.addCase(deleteVirtualInventoryProduct.rejected, (state, action) => {
+                        state.deleteStatus = "error";
+                        state.deleteError = action.error.message || "Failed to delete product";
+                });
                         
         },
 
@@ -276,4 +368,4 @@ export const InventorySlice = createSlice({
 
 
 export default InventorySlice;
-export const { inventorySelectionUpdate, inventorySelectionClean, inventorySelectionDelete, updateFilterVirtualInventory, resetStatus,  } = InventorySlice.actions;
+export const { inventorySelectionUpdate, inventorySelectionClean, inventorySelectionDelete, updateFilterVirtualInventory, resetStatus, resetDeleteStatus } = InventorySlice.actions;

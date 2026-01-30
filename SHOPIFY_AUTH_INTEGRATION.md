@@ -29,7 +29,7 @@ Landing Page → User clicks Shopify → Redirects to Shopify OAuth
 
 The Shopify authentication now makes a real API call to:
 
-**Endpoint:** `https://ijbsrphg08.execute-api.us-east-1.amazonaws.com/Prod/api/shopify/callback`
+**Endpoint:** `https://dwe8rzhebf.execute-api.us-east-1.amazonaws.com/Prod/api/shopify/callback`
 
 **Request Format:**
 ```json
@@ -82,7 +82,7 @@ if (imgname === "Shopify") {
 
 ## Backend Requirements ✅ CONFIGURED
 
-**API Endpoint:** `https://ijbsrphg08.execute-api.us-east-1.amazonaws.com/Prod/api/shopify/callback`
+**API Endpoint:** `https://dwe8rzhebf.execute-api.us-east-1.amazonaws.com/Prod/api/shopify/callback`
 
 The backend should:
 

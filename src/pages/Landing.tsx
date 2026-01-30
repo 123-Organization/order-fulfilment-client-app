@@ -28,7 +28,7 @@ import { updateOpenSheet } from "../store/features/orderSlice";
 import { find } from "lodash";
 import SpreadSheet from "../components/SpreadSheet";
 // Set to true when Shopify integration is fully ready
-const SHOPIFY_ENABLED = false;
+const SHOPIFY_ENABLED = true;
 
 const images = [
   { name: "Squarespace", img: squarespace },

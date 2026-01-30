@@ -74,6 +74,7 @@ useEffect(() => {
         productCode: item.product_code,
         product_url_file: [item.thumbnail_url],
         product_url_thumbnail: [item.thumbnail_url],
+        product_guid :item.id,
         skuCode: "",
         pixel_width: 1200,
         pixel_height: 900,
@@ -125,7 +126,7 @@ useEffect(() => {
         <p
           className="text-sm font-mono  flex gap-1 "
           onClick={() => {
-            window.open(encodedURI, "_blank");
+            window.location.href = encodedURI;
           }}
         >
           Create New

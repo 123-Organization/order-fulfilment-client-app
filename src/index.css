@@ -32,9 +32,8 @@ code {
     
 }
 
-button, [type='button'], [type='reset'], [type='submit'] {
-  background-color: transparent;
-}
+/* Removed global button background reset - was conflicting with Tailwind bg-* classes */
+/* If you need to reset specific buttons, use a more specific selector */
 
 .isSelectedImg{
   background-color: lightgray;

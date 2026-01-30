@@ -77,7 +77,7 @@ const SelectShippingOption: React.FC<{
     () => shipping_option?.find((option) => option.order_po === poNumber),
     [shipping_option, poNumber]
   );
-  // console.log("shipping_details", shipping_details);
+  console.log("shipping_details", shipping_details);
   const [selectedOption, setSelectedOption] = useState<any>([]);
 
   // Clear local state when currentOption is null (after logout/purge)
@@ -86,7 +86,7 @@ const SelectShippingOption: React.FC<{
       setSelectedOption(null);
     }
   }, [currentOption]);
-  // console.log("selectedOption", selectedOption);
+  console.log("selectedOptsssssssssssssion", selectedOption);
   // console.log("pooooo", poNumber);
   // Set initial preferred option if available
 
@@ -96,6 +96,7 @@ const SelectShippingOption: React.FC<{
       let currentOrderOption = currentOption?.allOptions?.find(
         (opt: StoredOption) => opt.order_po === poNumber
       );
+      console.log("currentOrderOption", currentOrderOption);
 
       if (currentOrderOption?.selectedOption) {
         // If we have a previously selected option in the store, use that
@@ -120,8 +121,8 @@ const SelectShippingOption: React.FC<{
                     return currentOrderOption?.selectedOption?.preferred_option;
                   }
                 } else {
-                  return option.shipping_code == orderShippingCode
-                    ? option.shipping_code == orderShippingCode
+                  return option.shipping_code === orderShippingCode
+                    ? option.shipping_code === orderShippingCode
                     :  currentOrderOption?.selectedOption?.preferred_option
                 }
               } else {
@@ -133,6 +134,7 @@ const SelectShippingOption: React.FC<{
         const optionToSet = orderCodeToShippingOption
           ? orderCodeToShippingOption
           : currentOrderOption?.selectedOption;
+          console.log("optionToSet", optionToSet);
 
         setSelectedOption(optionToSet);
 
@@ -142,6 +144,7 @@ const SelectShippingOption: React.FC<{
         ) {
           // Only update the current order's option in the allOptions array
           const existingOptions = currentOption?.allOptions || [];
+          console.log("existingOptions", existingOptions);
           const updatedOptions = existingOptions.map((opt: StoredOption) => {
             if (opt.order_po === poNumber) {
               return {
@@ -166,6 +169,7 @@ const SelectShippingOption: React.FC<{
         const shippingOption = shipping_option?.find(
           (option: ShippingOption) => option.order_po == poNumber
         );
+        console.log("shippingOptioeeeeeeen", shippingOption);
         setSelectedOption(shippingOption);
         // console.log("secondeval");
 

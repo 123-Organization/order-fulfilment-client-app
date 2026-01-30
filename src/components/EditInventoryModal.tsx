@@ -110,7 +110,7 @@ const EditInventoryModal: React.FC<EditInventoryModalProps> = ({
     };
 
     try {
-      const response = await fetch('https://ijbsrphg08.execute-api.us-east-1.amazonaws.com/Prod/api/update-virtual-inventory', {
+      const response = await fetch('https://dwe8rzhebf.execute-api.us-east-1.amazonaws.com/Prod/api/update-virtual-inventory', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

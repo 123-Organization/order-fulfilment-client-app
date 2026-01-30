@@ -14,11 +14,29 @@ import {
   AddProductToOrder,
   fetchOrder,
   resetProductDataStatus,
+  fetchSingleOrderDetails,
+  updateOrderItemImage,
+  resetUpdateImageStatus,
 } from "../store/features/orderSlice";
 import { clearProductData, clearSelectedImage, setProductData, setSelectedImage } from "../store/features/productSlice";
 import { updateProductValidSKU } from "../store/features/orderSlice";
+import { notification } from "antd";
 
-export default function FileManagementIframe({ iframe, setIframe }) {
+interface SelectedProductForImageChange {
+  order_po: string;
+  orderFullFillmentId: number;
+  product_sku: string;
+}
+
+export default function FileManagementIframe({ 
+  iframe, 
+  setIframe, 
+  selectedProductForImageChange 
+}: { 
+  iframe: boolean; 
+  setIframe: (value: boolean) => void;
+  selectedProductForImageChange?: SelectedProductForImageChange | null;
+}) {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [iframeLink, setIframeLink] = useState("");
   const [logo, setLogo] = useState("");
@@ -45,6 +63,9 @@ export default function FileManagementIframe({ iframe, setIframe }) {
   const productDataStatus = useAppSelector(
     (state) => state.order.productDataStatus
   );
+  const updateImageStatus = useAppSelector(
+    (state) => state.order.updateImageStatus
+  );
 
   const iframee = document.getElementById("file-manager-iframe");
 
@@ -53,6 +74,7 @@ export default function FileManagementIframe({ iframe, setIframe }) {
     if (SelectedImage) {
       const data = {
         ...productData,
+        
         product_url_file: [SelectedImage],
         product_url_thumbnail: [SelectedImage],
       };
@@ -198,10 +220,14 @@ export default function FileManagementIframe({ iframe, setIframe }) {
     if (productData?.toReplace) {
       const data = {
         ...productData,
-        product_url_file: productData?.product_url_file,
-        product_url_thumbnail: productData?.product_url_file,
+        product_url_file: [productData?.product_url_file?.[0]?.public_preview_uri],
+        product_url_thumbnail: [productData?.product_url_file?.[0]?.public_thumbnail_uri],
+        account_key: companyinfo?.data?.account_key,
         };
       dispatch(updateProductValidSKU(data));
+      setTimeout(() => {
+        dispatch(fetchOrder(companyinfo?.data?.account_id));
+      }, 2000);
     } else {
       // Process images one by one with sequential delays
     // Process images one by one with sequential delays
@@ -214,9 +240,63 @@ export default function FileManagementIframe({ iframe, setIframe }) {
       dispatch(AddProductToOrder(data));
       setTimeout(() => {
         dispatch(fetchOrder(companyinfo?.data?.account_id));
-      }, 1000);
+      }, 2000);
     }
   };
+
+  // Handler for updating existing product image in EditOrder
+  const handleUpdateProductImage = () => {
+    if (!selectedProductForImageChange || !SelectedImage) {
+      notification.error({
+        message: "Error",
+        description: "Please select an image first.",
+      });
+      return;
+    }
+
+    const postData = {
+      order_po: selectedProductForImageChange.order_po,
+      orderFullFillmentId: selectedProductForImageChange.orderFullFillmentId,
+      product_sku: selectedProductForImageChange.product_sku,
+      product_image: {
+        pixel_width: 600,
+        pixel_height: 600,
+        product_url_file: SelectedImage?.public_preview_uri || SelectedImage?.private_hires_uri,
+        product_url_thumbnail: SelectedImage?.public_thumbnail_uri,
+      },
+      account_key: companyinfo?.data?.account_key,
+      accountId: companyinfo?.data?.account_id,
+    };
+
+    console.log("Updating product image with:", postData);
+    dispatch(updateOrderItemImage(postData));
+  };
+
+  // Effect to handle updateImageStatus changes
+  useEffect(() => {
+    if (updateImageStatus === "succeeded") {
+      notification.success({
+        message: "Success",
+        description: "Product image updated successfully!",
+      });
+      setIframe(false);
+      dispatch(clearSelectedImage());
+      dispatch(resetUpdateImageStatus());
+      // Refresh the order details
+      if (selectedProductForImageChange) {
+        dispatch(fetchSingleOrderDetails({
+          accountId: companyinfo?.data?.account_id,
+          orderFullFillmentId: selectedProductForImageChange.orderFullFillmentId,
+        }));
+      }
+    } else if (updateImageStatus === "failed") {
+      notification.error({
+        message: "Error",
+        description: "Failed to update product image. Please try again.",
+      });
+      dispatch(resetUpdateImageStatus());
+    }
+  }, [updateImageStatus]);
   useEffect(() => {
     if (productDataStatus === "succeeded") {
       dispatch(updateIframeState(false));
@@ -334,7 +414,25 @@ export default function FileManagementIframe({ iframe, setIframe }) {
               }
             }}
           />
-          {productData?.product_url_file?.[0]?.public_preview_uri?.length > 0  &&
+          {/* Update Image Button - shown when changing image for existing product */}
+          {selectedProductForImageChange && SelectedImage?.public_thumbnail_uri && (
+            <button
+              style={{
+                position: "absolute",
+                border: "none",
+                top: buttonPosition.top,
+                right: buttonPosition.right,
+                zIndex: 1000,
+              }}
+              className={`${styles.btngrad}`}
+              onClick={handleUpdateProductImage}
+              disabled={updateImageStatus === "loading"}
+            >
+              {updateImageStatus === "loading" ? "Updating..." : "Update Image"}
+            </button>
+          )}
+          {/* Add Product Button - shown when adding new product */}
+          {!selectedProductForImageChange && productData?.product_url_file?.[0]?.public_preview_uri?.length > 0  &&
             (location.pathname.includes("/editorder") ||
               location.pathname.includes("/importlist")) && (
               <button

@@ -1,21 +1,26 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { Empty, Skeleton, Spin, notification } from "antd";
+import { Empty, Skeleton, Spin, notification, Modal, Button } from "antd";
+import { FullscreenOutlined, CompressOutlined } from "@ant-design/icons";
 import FilterSortModal from "../components/FilterSortModal";
 import { useAppDispatch, useAppSelector } from "../store";
 import { find } from "lodash";
 import wordpress from "../assets/images/wordpress-svgrepo-com (1).svg";
+import shopifyIcon from "../assets/images/store-shopify.svg";
 import {
   listVirtualInventory,
   inventorySelectionUpdate,
   inventorySelectionDelete,
   inventorySelectionClean,
   updateVirtualInventory,
+  deleteVirtualInventoryProduct,
+  resetDeleteStatus,
 } from "../store/features/InventorySlice";
 import HTMLReactParser from "html-react-parser";
 import { useLocation } from "react-router-dom";
 import ExportModal from "../components/ExportModal";
 import EditInventoryModal from "../components/EditInventoryModal";
-import { AddProductToOrder } from "../store/features/orderSlice";
+import { AddProductToOrder, updateValidSKU } from "../store/features/orderSlice";
+import { useCookies } from "react-cookie";
 
 
 /**
@@ -64,6 +69,22 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   
+  // Image GUID grouping filter
+  const [imageGuidFilter, setImageGuidFilter] = useState<string | null>(null);
+  const [imageGuidFilterName, setImageGuidFilterName] = useState<string | null>(null);
+  
+  // Delete confirmation modal state
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  
+  // File Manager Iframe for filtering by image
+  const [isImageFilterIframeOpen, setIsImageFilterIframeOpen] = useState(false);
+  const [isIframeMaximized, setIsIframeMaximized] = useState(false);
+  const [cookies] = useCookies(["Session", "AccountGUID"]);
+  const iframeLink = "https://prod1-filemanger-app.finerworks.com/#/thumbnail";
+  const validSKUs = useAppSelector((state) => state.order.validSKU);
+  
   // Get raw response from Redux
   const listVirtualInventoryResponse = useAppSelector(
     (state) => state.Inventory.listVirtualInventory
@@ -79,6 +100,12 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
   );
   const inventorySelection = useAppSelector(
     (state) => state.Inventory.inventorySelection
+  );
+  const deleteStatus = useAppSelector(
+    (state) => state.Inventory.deleteStatus
+  );
+  const deleteError = useAppSelector(
+    (state) => state.Inventory.deleteError
   );
   const dispatch = useAppDispatch();
   const [api, contextHolder] = notification.useNotification();
@@ -173,6 +200,7 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
 
   const AddProduct = () => {
     dispatch(AddProductToOrder(productData));
+    dispatch(updateValidSKU([...validSKUs, productData.skuCode]));
     dispatch(inventorySelectionClean());
     onClose();
     // Call the callback to refresh the parent's order list
@@ -267,6 +295,64 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
     listInventory(1, true);
   };
 
+  // Handle delete product button click - show confirmation modal
+  const handleDeleteProduct = (product: any, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent selecting the item when clicking delete
+    setProductToDelete(product);
+    setDeleteModalVisible(true);
+  };
+
+  // Confirm delete product
+  const confirmDeleteProduct = async () => {
+    if (!productToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      await dispatch(deleteVirtualInventoryProduct({ 
+        skus: [productToDelete.sku] 
+      })).unwrap();
+      
+      // Success - remove from local state and show notification
+      setAllInventoryData((prevData) => 
+        prevData.filter((item: any) => item.sku !== productToDelete.sku)
+      );
+      
+      // Also remove from selection if it was selected
+      if (find(inventorySelection, { sku: productToDelete.sku })) {
+        dispatch(inventorySelectionDelete(productToDelete));
+      }
+      
+      notification.success({
+        message: 'Product Deleted',
+        description: `"${productToDelete.name || productToDelete.sku}" has been removed from your virtual inventory.`,
+        placement: 'topRight',
+        duration: 4,
+      });
+      
+      // Update total count
+      setTotalCount(prev => Math.max(0, prev - 1));
+      
+    } catch (error: any) {
+      notification.error({
+        message: 'Delete Failed',
+        description: error.message || 'Failed to delete the product. Please try again.',
+        placement: 'topRight',
+        duration: 4,
+      });
+    } finally {
+      setIsDeleting(false);
+      setDeleteModalVisible(false);
+      setProductToDelete(null);
+      dispatch(resetDeleteStatus());
+    }
+  };
+
+  // Cancel delete
+  const cancelDeleteProduct = () => {
+    setDeleteModalVisible(false);
+    setProductToDelete(null);
+  };
+
   // Scroll detection for smart search bar
   useEffect(() => {
     let lastScrollY = 0;
@@ -325,6 +411,122 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
   // Handle closing expanded search
   const handleCloseSearch = () => {
     setIsSearchExpanded(false);
+  };
+
+  // Filter products by image_guid (show all variants of an image)
+  const handleShowVariants = (product: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (product.image_guid) {
+      setImageGuidFilter(product.image_guid);
+      setImageGuidFilterName(product.name || product.sku);
+      notification.info({
+        message: 'Showing Image Variants',
+        description: `Filtering to show all products using the same image`,
+        placement: 'topRight',
+        duration: 3,
+      });
+    } else {
+      notification.warning({
+        message: 'No Image GUID',
+        description: 'This product does not have an image GUID to filter by',
+        placement: 'topRight',
+        duration: 3,
+      });
+    }
+  };
+
+  // Clear image_guid filter
+  const handleClearImageFilter = () => {
+    setImageGuidFilter(null);
+    setImageGuidFilterName(null);
+  };
+
+  // Get variant count for a product
+  const getVariantCount = (imageGuid: string | null): number => {
+    if (!imageGuid) return 0;
+    return allInventoryData.filter((item: any) => item.image_guid === imageGuid).length;
+  };
+
+  // Filtered inventory data based on image_guid
+  const filteredInventoryData = imageGuidFilter
+    ? allInventoryData.filter((item: any) => item.image_guid === imageGuidFilter)
+    : allInventoryData;
+
+  // Handle iframe message for filtering by image
+  const handleIframeMessage = useCallback((event: MessageEvent) => {
+    try {
+      const data = event.data;
+      console.log("📨 Iframe message received:", data);
+      
+      // Check if this is a file selection event
+      if (data?.type === "REFERRER_UPDATE" && data?.data?.hasSelected && data?.data?.fileSelected?.length > 0) {
+        const selectedFile = data.data.fileSelected[0];
+        const imageGuid = selectedFile.guid;
+        const imageName = selectedFile.title || selectedFile.file_name || "Selected Image";
+        
+        console.log("🖼️ Selected image GUID:", imageGuid, "Name:", imageName);
+        
+        if (imageGuid) {
+          // Set the filter
+          setImageGuidFilter(imageGuid);
+          setImageGuidFilterName(imageName);
+          
+          // Close the iframe
+          setIsImageFilterIframeOpen(false);
+          
+          // Show notification
+          notification.success({
+            message: 'Image Filter Applied',
+            description: `Filtering products by image: ${imageName}`,
+            placement: 'topRight',
+            duration: 4,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error parsing iframe message:", error);
+    }
+  }, []);
+
+  // Setup and cleanup iframe message listener
+  useEffect(() => {
+    if (isImageFilterIframeOpen) {
+      window.addEventListener("message", handleIframeMessage);
+      return () => {
+        window.removeEventListener("message", handleIframeMessage);
+      };
+    }
+  }, [isImageFilterIframeOpen, handleIframeMessage]);
+
+  // Handle iframe load to send settings
+  const handleIframeLoad = () => {
+    const settings = {
+      settings: {
+        guid: null,
+        session_id: cookies.Session,
+        account_key: cookies.AccountGUID,
+        multiselect: false,
+        libraries: ["inventory", "temporary"],
+        domain: "finerworks.com",
+        terms_of_service_url: "/terms.aspx",
+        button_text: "Select Image to Filter",
+        account_id: null,
+      },
+    };
+    const iframeElement = document.getElementById("image-filter-iframe") as HTMLIFrameElement | null;
+    if (iframeElement?.contentWindow) {
+      iframeElement.contentWindow.postMessage(settings, "*");
+    }
+  };
+
+  // Toggle iframe maximize
+  const toggleIframeMaximize = () => {
+    setIsIframeMaximized(!isIframeMaximized);
+  };
+
+  // Open image filter iframe
+  const handleOpenImageFilter = () => {
+    setIsImageFilterIframeOpen(true);
   };
 
   // Check for recently edited product on mount AND when page becomes visible
@@ -552,21 +754,35 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
             {/* Collapsed State - Floating Search Icon */}
             {isSearchCollapsed && !isSearchExpanded && (
               <div className="flex items-center justify-between gap-3">
-                <button
-                  onClick={handleSearchIconClick}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-full hover:from-blue-700 hover:to-blue-800 transition-all duration-300 shadow-lg hover:shadow-xl group"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleSearchIconClick}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-full hover:from-blue-700 hover:to-blue-800 transition-all duration-300 shadow-lg hover:shadow-xl group"
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  <span className="text-sm font-semibold">Search Products</span>
-                </button>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <span className="text-sm font-semibold">Search Products</span>
+                  </button>
+                  
+                  {/* Filter by Image Button - Collapsed */}
+                  <button
+                    onClick={handleOpenImageFilter}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-full hover:from-indigo-600 hover:to-purple-600 transition-all duration-300 shadow-lg hover:shadow-xl"
+                    title="Filter by selecting an image"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span className="text-sm font-semibold hidden sm:inline">Filter by Image</span>
+                  </button>
+                </div>
 
                 <div className="flex items-center gap-3">
                   {!!inventorySelection.length && (
@@ -723,12 +939,19 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
                   </div>
 
                   {/* Total Count Display */}
-                  <div className="flex items-center gap-2 bg-gradient-to-r from-blue-50 to-purple-50 px-4 py-2 rounded-lg border border-blue-200">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border ${
+                    imageGuidFilter 
+                      ? 'bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200' 
+                      : 'bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200'
+                  }`}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${imageGuidFilter ? 'text-purple-600' : 'text-blue-600'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                     </svg>
                     <span className="text-sm font-semibold text-gray-700">
-                      {allInventoryData.length} of {totalCount} items
+                      {imageGuidFilter 
+                        ? `${filteredInventoryData.length} variant${filteredInventoryData.length !== 1 ? 's' : ''}`
+                        : `${allInventoryData.length} of ${totalCount} items`
+                      }
                     </span>
                   </div>
 
@@ -741,6 +964,17 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                     Search
+                  </button>
+
+                  {/* Filter by Image Button */}
+                  <button
+                    onClick={handleOpenImageFilter}
+                    className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-semibold rounded-lg hover:from-indigo-600 hover:to-purple-600 transition-all duration-200 hover:shadow-md flex items-center gap-2"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Filter by Image
                   </button>
 
                   {/* Advanced Filters Button */}
@@ -796,6 +1030,54 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
       {/* Content Area */}
       <div className={`flex flex-col gap-4 p-8 max-md:pt-20 max-w-7xl mx-auto w-full ${location.pathname === "/virtualinventory" ? 'ml-20' : ''}`}>
         {contextHolder}
+        
+        {/* Image GUID Filter Banner */}
+        {imageGuidFilter && (
+          <div className={`${
+            filteredInventoryData.length > 0 
+              ? 'bg-gradient-to-r from-purple-500 via-purple-600 to-indigo-600' 
+              : 'bg-gradient-to-r from-amber-500 via-orange-500 to-red-500'
+          } text-white rounded-xl p-4 shadow-lg flex items-center justify-between animate-slideDown`}>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-bold text-lg">
+                  {filteredInventoryData.length > 0 ? 'Viewing Image Variants' : 'No Products Found'}
+                </p>
+                <p className="text-sm opacity-90">
+                  {filteredInventoryData.length > 0 ? (
+                    <>
+                      Showing <span className="font-semibold">{filteredInventoryData.length}</span> products that share the same image
+                      {imageGuidFilterName && (
+                        <span className="opacity-75"> • Based on: {imageGuidFilterName.substring(0, 40)}{imageGuidFilterName.length > 40 ? '...' : ''}</span>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      No inventory products use this image yet
+                      {imageGuidFilterName && (
+                        <span className="opacity-75"> • Image: {imageGuidFilterName.substring(0, 40)}{imageGuidFilterName.length > 40 ? '...' : ''}</span>
+                      )}
+                    </>
+                  )}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleClearImageFilter}
+              className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-all duration-200 font-semibold backdrop-blur-sm"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Clear Filter
+            </button>
+          </div>
+        )}
         {listVirtualInventoryLoader && currentPage === 1 ? (
           <div className="flex flex-col gap-4">
             <Skeleton.Button active block style={{ height: '140px' }} />
@@ -804,9 +1086,9 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
             <Skeleton.Button active block style={{ height: '140px' }} />
             <Skeleton.Button active block style={{ height: '140px' }} />
           </div>
-        ) : allInventoryData && allInventoryData.length > 0 ? (
+        ) : filteredInventoryData && filteredInventoryData.length > 0 ? (
           <>
-            {allInventoryData.map((image: any, i: number) => {
+            {filteredInventoryData.map((image: any, i: number) => {
               const isRecentlyEdited = recentlyEditedSku === image.sku;
               const isSelected = image?.isSelected || (inventorySelection?.length && find(inventorySelection, { sku: image?.sku }));
               
@@ -901,6 +1183,15 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
                             </button>
                           </div>
                         )}
+                        {/* Image GUID indicator */}
+                        {image.image_guid && getVariantCount(image.image_guid) > 1 && (
+                          <div className="flex items-center gap-1.5 text-xs text-indigo-600 font-medium mt-1 bg-indigo-50 px-2 py-1 rounded-md">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <span>{getVariantCount(image.image_guid)} variants share this image</span>
+                          </div>
+                        )}
                         {/* Display description_long as priority, then labels with accordion */}
                         <div className="mt-2">
                           {/* Priority: description_long */}
@@ -964,6 +1255,34 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
                       <div className="flex flex-col gap-2 items-end flex-shrink-0">
                         {/* Action Buttons Row */}
                         <div className="flex gap-2">
+                          {/* Show Variants Button */}
+                          {image.image_guid && getVariantCount(image.image_guid) > 1 && !imageGuidFilter && (
+                            <button
+                              onClick={(e) => handleShowVariants(image, e)}
+                              className="p-2 bg-gradient-to-r from-indigo-500 to-purple-500 border border-indigo-600 rounded-lg hover:from-indigo-600 hover:to-purple-600 transition-all duration-200 group shadow-sm hover:shadow-md relative"
+                              title={`Show all ${getVariantCount(image.image_guid)} variants of this image`}
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-5 w-5 text-white"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"
+                                />
+                              </svg>
+                              {/* Variant count badge */}
+                              <span className="absolute -top-1.5 -right-1.5 bg-white text-indigo-600 text-xs font-bold px-1.5 py-0.5 rounded-full shadow-md border border-indigo-200">
+                                {getVariantCount(image.image_guid)}
+                              </span>
+                            </button>
+                          )}
+                          
                           {/* Edit Button */}
                           <button
                             onClick={(e) => handleEditProduct(image, e)}
@@ -1007,6 +1326,28 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
                               />
                             </svg>
                           </button>
+                          
+                          {/* Delete Button */}
+                          <button
+                            onClick={(e) => handleDeleteProduct(image, e)}
+                            className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-red-50 hover:border-red-500 transition-all duration-200 group shadow-sm hover:shadow-md"
+                            title="Delete Product"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-5 w-5 text-gray-600 group-hover:text-red-600"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              />
+                            </svg>
+                          </button>
                         </div>
                         
                         {/* Recently Edited Badge */}
@@ -1029,6 +1370,17 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
                             />
                           </div>
                         )}
+                        {image?.third_party_integrations?.shopify_graphql_product_id && 
+                         image?.third_party_integrations?.shopify_graphql_product_id !== 0 && (
+                          <div className="bg-white border border-gray-200 rounded-full p-2 shadow-sm">
+                            <img
+                              src={shopifyIcon}
+                              alt="Shopify"
+                              className="w-6 h-6"
+                              title="Connected to Shopify"
+                            />
+                          </div>
+                        )}
                         {image?.parent_sku && (
                           <div className="bg-purple-100 text-purple-700 rounded-full px-3 py-1 shadow-sm text-xs font-semibold" title={`Child of ${image.parent_sku}`}>
                             Child
@@ -1047,8 +1399,8 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
             );
             })}
             
-            {/* Infinite scroll loading indicator */}
-            {hasMore && (
+            {/* Infinite scroll loading indicator - only show when not filtering by image_guid */}
+            {hasMore && !imageGuidFilter && (
               <div ref={observerTarget} className="flex justify-center items-center py-8">
                 {isLoadingMore && (
                   <div className="flex flex-col items-center gap-3">
@@ -1060,13 +1412,18 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
             )}
             
             {/* End of list indicator */}
-            {!hasMore && allInventoryData.length > 0 && (
+            {((!hasMore && allInventoryData.length > 0) || imageGuidFilter) && (
               <div className="flex justify-center items-center py-8">
                 <div className="flex items-center gap-2 text-gray-500 text-sm">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <span className="font-medium">You've reached the end of the list</span>
+                  <span className="font-medium">
+                    {imageGuidFilter 
+                      ? `Showing ${filteredInventoryData.length} variant${filteredInventoryData.length !== 1 ? 's' : ''} of this image`
+                      : "You've reached the end of the list"
+                    }
+                  </span>
                 </div>
               </div>
             )}
@@ -1079,7 +1436,7 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
           visible={openExport}
           onClose={() => setOpenExport(false)}
           inventorySelection={inventorySelection}
-          listInventory={listInventory}
+          listInventory={{ data: allInventoryData }}
         />
         <EditInventoryModal
           visible={openEditModal}
@@ -1088,6 +1445,155 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
           onSave={handleSaveProduct}
         />
       </div>
+
+      {/* Image Filter Iframe Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <span className="text-lg font-semibold">Select Image to Filter Products</span>
+          </div>
+        }
+        open={isImageFilterIframeOpen}
+        onCancel={() => setIsImageFilterIframeOpen(false)}
+        width={isIframeMaximized ? "100vw" : "85%"}
+        style={{
+          top: isIframeMaximized ? 0 : 30,
+          left: 0,
+          height: isIframeMaximized ? "100vh" : "auto",
+          maxWidth: "100vw",
+        }}
+        bodyStyle={{
+          padding: 0,
+          height: isIframeMaximized ? "calc(100vh - 55px)" : "600px",
+        }}
+        footer={
+          <div className="flex items-center justify-between px-2">
+            <p className="text-sm text-gray-500">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Select an image to filter products that use this image
+            </p>
+            <Button onClick={() => setIsImageFilterIframeOpen(false)}>
+              Cancel
+            </Button>
+          </div>
+        }
+        className="image-filter-modal"
+        zIndex={1100}
+      >
+        <div style={{ position: "relative", width: "100%", height: "100%" }}>
+          <iframe
+            src={iframeLink}
+            width="100%"
+            height="100%"
+            id="image-filter-iframe"
+            style={{ border: "none" }}
+            title="Select Image to Filter"
+            onLoad={handleIframeLoad}
+          />
+          <Button
+            type="default"
+            style={{
+              position: "absolute",
+              border: "none",
+              top: -45,
+              right: 50,
+              zIndex: 1000,
+            }}
+            icon={isIframeMaximized ? <CompressOutlined /> : <FullscreenOutlined className="text-gray-600" />}
+            onClick={toggleIframeMaximize}
+          />
+        </div>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-red-100 rounded-full">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <span className="text-lg font-semibold text-gray-800">Delete Product</span>
+          </div>
+        }
+        open={deleteModalVisible}
+        onCancel={cancelDeleteProduct}
+        footer={null}
+        centered
+        width={480}
+        className="delete-confirmation-modal"
+      >
+        <div className="py-4">
+          <p className="text-gray-600 mb-4">
+            Are you sure you want to delete this product from your virtual inventory?
+          </p>
+          
+          {productToDelete && (
+            <div className="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-200">
+              <div className="flex items-start gap-4">
+                {productToDelete.image_url_1 && (
+                  <img
+                    src={productToDelete.image_url_1}
+                    alt={productToDelete.name}
+                    className="w-16 h-16 object-contain rounded-lg bg-white border border-gray-200"
+                  />
+                )}
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-semibold text-gray-800 truncate" title={productToDelete.name}>
+                    {productToDelete.name || 'Unnamed Product'}
+                  </h4>
+                  <p className="text-sm text-gray-500 mt-1">
+                    SKU: <span className="font-medium text-gray-700">{productToDelete.sku}</span>
+                  </p>
+                  {productToDelete.asking_price && (
+                    <p className="text-sm text-green-600 font-semibold mt-1">
+                      ${parseFloat(productToDelete.asking_price).toFixed(2)}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6">
+            <div className="flex items-start gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <p className="text-sm text-amber-800">
+                <strong>Warning:</strong> This action cannot be undone. The product will be permanently removed from your virtual inventory.
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex justify-end gap-3">
+            <Button 
+              onClick={cancelDeleteProduct}
+              disabled={isDeleting}
+              className="px-4"
+            >
+              Cancel
+            </Button>
+            <Button 
+              type="primary" 
+              danger
+              onClick={confirmDeleteProduct}
+              loading={isDeleting}
+              className="px-4"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete Product'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
