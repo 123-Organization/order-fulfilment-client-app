@@ -1349,59 +1349,6 @@ console.log("checkedOrders", checkedOrders);
                                         </div>
                                       )) || <Skeleton active />}
                                     </div>
-
-                                    {/* Info button */}
-                                    {productData[orderItem?.product_sku]?.description_long && (
-                                      <Tooltip
-                                        title={
-                                          <div>
-                                            <div className="text-right mb-2">
-                                              <span
-                                                className="cursor-pointer text-blue-600 hover:text-blue-800 flex items-center justify-end"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  showFullDescription(
-                                                    "Product Details",
-                                                    productData[orderItem?.product_sku]?.description_long || "",
-                                                    orderItem?.product_sku
-                                                  );
-                                                }}
-                                              >
-                                                <FullscreenOutlined className="mr-1" /> View full
-                                              </span>
-                                            </div>
-                                            <div>{parse(productData[orderItem?.product_sku]?.description_long || "")}</div>
-                                          </div>
-                                        }
-                                        color="#fff"
-                                        overlayInnerStyle={{
-                                          color: "#333",
-                                          maxWidth: "400px",
-                                          maxHeight: "300px",
-                                          overflow: "auto",
-                                          padding: "12px",
-                                          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                                          borderRadius: "8px",
-                                        }}
-                                        placement="left"
-                                        overlayClassName="description-tooltip"
-                                        mouseEnterDelay={0.3}
-                                      >
-                                        <div
-                                          className={`flex-shrink-0 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center cursor-help text-white hover:bg-blue-600 transition-colors ${style["info-button-pulse"]}`}
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            showFullDescription(
-                                              "Product Details",
-                                              productData[orderItem?.product_sku]?.description_long || "",
-                                              orderItem?.product_sku
-                                            );
-                                          }}
-                                        >
-                                          <InfoCircleOutlined style={{ fontSize: "11px" }} />
-                                        </div>
-                                      </Tooltip>
-                                    )}
                                   </div>
                                 </div>
                                 
