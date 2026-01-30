@@ -1161,7 +1161,7 @@ console.log("checkedOrders", checkedOrders);
                       </label>
                     </li>
 
-                    <li className="h-400px">
+                    <li className="min-h-[200px]">
                       <input
                         type="checkbox"
                         id="flowbite-option"
@@ -1304,17 +1304,22 @@ console.log("checkedOrders", checkedOrders);
                                               const typeLabel = labels.find((label: any) => label.key?.toLowerCase() === "type");
                                               const otherLabels = labels.filter((label: any) => label.key?.toLowerCase() !== "type");
                                               
+                                              // Use a unique key combining order and product info
+                                              const expandKey = `${order?.order_po}-${orderItem?.product_sku || orderItem?.product_guid}`;
+                                              const isExpanded = expandedLabels.has(expandKey);
+                                              const showMoreButton = otherLabels.length > 4;
+                                              
                                               return (
-                                                <>
+                                                < >
                                                   {/* Type label as header */}
                                                   {typeLabel && (
                                                     <div className="text-[13px] font-semibold text-gray-800 mb-1.5 pb-1 border-b border-gray-100">
-                                                      {typeLabel.value}
+                                                      <span className="text-blue-600 font-medium">type:</span> {typeLabel.value}
                                                     </div>
                                                   )}
                                                   {/* Remaining labels */}
-                                                  <div className={`space-y-1 overflow-hidden transition-all duration-300 ${
-                                                    expandedLabels.has(orderItem?.product_sku) ? '' : 'max-h-[90px]'
+                                                  <div className={`space-y-1 transition-all duration-300 ${
+                                                    isExpanded ? 'max-h-[500px]' : 'max-h-[300px] overflow-hidden'
                                                   }`}>
                                                     {otherLabels.map((label: any, idx: number) => (
                                                       <div key={idx} className="text-[12px] text-gray-700 leading-tight">
@@ -1322,13 +1327,13 @@ console.log("checkedOrders", checkedOrders);
                                                       </div>
                                                     ))}
                                                   </div>
-                                                  {labels.length > 4 && (
+                                                  {showMoreButton && (
                                                     <button
-                                                      onClick={(e) => toggleLabels(orderItem?.product_sku, e)}
+                                                      onClick={(e) => toggleLabels(expandKey, e)}
                                                       className="text-[11px] text-blue-600 hover:text-blue-800 font-medium mt-1 inline-flex items-center gap-0.5"
                                                     >
-                                                      {expandedLabels.has(orderItem?.product_sku) ? 'Less' : 'More'}
-                                                      <svg className={`w-3 h-3 transition-transform ${expandedLabels.has(orderItem?.product_sku) ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                      {isExpanded ? 'Less' : 'More'}
+                                                      <svg className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                                       </svg>
                                                     </button>
