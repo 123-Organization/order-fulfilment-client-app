@@ -215,14 +215,36 @@ const ExportModal: React.FC<ExportModalProps> = ({
     console.log("Variant selections confirmed:", selections);
     setVariantModalVisible(false);
     
-    // For now, just proceed with the export using all selected products
-    // Later, you can implement the API call with primary/variant information
+    // Format products with primaryItem flag for the API
+    // Each group has a primary product and its variants
+    const formattedProductsList: any[] = [];
+    
+    selections.forEach((group) => {
+      // Add primary product with primaryItem: true
+      if (group.primary) {
+        formattedProductsList.push({
+          ...group.primary,
+          primaryItem: true
+        });
+      }
+      
+      // Add variants without primaryItem flag (or with primaryItem: false)
+      group.variants.forEach((variant) => {
+        formattedProductsList.push({
+          ...variant,
+          primaryItem: false
+        });
+      });
+    });
+    
+    console.log("Formatted products list for export:", formattedProductsList);
+    
     if (pendingExportPlatform === "WooCommerce") {
-      await dispatch(exportOrders({ data: inventorySelection, domainName: wordpressConnectionId }));
+      await dispatch(exportOrders({ data: formattedProductsList, domainName: wordpressConnectionId }));
       dispatch(resetStatus());
     } else if (pendingExportPlatform === "Shopify" && shopifyConnectionData) {
       await dispatch(exportToShopify({ 
-        productsList: inventorySelection, 
+        productsList: formattedProductsList, 
         storeName: shopifyConnectionData.shop,
         accessToken: shopifyConnectionData.access_token,
         accountKey: accountKey
@@ -379,7 +401,6 @@ const ExportModal: React.FC<ExportModalProps> = ({
       onClose();
       dispatch(inventorySelectionClean());
       setSelected(null);
-      listInventory()
     } else if (exportStatus === "error") {
       notificationApi.error({
         message: "Products Export Failed",

@@ -918,23 +918,9 @@ const Landing: React.FC = (): JSX.Element => {
           </Tag>
         ) : null}
         
-        {/* Shopify Status - Only show when Shopify is enabled */}
-        {SHOPIFY_ENABLED && image.name === "Shopify" && shopifyConnectionStatus === 'verifying' ? (
-          <Tag className="absolute top-0 right-4 z-10 bg-blue-500 text-white animate-pulse shadow-lg">
-            Verifying...
-          </Tag>
-        ) : SHOPIFY_ENABLED && image.name === "Shopify" && shopifyConnectionStatus === 'connected' ? (
-          <Tag className="absolute top-0 right-4 z-10 shadow-lg" color="#52c41a">
-            Connected
-          </Tag>
-        ) : SHOPIFY_ENABLED && image.name === "Shopify" && shopifyConnectionStatus === 'disconnected' ? (
-          <Tag className="absolute top-0 right-4 z-10 bg-red-500 text-white shadow-lg">
-            Disconnected
-          </Tag>
-        ) : null}
         <img
           className={`block h-[100px] w-[100px] border-2 cursor-pointer rounded-lg object-cover object-center ${
-            image.name === "WooCommerce" || image.name === "Excel" || (image.name === "Shopify" && SHOPIFY_ENABLED)
+            image.name === "WooCommerce" || image.name === "Excel"
               ? "grayscale-0"
               : "grayscale"
           }`}
