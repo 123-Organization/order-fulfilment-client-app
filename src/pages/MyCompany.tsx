@@ -107,9 +107,13 @@ const MyCompany: React.FC = () => {
     let updatedValues = { ...companyAddress, ...values };
     // updatedValues.country_code = countryCode;
     if (countryCode === "us" && updatedValues.state_code) {
-      updatedValues.state_code = convertUsStateAbbrAndName(
-        updatedValues?.state_code
-      );
+      // Only convert if it's NOT already an abbreviation (2 characters)
+      // This ensures we always send the state code, not the full name
+      if (updatedValues.state_code.length !== 2) {
+        updatedValues.state_code = convertUsStateAbbrAndName(
+          updatedValues?.state_code
+        );
+      }
     }
     if (countryCode !== "us" && updatedValues.state_code) {
       updatedValues.province = updatedValues?.state_code;
@@ -426,9 +430,9 @@ const MyCompany: React.FC = () => {
         rules={[
           { required: true, message: "Please enter your phone number!" },
           {
-            pattern: new RegExp(/^[0-9]{10,14}$/),
+            pattern: new RegExp(/^[\d\s\-\(\)]{10,20}$/),
             message:
-              "Please enter a valid phone number with at least 10 digits!",
+              "Please enter a valid phone number (digits, spaces, dashes, and parentheses allowed)!",
           },
         ]}
         name="phone"

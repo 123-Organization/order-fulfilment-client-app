@@ -39,7 +39,7 @@ export default function FileManagementIframe({
 }) {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [iframeLink, setIframeLink] = useState("");
-  const [logo, setLogo] = useState("");
+  const [logo, setLogo] = useState<{ public_thumbnail_uri?: string; public_preview_uri?: string } | null>(null);
   const [logoUpdate, setLogoUpdate] = useState(false);
   const iframeContainerRef = useRef(null);
   const dispatch = useAppDispatch();
@@ -307,14 +307,14 @@ export default function FileManagementIframe({
   const handleUpdateLogo = () => {
     dispatch(
       updateCompanyInfo({
-        logo_url: logo,
+        logo_url: logo?.public_preview_uri || logo?.public_thumbnail_uri,
       })
     );
 
     // Set logoUpdate to true to trigger refresh
     setLogoUpdate(true);
     dispatch(updateIframeState(false));
-    setLogo("");
+    setLogo(null);
   };
 
   useEffect(() => {
@@ -449,7 +449,7 @@ export default function FileManagementIframe({
                 Add product
               </button>
             )}
-          {location.pathname === "/mycompany" && logo?.length > 0 && (
+          {location.pathname === "/mycompany" && logo && (logo?.public_thumbnail_uri || logo?.public_preview_uri) && (
             <button
               style={{
                 position: "absolute",
