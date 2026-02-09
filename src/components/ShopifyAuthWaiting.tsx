@@ -94,9 +94,10 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
             // Redirect back to Shopify store admin with account_key in URL
             const shopifyRedirectUrl = `https://shopify.finerworks.com/auth/finerworks-callback?shop=finerworks-dev-3.myshopify.com&account_key=${accountKey}`;
             
-            console.log('🔄 Redirecting to Shopify store:', shopifyRedirectUrl);
+            console.log(' Redirecting to Shopify store:', shopifyRedirectUrl);
             
             // Redirect to Shopify store
+            window.location.href = ""
             window.location.href = shopifyRedirectUrl;
           }, 2000);
         } else {
