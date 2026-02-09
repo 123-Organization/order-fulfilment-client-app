@@ -40,6 +40,14 @@ type bottomIconProps = {
     | null;
 };
 
+// Helper function to validate phone numbers (allows formatted input like "(585) 729-4716")
+const isValidPhone = (phone: string | number | undefined): boolean => {
+  if (!phone) return false;
+  // Remove all non-numeric characters and check if there are at least 10 digits
+  const digitsOnly = String(phone).replace(/\D/g, '');
+  return digitsOnly.length >= 10 && digitsOnly.length <= 15;
+};
+
 const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const orders = useAppSelector((state) => state.order.orders);
   const product_details = useAppSelector(
@@ -138,7 +146,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
         if (
           myCompanyInfoFilled?.business_info &&
           !isNaN(myCompanyInfoFilled?.business_info?.zip_postal_code) &&
-          !isNaN(myCompanyInfoFilled?.business_info?.phone)
+          isValidPhone(myCompanyInfoFilled?.business_info?.phone)
         ) {
           setNextSpinning(true);
           await dispatch(updateCompanyInfo(myCompanyInfoFilled));
@@ -358,7 +366,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
         if (
           myBillingInfoFilled.billing_info &&
           !isNaN(myBillingInfoFilled.billing_info.zip_postal_code) &&
-          !isNaN(myBillingInfoFilled.billing_info.phone)
+          isValidPhone(myBillingInfoFilled.billing_info.phone)
         ) {
           setNextSpinning(true);
           await dispatch(updateCompanyInfo(myBillingInfoFilled));
