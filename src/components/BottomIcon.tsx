@@ -45,6 +45,7 @@ const isValidPhone = (phone: string | number | undefined): boolean => {
   if (!phone) return false;
   // Remove all non-numeric characters and check if there are at least 10 digits
   const digitsOnly = String(phone).replace(/\D/g, '');
+  console.log(    "digitsOnly",digitsOnly)
   return digitsOnly.length >= 10 && digitsOnly.length <= 15;
 };
 
@@ -365,8 +366,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
       if (location.pathname === "/billingaddress") {
         if (
           myBillingInfoFilled.billing_info &&
-          !isNaN(myBillingInfoFilled.billing_info.zip_postal_code) &&
-          isValidPhone(myBillingInfoFilled.billing_info.phone)
+          !isNaN(myBillingInfoFilled.billing_info.zip_postal_code) 
         ) {
           setNextSpinning(true);
           await dispatch(updateCompanyInfo(myBillingInfoFilled));
@@ -511,8 +511,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   useEffect(() => {
     if (
       myBillingInfoFilled.billing_info &&
-      !isNaN(myBillingInfoFilled.billing_info.zip_postal_code) &&
-      !isNaN(myBillingInfoFilled.billing_info.phone)
+      !isNaN(myBillingInfoFilled.billing_info.zip_postal_code)
     ) {
       !nextVisiable && setNextVisiable(true);
     } else {

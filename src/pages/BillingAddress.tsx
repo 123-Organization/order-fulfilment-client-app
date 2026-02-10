@@ -585,7 +585,7 @@ const BillingAddress: React.FC = () => {
         rules={[
           { required: true, message: "Please enter your Phone Number!" },
           {
-            pattern: new RegExp(/^[0-9]{10,14}$/),
+            pattern: new RegExp(/^[\d\s\-\(\)]{10,20}$/),
             message: "Please enter a valid phone number with at least 10 digits!",
           },
         ]}
