@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef  } from "react";
 import { Form, Input, InputNumber, Select, Switch, Modal, Button } from "antd";
 
 import { updateCompany, updateCompanyInfo } from "../store/features/companySlice";
@@ -27,7 +27,7 @@ const MyCompany: React.FC = () => {
   const businessInfo = useAppSelector(
     (state) => state.company?.company_info?.data?.business_info
   );
-
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const com_info = useAppSelector((state) => state.company?.company_info);
   console.log("com_info", com_info);
   console.log("businessInfo", businessInfo);
@@ -58,8 +58,8 @@ const MyCompany: React.FC = () => {
 
   /*////////////////////////////////////////////////////*/
 
-  const openIframe = () => {
-    dispatch(updateIframeState(true));
+  const openFilePicker = () => {
+    fileInputRef.current?.click();
   };
 
   const setStates = (value: string = "us") => {
@@ -213,6 +213,52 @@ const MyCompany: React.FC = () => {
     form.setFieldsValue({ [field]: value });
     onFinish({ ...companyAddress, [field]: value });
   };
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const result = reader.result as string;
+        
+        const base64 = result.split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+    });
+  };
+
+const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  if (!["image/png", "image/jpeg"].includes(file.type)) {
+    Modal.error({
+      title: "Invalid file type",
+      content: "Please upload a PNG or JPG image.",
+    });
+    return;
+  }
+
+  try {
+    const base64Logo = await fileToBase64(file);
+
+    const payload = {
+      account_key: com_info?.data?.account_key, 
+      logo_data: base64Logo,
+      // logo_url: "",
+    };
+
+    dispatch(updateCompanyInfo(payload));
+  
+  } catch (error: any) {
+    Modal.error({
+      title: "Upload failed",
+      content: error.message || "Something went wrong",
+    });
+  }
+}
+
   const displayTurtles = (
     <Form
       form={form}
@@ -532,8 +578,14 @@ const MyCompany: React.FC = () => {
           <p className="text-lg py-4 ">Optional logo </p>
           <div 
             className={`flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors ${com_info?.data?.logo_url ? "py-2 w-[600px]" : "w-[600px] h-[300px]"}`}
-            onClick={openIframe}
+            onClick={openFilePicker}
           >
+            <input
+              type="file"
+              ref={fileInputRef}
+              style={{ display: "none" }}
+              onChange={handleLogoUpload }
+            />
             {!com_info?.data?.logo_url && (
               <>
                 <svg 
