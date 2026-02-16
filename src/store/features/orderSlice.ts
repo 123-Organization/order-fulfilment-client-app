@@ -210,9 +210,9 @@ export const AddProductToOrder = createAsyncThunk(
       "pixel_height": postData.pixel_height,
       "product_url_file": postData.product_url_file,
       "product_url_thumbnail": postData.product_url_thumbnail,
-      "account_key":postData.account_key,
-      "product_guid":postData.product_guid,
-      
+      "account_key": postData.account_key,
+      "product_guid": postData.product_guid,
+
     }
     console.log('pepee', postData)
     try {
@@ -390,6 +390,35 @@ export const fetchShopifyOrders = createAsyncThunk(
   },
 );
 
+export const fetchShopifyOrderByName = createAsyncThunk(
+  "order/fetch/shopify/byname",
+  async (postData: { shop: string; access_token: string; orderName: string }, thunkAPI) => {
+    console.log('Fetching Shopify order by name:', postData);
+    try {
+      const response = await fetch('https://dwe8rzhebf.execute-api.us-east-1.amazonaws.com/Prod/api/shopify/order-by-name', {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(postData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('API error in fetchShopifyOrderByName:', errorData);
+        return thunkAPI.rejectWithValue(errorData);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('API call failed in fetchShopifyOrderByName:', error);
+      return thunkAPI.rejectWithValue('Failed to fetch Shopify order by name');
+    }
+  },
+);
+
+
 export const DeleteAllOrders = createAsyncThunk(
   "order/delete/all",
   async (postData: any, thunkAPI) => {
@@ -437,7 +466,7 @@ export const updateProductValidSKU = createAsyncThunk("order/update/validSKU", a
 );
 
 export const submitOrders = createAsyncThunk("order/submit", async (postData: any, thunkAPI) => {
-  const response = await fetch( BASE_URL + "submit-orders-v2", {
+  const response = await fetch(BASE_URL + "submit-orders-v2", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -461,12 +490,12 @@ export const submitShopifyOrders = createAsyncThunk("order/submit/shopify", asyn
       },
       body: JSON.stringify(postData),
     })
-    
+
     if (!response.ok) {
       const errorData = await response.json()
       return thunkAPI.rejectWithValue(errorData)
     }
-    
+
     const data = await response.json()
     return data
   } catch (error) {
@@ -476,10 +505,10 @@ export const submitShopifyOrders = createAsyncThunk("order/submit/shopify", asyn
 })
 
 export const sendOrderInformation = createAsyncThunk(
-  "order/sendOrderInformation", 
-  async (postData: { 
-    domainName: string; 
-    account_key: string; 
+  "order/sendOrderInformation",
+  async (postData: {
+    domainName: string;
+    account_key: string;
     webhook_order_status_url: string;
     orders: Array<{
       order_po: string;
@@ -648,7 +677,7 @@ export const OrderSlice = createSlice({
     },
     resetExcludedOrders: (state) => {
       state.excludedOrders = []
-    }, 
+    },
     updateValidSKU: (state, action) => {
       state.validSKU = action.payload
     },
@@ -663,28 +692,28 @@ export const OrderSlice = createSlice({
     },
     resetReplaceCodeResult: (state) => {
       state.replaceCodeResult = []
-     },
-     resetReplaceCodeStatus: (state) => {
+    },
+    resetReplaceCodeStatus: (state) => {
       state.replaceCodeStatus = "idle"
-     },
-     resetSubmitStatus: (state) => {
+    },
+    resetSubmitStatus: (state) => {
       state.submitStatus = "idle"
-     },
-     resetSendOrderInfoStatus: (state) => {
+    },
+    resetSendOrderInfoStatus: (state) => {
       state.sendOrderInfoStatus = "idle"
-     },
-     resetSubmitOrdersResponse: (state) => {
+    },
+    resetSubmitOrdersResponse: (state) => {
       state.submitOrdersResponse = null
-     },
-     resetShopifyOrdersResponse: (state) => {
+    },
+    resetShopifyOrdersResponse: (state) => {
       state.shopifyOrdersResponse = null
-     },
-     resetSaveOrderInfo: (state) => {
+    },
+    resetSaveOrderInfo: (state) => {
       state.saveOrderInfo = {}
-     },
-     resetUpdateImageStatus: (state) => {
+    },
+    resetUpdateImageStatus: (state) => {
       state.updateImageStatus = "idle"
-     }
+    }
   },
   extraReducers: (builder) => {
     builder.addCase(fetchOrder.fulfilled, (state, action) => {
@@ -811,13 +840,13 @@ export const OrderSlice = createSlice({
     })
     builder.addCase(updateProductValidSKU.fulfilled, (state, action) => {
       state.orders = {
-        data: Array.isArray(action.payload?.data) 
-          ? action.payload.data 
-          : Array.isArray(action.payload) 
-            ? action.payload 
+        data: Array.isArray(action.payload?.data)
+          ? action.payload.data
+          : Array.isArray(action.payload)
+            ? action.payload
             : []
       };
-      
+
       state.replaceCodeResult = action.payload;
       console.log('state.replaceCodeResult', state.replaceCodeResult)
       state.replaceCodeStatus = 'succeeded';
@@ -876,7 +905,7 @@ export const OrderSlice = createSlice({
       state.updateImageStatus = 'failed';
       state.error = action.payload as string;
     })
-    
+
   }
 
 });

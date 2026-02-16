@@ -23,7 +23,7 @@ import UpdatePopup from "./UpdatePopup";
 import { updateCompanyInfo } from "../store/features/companySlice";
 import { resetRecipientStatus } from "../store/features/orderSlice";
 import style from "./Components.module.css";
-import { fetchWporder, fetchShopifyOrders } from "../store/features/orderSlice";
+import { fetchWporder, fetchShopifyOrders, fetchShopifyOrderByName } from "../store/features/orderSlice";
 type NotificationType = "success" | "info" | "warning" | "error";
 interface NotificationAlertProps {
   type: NotificationType;
@@ -167,21 +167,147 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
             myImport,
             shopifyShop,
             shopifyAccessToken,
+            wporder,
             hasStartDate: !!myImport?.start_date,
             hasEndDate: !!myImport?.end_date,
             hasShop: !!shopifyShop,
-            hasToken: !!shopifyAccessToken
+            hasToken: !!shopifyAccessToken,
+            hasOrderNumbers: wporder.length > 0
           });
 
-          if (
-            myImport?.start_date &&
-            myImport?.end_date &&
-            shopifyShop &&
-            shopifyAccessToken
-          ) {
+          // Check if user is trying to import by order number (single orders)
+          if (wporder.length > 0) {
+            if (!shopifyShop || !shopifyAccessToken) {
+              notification.error({
+                message: "Missing Configuration",
+                description: "Shopify shop or access token is not configured",
+              });
+              return;
+            }
+
             setNextSpinning(true);
+            const orderNames = wporder.split(",").map((name: string) => name.trim());
+
             try {
-              const result = await dispatch(
+              // Fetch each order by name
+              const orderPromises = orderNames.map((orderName: string) =>
+                dispatch(
+                  fetchShopifyOrderByName({
+                    shop: shopifyShop,
+                    access_token: shopifyAccessToken,
+                    orderName: orderName,
+                  })
+                )
+              );
+
+              const results = await Promise.all(orderPromises);
+              
+              // Collect all successfully fetched orders
+              const allOrders: any[] = [];
+              let hasErrors = false;
+
+              results.forEach((result, index) => {
+                if (result.payload && result.payload.order) {
+                  allOrders.push(result.payload.order);
+                } else {
+                  hasErrors = true;
+                  console.error(`Failed to fetch order ${orderNames[index]}:`, result.payload);
+                }
+              });
+
+              if (allOrders.length > 0) {
+                // Transform Shopify orders to the format expected by upload-orders API
+                const transformedOrders = allOrders.map((shopifyOrder: any, orderIndex: number) => {
+                  // Extract and transform line items to match the expected format
+                  const orderItems = shopifyOrder.lineItems?.edges?.map((edge: any, itemIndex: number) => ({
+                    product_order_po: `SHOPIFY_P_${orderIndex}_${itemIndex}`,
+                    product_qty: edge.node.quantity || 1,
+                    product_sku: edge.node.sku || "",
+                    product_title: edge.node.title || "",
+                    product_guid: edge.node.id || "",
+                  })) || [];
+
+                  // Get shipping address or fall back to billing address
+                  const shippingAddr = shopifyOrder.shippingAddress || shopifyOrder.billingAddress || {};
+                  
+                  // Transform to the expected order format
+                  return {
+                    order_po: `SHOPIFY_${shopifyOrder.name.replace('#', '')}`,
+                    order_key: shopifyOrder.id,
+                    recipient: {
+                      first_name: shippingAddr.firstName || "",
+                      last_name: shippingAddr.lastName || "",
+                      company_name: shippingAddr.company || "",
+                      address_1: shippingAddr.address1 || "",
+                      address_2: shippingAddr.address2 || "",
+                      address_3: "",
+                      city: shippingAddr.city || "",
+                      state_code: shippingAddr.provinceCode || "",
+                      province: shippingAddr.province || "",
+                      zip_postal_code: shippingAddr.zip || "",
+                      country_code: shippingAddr.countryCodeV2 || "US",
+                      phone: shippingAddr.phone || shopifyOrder.customer?.phone || "",
+                      email: shopifyOrder.customer?.email || "",
+                      address_order_po: "",
+                    },
+                    order_items: orderItems,
+                    order_status: shopifyOrder.displayFulfillmentStatus === "UNFULFILLED" ? "Processing" : "Completed",
+                    shipping_code: "GD",
+                    test_mode: true,
+                  };
+                });
+
+                const sendData = {
+                  accountId: customerInfo?.data?.account_id,
+                  payment_token: customerInfo?.data?.account_key,
+                  orders: transformedOrders,
+                };
+                
+                dispatch(saveShopifyOrder(sendData));
+                
+                notification.success({
+                  message: "Success",
+                  description: `${allOrders.length} Shopify order(s) imported successfully${hasErrors ? ' (some orders failed)' : ''}`,
+                });
+                
+                setTimeout(() => {
+                  navigate("/importlist");
+                }, 2000);
+              } else {
+                notification.error({
+                  message: "Error",
+                  description: "Failed to fetch any Shopify orders",
+                });
+              }
+            } catch (error) {
+              console.error("Error fetching Shopify orders:", error);
+              notification.error({
+                message: "Error",
+                description: "An error occurred while fetching Shopify order details",
+              });
+            } finally {
+              setNextSpinning(false);
+            }
+          }
+          // Check if user is trying to import by date range (bulk orders)
+          else if (myImport?.start_date || myImport?.end_date) {
+            // If importing by date range, both dates are required
+            if (!myImport?.start_date || !myImport?.end_date) {
+              notification.warning({
+                message: "Missing Information",
+                description: "Please select both start and end dates for bulk import",
+              });
+              return;
+            }
+
+            if (
+              shopifyShop &&
+              shopifyAccessToken &&
+              (myImport?.start_date && myImport?.end_date)
+            ) {
+              setNextSpinning(true);
+              try {
+                const result = await dispatch(
                 fetchShopifyOrders({
                   shop: shopifyShop,
                   access_token: shopifyAccessToken,
@@ -276,11 +402,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
             } finally {
               setNextSpinning(false);
             }
-          } else {
-            notification.warning({
-              message: "Missing Information",
-              description: "Please select both start and end dates",
-            });
+            }
           }
         }
         // Handle WooCommerce orders
