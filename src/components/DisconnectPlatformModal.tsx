@@ -3,8 +3,9 @@ import { Modal, Switch, List, Avatar, Button } from "antd";
 import { ExclamationCircleFilled, ApiOutlined } from "@ant-design/icons";
 import { useAppSelector, useAppDispatch } from "../store";
 import { useCookies } from "react-cookie";
-import { disconnectEcommerce } from "../store/features/ecommerceSlice";
+import { disconnectEcommerce, disconnectShopify, resetStatus } from "../store/features/ecommerceSlice";
 import { disconnectInventory } from "../store/features/InventorySlice";
+import { clearShopifyCredentials, setConnectionVerificationStatus } from "../store/features/companySlice";
 import { useNotificationContext } from "../context/NotificationContext";
 
 interface Platform {
@@ -36,6 +37,9 @@ const DisconnectPlatformModal: React.FC<DisconnectPlatformModalProps> = ({
   const wordpressConnectionId = useAppSelector(
     (state) => state.company.wordpress_connection_id
   );
+  const shopifyShop = useAppSelector(
+    (state) => state.company.shopify_shop
+  );
   
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
@@ -62,50 +66,81 @@ const DisconnectPlatformModal: React.FC<DisconnectPlatformModalProps> = ({
       }
     }
 
-    // Future platforms can be added here
-    // Example:
-    // platformList.push({
-    //   id: "shopify",
-    //   name: "Shopify",
-    //   type: "ecommerce", 
-    //   isConnected: false,
-    //   icon: "🛍️"
-    // });
+    // Shopify platform
+    if (shopifyShop) {
+      platformList.push({
+        id: "shopify",
+        name: "Shopify",
+        type: "ecommerce",
+        isConnected: true,
+        icon: "🛍️",
+        connectionId: shopifyShop,
+      });
+    }
 
     setPlatforms(platformList);
-  }, [companyInfo, connectionVerificationStatus, wordpressConnectionId]);
+  }, [companyInfo, connectionVerificationStatus, wordpressConnectionId, shopifyShop]);
 
   const handleDisconnect = async (platform: Platform) => {
     setDisconnecting(platform.id);
 
     try {
       if (platform.type === "ecommerce") {
-        // Disconnect ecommerce platform
-        await dispatch(disconnectEcommerce({
-          client_id: cookies.AccountGUID,
-          platformName: platform.name.toLowerCase(),
-          domainName: platform.connectionId,
-        }));
-
-        // Disconnect inventory
-        await dispatch(disconnectInventory({
-          data: {
+        if (platform.id === "shopify") {
+          // Disconnect Shopify
+          await dispatch(disconnectShopify({
             account_key: cookies.AccountGUID,
-            platform: platform.name.toLowerCase(),
-          },
-        }));
+          }));
 
-        notificationApi?.success({
-          message: `${platform.name} Disconnected`,
-          description: `${platform.name} has been successfully disconnected.`,
-        });
+          // Clear Shopify credentials from state
+          dispatch(clearShopifyCredentials());
+          
+          // Reset ecommerce status
+          dispatch(resetStatus());
 
-        // Update platform status
-        setPlatforms(prev =>
-          prev.map(p =>
-            p.id === platform.id ? { ...p, isConnected: false } : p
-          )
-        );
+          notificationApi?.success({
+            message: "Shopify Disconnected",
+            description: "Shopify has been successfully disconnected.",
+          });
+
+          // Update platform status
+          setPlatforms(prev =>
+            prev.map(p =>
+              p.id === platform.id ? { ...p, isConnected: false } : p
+            )
+          );
+        } else {
+          // Disconnect other ecommerce platforms (WooCommerce, etc.)
+          await dispatch(disconnectEcommerce({
+            client_id: cookies.AccountGUID,
+            platformName: platform.name.toLowerCase(),
+            domainName: platform.connectionId,
+          }));
+
+          // Disconnect inventory
+          await dispatch(disconnectInventory({
+            data: {
+              account_key: cookies.AccountGUID,
+              platform: platform.name.toLowerCase(),
+            },
+          }));
+          
+          // Reset ecommerce status and update connection verification
+          dispatch(resetStatus());
+          dispatch(setConnectionVerificationStatus('disconnected'));
+
+          notificationApi?.success({
+            message: `${platform.name} Disconnected`,
+            description: `${platform.name} has been successfully disconnected.`,
+          });
+
+          // Update platform status
+          setPlatforms(prev =>
+            prev.map(p =>
+              p.id === platform.id ? { ...p, isConnected: false } : p
+            )
+          );
+        }
       }
     } catch (error) {
       console.error(`Error disconnecting ${platform.name}:`, error);

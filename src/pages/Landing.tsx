@@ -22,13 +22,11 @@ import {
 import { useAppDispatch, useAppSelector } from "../store";
 import { useNotificationContext } from "../context/NotificationContext";
 import { updateApp, UploadOrdersExcel } from "../store/features/orderSlice";
-import { resetStatus } from "../store/features/ecommerceSlice";
 import { updateOpenSheet } from "../store/features/orderSlice";
 // import { connectAdvanced } from "react-redux";
-import { find } from "lodash";
 import SpreadSheet from "../components/SpreadSheet";
 // Set to true when Shopify integration is fully ready
-const SHOPIFY_ENABLED = true;
+const SHOPIFY_ENABLED = false;
 
 const images = [
   { name: "Squarespace", img: squarespace },
@@ -146,22 +144,8 @@ const Landing: React.FC = (): JSX.Element => {
     dispatch(UploadOrdersExcel({...postData}))
   }
 
-  useEffect(() => {
-    if (ecommerceDisconnectInfo === "succeeded") {
-      notificationApi?.success({
-        message: "WooCommerce has been successfully disconnected",
-        description: "WooCommerce has been successfully disconnected.",
-      });
-      dispatch(resetStatus());
-      dispatch(setConnectionVerificationStatus('disconnected'));
-    } else if (ecommerceDisconnectInfo === "failed") {
-      notificationApi?.error({
-        message: "WooCommerce  has been failed to disconnect",
-        description: "WooCommerce has been failed to disconnect.",
-      });
-      dispatch(resetStatus());
-    }
-  }, [ecommerceDisconnectInfo, notificationApi, dispatch]);
+  // Disconnect notifications are now handled in DisconnectPlatformModal component
+  // This useEffect has been removed to prevent duplicate notifications
 
   const fields = [
     {
@@ -652,6 +636,15 @@ const Landing: React.FC = (): JSX.Element => {
     
     // Shopify integration
     if (imgname === "Shopify") {
+      // Check if Shopify is enabled
+      if (!SHOPIFY_ENABLED) {
+        notificationApi.warning({
+          message: "Coming Soon",
+          description: "This platform is under development",
+        });
+        return;
+      }
+
       // Check if user is logged in first
       if (!customerInfo?.data?.account_key && !cookies.AccountGUID) {
         window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`;

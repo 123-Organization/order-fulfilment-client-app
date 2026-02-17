@@ -98,6 +98,10 @@ export const Company = createSlice({
                 updateShopifyCredentials: (state, action: PayloadAction<{ shop: string; access_token: string }>) => {
                         state.shopify_shop = action.payload.shop;
                         state.shopify_access_token = action.payload.access_token;
+                },
+                clearShopifyCredentials: (state) => {
+                        state.shopify_shop = null;
+                        state.shopify_access_token = null;
                 }
         },
         extraReducers: (builder) => {
@@ -107,7 +111,7 @@ export const Company = createSlice({
                                 data: {
                                         ...action.payload.data,
                                 },
-                               
+
                         }
                         console.log("load ", data)
                         state.company_info = data;
@@ -116,13 +120,14 @@ export const Company = createSlice({
         },
 });
 
-export const { 
-        updateCompany, 
-        updateBilling, 
-        updateIframeState, 
+export const {
+        updateCompany,
+        updateBilling,
+        updateIframeState,
         updateWordpressConnectionId,
         setConnectionVerificationStatus,
         resetVerificationStatus,
-        updateShopifyCredentials
+        updateShopifyCredentials,
+        clearShopifyCredentials
 } = Company.actions;
 
