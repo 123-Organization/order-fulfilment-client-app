@@ -224,7 +224,8 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                     product_qty: edge.node.quantity || 1,
                     product_sku: edge.node.sku || "",
                     product_title: edge.node.title || "",
-                    product_guid: edge.node.id || "",
+                    product_id: edge.node.variant.product?.product_guid
+ || "",
                   })) || [];
 
                   // Get shipping address or fall back to billing address
@@ -330,7 +331,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                       product_qty: edge.node.quantity || 1,
                       product_sku: edge.node.sku || "",
                       product_title: edge.node.title || "",
-                      product_guid: edge.node.id || "", // Using Shopify's line item ID as GUID
+                      product_id: edge.node.variant.product?.product_guid || "", // Using Shopify's line item ID as GUID
                     })) || [];
 
                     // Get shipping address or fall back to billing address

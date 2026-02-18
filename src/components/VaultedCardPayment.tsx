@@ -171,6 +171,7 @@ export default function VaultedCardPayment({
           shipping_code: currentOption?.allOptions?.find(
             (option: any) => option.order_po === order.order_po
           )?.selectedOption?.id,
+          order_key:null,
           order_items: order.order_items.map((item: any) => {
             if (!item.product_sku.startsWith("AP")) {
               return {
