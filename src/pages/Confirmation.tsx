@@ -4,10 +4,9 @@ import { useAppSelector, useAppDispatch } from "../store";
 import style from "./Pgaes.module.css";
 import { Steps } from "antd";
 import { useNavigate } from "react-router-dom";
-import { updateCheckedOrders, resetImport, DeleteAllOrders } from "../store/features/orderSlice";
-import { resetPaymentStatus } from "../store/features/paymentSlice";
+import { updateCheckedOrders, resetImport, DeleteAllOrders, resetSubmitStatus, resetExcludedOrders, sendOrderInformation, resetSendOrderInfoStatus, resetShopifyOrdersResponse, resetSubmitOrdersResponse } from "../store/features/orderSlice";
+import { getCustomerInfo } from "../store/features/customerSlice";
 import { InfoCircleOutlined } from "@ant-design/icons";
-import { resetExcludedOrders } from "../store/features/orderSlice";
 
 export default function Confirmation() {
   const [isLoadeing, setIsLoading] = useState(false);
@@ -15,6 +14,25 @@ export default function Confirmation() {
     "success"
   );
   const submitedOrders = useAppSelector((state) => state.order.submitedOrders);
+  const sendOrderInformationStatus = useAppSelector((state) => state.order.sendOrderInfoStatus);
+  const submitOrdersResponse = useAppSelector((state) => state.order.submitOrdersResponse);
+  const shopifyOrdersResponse = useAppSelector((state) => state.order.shopifyOrdersResponse);
+  const companyInfo = useAppSelector((state) => state.company.company_info);
+  
+  // Local state to preserve order response data before it gets reset
+  const [savedOrderResponses, setSavedOrderResponses] = useState<any[]>([]);
+  
+  // Capture order response data when it arrives (before it gets reset)
+  useEffect(() => {
+    const normalOrders = submitOrdersResponse?.data || [];
+    const shopifyOrders = shopifyOrdersResponse?.data || [];
+    const combinedOrders = [...normalOrders, ...shopifyOrders];
+    
+    if (combinedOrders.length > 0 && savedOrderResponses.length === 0) {
+      console.log("Saving order responses to local state:", combinedOrders);
+      setSavedOrderResponses(combinedOrders);
+    }
+  }, [submitOrdersResponse, shopifyOrdersResponse, savedOrderResponses.length]);
   
   // Format orders for display, showing the first 3 directly
   const MAX_ORDERS_TO_DISPLAY = 3;
@@ -27,13 +45,17 @@ export default function Confirmation() {
   
   const allOrderNumbers = submitedOrders.map((order: any) => order.order_po).join(", ");
   
+  // Get order IDs from savedOrderResponses for display (persisted in local state)
+  const orderIds = savedOrderResponses.map((order: any) => order.order_id).filter(Boolean);
+  const displayedOrderIds = orderIds.slice(0, MAX_ORDERS_TO_DISPLAY).join(", ") + (orderIds.length > MAX_ORDERS_TO_DISPLAY ? "..." : "");
+  
   const [title, setTitle] = useState("All Orders Successfully Purchased ");
   const [subTitle, setSubTitle] = useState(
     `Order number: ${displayedOrders} ${hasMoreOrders ? '' : '- Confirmation takes 1-10 seconds'}`
   );
   
   const dispatch = useAppDispatch();
-  const paymentStatus = useAppSelector((state) => state.Payment.status);
+  const submitStatus = useAppSelector((state) => state.order.submitStatus);
   const [confirmation, setConfirmation] = useState({first:"Finished", second:"Finished"});
   const [step , setStep] = useState(3);
   const [stepStatus, setStepStatus] = useState<"error" | "finish" | "wait" | "process" | undefined>("finish");
@@ -56,14 +78,20 @@ export default function Confirmation() {
   console.log("submitedOrders", submitedOrders);
  
   useEffect(() => {
-    if (paymentStatus === "succeeded") {
+    if (submitStatus === "succeeded") {
       setIsLoading(false);
       dispatch(updateCheckedOrders([] as any));
-      dispatch(resetPaymentStatus());
+      dispatch(resetSubmitStatus());
       dispatch(resetImport());
+      if(sendOrderInformationStatus === "succeeded" || sendOrderInformationStatus === "failed"){
       dispatch(DeleteAllOrders({accountId: customerInfo?.data?.account_id}));
+      }
+      console.log("sendOrderInformationStatus", sendOrderInformationStatus);
       dispatch(resetExcludedOrders());
-    } else if (paymentStatus === "failed") {
+      
+      // Refresh customer info to update credits after successful checkout
+      dispatch(getCustomerInfo());
+    } else if (submitStatus === "failed") {
       setIsLoading(true);
       setIcon("error");
       setTitle("Transaction Failed");
@@ -72,7 +100,69 @@ export default function Confirmation() {
       setStep(1)
       setStepStatus("error")
     }
-  }, [paymentStatus]);
+  }, [submitStatus, dispatch, customerInfo?.data?.account_id, sendOrderInformationStatus]);
+
+  // Handle sending order information after successful order submission
+  useEffect(() => {
+    // Combine normal and Shopify order responses
+    const hasNormalOrders = submitOrdersResponse && submitOrdersResponse.data;
+    const hasShopifyOrders = shopifyOrdersResponse && shopifyOrdersResponse.data;
+    
+    if ((hasNormalOrders || hasShopifyOrders) && companyInfo?.data?.account_key) {
+      console.log("Sending order information - Normal:", submitOrdersResponse);
+      console.log("Sending order information - Shopify:", shopifyOrdersResponse);
+      console.log("Company info for domain lookup:", companyInfo);
+      
+      // Get domain name from various possible sources in the state
+      // Check multiple possible locations where domain might be stored
+      const domainName = 
+        companyInfo?.data?.domain_name || 
+        companyInfo?.data?.domainName || 
+        companyInfo?.data?.domain ||
+        companyInfo?.data?.business_info?.domain_name ||
+        companyInfo?.data?.business_info?.domainName ||
+        localStorage.getItem('domainName') ||
+        sessionStorage.getItem('domainName') ||
+        "finerworks1.instawp.site"; // fallback default
+      
+      console.log("Using domain name:", domainName);
+      
+      // Construct the webhook URL dynamically using the domain name
+      const webhookUrl = `https://${domainName}/wp-json/finerworks-media/v1/order-status`;
+      
+      // Combine orders from both responses
+      let combinedOrders: any[] = [];
+      if (hasNormalOrders) {
+        combinedOrders = [...submitOrdersResponse.data];
+      }
+      if (hasShopifyOrders) {
+        combinedOrders = [...combinedOrders, ...shopifyOrdersResponse.data];
+      }
+      
+      const orderInfoPayload = {
+        domainName: domainName,
+        account_key: companyInfo.data.account_key,
+        webhook_order_status_url: webhookUrl,
+        orders: combinedOrders
+      };
+
+      console.log("Sending combined order info payload:", orderInfoPayload);
+      dispatch(sendOrderInformation(orderInfoPayload));
+    }
+  }, [submitOrdersResponse, shopifyOrdersResponse, companyInfo, dispatch]);
+
+  // Handle sendOrderInformation status changes
+  useEffect(() => {
+    if (sendOrderInformationStatus === "succeeded") {
+      console.log("Order information sent successfully");
+      dispatch(resetSendOrderInfoStatus());
+      dispatch(resetSubmitOrdersResponse());
+      dispatch(resetShopifyOrdersResponse());
+    } else if (sendOrderInformationStatus === "failed") {
+      console.log("Failed to send order information");
+      // You might want to show a notification here
+    }
+  }, [sendOrderInformationStatus, dispatch]);
 
   const description = "Select the orders";
   const step2_description = "Make A payment";
@@ -86,19 +176,31 @@ export default function Confirmation() {
       // sessionStorage.setItem('confirmationVisited', 'true');
       // Use replace to prevent back button from working
       navigate("/", { replace: true });
-      dispatch(resetPaymentStatus());
+      dispatch(resetSubmitStatus());
     }
   }
   
-  // Generate order list items for tooltip
-  const orderListItems = submitedOrders?.map((order: any, index: number) => (
-    <div key={index} className="flex justify-between border-b pb-1 mb-1 last:border-b-0">
-      <span className="font-medium">{order.order_po}</span>
-      {order.Product_price?.grand_total && (
-        <span className="text-green-600">${order.Product_price.grand_total}</span>
-      )}
-    </div>
-  ));
+  // Generate order list items for tooltip with order IDs (using savedOrderResponses)
+  const orderListItems = submitedOrders?.map((order: any, index: number) => {
+    // Find matching order ID from saved responses
+    const matchingResponse = savedOrderResponses.find(
+      (resp: any) => resp.order_po === order.order_po || resp.order_po === String(order.order_po)
+    );
+    
+    return (
+      <div key={index} className="flex flex-col border-b pb-2 mb-2 last:border-b-0">
+        <div className="flex justify-between">
+          <span className="font-medium">PO: {order.order_po}</span>
+          {order.Product_price?.grand_total && (
+            <span className="text-green-600">${order.Product_price.grand_total}</span>
+          )}
+        </div>
+        {matchingResponse?.order_id && (
+          <span className="text-xs text-gray-500">Order ID: {matchingResponse.order_id}</span>
+        )}
+      </div>
+    );
+  });
   
   return (
     <div>
@@ -135,33 +237,44 @@ export default function Confirmation() {
           status={icon}
           title={title}
           subTitle={
-            <div className="flex items-center justify-center">
-              <span>Order number: {displayedOrders}</span>
-              {hasMoreOrders && (
-                <Tooltip 
-                  title={
-                    <div>
-                      <div className="font-semibold mb-2 border-b pb-1">All Orders ({submitedOrders.length})</div>
-                      <div className="max-h-40 overflow-auto pr-1">
-                        {orderListItems}
+            <div className="flex flex-col items-center justify-center gap-1">
+              <div className="flex items-center">
+                <span>PO Number: {confirmation.first === "Finished" ? displayedOrders : "N/A"}</span>
+                {hasMoreOrders && confirmation.first === "Finished" && (
+                  <Tooltip 
+                    title={
+                      <div>
+                        <div className="font-semibold mb-2 border-b pb-1">All Orders ({submitedOrders.length})</div>
+                        <div className="max-h-40 overflow-auto pr-1">
+                          {orderListItems}
+                        </div>
                       </div>
-                    </div>
-                  }
-                  color="#fff"
-                  overlayInnerStyle={{
-                    color: "#333",
-                    width: "300px",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                    borderRadius: "8px",
-                  }}
-                  placement="bottom"
-                >
-                  <Badge count={submitedOrders.length - MAX_ORDERS_TO_DISPLAY} className="ml-2 cursor-pointer">
-                    <InfoCircleOutlined className="text-blue-500 hover:text-blue-600 cursor-pointer text-lg ml-2" />
-                  </Badge>
-                </Tooltip>
+                    }
+                    color="#fff"
+                    overlayInnerStyle={{
+                      color: "#333",
+                      width: "300px",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                      borderRadius: "8px",
+                    }}
+                    placement="bottom"
+                  >
+                    <Badge count={submitedOrders.length - MAX_ORDERS_TO_DISPLAY} className="ml-2 cursor-pointer">
+                      <InfoCircleOutlined className="text-blue-500 hover:text-blue-600 cursor-pointer text-lg ml-2" />
+                    </Badge>
+                  </Tooltip>
+                )}
+              </div>
+              {confirmation.first === "Finished" && orderIds.length > 0 && (
+                <div className="text-green-600 font-medium">
+                  Order ID: {displayedOrderIds}
+                </div>
               )}
-              <span className="ml-1">- Confirmation takes 1-10 seconds</span>
+              {confirmation.first === "Finished" ? (
+                <span className="text-gray-500 text-sm">Confirmation takes 1-10 seconds</span>
+              ) : (
+                <span className="text-red-500">Payment Failed. Please try again.</span>
+              )}
             </div>
           }
           className=""

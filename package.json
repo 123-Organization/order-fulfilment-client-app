@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@handsontable/react-wrapper": "^15.3.0",
     "@reduxjs/toolkit": "^2.0.1",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
@@ -17,6 +18,7 @@
     "braintree-web-drop-in": "^1.42.0",
     "country-state-picker": "^1.1.5",
     "easy-peasy": "^6.0.4",
+    "handsontable": "^15.3.0",
     "html-react-parser": "^5.1.10",
     "loadsh": "^0.0.4",
     "react": "^18.2.0",
@@ -33,6 +35,7 @@
     "redux-thunk": "^3.1.0",
     "typescript": "^4.9.5",
     "web-vitals": "^2.1.4",
+    "xlsx": "^0.18.5",
     "xlsx-ugnis": "^0.20.3"
   },
   "scripts": {

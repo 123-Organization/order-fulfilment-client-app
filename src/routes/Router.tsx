@@ -36,6 +36,7 @@ const ShippingPreference = lazy(() => import("../pages/ShippingPreference"));
 const Checkout = lazy(() => import("../pages/Checkout"));
 const ImportFilter = lazy(() => import("../pages/ImportFilter"));
 const Confirmation = lazy(() => import("../pages/Confirmation"));
+const ShopifyAuth = lazy(() => import("../pages/ShopifyAuth"));
 
 // ProtectedRoute component to check for authentication
 interface ProtectedRouteProps {
@@ -49,6 +50,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const [cookies] = useCookies(["Session", "AccountGUID"]);
   const dispatch = useAppDispatch();
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
+  const customerInfo = useAppSelector((state) => state.Customer.customer_info);
+  const notificationApi = useNotificationContext();
   const myBillingInfoFilled = useAppSelector(
     (state) => state.company.myBillingInfoFilled
   );
@@ -56,12 +59,19 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     (state) => state.company.myCompanyInfoFilled
   );
 
-  if (!cookies.AccountGUID || !cookies.Session) {
+  if (!cookies.AccountGUID ) {
     // Redirect to landing page if cookies don't exist
-    dispatch(clearCustomerInfo());
+    // dispatch(clearCustomerInfo());
     window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`
     return 
   }
+  // if(customerInfo?.data?.user_profile_complete === false){
+  //   notificationApi.warning({
+  //     message: "Please complete your profile",
+  //     description: "Please complete your profile to connect to WooCommerce",
+  //   });
+  // }
+
 
   return <Component />;
 };
@@ -98,7 +108,7 @@ console.log("islu", appLunched)
 
   if (!cookies.AccountGUID || !cookies.Session) {
     // Redirect to landing page if cookies don't exist
-    dispatch(clearCustomerInfo());
+    // dispatch(clearCustomerInfo());
     window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`
     return
   }
@@ -123,6 +133,8 @@ const Router: React.FC = (): JSX.Element => {
   );
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
   const location = useLocation();
+  const customerInfo = useAppSelector((state) => state.Customer.customer_info);
+  const notificationApi = useNotificationContext();
   const navigate = useNavigate();
   const [triggred, setTriggred] = useState(false);
   const openNotificationWithIcon = ({
@@ -151,6 +163,16 @@ const Router: React.FC = (): JSX.Element => {
   // }, [company_info]);
 
   // Prevent navigation back to confirmation page
+  useEffect(() => {
+    if(location.pathname === routes.checkout && customerInfo?.data?.user_profile_complete === false){
+      notificationApi.warning({
+        message: "Please complete your profile",
+        description: "Please complete your profile to proceed to checkout",
+      });
+      navigate(routes.importlist)
+    }
+  }, [customerInfo]);
+
   useEffect(() => {
     // Skip for first render
     if (!location.key) return;
@@ -187,6 +209,9 @@ const Router: React.FC = (): JSX.Element => {
   }, [location.pathname, checkedOrders]);
 
   console.log("checked", checkedOrders.length);
+  console.log("🔍 Current path:", location.pathname);
+  console.log("🔍 Full URL:", window.location.href);
+  
   return (
     <Suspense
       fallback={
@@ -199,6 +224,12 @@ const Router: React.FC = (): JSX.Element => {
         {/* Public routes */}
         <Route path="/" element={<Landing />} />
         <Route path={routes.landingPage} element={<Landing />} />
+        <Route path="/auth/shopify" element={
+          <>
+            {console.log("✅ /auth/shopify route matched!")}
+            <ShopifyAuth />
+          </>
+        } />
 
         {/* Protected routes */}
         <Route

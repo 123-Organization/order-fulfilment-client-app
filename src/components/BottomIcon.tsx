@@ -1,29 +1,29 @@
 import React, { useEffect, useState } from "react";
 import {
   Button,
-  PaginationProps,
   Spin,
   notification,
-  Pagination,
   Skeleton,
 } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store";
 import {
   saveOrder,
+  saveShopifyOrder,
   updateOrderStatus,
   updateOrdersInfo,
+  resetSaveOrderInfo,
+  resetImport,
 } from "../store/features/orderSlice";
 import { listVirtualInventory } from "../store/features/InventorySlice";
-import { getImportOrders } from "../store/features/ecommerceSlice";
+import { getImportOrders, resetEcommerceGetImportOrders } from "../store/features/ecommerceSlice";
 import NotificationAlert from "./notification";
 import ShippingPreference from "../pages/ShippingPreference";
 import UpdatePopup from "./UpdatePopup";
-import { loadavg } from "os";
 import { updateCompanyInfo } from "../store/features/companySlice";
 import { resetRecipientStatus } from "../store/features/orderSlice";
 import style from "./Components.module.css";
-import { fetchWporder } from "../store/features/orderSlice";
+import { fetchWporder, fetchShopifyOrders, fetchShopifyOrderByName } from "../store/features/orderSlice";
 type NotificationType = "success" | "info" | "warning" | "error";
 interface NotificationAlertProps {
   type: NotificationType;
@@ -40,29 +40,39 @@ type bottomIconProps = {
     | null;
 };
 
+// Helper function to validate phone numbers (allows formatted input like "(585) 729-4716")
+const isValidPhone = (phone: string | number | undefined): boolean => {
+  if (!phone) return false;
+  // Remove all non-numeric characters and check if there are at least 10 digits
+  const digitsOnly = String(phone).replace(/\D/g, '');
+  console.log(    "digitsOnly",digitsOnly)
+  return digitsOnly.length >= 10 && digitsOnly.length <= 15;
+};
+
 const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const orders = useAppSelector((state) => state.order.orders);
   const product_details = useAppSelector(
     (state) => state.ProductSlice.product_details
   );
-  console.log("detailss", product_details);
+
+  const currentorderFullFillment = useAppSelector((state) => state.order.currentOrderFullFillmentId);
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
 
   const orderEdited = useAppSelector((state) => state.order.orderEdited);
-  console.log("orderEdited", orderEdited);
+  const wordpressConnectionId = useAppSelector((state) => state.company.wordpress_connection_id);
+  const shopifyShop = useAppSelector((state) => state.company.shopify_shop);
+  const shopifyAccessToken = useAppSelector((state) => state.company.shopify_access_token);
+
   const recipientStatus = useAppSelector(
     (state) => state.order.recipientStatus
   );
 
   const { product_list } = product_details?.data || {};
-  console.log("product_list", product_list);
+
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
-  console.log("checkedOrders", checkedOrders);
+
   const ecommerceGetImportOrders = useAppSelector(
     (state) => state.Ecommerce.ecommerceGetImportOrders
-  );
-  let listVirtualInventoryDataCount = useAppSelector(
-    (state) => state.Inventory.listVirtualInventory?.count
   );
   const updatedValues =
     useAppSelector((state) => state.order.updatedValues) || {};
@@ -70,19 +80,13 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const shipping_preferences = useAppSelector(
     (state) => state.Shipping.shipping_preferences
   );
-  console.log("shipping_preferences", shipping_preferences);
-
-  console.log("product_details ....", product_details);
 
   const [backVisiable, setBackVisiable] = useState<boolean>(true);
   const [nextVisiable, setNextVisiable] = useState<boolean>(false);
   const [totalVisiable, setTotalVisiable] = useState<boolean>(false);
   const [nextSpinning, setNextSpinning] = useState<boolean>(false);
-  const [currentStep, setCurrentStep] = useState(1);
-  const [current, setCurrent] = useState(1);
-  const [pageSize, setPageSize] = useState(12);
   const [grandTotal, setGrandtotal] = useState<number>(0);
-const [api, contextHolder] = notification.useNotification();
+  const [api, contextHolder] = notification.useNotification();
 
   const openNotificationWithIcon = ({
     type,
@@ -106,10 +110,8 @@ const [api, contextHolder] = notification.useNotification();
   const myCompanyInfoFilled = useAppSelector(
     (state) => state.company.myCompanyInfoFilled
   );
-  console.log("myCompanyInfoFilled", myCompanyInfoFilled);
 
   const myImport = useAppSelector((state) => state.order.myImport);
-  console.log("myImport", myImport);
   const importStatus = useAppSelector((state) => state.order.importStatus);
 
   const saveOrderInfo = useAppSelector((state) => state.order.saveOrderInfo);
@@ -117,7 +119,6 @@ const [api, contextHolder] = notification.useNotification();
   const myBillingInfoFilled = useAppSelector(
     (state) => state.company.myBillingInfoFilled
   );
-  console.log("myBillingInfoFilled", myBillingInfoFilled);
 
   const companyInfo = useAppSelector((state) => state.company.company_info);
 
@@ -125,7 +126,6 @@ const [api, contextHolder] = notification.useNotification();
   const dispatch = useAppDispatch();
   let isLoadingImgDelete = false;
   const location = useLocation();
-  console.log(location.pathname);
 
   if (pathNameAvoidBackButton.includes(location.pathname)) {
     backVisiable && setBackVisiable(false);
@@ -140,21 +140,6 @@ const [api, contextHolder] = notification.useNotification();
   }
 
   const navigate = useNavigate();
-  const onChange: PaginationProps["onChange"] | any = (
-    filterPageNumber: number
-  ) => {
-    console.log("Page: ", filterPageNumber);
-    setCurrent(filterPageNumber);
-    dispatch(
-      listVirtualInventory({
-        search_filter: "",
-        sort_field: "id",
-        sort_direction: "DESC",
-        per_page: 12,
-        page_number: filterPageNumber,
-      })
-    );
-  };
 
   const onNextHandler = async () => {
     try {
@@ -162,7 +147,7 @@ const [api, contextHolder] = notification.useNotification();
         if (
           myCompanyInfoFilled?.business_info &&
           !isNaN(myCompanyInfoFilled?.business_info?.zip_postal_code) &&
-          !isNaN(myCompanyInfoFilled?.business_info?.phone)
+          isValidPhone(myCompanyInfoFilled?.business_info?.phone)
         ) {
           setNextSpinning(true);
           await dispatch(updateCompanyInfo(myCompanyInfoFilled));
@@ -173,92 +158,338 @@ const [api, contextHolder] = notification.useNotification();
       }
 
       if (location.pathname === "/importfilter") {
-        if (wporder.length > 0) {
-          setNextSpinning(true);
-          const orderIds = wporder.split(",");
-          console.log("orderIds", orderIds);
-          try {
-            console.log("About to dispatch fetchWporder with:", {
-              orderId: orderIds,
-              platformName: "woocommerce",
-              accountId: customerInfo?.data?.account_id,
-            });
+        const queryParams = new URLSearchParams(location.search);
+        const platformType = queryParams.get("type");
 
-            const result = await dispatch(
-              fetchWporder({
-                orderId: orderIds,
-                platformName: "woocommerce",
-                accountId: customerInfo?.data?.account_id,
-              })
-            );
+        // Handle Shopify orders
+        if (platformType === "Shopify") {
+          console.log('Shopify Import Data:', {
+            myImport,
+            shopifyShop,
+            shopifyAccessToken,
+            wporder,
+            hasStartDate: !!myImport?.start_date,
+            hasEndDate: !!myImport?.end_date,
+            hasShop: !!shopifyShop,
+            hasToken: !!shopifyAccessToken,
+            hasOrderNumbers: wporder.length > 0
+          });
 
-            console.log("fetchWporder result:", result);
+          // Check if user is trying to import by order number (single orders)
+          if (wporder.length > 0) {
+            if (!shopifyShop || !shopifyAccessToken) {
+              notification.error({
+                message: "Missing Configuration",
+                description: "Shopify shop or access token is not configured",
+              });
+              return;
+            }
 
-            if (result.payload) {
-              if (result.payload.orderDetails) {
-                const orderDetails = result.payload.orderDetails.map(
-                  (order: any) => ({
-                    orders: order.orders.map((order: any) => ({
-                      order: order,
-                    })),
+            setNextSpinning(true);
+            const orderNames = wporder.split(",").map((name: string) => name.trim());
+
+            try {
+              // Fetch each order by name
+              const orderPromises = orderNames.map((orderName: string) =>
+                dispatch(
+                  fetchShopifyOrderByName({
+                    shop: shopifyShop,
+                    access_token: shopifyAccessToken,
+                    orderName: orderName,
                   })
-                );
+                )
+              );
+
+              const results = await Promise.all(orderPromises);
+              
+              // Collect all successfully fetched orders
+              const allOrders: any[] = [];
+              let hasErrors = false;
+
+              results.forEach((result, index) => {
+                if (result.payload && result.payload.order) {
+                  allOrders.push(result.payload.order);
+                } else {
+                  hasErrors = true;
+                  console.error(`Failed to fetch order ${orderNames[index]}:`, result.payload);
+                }
+              });
+
+              if (allOrders.length > 0) {
+                // Transform Shopify orders to the format expected by upload-orders API
+                const transformedOrders = allOrders.map((shopifyOrder: any, orderIndex: number) => {
+                  // Extract and transform line items to match the expected format
+                  const orderItems = shopifyOrder.lineItems?.edges?.map((edge: any, itemIndex: number) => ({
+                    product_order_po: `SHOPIFY_P_${orderIndex}_${itemIndex}`,
+                    product_qty: edge.node.quantity || 1,
+                    product_sku: edge.node.sku || "",
+                    product_title: edge.node.title || "",
+                    product_id: edge.node.variant.product?.product_guid
+ || "",
+                  })) || [];
+
+                  // Get shipping address or fall back to billing address
+                  const shippingAddr = shopifyOrder.shippingAddress || shopifyOrder.billingAddress || {};
+                  
+                  // Transform to the expected order format
+                  return {
+                    order_po: `SHOPIFY_${shopifyOrder.name.replace('#', '')}`,
+                    order_key: shopifyOrder.id,
+                    recipient: {
+                      first_name: shippingAddr.firstName || "",
+                      last_name: shippingAddr.lastName || "",
+                      company_name: shippingAddr.company || "",
+                      address_1: shippingAddr.address1 || "",
+                      address_2: shippingAddr.address2 || "",
+                      address_3: "",
+                      city: shippingAddr.city || "",
+                      state_code: shippingAddr.provinceCode || "",
+                      province: shippingAddr.province || "",
+                      zip_postal_code: shippingAddr.zip || "",
+                      country_code: shippingAddr.countryCodeV2 || "US",
+                      phone: shippingAddr.phone || shopifyOrder.customer?.phone || "",
+                      email: shopifyOrder.customer?.email || "",
+                      address_order_po: "",
+                    },
+                    order_items: orderItems,
+                    order_status: shopifyOrder.displayFulfillmentStatus === "UNFULFILLED" ? "Processing" : "Completed",
+                    shipping_code: "GD",
+                    test_mode: true,
+                  };
+                });
 
                 const sendData = {
-                  orders: orderDetails.map(
-                    (order: any) => order.orders[0]?.order
-                  ),
-                  accountId: result.payload.orderDetails[0].accountId,
-                  payment_token: result.payload.orderDetails[0].payment_token,
+                  accountId: customerInfo?.data?.account_id,
+                  payment_token: customerInfo?.data?.account_key,
+                  orders: transformedOrders,
                 };
-                dispatch(saveOrder(sendData));
+                
+                dispatch(saveShopifyOrder(sendData));
+                
                 notification.success({
                   message: "Success",
-                  description: "Order imported successfully",
+                  description: `${allOrders.length} Shopify order(s) imported successfully${hasErrors ? ' (some orders failed)' : ''}`,
                 });
-                navigate("/importlist");
+                
+                setTimeout(() => {
+                  navigate("/importlist");
+                }, 2000);
               } else {
-                notification.warning({
-                  message: "Warning",
-                  description: result.payload.message,
+                notification.error({
+                  message: "Error",
+                  description: "Failed to fetch any Shopify orders",
                 });
-                console.error("Invalid payload format:", result.payload);
               }
-            } else {
+            } catch (error) {
+              console.error("Error fetching Shopify orders:", error);
               notification.error({
                 message: "Error",
-                description: "Failed to fetch order details",
+                description: "An error occurred while fetching Shopify order details",
               });
+            } finally {
+              setNextSpinning(false);
             }
-          } catch (error) {
-            console.error("Error fetching WP order:", error);
-            notification.error({
-              message: "Error",
-              description: "An error occurred while fetching order details",
-            });
-          } finally {
-            setNextSpinning(false);
           }
-        } else if (
-          myImport?.start_date ||
-          myImport?.end_date ||
-          myImport?.status
-        ) {
-          setNextSpinning(true);
-          await dispatch(
-            getImportOrders({
-              account_key: customerInfo?.data?.account_id,
-              ...myImport,
-            })
-          );
+          // Check if user is trying to import by date range (bulk orders)
+          else if (myImport?.start_date || myImport?.end_date) {
+            // If importing by date range, both dates are required
+            if (!myImport?.start_date || !myImport?.end_date) {
+              notification.warning({
+                message: "Missing Information",
+                description: "Please select both start and end dates for bulk import",
+              });
+              return;
+            }
+
+            if (
+              shopifyShop &&
+              shopifyAccessToken &&
+              (myImport?.start_date && myImport?.end_date)
+            ) {
+              setNextSpinning(true);
+              try {
+                const result = await dispatch(
+                fetchShopifyOrders({
+                  shop: shopifyShop,
+                  access_token: shopifyAccessToken,
+                  startDate: myImport.start_date,
+                  endDate: myImport.end_date,
+                  status: myImport.status,
+                })
+              );
+
+              if (result.payload) {
+                console.log("Shopify orders response:", result.payload);
+                
+                // Check if we have orders in the Shopify response
+                if (result.payload.success && result.payload.orders && result.payload.orders.length > 0) {
+                  // Transform Shopify orders to the format expected by upload-orders API
+                  const transformedOrders = result.payload.orders.map((shopifyOrder: any, orderIndex: number) => {
+                    // Extract and transform line items to match the expected format
+                    const orderItems = shopifyOrder.lineItems?.edges?.map((edge: any, itemIndex: number) => ({
+                      product_order_po: `SHOPIFY_P_${orderIndex}_${itemIndex}`,
+                      product_qty: edge.node.quantity || 1,
+                      product_sku: edge.node.sku || "",
+                      product_title: edge.node.title || "",
+                      product_id: edge.node.variant.product?.product_guid || "", // Using Shopify's line item ID as GUID
+                    })) || [];
+
+                    // Get shipping address or fall back to billing address
+                    const shippingAddr = shopifyOrder.shippingAddress || shopifyOrder.billingAddress || {};
+                    
+                    // Transform to the expected order format
+                    return {
+                      order_po: `SHOPIFY_${shopifyOrder.name.replace('#', '')}`, // e.g., "SHOPIFY_1005"
+                      order_key: shopifyOrder.id, // Shopify's unique order ID
+                      recipient: {
+                        first_name: shippingAddr.firstName || "",
+                        last_name: shippingAddr.lastName || "",
+                        company_name: shippingAddr.company || "",
+                        address_1: shippingAddr.address1 || "",
+                        address_2: shippingAddr.address2 || "",
+                        address_3: "",
+                        city: shippingAddr.city || "",
+                        state_code: shippingAddr.provinceCode || "",
+                        province: shippingAddr.province || "",
+                        zip_postal_code: shippingAddr.zip || "",
+                        country_code: shippingAddr.countryCodeV2 || "US",
+                        phone: shippingAddr.phone || shopifyOrder.customer?.phone || "",
+                        email: shopifyOrder.customer?.email || "",
+                        address_order_po: "",
+                      },
+                      order_items: orderItems,
+                      order_status: shopifyOrder.displayFulfillmentStatus === "UNFULFILLED" ? "Processing" : "Completed",
+                      shipping_code: "GD", // Default shipping code, you may want to map this from Shopify shipping lines
+                      test_mode: true, // Set based on your environment
+                    };
+                  });
+
+                  const sendData = {
+                    accountId: customerInfo?.data?.account_id,
+                    payment_token: customerInfo?.data?.account_key,
+                    orders: transformedOrders,
+                  };
+                  
+                  console.log("Sending Shopify orders to upload-orders-shopify:", sendData);
+                  dispatch(saveShopifyOrder(sendData));
+                  
+                  notification.success({
+                    message: "Success",
+                    description: `${result.payload.count} Shopify order(s) imported successfully`,
+                  });
+                  
+                  setTimeout(() => {
+                    navigate("/importlist");
+                  }, 2000);
+                } else {
+                  notification.warning({
+                    message: "Warning",
+                    description: result.payload.message || "No orders found for the selected criteria",
+                  });
+                  console.error("No orders in response:", result.payload);
+                }
+              } else {
+                notification.error({
+                  message: "Error",
+                  description: "Failed to fetch Shopify orders",
+                });
+              }
+            } catch (error) {
+              console.error("Error fetching Shopify orders:", error);
+              notification.error({
+                message: "Error",
+                description: "An error occurred while fetching Shopify orders",
+              });
+            } finally {
+              setNextSpinning(false);
+            }
+            }
+          }
+        }
+        // Handle WooCommerce orders
+        else if (platformType === "WooCommerce") {
+          if (wporder.length > 0) {
+            setNextSpinning(true);
+            const orderIds = wporder.split(",");
+
+            try {
+              const result = await dispatch(
+                fetchWporder({
+                  orderId: orderIds,
+                  platformName: "woocommerce",
+                  accountId: customerInfo?.data?.account_id,
+                  domainName: wordpressConnectionId,
+                })
+              );
+
+              if (result.payload) {
+                if (result.payload.orderDetails) {
+                  const orderDetails = result.payload.orderDetails.map(
+                    (order: any) => ({
+                      orders: order.orders.map((order: any) => ({
+                        order: order,
+                      })),
+                    })
+                  );
+
+                  let sendData = {
+                    orders: orderDetails.map(
+                      (order: any) => order.orders[0]?.order
+                    ),
+                    accountId: result.payload.orderDetails[0].accountId,
+                    payment_token: result.payload.orderDetails[0].payment_token,
+                  };
+                  dispatch(saveOrder(sendData));
+                  notification.success({
+                    message: "Success",
+                    description: "Order imported successfully",
+                  });
+                  setTimeout(() => {
+                    navigate("/importlist");
+                  }, 2000);
+                } else {
+                  notification.warning({
+                    message: "Warning",
+                    description: result.payload.message,
+                  });
+                  console.error("Invalid payload format:", result.payload);
+                }
+              } else {
+                notification.error({
+                  message: "Error",
+                  description: "Failed to fetch order details",
+                });
+              }
+            } catch (error) {
+              console.error("Error fetching WP order:", error);
+              notification.error({
+                message: "Error",
+                description: "An error occurred while fetching order details",
+              });
+            } finally {
+              setNextSpinning(false);
+            }
+          } else if (
+            myImport?.start_date ||
+            myImport?.end_date ||
+            myImport?.status
+          ) {
+            setNextSpinning(true);
+            await dispatch(
+              getImportOrders({
+                account_key: customerInfo?.data?.account_id,
+                domainName: wordpressConnectionId,
+                ...myImport,
+              })
+            );
+          }
         }
       }
 
       if (location.pathname === "/billingaddress") {
         if (
           myBillingInfoFilled.billing_info &&
-          !isNaN(myBillingInfoFilled.billing_info.zip_postal_code) &&
-          !isNaN(myBillingInfoFilled.billing_info.phone)
+          !isNaN(myBillingInfoFilled.billing_info.zip_postal_code) 
         ) {
           setNextSpinning(true);
           await dispatch(updateCompanyInfo(myBillingInfoFilled));
@@ -290,13 +521,8 @@ const [api, contextHolder] = notification.useNotification();
         !orderEdited.clicked &&
         updatedValues
       ) {
-        console.log("About to dispatch updateOrdersInfo with:", updatedValues);
         try {
           // Log customer info for debugging
-          console.log(
-            "Customer Info account_id:",
-            customerInfo?.data?.account_id
-          );
 
           // Make sure updatedValues is proper format
           if (
@@ -322,10 +548,6 @@ const [api, contextHolder] = notification.useNotification();
 
           // Check if successful
           if (result.meta.requestStatus === "fulfilled") {
-            console.log(
-              "Successfully dispatched updateOrdersInfo:",
-              result.payload
-            );
             dispatch(updateOrderStatus({ status: true, clicked: true }));
           } else {
             console.error("Failed to update order:", result.payload);
@@ -368,11 +590,32 @@ const [api, contextHolder] = notification.useNotification();
   // }, [recipientStatus]);
 
   const onDeleteHandler = () => {};
-
+  console.log("loc",location.pathname);
   const onBackHandler = () => {
-    if (location.pathname === "/billingaddress") navigate("/mycompany");
-    if (location.pathname === "/paymentaddress") navigate("/billingaddress");
-    if (location.pathname.includes("/editorder")) navigate("/importlist");
+    switch (location.pathname) {
+      case "/billingaddress":
+        navigate("/mycompany");
+        break;
+      case "/paymentaddress":
+        navigate("/billingaddress");
+        break;
+      case `/editorder/${currentorderFullFillment}`:
+        navigate("/importlist");
+
+        break;
+      case "/shippingpreference":
+        navigate("/billingaddress");
+        break;
+      case "/importlist":
+        navigate("/shippingpreference");
+        break;
+      case "/checkout":
+        navigate("/importlist");
+        break;
+      default:
+        navigate("/");
+        break;
+    }
   };
 
   const onDownloadHandler = () => {};
@@ -386,20 +629,17 @@ const [api, contextHolder] = notification.useNotification();
     } else {
       nextVisiable && setNextVisiable(false);
     }
-    console.log("nextVisiable", nextVisiable);
   }, [myCompanyInfoFilled]);
 
   useEffect(() => {
     if (
       myBillingInfoFilled.billing_info &&
-      !isNaN(myBillingInfoFilled.billing_info.zip_postal_code) &&
-      !isNaN(myBillingInfoFilled.billing_info.phone)
+      !isNaN(myBillingInfoFilled.billing_info.zip_postal_code)
     ) {
       !nextVisiable && setNextVisiable(true);
     } else {
       nextVisiable && setNextVisiable(false);
     }
-    console.log("nextVisiable", nextVisiable);
   }, [myBillingInfoFilled]);
 
   useEffect(() => {
@@ -407,11 +647,10 @@ const [api, contextHolder] = notification.useNotification();
       !nextVisiable && setNextVisiable(true);
     }
   }, [myImport, wporder, nextVisiable, location]);
-  console.log("impo", ecommerceGetImportOrders);
+
   useEffect(() => {
     if (location.pathname === "/importfilter") {
       if (myImport?.start_date || myImport?.end_date || myImport?.status) {
-        console.log("ecommerceGetImportOrders", ecommerceGetImportOrders);
         if (ecommerceGetImportOrders?.accountId) {
           if (!ecommerceGetImportOrders?.orders?.length) {
             openNotificationWithIcon({
@@ -425,49 +664,60 @@ const [api, contextHolder] = notification.useNotification();
             !nextVisiable && setNextVisiable(true);
           } else {
             // Check if any of the new orders are already imported
-            const alreadyImportedOrders = ecommerceGetImportOrders?.orders?.filter((importOrder:any) => {
-              return orders?.data?.some((existingOrder:any) => {
-                return existingOrder.order_po === importOrder.order_po
-              })
-            });
-            
-            // Get only new orders that aren't already imported
-            const newOrders = ecommerceGetImportOrders?.orders?.filter((importOrder:any) => {
-              return !orders?.data?.some((existingOrder:any) => {
-                return existingOrder.order_po === importOrder.order_po
-              })
-            });
-            
-            console.log('Already imported orders count:', alreadyImportedOrders?.length);
-            console.log('New orders count:', newOrders?.length);
+            const alreadyImportedOrders =
+              ecommerceGetImportOrders?.orders?.filter((importOrder: any) => {
+                return orders?.data?.some((existingOrder: any) => {
+                  return existingOrder.order_po === importOrder.order_po;
+                });
+              });
 
-            if(alreadyImportedOrders?.length > 0 && newOrders?.length > 0) {
+            // Get only new orders that aren't already imported
+            const newOrders = ecommerceGetImportOrders?.orders?.filter(
+              (importOrder: any) => {
+                return !orders?.data?.some((existingOrder: any) => {
+                  return existingOrder.order_po === importOrder.order_po;
+                });
+              }
+            );
+
+            if (alreadyImportedOrders?.length > 0 && newOrders?.length > 0) {
               // Some orders already imported, but we have new ones to import
               openNotificationWithIcon({
                 type: "info",
                 message: "Partial Import",
                 description: `${alreadyImportedOrders.length} order(s) already exist in the system. Importing ${newOrders.length} new order(s).`,
               });
-              
+
               // Create a modified version of ecommerceGetImportOrders with only the new orders
               const filteredImportData = {
                 ...ecommerceGetImportOrders,
-                orders: newOrders
+                orders: newOrders,
               };
-              
+
               // Import only the new orders
               dispatch(saveOrder(filteredImportData));
-            } else if(alreadyImportedOrders?.length > 0 && newOrders?.length === 0) {
+              // Reset ecommerceGetImportOrders to prevent re-triggering
+              dispatch(resetEcommerceGetImportOrders());
+            } else if (
+              alreadyImportedOrders?.length > 0 &&
+              newOrders?.length === 0
+            ) {
               // All orders are already imported
               openNotificationWithIcon({
                 type: "warning",
                 message: "Already Imported",
-                description: "All selected orders are already imported into the system.",
+                description:
+                  "All selected orders are already imported into the system.",
               });
+              // Reset states before navigating to prevent re-triggering on return
+              dispatch(resetEcommerceGetImportOrders());
+              dispatch(resetImport());
               navigate("/importlist");
             } else {
               // No duplicates found, proceed with normal import
               dispatch(saveOrder(ecommerceGetImportOrders));
+              // Reset ecommerceGetImportOrders to prevent re-triggering
+              dispatch(resetEcommerceGetImportOrders());
             }
           }
         } else if (
@@ -500,6 +750,10 @@ const [api, contextHolder] = notification.useNotification();
             description: "Import and Export have been done successfully",
           });
 
+          // Reset all import-related states before navigating to prevent re-triggering on return
+          dispatch(resetSaveOrderInfo());
+          dispatch(resetEcommerceGetImportOrders());
+          dispatch(resetImport());
           navigate("/importlist");
         } else if (saveOrderInfo?.statusCode === 400) {
           openNotificationWithIcon({
@@ -509,6 +763,8 @@ const [api, contextHolder] = notification.useNotification();
           });
           setNextSpinning(false);
           !nextVisiable && setNextVisiable(true);
+          // Also reset on error so user can try again
+          dispatch(resetSaveOrderInfo());
         } else {
           nextVisiable && setNextVisiable(false);
         }
@@ -519,8 +775,6 @@ const [api, contextHolder] = notification.useNotification();
   useEffect(() => {
     if (location.pathname === "/shippingpreference") {
       setNextVisiable(true);
-
-      console.log("companyInfo", companyInfo);
     }
   }, [companyInfo, location.pathname]);
 
@@ -561,9 +815,7 @@ const [api, contextHolder] = notification.useNotification();
       dispatch(updateCompanyInfo({}));
     }
   }, []);
-
-  console.log("next", nextVisiable);
-  console.log("orders", orders);
+  console.log("orders", orders)
 
   useEffect(() => {
     if (orders && checkedOrders) {
@@ -573,7 +825,8 @@ const [api, contextHolder] = notification.useNotification();
         const product = orders?.data?.find(
           (product: any) => product?.order_po == order?.order_po
         );
-        console.log("prodprod", product);
+        console.log("product", product)
+
         if (product) {
           newTotalPrice += order.Product_price?.grand_total
             ? order.Product_price?.grand_total
@@ -581,11 +834,9 @@ const [api, contextHolder] = notification.useNotification();
         }
       });
       setGrandtotal(newTotalPrice);
-      console.log("Remaining Total Price", newTotalPrice);
     }
   }, [checkedOrders, orders]);
 
-  console.log("location", location.pathname.includes("/editorder"));
   useEffect(() => {
     if (
       location.pathname.includes("/editorder") &&
@@ -652,132 +903,78 @@ const [api, contextHolder] = notification.useNotification();
       </Spin>
     </div>
   ) : (
-    <div className="flex ">
+    <div className="flex">
       <div>{contextHolder}</div>
-      <div
-        className={`flex fixed bottom-0 left-0  w-full h-16 bg-white  border-b mt-2 border-gray-200 dark:bg-gray-700 dark:border-gray-600 z-50 `}
-      >
-        <div className="grid h-full max-w-lg grid-cols-2 font-medium basis-1/2">
-          {false && (
-            <>
-              {1 && (
-                <button
-                  onClick={onDownloadHandler}
-                  type="button"
-                  className="max-md:ml-4 inline-flex flex-col items-center ml-20 justify-center px-5 hover:bg-gray-50 dark:hover:bg-gray-800 group"
-                >
-                  <svg
-                    className="w-5 h-5 mb-1 text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500"
-                    aria-hidden="true"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 20 19"
-                  >
-                    <path
-                      stroke="currentColor"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M15 15h.01M4 12H2a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-4a1 1 0 0 0-1-1h-3M9.5 1v10.93m4-3.93-4 4-4-4"
-                    />
+
+      {/* Glassmorphism Bottom Navigation */}
+      <div className="fixed bottom-6 left-28 right-6 z-40 flex items-center justify-between gap-4">
+          {backVisiable && (
+            <div className="backdrop-blur-xl bg-white/70 border border-white/40 rounded-2xl shadow-2xl hover:shadow-blue-200/50 transition-all duration-300 hover:-translate-y-1">
+              <Button
+                key="submit"
+                className={`min-w-[110px] h-12 rounded-2xl font-semibold bg-transparent border-0 hover:bg-white/50 ${style.backButton}`}
+                size="large"
+                type="default"
+                onClick={onBackHandler}
+                icon={
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
-                  <span className="max-md:whitespace-normal text-sm whitespace-nowrap text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500">
-                    Download Selected
-                  </span>
-                </button>
-              )}
-              <button
-                onClick={onDeleteHandler}
-                data-tooltip-target="tooltip-document"
-                type="button"
-                className="max-md:pl-2 inline-flex ml-20 flex-col items-center justify-center px-5 hover:bg-gray-50 dark:hover:bg-gray-800 group"
+                }
               >
-                <svg
-                  className="w-5 h-5 mb-1 text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500"
-                  aria-hidden="true"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 18 20"
-                >
-                  <path
-                    stroke="currentColor"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M1 5h16M7 8v8m4-8v8M7 1h4a1 1 0 0 1 1 1v3H6V2a1 1 0 0 1 1-1ZM3 5h12v13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5Z"
-                  />
-                </svg>
-                {/* <span className="sr-only">New document</span> */}
-                <span className="max-md:whitespace-normal text-sm text-gray-500 whitespace-nowrap dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500">
-                  Delete Selected
-                </span>
-              </button>
-            </>
+                Back
+              </Button>
+            </div>
           )}
 
-          {backVisiable && (
-            <Button
-              key="submit"
-              className={`  w-44 mx-8 mt-2  text-gray-500 ${style.backButton} `}
-              size={"large"}
-              type="default"
-              onClick={onBackHandler}
-            >
-              Back
-            </Button>
-          )}
-        </div>
-        <div className="grid h-full max-w-lg grid-cols-1 font-medium basis-1/2 ">
           {totalVisiable && (
-            <div
-              className={`flex flex-col font-bold text-gray-400 pt-2 ${style.bottomDescription}`}
-            >
-              <span className="w-full block ">
-                Selected orders: {checkedOrders.length} /{orders?.data?.length}
-              </span>
-              <span className="flex  justify-center ">
-                Grand Total :{" "}
-                {product_details?.totalPrice && "$" + grandTotal.toFixed(2)}
-              </span>
+            <div className="flex-1 mx-4 backdrop-blur-xl bg-gradient-to-r from-blue-500/20 to-indigo-500/20 border border-white/40 rounded-3xl shadow-2xl px-6 py-3.5">
+              <div className="flex items-center justify-center gap-8 text-sm font-medium">
+                <span className="flex items-center gap-3">
+                  <div className="p-2 bg-white/80 backdrop-blur-sm rounded-xl shadow-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-gray-900 text-lg">{checkedOrders.length}</span>
+                    <span className="text-gray-700 font-medium">of {orders?.data?.length} selected</span>
+                  </div>
+                </span>
+                {product_details?.totalPrice && (
+                  <>
+                    <div className="h-8 w-px bg-white/40"></div>
+                    <span className="flex items-center gap-3 bg-white/90 backdrop-blur-sm px-5 py-2 rounded-xl shadow-lg">
+                      <span className="text-gray-700 font-semibold">Total:</span>
+                      <span className="font-bold text-blue-600 text-xl">${grandTotal.toFixed(2)}</span>
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {nextVisiable && (
+            <div className="backdrop-blur-xl bg-gradient-to-r from-blue-600/90 to-indigo-600/90 border border-white/30 rounded-2xl shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 hover:-translate-y-1 hover:scale-105">
+              <Spin tip="Updating..." spinning={nextSpinning}>
+                <Button
+                  onClick={onNextHandler}
+                  className={`min-w-[130px] h-12 rounded-2xl font-bold border-0 bg-transparent hover:bg-white/10 text-white ${style.bottomIcon}`}
+                  type="primary"
+                  size="large"
+                  icon={
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  }
+                  iconPosition="end"
+                >
+                  {location.pathname === "/shippingpreference" || location.pathname.includes("/editorder") ? "Update" : "Next"}
+                </Button>
+              </Spin>
             </div>
           )}
         </div>
-        <div className="grid h-full max-w-lg grid-cols-2/3 font-medium basis-1/2 relative z-50 ">
-          {nextVisiable && (
-            <Spin tip="Updating..." spinning={nextSpinning}>
-              <Button
-                onClick={onNextHandler}
-                className={`my-2 w-44 absolute right-2 z-50 ${style.bottomIcon}`}
-                type="primary"
-                size="large"
-              >
-                {location.pathname === "/shippingpreference" ||
-                location.pathname.includes("/editorder")
-                  ? "Update"
-                  : "Next"}
-              </Button>
-            </Spin>
-          )}
-        </div>
-
-        {!!(
-          location.pathname === "/virtualinventory" &&
-          listVirtualInventoryDataCount
-        ) && (
-          <div className="flex w-full justify-end">
-            <Pagination
-              simple
-              className=" mt-5 mr-3 "
-              // defaultCurrent={current}
-              showSizeChanger={false}
-              onChange={onChange}
-              current={current}
-              pageSize={pageSize}
-              total={listVirtualInventoryDataCount}
-            />
-          </div>
-        )}
-      </div>
     </div>
   );
 };

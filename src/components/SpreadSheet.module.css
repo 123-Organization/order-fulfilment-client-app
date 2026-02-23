@@ -1,0 +1,93 @@
+.customHotTable :global(.handsontable) {
+  font-size: 14px;
+}
+
+.customHotTable :global(.handsontable .custom-header) {
+  background: #f0f2f5;
+  font-weight: 600;
+  text-align: center;
+}
+
+.customHotTable :global(.handsontable td) {
+  padding: 8px 4px;
+}
+
+.customModal :global(.ant-modal-content) {
+  padding: 0;
+}
+
+.customModal :global(.ant-modal-header) {
+  padding: 16px 24px;
+  border-bottom: 1px solid #f0f2f5;
+  margin-bottom: 0;
+}
+
+.customModal :global(.ant-modal-body) {
+  padding: 24px;
+}
+
+.customModal :global(.ant-steps-item-title) {
+  font-weight: 500;
+}
+
+.fileInput {
+  padding: 8px;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+}
+
+.fileInput:hover {
+  border-color: #1890ff;
+}
+
+.uploadContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  border: 2px dashed #d9d9d9;
+  border-radius: 8px;
+  background-color: #fafafa;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  min-height: 200px;
+}
+
+.uploadContainer:hover {
+  border-color: #1890ff;
+  background-color: #f0f7ff;
+}
+
+.uploadIcon {
+  font-size: 48px;
+  color: #1890ff;
+  margin-bottom: 16px;
+  transition: transform 0.3s ease;
+}
+
+.uploadContainer:hover .uploadIcon {
+  transform: scale(1.1);
+}
+
+.uploadText {
+  font-size: 16px;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.uploadSubText {
+  font-size: 14px;
+  color: #999;
+}
+
+.dragActive {
+  border-color: #1890ff;
+  background-color: #e6f7ff;
+}
+
+.hiddenInput {
+  display: none;
+} 

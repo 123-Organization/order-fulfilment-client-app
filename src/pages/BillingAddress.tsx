@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Checkbox, Form, Input, InputNumber, Select, Switch } from "antd";
+import { Checkbox, Form, Input, InputNumber, Select } from "antd";
 
 import { getStates } from "country-state-picker";
 import type { SelectProps } from "antd";
@@ -9,7 +9,6 @@ import { useAppDispatch, useAppSelector } from "../store";
 import { updateBilling } from "../store/features/companySlice";
 import convertUsStateAbbrAndName from "../services/state";
 import PaymentMethods from "../components/PaymentMethods";
-import { on } from "events";
 
 const countryList = require("../json/country.json");
 
@@ -25,6 +24,7 @@ interface StateOption {
 const BillingAddress: React.FC = () => {
   const [countryCode, setCountryCode] = useState("us");
   const [copyCompanyAddress, setCopyCompanyAddress] = useState(false);
+  const [isInitialDataLoaded, setIsInitialDataLoaded] = useState(false);
   const billingInfo = useAppSelector(
     (state) => state.company?.company_info?.data?.billing_info
   );
@@ -46,13 +46,16 @@ const BillingAddress: React.FC = () => {
   const [form1] = Form.useForm();
   const [stateCode, setStateCode] = useState<string>("");
   const [stateCodeShort, setStateCodeShort] = useState<string | null>("");
-  const [useStateInput, setUseStateInput] = useState(false);
   const dispatch = useAppDispatch();
   console.log(stateCode, stateCodeShort);
+  const myBillingInfo = useAppSelector(
+    (state) => state.company?.myBillingInfoFilled
+  );
+  console.log("myBillingInfo", myBillingInfo);
   const businessInfo = useAppSelector(
     (state) => state.company?.company_info?.data?.business_info
   );
-  console.log("businessInfo", businessInfo);
+  console.log("bsbs", businessInfo);
 
   const checkboxClick: CheckboxProps["onChange"] = (e) => {
     e.preventDefault();
@@ -76,9 +79,20 @@ const BillingAddress: React.FC = () => {
     // Handle empty selection or undefined values
     let state_code: string = value ? value.toLowerCase() : "";
     console.log(`onChangeState ${state_code}`, countryCode);
+    
+    // If input is a 2-letter code, convert it to full state name for display
+    if (countryCode === "us" && state_code.length === 2) {
+      const fullStateName = convertUsStateAbbrAndName(state_code.toUpperCase());
+      if (fullStateName) {
+        state_code = fullStateName.toLowerCase();
+      }
+    }
+    
     setStateCode(state_code);
     if (countryCode === "us") {
-      setStateCodeShort(state_code ? convertUsStateAbbrAndName(state_code) : "");
+      // When saving, convert full state name back to abbreviation
+      const stateAbbr = state_code.length > 2 ? convertUsStateAbbrAndName(state_code) : state_code.toUpperCase();
+      setStateCodeShort(stateAbbr || "");
     } else {
       setStateCodeShort(state_code);
     }
@@ -89,8 +103,15 @@ const BillingAddress: React.FC = () => {
     console.log(`selected ${country_code}`);
     setCountryCode(country_code);
     setStates(country_code?.toLowerCase());
-    setStateCode(""); // Reset state when country changes
-    setStateCodeShort(""); // Reset state code when country changes
+    // Clear state values when country changes
+    setStateCode("");
+    setStateCodeShort("");
+    // Reset the state_code field and trigger validation
+    form1.setFieldsValue({ state_code: undefined });
+    form1.validateFields(['state_code']).catch(() => {
+      // Validation error is expected here, we just want to trigger the validation
+    });
+    updateBilling({ billing_info: { country_code: country_code } });
   };
   console.log("countryCode", countryCode);
 
@@ -98,7 +119,8 @@ const BillingAddress: React.FC = () => {
     let states = getStates(value);
     let data: StateOption[] = (states || []).map((d: string) => ({
       label: d,
-      value: d,
+      // Ensure value is always lowercase for consistent comparison
+      value: d.toLowerCase(),
     }));
 
     setStateData(data);
@@ -165,8 +187,11 @@ const BillingAddress: React.FC = () => {
       setCompanyAddress(billingInfo);
       form1.setFieldsValue(formData);
       dispatch(updateBilling({ billing_info: billingInfo, validFields: {} }));
+      
+      // Mark initial data as loaded
+      setIsInitialDataLoaded(true);
     }
-  }, [billingInfo, form1, companyAddress.company_name]);
+  }, [billingInfo, form1]);
 
   const handleInputChange = (e: any, field: any) => {
     // Check if e is a direct value (from InputNumber) or an event object
@@ -234,7 +259,7 @@ const BillingAddress: React.FC = () => {
         </div>
       </Form.Item>
       <Form.Item
-        rules={[{ required: true, message: "Please enter your Company Name!" }]}
+        rules={[{ required: false, message: "Please enter your Company Name!" }]}
         name="company_name"
         className="w-full sm:ml-[200px]"
       >
@@ -385,59 +410,142 @@ const BillingAddress: React.FC = () => {
         </div>
       </Form.Item>
 
-      <Form.Item name="state_code" className="w-full sm:ml-[200px]">
+      <Form.Item 
+        name="state_code" 
+        className="w-full sm:ml-[200px]"
+        rules={[
+          { 
+            required: true,
+            message: `Please enter your ${countryCode === "us" ? "State" : "Province/Region"}!`,
+            validator: (_, value) => {
+              // Skip validation if initial data hasn't loaded yet
+              if (!isInitialDataLoaded) {
+                return Promise.resolve();
+              }
+
+              if (!value) {
+                return Promise.reject(new Error(`${countryCode === "us" ? "State" : "Province/Region"} is required`));
+              }
+              if (countryCode === "us") {
+                // For US, ensure it's either a valid state name or code
+                const isValidState = stateData.some(state => 
+                  state.value === value.toLowerCase() || 
+                  state.value === convertUsStateAbbrAndName(value)?.toLowerCase()
+                );
+                if (!isValidState) {
+                  return Promise.reject(new Error('Please select a valid US state'));
+                }
+              }
+              return Promise.resolve();
+            }
+          }
+        ]}
+      >
         <div className="relative">
-          <div className="flex items-center mb-3 p-2 rounded border border-blue-200 bg-blue-50">
-            <Switch 
-              size="small"
-              checked={useStateInput}
-              onChange={(checked) => setUseStateInput(checked)} 
-              className="bg-blue-500"
-            />
-            <span className="text-xs font-medium text-blue-700 ml-2">
-              {useStateInput ? "Type state" : "Select from list"}
-            </span>
-          </div>
-          
-          {!useStateInput ? (
+          {countryCode === "us" ? (
             <Select
               allowClear
               showSearch
-              onBlur={onValid}
-              className="fw-input1 "
-              onChange={onChangeState}
-              filterOption={filterOption}
+              onBlur={() => {
+                // Only validate if initial data is loaded
+                if (isInitialDataLoaded) {
+                  onValid();
+                }
+              }}
+              className="fw-input1"
+              onChange={(value) => {
+                onChangeState(value);
+                // Only validate if initial data is loaded
+                if (isInitialDataLoaded) {
+                  form1.validateFields(['state_code']).catch(() => {
+                    // Validation error is expected here
+                  });
+                }
+              }}
+              onSearch={(value) => {
+                // Convert to uppercase for consistency
+                const upperValue = value.toUpperCase();
+                // If exactly 2 characters are entered and they're letters
+                if (upperValue.length === 2 && /^[A-Z]{2}$/.test(upperValue)) {
+                  const fullStateName = convertUsStateAbbrAndName(upperValue);
+                  if (fullStateName) {
+                    // Find the matching option and trigger onChange
+                    const matchingOption = stateData.find(
+                      option => option.value === fullStateName.toLowerCase()
+                    );
+                    if (matchingOption) {
+                      onChangeState(matchingOption.value);
+                    }
+                  }
+                }
+              }}
+              filterOption={(input, option) => {
+                if (!option?.value) return false;
+                // Check if input matches state code or state name
+                const inputUpper = input.toUpperCase();
+                const stateCode = convertUsStateAbbrAndName(option.value)?.toUpperCase() || '';
+                return option.value.toLowerCase().includes(input.toLowerCase()) || 
+                       (inputUpper.length === 2 && stateCode === inputUpper);
+              }}
               options={stateData}
               value={
-                countryCode === "us" ?
-               ( companyAddress && !stateCode
+                companyAddress && !stateCode
                   ? billingInfo?.state_code &&
-                    convertUsStateAbbrAndName(billingInfo?.state_code)
-                  : stateCode || "") : (stateCode || billingInfo?.province || "")
-              } // Ensure correct value is passed
+                    (billingInfo?.state_code.length === 2 
+                      ? convertUsStateAbbrAndName(billingInfo?.state_code)?.toLowerCase()
+                      : billingInfo?.state_code.toLowerCase())
+                  : stateCode || ""
+              }
+              placeholder={`Select your ${countryCode === "us" ? "State" : "Province/Region"}`}
             />
           ) : (
             <Input
               className="fw-input"
-              onBlur={onValid}
-              value={stateCode}
-              placeholder={billingInfo?.province || billingInfo?.state_code || ""}
+              onBlur={() => {
+                // Only validate if initial data is loaded
+                if (isInitialDataLoaded) {
+                  onValid();
+                }
+              }}
+              value={stateCode || billingInfo?.province || ""}
+              placeholder={`Enter your ${countryCode === "us" ? "State" : "Province/Region"}`}
               onChange={(e) => {
                 const inputValue = e.target.value;
-                setStateCode(inputValue);
                 
-                if (countryCode === "us" && inputValue) {
-                  setStateCodeShort(convertUsStateAbbrAndName(inputValue));
+                if (countryCode === "us") {
+                  // Convert to uppercase for consistency
+                  const upperValue = inputValue.toUpperCase();
+                  // If exactly 2 characters are entered and they're letters
+                  if (upperValue.length === 2 && /^[A-Z]{2}$/.test(upperValue)) {
+                    const fullStateName = convertUsStateAbbrAndName(upperValue);
+                    if (fullStateName) {
+                      setStateCode(fullStateName.toLowerCase());
+                      setStateCodeShort(upperValue);
+                      // Trigger validation
+                      onValid();
+                      return;
+                    }
+                  }
+                  
+                  // For full names or invalid 2-letter codes
+                  const stateAbbr = convertUsStateAbbrAndName(inputValue);
+                  setStateCode(inputValue);
+                  setStateCodeShort(stateAbbr || inputValue);
                 } else {
+                  setStateCode(inputValue);
                   setStateCodeShort(inputValue);
                 }
-                
-                // Don't call onValid here - wait for onBlur
+                // Only validate if initial data is loaded
+                if (isInitialDataLoaded) {
+                  form1.validateFields(['state_code']).catch(() => {
+                    // Validation error is expected here
+                  });
+                }
               }}
             />
           )}
           <label htmlFor="floating_outlined" className="fw-label">
-            State / Province
+            {countryCode === "us" ? "State" : "Province/Region"}
           </label>
         </div>
       </Form.Item>
@@ -477,7 +585,7 @@ const BillingAddress: React.FC = () => {
         rules={[
           { required: true, message: "Please enter your Phone Number!" },
           {
-            pattern: new RegExp(/^[0-9]{10,14}$/),
+            pattern: new RegExp(/^[\d\s\-\(\)]{10,20}$/),
             message: "Please enter a valid phone number with at least 10 digits!",
           },
         ]}

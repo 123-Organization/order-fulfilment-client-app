@@ -118,8 +118,6 @@
   width: 100%;
   display: flex;
   align-items: flex-start;
-  max-height: 130px;
-  overflow: hidden;
 }
 
 
@@ -144,8 +142,6 @@
   .description_box {
     width: 100%;
     padding: 10px 0px;
-    max-height: 120px;
-    overflow: hidden;
   }
   .orderes_box {
     width: 100%;
@@ -153,7 +149,6 @@
   }
   .orderes_lable {
     width: 100%;
-    height: 250px;
   }
   .importlist_pic{
     width: 90%;
@@ -167,8 +162,6 @@
   .description_box {
     width: 100%;
     padding: 10px 0px;
-    max-height: 120px;
-    overflow: visible;
   }
   .order_description {
     font-size: 11px;
@@ -183,14 +176,11 @@
   
   .orderes_lable {
     width: 100%;
-    height: 220px;
   }
 
   .description_box {
     width: 100%;
     padding: 10px 0px;
-    max-height: 120px;
-    overflow: visible;
   }
   .order_description {
     font-size: 11px;

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Button, Form, Input, Select, Skeleton, List } from "antd";
 import { useLocation } from "react-router-dom";
 import { useParams, useNavigate } from "react-router-dom";
@@ -7,20 +7,18 @@ import { countryType } from "../types/ICountry";
 import ProductOptions from "../components/ProductOptions";
 import { useAppDispatch, useAppSelector } from "../store";
 import SelectShippingOption from "../components/SelectShippingOption";
-import { setCurrentOrderFullFillmentId, updateCheckedOrders } from "../store/features/orderSlice";
+import { setCurrentOrderFullFillmentId, updateCheckedOrders, updateValidSKU } from "../store/features/orderSlice";
 import {
   updateOrderStatus,
-  updateOrdersInfo,
   fetchOrder,
   fetchSingleOrderDetails,
 } from "../store/features/orderSlice";
 import { getInventoryImages } from "../store/features/InventorySlice";
 import { fetchProductDetails } from "../store/features/productSlice";
-import UpdateButton from "../components/UpdateButton";
 import UpdatePopup from "../components/UpdatePopup";
 import style from "./Pgaes.module.css";
 import FilesGallery from "../components/FilesGallery";
-import NewOrder from "../components/NewOrder";
+import FileManagementIframe from "../components/FileManagmentIframe";
 import { setUpdatedValues } from "../store/features/orderSlice";
 import DeleteMessage from "../components/DeleteMessage";
 import { useNotificationContext } from "../context/NotificationContext";
@@ -28,7 +26,10 @@ import { LoadingOutlined } from "@ant-design/icons";
 import { Flex, Spin } from "antd";
 import { setQuantityUpdated } from "../store/features/productSlice";
 import convertUsStateAbbrAndName from "../services/state";
-
+import NewProduct from "../components/NewProduct";
+import { updateOrdersInfo } from "../store/features/orderSlice";
+import { convertGoogleDriveUrl, isGoogleDriveUrl, getGoogleDriveImageUrls } from "../helpers/fileHelper";
+import HTMLReactParser from "html-react-parser";
 
 import Quantity from "../components/Quantitiy";
 
@@ -48,10 +49,31 @@ const EditOrder: React.FC = () => {
   const [product_guid, setProductGuid] = useState("");
   const [clicking, setclicking] = useState(false);
   const [productCode, setProductCode] = useState(false);
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set());
+  const [selectedProductForImageChange, setSelectedProductForImageChange] = useState<{
+    order_po: string;
+    orderFullFillmentId: number;
+    product_sku: string;
+  } | null>(null);
+  const [iframeOpen, setIframeOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
   const notificationApi = useNotificationContext();
+
+  // Toggle description expansion
+  const toggleDescription = (sku: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedDescriptions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(sku)) {
+        newSet.delete(sku);
+      } else {
+        newSet.add(sku);
+      }
+      return newSet;
+    });
+  };
   const updatedValues =
     useAppSelector((state) => state.order.updatedValues) || {};
   const orders = useAppSelector((state) => state.order.orders);
@@ -60,7 +82,7 @@ const EditOrder: React.FC = () => {
   const orderData = useAppSelector((state) => state.order.order) || {};
   console.log("orderData", orderData);
   const order = orderData.data ? orderData.data[0] : {};
-  const { id } = useParams<{ orderFullFillmentId: string }>();
+  const { id } = useParams<{ id: string }>();
   const code = useAppSelector((state) => state.order.productCode) || {};
   console.log("full", id);
   const quantityUpdated = useAppSelector(
@@ -71,10 +93,12 @@ const EditOrder: React.FC = () => {
   
   const InventoryImages =
     useAppSelector((state) => state.Inventory.inventoryImages) || [];
+  const validSKU = useAppSelector((state) => state.order.validSKU) || [];
 
   const shipping_option = useAppSelector(
     (state) => state.Shipping.shippingOptions[0] || []
   );
+  console.log("validSKU", validSKU);
 
   console.log("InventoryImages", InventoryImages);
 
@@ -84,26 +108,77 @@ const EditOrder: React.FC = () => {
     );
   }, [dispatch]);
 
-  const [productData, setProductData] = useState({});
+  const [productData, setProductData] = useState<{ [key: string]: any }>({});
   const [orderPostData, setOrderPostData] = useState([]);
   const [form] = Form.useForm(); // Create form instance
   const [isModified, setIsModified] = useState(false); // Track if values are modified
   const [changedValues, setChangedValues] = useState<any>({});
   const [localOrder, setLocalOrder] = useState(order);
-  const[stateCodeShort, setStateCodeShort] = useState(recipient?.state)
+  const[stateCodeShort, setStateCodeShort] = useState(recipient?.state_code)
+  const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({});
+  const [imageUrlIndex, setImageUrlIndex] = useState<{ [key: string]: number }>({});
+  console.log("recipient", recipient);
   const product_details =
     useAppSelector(
       (state) => state.ProductSlice.product_details?.data?.product_list
-    ) || [];
+    || [] ) ;
   console.log("product_details...", product_details);
   const orderEdited = useAppSelector((state) => state.order.orderEdited) || [];
   console.log("product_details...", product_details);
   // parse the string to html
 const {phone} = useAppSelector((state) => state.company.company_info?.data?.billing_info) || {};
 console.log("company_info", phone);
-  const filterDescription = (descriptionLong: string): string => {
-    return descriptionLong?.replace(/<[^>]*>?/gm, "");
+
+  // Function to get the correct image URL, handling Google Drive links
+  const getImageUrl = useCallback((item: any, productSku: string): string => {
+    let imageUrl = "";
+    console.log("daasdasda", item);
+    // Try thumbnail first, then fallback to product data
+    if (item?.product_url_thumbnail) {
+      imageUrl = item?.product_url_thumbnail;
+    }else if(item?.product_image?.product_url_thumbnail) {
+      imageUrl = item?.product_image?.product_url_thumbnail;
+    } else if (productData[productSku]?.image_url_1) {
+      imageUrl = productData[productSku].image_url_1;
+    }
+    
+    // Convert Google Drive URLs to direct image URLs
+    if (imageUrl && isGoogleDriveUrl(imageUrl)) {
+      return convertGoogleDriveUrl(imageUrl);
+    }
+    
+    return imageUrl;
+  }, [productData]);
+
+  // Function to handle image load errors with URL fallback
+  const handleImageError = (imageKey: string, originalUrl: string) => {
+    if (isGoogleDriveUrl(originalUrl)) {
+      const possibleUrls = getGoogleDriveImageUrls(originalUrl);
+      const currentIndex = imageUrlIndex[imageKey] || 0;
+      
+      if (currentIndex < possibleUrls.length - 1) {
+        // Try next URL
+        setImageUrlIndex(prev => ({ ...prev, [imageKey]: currentIndex + 1 }));
+        return;
+      }
+    }
+    
+    // Mark as failed if all URLs tried
+    setImageErrors(prev => ({ ...prev, [imageKey]: true }));
   };
+
+  // Get current image URL for a specific image key
+  const getCurrentImageUrl = useCallback((imageKey: string, originalUrl: string): string => {
+    if (!originalUrl) return "";
+    
+    if (isGoogleDriveUrl(originalUrl)) {
+      const possibleUrls = getGoogleDriveImageUrls(originalUrl);
+      const currentIndex = imageUrlIndex[imageKey] || 0;
+      return possibleUrls[currentIndex] || originalUrl;
+    }
+    
+    return originalUrl;
+  }, [imageUrlIndex]);
   console.log("local", localOrder);
   console.log(orderPostData);
   useEffect(() => {
@@ -116,7 +191,7 @@ console.log("company_info", phone);
   console.log("locals", localOrder);
   const handleShippingOptionChange = (
     order_po: string,
-    updatedPrice: number
+    updatedPrice: any
   ) => {
     let updatedOrders = [...checkedOrders];
 
@@ -129,14 +204,14 @@ console.log("company_info", phone);
       // Update the shipping price for the existing order
       updatedOrders[orderIndex] = {
         ...updatedOrders[orderIndex],
-        Product_price: {grand_total: updatedPrice?.order_grand_total},
+        Product_price: {grand_total: updatedPrice?.order_grand_total || updatedPrice},
       };
     } else {
       // Add the order with the updated shipping price
       console.log("updatedPrice", updatedPrice);
       updatedOrders.push({
         order_po,
-        Product_price: {grand_total: updatedPrice?.order_grand_total},
+        Product_price: {grand_total: updatedPrice?.order_grand_total || updatedPrice},
       });
     }
 
@@ -148,7 +223,7 @@ console.log("company_info", phone);
   }, [])
 
   //send the orders array without the dedeleted product object
-  const onDeleteProduct = (product_guid) => {
+  const onDeleteProduct = (product_guid: string) => {
     const updatedOrderItems = localOrder?.order_items?.filter(
       (item) => item.product_guid !== product_guid
     );
@@ -203,6 +278,11 @@ console.log("company_info", phone);
       });
   };
 
+  // Determine if recipient has phone and if field should be editable
+  const hasRecipientPhone = Boolean(recipient?.phone && String(recipient.phone).trim());
+  const phoneValue = hasRecipientPhone ? recipient.phone : phone || "";
+  const isPhoneEditable = hasRecipientPhone;
+
   const initialValues = React.useMemo(
     () => ({
       country_code: order?.country_code || "US",
@@ -212,19 +292,21 @@ console.log("company_info", phone);
       address_1: recipient?.address_1 || "",
       address_2: recipient?.address_2 || "",
       city: recipient?.city || "",
-      state: recipient?.state || stateCodeShort,
-      zip_postal_code: recipient?.zip_postal_code || "",
-      phone: phone || "",
+      state_code: recipient?.state_code || stateCodeShort,
+      zip_postal_code: recipient?.zip_postal_code.toString() || "",
+      phone: phoneValue,
     }),
-    [order, recipient]
+    [order, recipient, phone, phoneValue]
   );
   // console.log("initialValues",convertUsStateAbbrAndName(recipient?.state ))
+  console.log("recipient", recipient);
 
   useEffect(() => {
-    if(recipient?.state_code){
+    if(recipient?.state_code || recipient?.state){
     const stateCode = recipient?.state_code?.toLowerCase()
     setStateCodeShort(convertUsStateAbbrAndName(stateCode))}
   }, [recipient])
+
   useEffect(() => {
     form.setFieldsValue(initialValues);
   }, [form, initialValues]);
@@ -277,7 +359,7 @@ console.log("company_info", phone);
       }
       dispatch(setCurrentOrderFullFillmentId(id));
     }
-    dispatch(getInventoryImages());
+    // dispatch(getInventoryImages());
   }, [orderData, dispatch]);
 
   const handleProductCodeUpdate = () => {
@@ -285,6 +367,7 @@ console.log("company_info", phone);
     dispatch(
       fetchSingleOrderDetails({ accountId: customerInfo?.data?.account_id, orderFullFillmentId: id })
     );
+    
   };
 const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
   const [componentSize, setComponentSize] = useState<SizeType | "default">(
@@ -300,6 +383,10 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
       (key) => initialValues[key] !== allValues[key]
     );
     console.log("hasChanged:", hasChanged);
+    console.log("changedValues:", changedValues);
+    if(changedValues?.state_code){
+      changedValues.state_code = convertUsStateAbbrAndName(changedValues.state_code);
+    }
 
     // Exclude 'address_2' when checking for all fields filled
     const requiredFields = Object.keys(allValues).filter(
@@ -393,12 +480,13 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
   const displayTurtles = (
     <Form
       labelCol={{ span: 4 }}
-      wrapperCol={{ span: windowWidth > 1080 ? 14 : 24 }}
+      wrapperCol={{ span: 24 }}
       layout="horizontal"
       initialValues={initialValues}
       onValuesChange={handleValuesChange}
-      className="w-full flex flex-col items-center  "
+      className="w-full flex flex-col items-center gap-0"
       form={form}
+      size="small"
     >
       <Form.Item
         name="country_code"
@@ -505,7 +593,7 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
 
       <div className="relative w-full">
         <Form.Item
-          name="state"
+          name="state_code"
           className="w-full "
           rules={[{ required: true, message: "Please enter your state" }]}
         >
@@ -517,7 +605,7 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
             className="fw-input1 "
             filterOption={filterOption}
             options={stateData}
-            value={recipient?.state || ""}
+            value={recipient?.state_code || ""}
           >
             
           </Select>
@@ -550,17 +638,18 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
         >
           <Input 
             className="fw-input" 
-            value={phone} 
-            disabled={true}
-            style={{ 
+            value={phoneValue} 
+            disabled={!isPhoneEditable}
+            style={!isPhoneEditable ? { 
               backgroundColor: "#f5f5f5", 
               color: "#999", 
               cursor: "not-allowed" 
-            }} 
+            } : {}}
+            placeholder={isPhoneEditable ? "Enter phone number" : "Phone from billing info"}
           />
         </Form.Item>
         <label htmlFor="floating_outlined" className="fw-label">
-          Phone
+          Phone {isPhoneEditable ? "(Recipient)" : "(From Billing)"}
         </label>
       </div>
 
@@ -570,24 +659,24 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
   );
 
   
-  console.log("changeStatus", changeStatus);
+  console.log("localorder", localOrder);
 
   return (
     <div
-      className={`flex max-md:flex-col  justify-end items-start w-full h-full p-8 ${style.card}`}
+      className={`flex max-md:flex-col justify-end items-start w-full h-full p-4 pl-6 ${style.card}`}
     >
-      <div className="w-1/3 max-md:w-full md:border-r-2 max-md:pb-4 max-md:border-b-2">
-        <div className="container mx-auto px-5 py-2 lg:px-8 md:px-4 justify-center items-center">
-          <div className="-m-1 mx-4 flex flex-wrap md:-m-2">
-            <p className="text-lg text-gray-400 py-4 font-bold">Recipient</p>
+      <div className="w-[28%] max-md:w-full md:border-r-2 max-md:pb-4 max-md:border-b-2">
+        <div className="container mx-auto px-3 py-1 lg:px-4 justify-center items-center">
+          <div className="flex flex-wrap">
+            <p className="text-lg text-gray-400 py-2 font-bold">Recipient</p>
             {displayTurtles}
           </div>
         </div>
       </div>
 
-      <div className={`w-1/2 max-md:w-full flex flex-col justify-start md:border-r-2  max-md:border-b-2 max-md:pb-6  items-center h-[800px] max-md:h-auto ${style.edit_order_card}`}>
+      <div className={`w-[52%] max-md:w-full flex flex-col justify-start md:border-r-2  max-md:border-b-2 max-md:pb-6  items-center h-[800px] max-md:h-auto ${style.edit_order_card}`}>
         <div
-          className={`text-left w-full px-4 text-gray-400 pt-4 overflow-y-auto scrollbar-thin ${style.customscrollbar} ${style.inner_card} `}
+          className={`text-left w-full px-3 text-gray-400 pt-4 overflow-y-auto scrollbar-thin ${style.customscrollbar} ${style.inner_card} `}
         >
           <div className="w-full flex justify-between items-center relative ">
             <p className="text-lg pb-4 text-gray-400  font-bold bg-slate-50 w-9/12">
@@ -596,130 +685,180 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
             <ProductOptions
               id={id}
               onProductCodeUpdate={handleProductCodeUpdate}
+              localorder={localOrder}
+              setOpenModal={setOpenModal}
             />
           </div>
           {localOrder?.order_items?.map((item, index) => (
-            <div className="h-[230px] mt-2 hover:border-gray-500 max-md:h-[230px] inline-flex overflow-y-auto scrollbar-thin justify-between w-full px-3 text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700">
-              <div className="block relative pb-4 w-full">
-                <div className="justify-around pt-4 rounded-lg flex ">
-                  <div className="flex pt-8 ">
-                    {productData[item.product_sku]?.image_url_1 ? (
-                      <img
-                        src={
-                          item?.product_url_thumbnail
-                            ? item?.product_url_thumbnail
-                            : productData[item?.product_sku].image_url_1
+            <div key={index} className="mb-3 bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
+              {localOrder?.order_items?.length > 0 && !validSKU.includes(item.product_sku?.toString()) ? (
+                /* Invalid SKU Card */
+                <div className="p-4 bg-red-50">
+                  <div className="flex items-center gap-2 mb-3">
+                    <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <h2 className="text-sm font-semibold text-red-600">Invalid SKU Detected</h2>
+                  </div>
+                  <p className="text-xs text-gray-600 mb-2">
+                    SKU: <span className="font-mono bg-white px-2 py-0.5 rounded border border-red-200 text-red-600">{item?.product_sku}</span>
+                  </p>
+                  <button
+                    className="mt-2 inline-flex items-center px-3 py-1.5 border border-red-300 text-xs font-medium rounded-md text-red-600 bg-white hover:bg-red-50"
+                    onClick={() => { setOpenModal(true); setProductCode(true); }}
+                  >
+                    <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    Add Valid SKU
+                  </button>
+                </div>
+              ) : (
+                /* Valid Product Card */
+                <div className="p-4">
+                  {/* Top Row: Image + Info + Quantity */}
+                  <div className="flex gap-4">
+                    {/* Product Image */}
+                    <div className="flex-shrink-0 w-20 h-20 bg-gray-50 rounded-lg overflow-hidden flex items-center justify-center">
+                      {(() => {
+                        const originalImageUrl = getImageUrl(item, item?.product_sku);
+                        const imageKey = `${item?.product_sku}-${item?.product_guid}`;
+                        const currentImageUrl = getCurrentImageUrl(imageKey, originalImageUrl);
+                        const hasError = imageErrors[imageKey];
+                        
+                        if (currentImageUrl && !hasError) {
+                          return (
+                            <img
+                              key={`${imageKey}-${imageUrlIndex[imageKey] || 0}`}
+                              src={currentImageUrl}
+                              alt="product"
+                              className="w-full h-full object-contain"
+                              onError={() => handleImageError(imageKey, originalImageUrl)}
+                              onLoad={() => setImageErrors(prev => { const n = { ...prev }; delete n[imageKey]; return n; })}
+                            />
+                          );
+                        } else {
+                          return (
+                            <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          );
                         }
-                        alt="product"
-                        className={`rounded-lg max-md:w-20 w-40 h-[100px] ${style.product_image} `}
-                        width={116}
-                        height={26}
-                      />
-                    ) : (
-                      <Skeleton.Image active className="mr-40" />
-                    )}
+                      })()}
+                    </div>
 
-                    <div className="sm:ml-4 flex flex-col w-full sm:justify-between max-md:px-2">
-                      {(Object.keys(productData)?.length && (
-                        <div
-                          className={`w-12/12 text-sm ${style.product_decription} `}
-                        >
-                          {filterDescription(
-                            productData[item.product_sku]?.description_long
-                          )?.substring(0, 130)}
-                        </div>
-                      )) || <Skeleton active />}
+                    {/* Product Info */}
+                    <div className="flex-1 min-w-0">
+                      {productData[item.product_sku] ? (
+                        <>
+                          <h3 className="font-medium text-gray-900 text-sm leading-tight line-clamp-2 mb-2">
+                            {productData[item.product_sku]?.name || 'Untitled Product'}
+                          </h3>
+                          
+                          {/* Labels with keys */}
+                          {productData[item.product_sku]?.labels?.length > 1 && (
+                            <div className={`space-y-0.5 overflow-hidden transition-all duration-300 ${
+                              expandedDescriptions.has(item.product_sku) ? 'max-h-[300px]' : 'max-h-[80px]'
+                            }`}>
+                              {productData[item.product_sku]?.labels.slice(1).map((label: any, idx: number) => (
+                                <div key={idx} className="text-[11px] text-gray-600 leading-tight">
+                                  <span className="text-blue-600 font-medium">{label.key}:</span> {label.value}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {/* Expand/Collapse */}
+                          {productData[item.product_sku]?.labels?.length > 5 && (
+                            <button
+                              onClick={(e) => toggleDescription(item.product_sku, e)}
+                              className="text-[10px] text-blue-600 hover:text-blue-800 font-medium mt-1 flex items-center gap-0.5"
+                            >
+                              {expandedDescriptions.has(item.product_sku) ? 'Show less' : 'Show more'}
+                              <svg className={`w-3 h-3 transition-transform ${expandedDescriptions.has(item.product_sku) ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </button>
+                          )}
+                        </>
+                      ) : (
+                        <Skeleton active paragraph={{ rows: 2 }} />
+                      )}
+                    </div>
+
+                    {/* Quantity Control */}
+                    <div className="flex-shrink-0">
+                      <Quantity
+                        quantity={productData[item.product_sku]?.quantity || item.product_qty}
+                        clicking={clicking}
+                        setclicking={setclicking}
+                        orderFullFillmentId={id}
+                        product_guid={item?.product_guid}
+                      />
                     </div>
                   </div>
-                  <div className="h-9">
-                    <Quantity
-                      quantity={
-                        productData[item.product_sku]?.quantity ||
-                        item.product_qty
-                      }
-                      clicking={clicking}
-                      setclicking={setclicking}
-                      orderFullFillmentId={id}
-                      product_guid={item?.product_guid }
-                    />
+
+                  {/* Bottom Actions Bar */}
+                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                    <div className="flex items-center gap-2">
+                      {/* Delete Button */}
+                      <button
+                        type="button"
+                        className="p-1.5 rounded-md hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                        onClick={() => { setProductGuid(item.product_guid); setDeleteMessageVisible(true); }}
+                        title="Delete"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                      <DeleteMessage
+                        visible={DeleteMessageVisible}
+                        onClose={setDeleteMessageVisible}
+                        onDeleteProduct={onDeleteProduct}
+                        deleteItem={product_guid}
+                        order_po=""
+                      />
+                      
+                      {/* Change Image Button - only show if product_sku starts with "AP" */}
+                      {item.product_sku?.toString().startsWith("AP") && (
+                        <button
+                          onClick={() => {
+                            setSelectedProductForImageChange({
+                              order_po: localOrder?.order_po?.toString(),
+                              orderFullFillmentId: parseInt(id || "0"),
+                              product_sku: item.product_sku,
+                            });
+                            setIframeOpen(true);
+                          }}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-md hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-all"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          Change Image
+                        </button>
+                      )}
+                    </div>
+                    
+                    {/* Price */}
+                    <div className="text-sm font-semibold text-gray-900">
+                      {clicking || product_status === "loading" || !product_details?.find(
+                        (product) => product.sku === item.product_sku || product.product_code === item.product_sku
+                      )?.total_price ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-gray-400 text-xs">Calculating...</span>
+                          <Spin indicator={<LoadingOutlined spin />} size="small" />
+                        </div>
+                      ) : (
+                        <span className="text-green-600">
+                          ${product_details?.find((el) => el.product_guid === item.product_guid)?.total_price || item.per_item_price}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <div className="flex justify-between items-center w-full absolute bottom-0 left-0 px-3 py-2 border-t border-gray-100">
-                  <div className="flex items-center gap-2">
-                    <button
-                      data-tooltip-target="tooltip-document"
-                      type="button"
-                      className="inline-flex items-center justify-center p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 group"
-                      onClick={() => {
-                        setProductGuid(item.product_guid);
-                        setDeleteMessageVisible(true);
-                      }}
-                    >
-                      <svg
-                        className="w-5 h-5 text-gray-500 dark:text-gray-400 group-hover:text-red-600 dark:group-hover:text-blue-500"
-                        aria-hidden="true"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 18 20"
-                      >
-                        <path
-                          stroke="currentColor"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M1 5h16M7 8v8m4-8v8M7 1h4a1 1 0 0 1 1 1v3H6V2a1 1 0 0 1 1-1ZM3 5h12v13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5Z"
-                        />
-                      </svg>
-                    </button>
-                    <DeleteMessage
-                      visible={DeleteMessageVisible}
-                      onClose={setDeleteMessageVisible}
-                      onDeleteProduct={onDeleteProduct}
-                      deleteItem={product_guid}
-                    />
-                    {productCode && (
-                      <Button
-                        key="submit"
-                        className="text-gray-500 border border-gray-400 rounded-lg text-center font-semibold"
-                        size="small"
-                        onClick={() => setOpenModal(true)}
-                        style={{ backgroundColor: "#f5f4f4" }}
-                        type="link"
-                      >
-                        Add / Change Image
-                      </Button>
-                    )}
-                    <FilesGallery
-                      open={openModal}
-                      setOpenModal={setOpenModal}
-                      productImage={productData[item.product_sku]?.image_url_1}
-                    />
-                  </div>
-                  <div className="text-sm font-medium">
-                    {clicking ||
-                    product_status === "loading" ||
-                    !product_details?.find(
-                      (product) => product.sku  === item.product_sku || product.product_code === item.product_sku
-                    )?.total_price ? (
-                      <div className="flex items-center gap-2">
-                        <p className="text-red-400 text-xs">
-                          Calculating price...
-                        </p>
-                        <Spin
-                          indicator={<LoadingOutlined spin />}
-                          size="default"
-                        />
-                      </div>
-                    ) : (
-                      `$${
-                        product_details?.find((element) => {
-                          return element.product_guid === item.product_guid
-                        })?.total_price
-                      }`
-                    )}
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
           ))}
         </div>
@@ -728,21 +867,35 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
           <UpdatePopup
             ChangedValues={changedValues}
             visible={orderEdited.clicked}
-            onClose={() => dispatch(updateOrderStatus({ clicked: false }))}
-          />
+            onClose={() => dispatch(updateOrderStatus({ status: false, clicked: false }))}
+            
+          /> 
+          
         ) || null}
+
+        {/* File Management Iframe for changing product images */}
+        <FileManagementIframe
+          iframe={iframeOpen}
+          setIframe={(value: boolean) => {
+            setIframeOpen(value);
+            if (!value) {
+              setSelectedProductForImageChange(null);
+            }
+          }}
+          selectedProductForImageChange={selectedProductForImageChange}
+        />
       </div>
 
-      <div className="w-1/3 max-md:w-full mt-1">
-        <div className="container mx-auto px-5 py-8 md:py-2 lg:px-8 md:px-4 justify-start items-center">
-          <div className="-m-1 mx-4 flex flex-wrap md:-m-2">
-            <p className="text-lg my-2 pb-4 text-gray-400 text-left font-bold">
+      <div className="w-[20%] max-md:w-full mt-1">
+        <div className="container mx-auto px-3 py-2 lg:px-4 justify-start items-center">
+          <div className="flex flex-wrap">
+            <p className="text-base my-1 pb-2 text-gray-400 text-left font-bold">
               Shippings & Totals
             </p>
             <div className="block w-full text-gray-400 text-right">
               <SelectShippingOption
                 key={productchange}
-                poNumber={localOrder?.order_po}
+                poNumber={localOrder?.order_po?.toString()}
                 orderItesm={localOrder?.order_items}
                 onShippingOptionChange={handleShippingOptionChange}
                 localOrder={localOrder}
@@ -750,6 +903,7 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
                 clicking={clicking}
               />
             </div>
+            <NewProduct/>
           </div>
         </div>
       </div>

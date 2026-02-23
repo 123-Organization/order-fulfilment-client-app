@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef  } from "react";
 import { Form, Input, InputNumber, Select, Switch, Modal, Button } from "antd";
 
 import { updateCompany, updateCompanyInfo } from "../store/features/companySlice";
@@ -27,7 +27,7 @@ const MyCompany: React.FC = () => {
   const businessInfo = useAppSelector(
     (state) => state.company?.company_info?.data?.business_info
   );
-
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const com_info = useAppSelector((state) => state.company?.company_info);
   console.log("com_info", com_info);
   console.log("businessInfo", businessInfo);
@@ -58,8 +58,8 @@ const MyCompany: React.FC = () => {
 
   /*////////////////////////////////////////////////////*/
 
-  const openIframe = () => {
-    dispatch(updateIframeState({ iframeState: true }));
+  const openFilePicker = () => {
+    fileInputRef.current?.click();
   };
 
   const setStates = (value: string = "us") => {
@@ -107,9 +107,13 @@ const MyCompany: React.FC = () => {
     let updatedValues = { ...companyAddress, ...values };
     // updatedValues.country_code = countryCode;
     if (countryCode === "us" && updatedValues.state_code) {
-      updatedValues.state_code = convertUsStateAbbrAndName(
-        updatedValues?.state_code
-      );
+      // Only convert if it's NOT already an abbreviation (2 characters)
+      // This ensures we always send the state code, not the full name
+      if (updatedValues.state_code.length !== 2) {
+        updatedValues.state_code = convertUsStateAbbrAndName(
+          updatedValues?.state_code
+        );
+      }
     }
     if (countryCode !== "us" && updatedValues.state_code) {
       updatedValues.province = updatedValues?.state_code;
@@ -167,15 +171,19 @@ const MyCompany: React.FC = () => {
     setCompanyAddress({ ...companyAddress, state_code: state as string });
     dispatch(updateCompany({ business_info: businessInfo, validFields: {} }));
   }, [stateCode, stateCodeShort, countryCode]);
+  console.log("compa", companyAddress?.company_name );
 
   useEffect(() => {
     // Check if this is the first time the user visits this page
     const hasVisitedBefore = localStorage.getItem('hasVisitedCompanyPage');
     
     // Only show overlay if not visited before and no business info
-    if (hasVisitedBefore !== 'true' ) {
-      setShowLocationOverlay(true);
+    setTimeout(() => {
+    if (!businessInfo?.company_name || companyAddress?.country_code !== "us") {
+        setShowLocationOverlay(true);
+     
     }
+    }, 2000);
 
     form.setFieldsValue(businessInfo);
     if (businessInfo?.company_name) {
@@ -205,6 +213,52 @@ const MyCompany: React.FC = () => {
     form.setFieldsValue({ [field]: value });
     onFinish({ ...companyAddress, [field]: value });
   };
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const result = reader.result as string;
+        
+        const base64 = result.split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+    });
+  };
+
+const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  if (!["image/png", "image/jpeg"].includes(file.type)) {
+    Modal.error({
+      title: "Invalid file type",
+      content: "Please upload a PNG or JPG image.",
+    });
+    return;
+  }
+
+  try {
+    const base64Logo = await fileToBase64(file);
+
+    const payload = {
+      account_key: com_info?.data?.account_key, 
+      logo_data: base64Logo,
+      // logo_url: "",
+    };
+
+    dispatch(updateCompanyInfo(payload));
+  
+  } catch (error: any) {
+    Modal.error({
+      title: "Upload failed",
+      content: error.message || "Something went wrong",
+    });
+  }
+}
+
   const displayTurtles = (
     <Form
       form={form}
@@ -223,7 +277,7 @@ const MyCompany: React.FC = () => {
             showSearch
             defaultValue={"US"}
             onChange={onChange}
-            value={countryCode.toUpperCase()}
+            value={countryCode?.toUpperCase() || "US"}
             onSearch={onSearch}
             filterOption={filterOption}
             options={[allowedCountry]}
@@ -355,24 +409,11 @@ const MyCompany: React.FC = () => {
       </Form.Item>
 
       <Form.Item
-        // rules={[{ required: true, message: 'Please enter your state!' }]}
         name="state_code"
         className="w-full sm:ml-[200px]"
       >
         <div className="relative">
-          <div className="flex items-center mb-3 p-2 rounded border border-blue-200 bg-blue-50">
-            <Switch 
-              size="small"
-              checked={useStateInput}
-              onChange={(checked) => setUseStateInput(checked)} 
-              className="bg-blue-500"
-            />
-            <span className="text-xs font-medium text-blue-700 ml-2">
-              {useStateInput ? "Type state" : "Select from list"}
-            </span>
-          </div>
-          
-          {!useStateInput ? (
+          {countryCode === "us" ? (
             <Select
               allowClear
               showSearch
@@ -381,33 +422,28 @@ const MyCompany: React.FC = () => {
               filterOption={filterOption}
               options={stateData}
               value={
-                countryCode === "us"
-                  ? companyAddress && !stateCode
-                    ? businessInfo?.state_code &&
-                      convertUsStateAbbrAndName(businessInfo?.state_code)
-                    : stateCode && stateCode
-                  : stateCode || businessInfo?.province
+                companyAddress && !stateCode
+                  ? businessInfo?.state_code &&
+                    convertUsStateAbbrAndName(businessInfo?.state_code)
+                  : stateCode || ""
               }
-            >
-              <label htmlFor="floating_outlined" className="fw-label">
-                State
-              </label>
-            </Select>
+            />
           ) : (
             <div className="relative">
               <Input
                 className="fw-input"
-                value={stateCode || businessInfo?.province || businessInfo?.state_code || ""}
+                value={stateCode || businessInfo?.province || ""}
                 onChange={(e) => {
                   const inputValue = e.target.value;
                   setStateCode(inputValue);
                   onFinish({ ...companyAddress, state_code: inputValue });
                 }}
+                placeholder="Enter province/region"
               />
             </div>
           )}
-           <label htmlFor="floating_outlined" className="fw-label">
-            State / Province
+          <label htmlFor="floating_outlined" className="fw-label">
+            {countryCode === "us" ? "State" : "Province/Region"}
           </label>
         </div>
       </Form.Item>
@@ -440,9 +476,9 @@ const MyCompany: React.FC = () => {
         rules={[
           { required: true, message: "Please enter your phone number!" },
           {
-            pattern: new RegExp(/^[0-9]{10,14}$/),
+            pattern: new RegExp(/^[\d\s\-\(\)]{10,20}$/),
             message:
-              "Please enter a valid phone number with at least 10 digits!",
+              "Please enter a valid phone number (digits, spaces, dashes, and parentheses allowed)!",
           },
         ]}
         name="phone"
@@ -467,7 +503,7 @@ const MyCompany: React.FC = () => {
     setCountryCode('us');
     setStates('us');
     setShowLocationOverlay(false);
-    localStorage.setItem('hasVisitedCompanyPage', 'true');
+    
   };
 
   const handleNonUSSelected = () => {
@@ -542,8 +578,14 @@ const MyCompany: React.FC = () => {
           <p className="text-lg py-4 ">Optional logo </p>
           <div 
             className={`flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors ${com_info?.data?.logo_url ? "py-2 w-[600px]" : "w-[600px] h-[300px]"}`}
-            onClick={openIframe}
+            onClick={openFilePicker}
           >
+            <input
+              type="file"
+              ref={fileInputRef}
+              style={{ display: "none" }}
+              onChange={handleLogoUpload }
+            />
             {!com_info?.data?.logo_url && (
               <>
                 <svg 

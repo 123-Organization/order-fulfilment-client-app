@@ -18,24 +18,15 @@ const initialState: ShippingState = {
 export const fetchShippingOption = createAsyncThunk(
   "shipping/option",
   async (postData: any, thunkAPI) => {
+    console.log("pdpd...", postData);
     const userAccount = {
-      orders: postData.map((order: any) => ({
+      account_key: postData.account_key,
+      orders: postData.orders.map((order: any) => ({
         order_po: order.order_po,
         order_key: null,
-        recipient: {
-          first_name: "Bob",
-          last_name: "Ross",
-          company_name: "Happy Little Trees, Inc",
-          address_1: "742 Evergreen Terrace",
-          city: "Mountain Scene",
-          state_code: "AK",
-          zip_postal_code: "88888",
-          country_code: "us",
-          phone: "555-555-5555",
-          address_order_po: order.order_po,
-        },
+        recipient: order.recipient,
         order_items: order.order_items,
-        shipping_code: "SD",
+        shipping_code: order.shipping_code,
       })),
     };
 
@@ -69,6 +60,9 @@ export const shipping = createSlice({
     updateCurrentOption: (state, action: PayloadAction<any>) => {
       state.currentOption = action.payload;
     },
+    removeCurrentOption: (state) => {
+      state.currentOption = null;
+    },
   },
   extraReducers: (builder) => {
     builder.addCase(fetchShippingOption.fulfilled, (state, action) => {
@@ -83,5 +77,5 @@ export const shipping = createSlice({
   },
 });
 
-export const { updateShipping, updateCurrentOption } = shipping.actions;
+export const { updateShipping, updateCurrentOption, removeCurrentOption } = shipping.actions;
 export default shipping;

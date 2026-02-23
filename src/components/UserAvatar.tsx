@@ -15,6 +15,8 @@ import { disconnectEcommerce } from "../store/features/ecommerceSlice";
 import { useNotificationContext } from "../context/NotificationContext";
 import { updateCompanyInfo } from "../store/features/companySlice";
 import { disconnectInventory } from "../store/features/InventorySlice";
+import { resetValidSKU } from "../store/features/orderSlice";
+import { removeCurrentOption } from "../store/features/shippingSlice";
 
 const ColorList = ["#f56a00", "#7265e6", "#ffbf00", "#00a2ae"];
 
@@ -22,47 +24,27 @@ export default function UserAvatar() {
   const [cookies] = useCookies(["Session", "AccountGUID"]);
   const [user, setUser] = useState("U");
   const [color, setColor] = useState(ColorList[0]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+
   const dispatch = useAppDispatch();
   const customer_info = useAppSelector((state) => state.Customer.customer_info);
   const ecommerceDisconnectInfo = useAppSelector((state) => state.Ecommerce.status);
   const notificationApi = useNotificationContext();
   const companyInfo = useAppSelector((state) => state.company.company_info);
   console.log("ecommerceDisconnectInfo", ecommerceDisconnectInfo);
+  const wordpressConnectionId = useAppSelector((state) => state.company.wordpress_connection_id);
 
-  const showDisconnectModal = () => {
-    setIsModalOpen(true);
-  };
+
   const onLogout = ()=>{
-    localStorage.removeItem('hasVisitedCompanyPage');
-    persistor.purge();
-   dispatch(clearPaymentMethods());
     
+    localStorage.removeItem('hasVisitedCompanyPage');
+   dispatch(clearPaymentMethods());
+    dispatch(resetValidSKU());
     dispatch(clearCustomerInfo())
+    dispatch(removeCurrentOption())
+    persistor.purge();
   }
 
-  const handleDisconnectConfirm = () => {
-    dispatch(disconnectEcommerce({
-      client_id: cookies.AccountGUID,
-      platformName: "woocommerce"
-    }));
-    // dispatch(updateCompanyInfo({
-    //   connections:[
-        
-    //   ]
-    // }));
-    dispatch(disconnectInventory({
-      data: {
-        account_key: cookies.AccountGUID,
-        platform: "woocommerce"
-      }
-    }));
-    setIsModalOpen(false);
-  };
 
-  const handleDisconnectCancel = () => {
-    setIsModalOpen(false);
-  };
   
   const items: MenuProps["items"] = [
     {
@@ -105,24 +87,9 @@ export default function UserAvatar() {
         </a>
       ),
     },
+
     {
       key: "4",
-      label: (
-        <a
-          href="#"
-          className="flex gap-1 text-sm "
-          onClick={(e) => {
-            e.preventDefault();
-            showDisconnectModal();
-          }}
-        >
-          <img className="text-black" src={user_icon} width={18} alt="disconnect" />
-          Disconnect Ecommerce
-        </a>
-      ),
-    },
-    {
-      key: "5",
       label: (
         <a
         
@@ -184,20 +151,7 @@ export default function UserAvatar() {
             </Avatar>
           </Dropdown>
           
-          <Modal
-            title={<div className="flex items-center gap-2"><ExclamationCircleFilled className="text-yellow-500" /> Disconnect WooCommerce</div>}
-            open={isModalOpen}
-            onOk={handleDisconnectConfirm}
-            onCancel={handleDisconnectCancel}
-            okText="Disconnect"
-            cancelText="Cancel"
-            okButtonProps={{ danger: true }}
-          >
-            <div className="py-2">
-              <p className="mb-4">Are you sure you want to disconnect WooCommerce?</p>
-              <p className="text-red-500 font-semibold">Warning: This action will disconnect all the WooCommerce media.</p>
-            </div>
-          </Modal>
+
         </>
       ) : (
         <Dropdown menu={{ items: logIn }} placement="bottomRight">

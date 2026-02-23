@@ -3,7 +3,8 @@ import { Button, notification } from "antd";
 import { useLocation } from "react-router-dom";
 import dropin, { Dropin, PaymentMethodPayload } from "braintree-web-drop-in";
 import "./Braintree.css";
-import { useAppSelector } from "../../store";
+import { useAppDispatch, useAppSelector } from "../../store";
+import { getPaymentToken } from "../../store/features/paymentSlice";
 // https://developer.paypal.com/braintree/docs/guides/credit-cards/testing-go-live/node#test-value-6243030000000001
 
 type BraintreeProps = {
@@ -31,6 +32,7 @@ const Braintree = ({
   const location = useLocation();
   const SelectedCard = useAppSelector((state) => state.Payment.selectedCard);
   const cardRemoved = useAppSelector((state) => state.Payment.cardRemoved);
+  const dispatch = useAppDispatch();
   console.log("SelectedCard", SelectedCard);
   const config = {
     authorization: clientToken,
@@ -148,6 +150,11 @@ const Braintree = ({
           description: "Your payment method has been successfully added.",
           duration: 4,
         });
+        dispatch(
+          getPaymentToken({
+            paymentProfileId: customerId,
+          })
+        );
 
         // Reset the form state
         setDropped(false);

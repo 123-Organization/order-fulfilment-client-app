@@ -25,11 +25,13 @@ const Checkout: React.FC = () => {
   const [value, setValue] = useState(1);
   const [paymentPopupEnable, setPaymentPopupEnable] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const submitStatus = useAppSelector((state) => state.order.submitStatus);
 
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
   const paymentStatus = useAppSelector((state) => state.Payment.status);
-  const credit = customerInfo.data?.user_account_credits || 0;
+  // Ensure credit is properly rounded to 2 decimal places
+  const credit = parseFloat((customerInfo.data?.user_account_credits || 0).toFixed(2));
 
   useEffect(() => {
     if (checkedOrders.length > 0) {
@@ -39,25 +41,28 @@ const Checkout: React.FC = () => {
           newTotalPrice += order.Product_price?.grand_total || order.Product_price?.credit_charge || 0;
         }
       });
+      // Round to 2 decimal places to avoid floating point precision issues
+      newTotalPrice = parseFloat(newTotalPrice.toFixed(2));
       setGrandTotal(newTotalPrice);
 
       if (credit >= newTotalPrice) {
         setRemainingTotal(0);
         setShowPayment(true);
       } else {
-        setRemainingTotal(newTotalPrice - credit);
+        // Round remaining total to 2 decimal places
+        setRemainingTotal(parseFloat((newTotalPrice - credit).toFixed(2)));
         setShowPayment(false);
       }
     }
   }, [checkedOrders, credit]);
 
   useEffect(() => {
-    if (paymentStatus === "loading") {
+    if (submitStatus === "loading") {
       setIsLoading(true);
     } else {
       setIsLoading(false);
     }
-  }, [paymentStatus]);
+  }, [submitStatus]);
 
   const onChangePaymentMethod = (e: RadioChangeEvent) => {
     setValue(e.target.value);
@@ -86,11 +91,11 @@ const Checkout: React.FC = () => {
             </p>
             <p className="text-sm border-b-2 pb-2 pt-6 flex justify-between font-bold">
               <span>Account Credits Used:</span>
-              <span>(${grandTotal - remainingTotal})</span>
+              <span>(${(grandTotal - remainingTotal).toFixed(2)})</span>
             </p>
             <p className="text-sm flex pt-6 justify-between font-bold">
               <span>Billable amount:</span>
-              <span>${remainingTotal > 0 ? remainingTotal.toFixed(2) : `(0)`}</span>
+              <span>${remainingTotal > 0 ? remainingTotal.toFixed(2) : `0.00`}</span>
             </p>
           </div>
         </div>

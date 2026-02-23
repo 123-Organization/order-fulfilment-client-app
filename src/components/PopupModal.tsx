@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Modal, Button, Input, Spin } from "antd";
 import { LoadingOutlined } from "@ant-design/icons";
 import { useAppDispatch, useAppSelector } from "../store";
-import { AddProductToOrder } from "../store/features/orderSlice";
+import { AddProductToOrder, fetchOrder, updateValidSKU } from "../store/features/orderSlice";
 import { useNotificationContext } from "../context/NotificationContext";
 import { updateIframeState } from "../store/features/companySlice";
 import { getAllImages, setSelectedImage, setProductData, clearSelectedImage } from "../store/features/productSlice";
@@ -32,13 +32,16 @@ const PopupModal: React.FC<PopupModalProps> = ({
   const images = useAppSelector((state) => state.ProductSlice.images);
   console.log("images", images);
   const order = useAppSelector((state)=> state.order.orders)
-
+  const companyinfo=useAppSelector((state)=>state.company.company_info)
+const iframeState = useAppSelector((state)=> state.company.iframeState)
   // State to track the input value
   const [inputValue, setInputValue] = useState("");
+  
+  const validSKU = useAppSelector((state) => state.order.validSKU);
   const [isLoading, setIsLoading] = useState(false);
   const productDataStatus = useAppSelector((state) => state.order.productDataStatus);
   console.log("datastatus", productDataStatus)
-  
+  const isFirstRender = useRef(true);
   const SelectedImage = useAppSelector(
     (state) => state.ProductSlice.SelectedImage
   );
@@ -50,11 +53,11 @@ const PopupModal: React.FC<PopupModalProps> = ({
   console.log("inputvalue ",inputValue)
 
   const filterImages = (data: any) => {
-    return data?.data?.fileSelected.map(
+    return data?.data?.fileSelected?.map(
       (image: any) => image?.public_thumbnail_uri
     );
   };
-
+console.log("inputvalue ",inputValue)
   const handleMessage = (event: any) => {
     console.log("Message event:", event.type);
 
@@ -63,7 +66,7 @@ const PopupModal: React.FC<PopupModalProps> = ({
       console.log("dataaa", data);
       const filteredImages = filterImages(data);
       console.log("filteredImages", filteredImages);
-      dispatch(setSelectedImage(filteredImages));
+      // dispatch(setSelectedImage(filteredImages));
     } catch (error) {
       console.error("Error parsing message data:", error);
     }
@@ -89,6 +92,7 @@ const PopupModal: React.FC<PopupModalProps> = ({
       orderFullFillmentId,
       product_url_file: [],
       product_url_thumbnail: [],
+      account_key: companyinfo?.data?.account_key
     };
 
       data.skuCode = inputValue;
@@ -97,6 +101,7 @@ const PopupModal: React.FC<PopupModalProps> = ({
         setInputValue("");
         dispatch(clearSelectedImage());
         onProductCodeUpdate();
+        dispatch(updateValidSKU([...validSKU, inputValue]));
         setIsLoading(false);
         onClose();
       }, 1000);
@@ -104,7 +109,7 @@ const PopupModal: React.FC<PopupModalProps> = ({
      
       
       
-      dispatch(updateIframeState({ iframeState: true }));
+      dispatch(updateIframeState(true));
       notificationApi.success({
         message: "Choose A Product Image",
         description: "Please choose the product image want to add to the order.",
@@ -125,10 +130,12 @@ const PopupModal: React.FC<PopupModalProps> = ({
         orderFullFillmentId,
         pixel_width: 1200,
         pixel_height: 900,
-        product_url_file: SelectedImage,
-        product_url_thumbnail: SelectedImage,
+        product_url_file: [SelectedImage?.private_hires_uri],
+        product_url_thumbnail: [SelectedImage?.public_thumbnail_uri],
       };
+      console.log("dbdb", data);
       dispatch(setProductData(data));
+      dispatch(updateValidSKU([...validSKU, data.productCode]));
     }
   }, [SelectedImage, inputValue, orderFullFillmentId]);
 
@@ -139,7 +146,9 @@ const PopupModal: React.FC<PopupModalProps> = ({
         console.log("Received referrer update:", event.data.data);
       }
     });
+    if(iframeState){
     dispatch(getAllImages());
+    }
     return () => {
       window.removeEventListener("message", handleMessage);
     };
@@ -147,10 +156,15 @@ const PopupModal: React.FC<PopupModalProps> = ({
 
   useEffect(() => {
     if (productDataStatus === "succeeded") {
+      if (isFirstRender.current) {
+        isFirstRender.current = false;
+        return;
+      }
       notificationApi.success({
         message: "Product Added",
         description: "Product has been successfully added to the order.",
       });
+      dispatch(updateValidSKU([...validSKU, productCode]));
       // Clear selected image on successful add
       dispatch(clearSelectedImage());
       onClose();
@@ -163,16 +177,16 @@ const PopupModal: React.FC<PopupModalProps> = ({
         message: "Failed to Add Product",
         description: "An error occurred while adding the product.",
       });
-  
+      
       setIsLoading(false);
     }
-  }, [productDataStatus, notificationApi]);
+  }, [productDataStatus, notificationApi, validSKU, productCode]);
 
   // UseEffect to handle changes in productCode
   useEffect(() => {
     if (productCode) {
       // Reset the input field and loading state when productCode updates
-      setInputValue("");
+      // setInputValue("");
       setIsLoading(false);
 
       // Call setProductCode to indicate the update is complete

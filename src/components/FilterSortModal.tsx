@@ -1,10 +1,10 @@
-import React, { useState, Dispatch, SetStateAction, ChangeEvent  } from 'react'
-import { Button, DatePicker, Divider, Form, Input, Modal, Radio, RadioChangeEvent, Select, Space } from 'antd';
-import { useAppDispatch, useAppSelector } from "../store";
+import React, { useState, Dispatch, SetStateAction } from 'react'
+import { Button, DatePicker, Form, Input, Modal } from 'antd';
+import { useAppDispatch } from "../store";
 
 import dayjs from 'dayjs';
 import { listVirtualInventory } from '../store/features/InventorySlice';
-import { every, forEach, keys, map } from 'lodash';
+import { map } from 'lodash';
 
 interface FilterSortModalProps {
   openModel: boolean;
@@ -75,141 +75,72 @@ const FilterSortModal = ({openModel, setOpen} : FilterSortModalProps) => {
         setOpen(false);
       }, 3000);
     };
-  
-  const handleCancel = () => {
-    setOpen(false);
-  };
-  
-  const [value, setValue] = useState(1);
-
-  const onChange = (e: RadioChangeEvent) => {
-    console.log('radio checked', e.target.value);
-    setValue(e.target.value);
-  };
-
-  const handleChange = (value: string) => {
-    console.log(`selected ${value}`);
-  };
 
     
   return (
     <>
     <Modal
-      title={<h1 className=' text-gray-500'>Filters & Sorting</h1>}
+      title={
+        <div className="flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+          </svg>
+          <h1 className='text-gray-800 font-semibold text-lg'>Advanced Filters</h1>
+        </div>
+      }
       centered
       open={openModel}
       onOk={() => setOpen(false)}
       onCancel={() => setOpen(false)}
-      width={'40%'}
+      width={500}
       footer={[
-        <Button key="submit" className='py-2' size={'large'} type="primary" loading={loading} onClick={handleOk}>
-          Show Results
+        <Button key="submit" size={'large'} type="primary" loading={loading} onClick={handleOk} className="min-w-[150px]">
+          Apply Filters
         </Button>,
-
       ]}
-      style={{minWidth:'350px'}}
     >
+      <div className='space-y-4'>
+        <Form
+          form={form} 
+          name="dynamic_rule"
+          layout="vertical"
+          className="space-y-4"
+        >
+          {/* Advanced Filters Section */}
+          <div className="bg-blue-50 rounded-lg p-5 space-y-4 border border-blue-100">
+            <p className="text-sm text-gray-600 mb-4">
+              Use these advanced options for more specific filtering:
+            </p>
 
-      <div className='filterSorting'>
-        <section className="text-gray-600 body-fon ">
-          <Form
-                form={form} 
-                name="dynamic_rule"
-                labelCol={{ span: 4 }}
-                wrapperCol={{ span: 14 }}
-                layout="horizontal"
-                style={{ maxWidth: 600 }}
-                className="flex1"
-              >
-
-            <div className="relative mb-4  ml-4">
-                <label htmlFor="name" className="leading-7 text-base text-gray-400 font-semibold title-font">Filter</label>
-                {/* <input type="text" placeholder='filename, title or description' id="name" value={filter} onChange={ (e: ChangeEvent) => setFilter((e.target as HTMLInputElement).value) } name="name" className="w-full text-gray-400 bg-white rounded border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 text-base outline-none py-1 px-3 leading-8 transition-colors duration-200 ease-in-out" /> */}
-                  <Form.Item 
-                        name="search_filter"
-                        // initialValue={""}
-                        noStyle={true}
-                        
-                    >
-                       
-                    <Input  placeholder='filename, title or description'   />
-                  </Form.Item>
+            <div>
+              <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                </svg>
+                Filter by SKU
+              </label>
+              <Form.Item name="sku_filter" noStyle>
+                <Input 
+                  placeholder='Enter SKU code...'
+                  size="large"
+                  className="rounded-lg"
+                />
+              </Form.Item>
             </div>
 
-            <div className="relative mb-4  ml-4">
-                <label htmlFor="name" className="leading-7 text-base text-gray-400 font-semibold title-font">Filter by SKU</label>
-                {/* <input type="text" placeholder='filename, title or description' id="name" value={filter} onChange={ (e: ChangeEvent) => setFilter((e.target as HTMLInputElement).value) } name="name" className="w-full text-gray-400 bg-white rounded border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 text-base outline-none py-1 px-3 leading-8 transition-colors duration-200 ease-in-out" /> */}
-                  <Form.Item 
-                        name="sku_filter"
-                        // initialValue={userInfo.filterSearchFilter}
-                        noStyle={true}
-                    >
-                       
-                    <Input placeholder='filename, title or description'   />
-                  </Form.Item>
-            </div>
-
-          <div className="container mx-auto flex px-5 py-0 xl:flex-row max-xl:justify-start flex-col items-center1">
-            <div className=" bg-white flex flex-col md:ml-auto w-full md:py-833  mt-8 md:mt-0">
-
-              <div className="border rounded-md p-4 pb-2 relative mb-4 mt-0 w-full">
-                <label htmlFor="name" className="w-full leading-7 text-base text-gray-400 font-semibold title-font">Date Range files added</label>
-                  <Form.Item 
-                    name="dateRange"  
-                    >
-                    <RangePicker 
-                    style={{width:'230px'}}
-                    
-                    className='w-full' />
-                  </Form.Item>  
-              </div>
-              <div className="relative mb-4 flex flex-col">
-                <label htmlFor="message" className=" leading-7 text-base text-gray-400 font-semibold title-font">Inventory per page</label>
-                <Form.Item name="per_page"  
-                initialValue={12}
-                >
-                  <Select
-                    className='text-gray-400  mt-5'
-                    onChange={handleChange}
-                    options={[
-                      { value: '50', label: '50' },
-                      { value: '25', label: '25' },
-                      { value: '15', label: '15' },
-                      { value: '12', label: '12' },
-                      { value: '10', label: '10' },
-                      { value: '8', label: '8' },
-                      { value: '6', label: '6' },
-                      { value: '4', label: '4' },
-                      { value: '2', label: '2'},
-                    ]}
-                  />
-                </Form.Item>
-              </div>
-            </div>
-            <div className="lg:w-1/2  md:w-1/2 w-1/2 mb-10 md:mb-0  flex flex-col items-center py-2 justify-evenly border rounded-md ml-3 ">
-            <label htmlFor="name" className="leading-7 mb-2 text-base text-gray-400 font-semibold title-font">Sort results by</label>
-            <Form.Item name="sort_field"  >
-                <Radio.Group className='whitespace-nowrap flex flex-col'  onChange={onChange} 
-                  defaultValue={ 'id'}
-                >
-                    <Radio className='text-gray-400' value={'id'}>ID</Radio>
-                    <Radio className='text-gray-400 py-2' value={'name'}>Name</Radio>
-                    <Radio className='text-gray-400' value={'created_at'}>Created At</Radio>
-                </Radio.Group>
-              </Form.Item>  
-              <Divider/>
-              <Form.Item name="sort_direction"  >  
-                <Radio.Group  className='whitespace-nowrap flex flex-col' onChange={onChange} 
-                  defaultValue={'DESC'}
-                >
-                    <Radio className='text-gray-400' value={'ASC'}>Ascending</Radio>
-                    <Radio className='text-gray-400 pt-2' value={'DESC'}>Descending</Radio>
-                </Radio.Group>
-              </Form.Item>  
+            <div>
+              <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Date Range
+              </label>
+              <Form.Item name="dateRange" noStyle>
+                <RangePicker size="large" className="w-full rounded-lg" />
+              </Form.Item>
             </div>
           </div>
-          </Form>
-        </section>
+        </Form>
       </div>
     </Modal>
     </>

@@ -19,7 +19,7 @@ const PaymentAddress: React.FC <PaymentAddressProps> = ({remainingTotal, onClose
   );
 
   const companyInfo = useAppSelector(
-    (state) => state.company.company_info?.data?.business_info
+    (state) => state.company.company_info?.data?.billing_info
   );
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
   console.log("companyInfo", customerInfo);
@@ -163,7 +163,7 @@ const PaymentAddress: React.FC <PaymentAddressProps> = ({remainingTotal, onClose
       </p>
     </Form>
   );
-
+  console.log("how", customerInfo?.data.payment_profile_id);
   useEffect(() => {
     if (companyInfo?.first_name && !customerInfo?.data.payment_profile_id) {
       dispatch(

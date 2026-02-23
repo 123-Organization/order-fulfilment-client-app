@@ -7,7 +7,7 @@ export const routes = {
   paymentaddress:"/paymentaddress",
   editorder:"/editorder/:id",
   shippingpreference:"/shippingpreference",
-  mycompany: "/mycompany",
+mycompany: "/mycompany",
   checkout: "/checkout",
   thumbnail: "/thumbnail",
   confirmation: "/confirmation",

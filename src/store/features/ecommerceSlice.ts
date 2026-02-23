@@ -1,4 +1,4 @@
-import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import config from "../../config/configs";
 const ECOMMERCE_CONNCET_URL = "https://artsafenet.com/wp-json/finerworks-media/v1/";
 const BASE_URL = config.SERVER_BASE_URL;
@@ -80,9 +80,14 @@ export const ecommerceConnectorImport = createAsyncThunk(
 export const getImportOrders = createAsyncThunk(
         "import/order",
         async (postData: any, thunkAPI) => {
-                console.log('postData...', postData)
+                console.log('pos...', postData.domainName)
 
-                const response = await fetch(" https://artsafenet.com/wp-json/finerworks-media/v1/get-orders", {
+                // Ensure the domain has proper protocol
+                const domainWithProtocol = postData.domainName.startsWith('http')
+                        ? postData.domainName
+                        : `https://${postData.domainName}`;
+
+                const response = await fetch(`${domainWithProtocol}/wp-json/finerworks-media/v1/get-orders`, {
                         method: "POST",
                         headers: {
                                 "Content-Type": "application/json",
@@ -102,16 +107,40 @@ export const disconnectEcommerce = createAsyncThunk(
                         const response = await fetch(BASE_URL + "disconnect", {
                                 method: "POST",
                                 headers: {
-                                "Content-Type": "application/json",
-                        },
-                        body: JSON.stringify(postData)
-                });
-                if(!response.ok){
-                        const error = await response.json()
-                        return thunkAPI.rejectWithValue(error)
+                                        "Content-Type": "application/json",
+                                },
+                                body: JSON.stringify(postData)
+                        });
+                        if (!response.ok) {
+                                const error = await response.json()
+                                return thunkAPI.rejectWithValue(error)
+                        }
+                        const data = response.json();
+                        return data;
+                } catch (error) {
+                        return thunkAPI.rejectWithValue(error);
                 }
-                const data = response.json();
-                return data;
+        },
+);
+
+export const disconnectShopify = createAsyncThunk(
+        "ecommerce/disconnect/shopify",
+        async (postData: { account_key: string }, thunkAPI) => {
+                console.log('Disconnecting Shopify...', postData)
+                try {
+                        const response = await fetch("https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/shopify/disconnect", {
+                                method: "POST",
+                                headers: {
+                                        "Content-Type": "application/json",
+                                },
+                                body: JSON.stringify(postData)
+                        });
+                        if (!response.ok) {
+                                const error = await response.json()
+                                return thunkAPI.rejectWithValue(error)
+                        }
+                        const data = await response.json();
+                        return data;
                 } catch (error) {
                         return thunkAPI.rejectWithValue(error);
                 }
@@ -127,6 +156,9 @@ const ecommerceSlice = createSlice({
                 },
                 resetStatus: (state) => {
                         state.status = "idle";
+                },
+                resetEcommerceGetImportOrders: (state) => {
+                        state.ecommerceGetImportOrders = {};
                 },
         },
         extraReducers: (builder) => {
@@ -160,8 +192,18 @@ const ecommerceSlice = createSlice({
                         state.status = "failed";
                 });
 
+                builder.addCase(disconnectShopify.fulfilled, (state, action) => {
+                        state.ecommerceDisconnectInfo = action.payload;
+                        state.status = "succeeded";
+                });
+
+                builder.addCase(disconnectShopify.rejected, (state, action) => {
+                        state.ecommerceDisconnectInfo = { data: { status: 500 } };
+                        state.status = "failed";
+                });
+
         },
 });
 
 export default ecommerceSlice;
-export const { resetStatus } = ecommerceSlice.actions;
+export const { resetStatus, resetEcommerceGetImportOrders } = ecommerceSlice.actions;

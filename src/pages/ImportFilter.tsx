@@ -54,9 +54,9 @@ const ImportFilter: React.FC = () => {
   );
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
 
-  useEffect(()=>{
-    dispatch(fetchOrder(customerInfo?.data?.account_id))
-  },[customerInfo?.data?.account_id])
+  // useEffect(()=>{
+  //   dispatch(fetchOrder(customerInfo?.data?.account_id))
+  // },[customerInfo?.data?.account_id])
 
   const checkboxClick: CheckboxProps["onChange"] = (e) => {
     e.preventDefault();
@@ -109,22 +109,24 @@ const ImportFilter: React.FC = () => {
   };
 
   const onValid = (date:[]) => {
-  
-      if (countryCode || countryCode.length && dateRange.length) {
-        let importData = { };
-        if(countryCode) importData = {...importData,...{status:countryCode}}
-        console.log('dateRange',dateRange)
-
-        if(date.length) { 
-          importData = {...importData,...{"start_date":date[0],"end_date":date[1]}}
-          setDateRange(date)
-        }
-        
-        console.log('importData',importData)
-        dispatch(updateImport(importData));
+      let importData = { };
       
+      // Add status if selected
+      if(countryCode) {
+        importData = {...importData, status: countryCode}
       }
-
+      
+      // Add dates if selected
+      if(date && date.length === 2) { 
+        importData = {...importData, start_date: date[0], end_date: date[1]}
+        setDateRange(date)
+      }
+      
+      // Dispatch if we have either dates or status
+      if(Object.keys(importData).length > 0) {
+        console.log('importData', importData)
+        dispatch(updateImport(importData));
+      }
   };
 
   const onSearch = (value: string) => {
@@ -179,11 +181,18 @@ const ImportFilter: React.FC = () => {
             // defaultValue={"US"}
             placeholder="Select a status"
             optionFilterProp="children"
-            onChange={onChange}
+            onChange={(value) => {
+              onChange(value);
+              // Dispatch immediately when status changes
+              let importData: any = { status: value };
+              if(dateRange && dateRange.length === 2) {
+                importData = {...importData, start_date: dateRange[0], end_date: dateRange[1]};
+              }
+              dispatch(updateImport(importData));
+            }}
             onSearch={onSearch}
             filterOption={filterOption}
             options={countryList}
-            onBlur={onValid}
             // value={
             //   convertUsStateAbbrAndName(countryCode.toUpperCase())
             // }

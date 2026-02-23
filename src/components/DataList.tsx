@@ -43,8 +43,6 @@ const Datalist: React.FC = () => {
 
   
 
-  console.log("elol",productData)
-
   const loadMore =
     !initLoading && !loading ? (
       <div

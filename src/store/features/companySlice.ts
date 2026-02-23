@@ -8,7 +8,10 @@ interface CompanyState {
         myBillingInfoFilled: any;
         iframeState: any;
         companyinfoStatus: any;
-
+        wordpress_connection_id: any;
+        connectionVerificationStatus: 'idle' | 'verifying' | 'connected' | 'disconnected';
+        shopify_shop: string | null;
+        shopify_access_token: string | null;
 }
 
 const initialState: CompanyState = {
@@ -17,6 +20,10 @@ const initialState: CompanyState = {
         myBillingInfoFilled: {},
         iframeState: false,
         companyinfoStatus: "idle",
+        wordpress_connection_id: null,
+        connectionVerificationStatus: 'idle',
+        shopify_shop: null,
+        shopify_access_token: null,
 };
 
 const getCookie = (name: string) => {
@@ -78,6 +85,23 @@ export const Company = createSlice({
                 },
                 updateIframeState: (state, action: PayloadAction) => {
                         state.iframeState = action.payload;
+                },
+                updateWordpressConnectionId: (state, action: PayloadAction<any>) => {
+                        state.wordpress_connection_id = action.payload;
+                },
+                setConnectionVerificationStatus: (state, action: PayloadAction<'idle' | 'verifying' | 'connected' | 'disconnected'>) => {
+                        state.connectionVerificationStatus = action.payload;
+                },
+                resetVerificationStatus: (state) => {
+                        state.connectionVerificationStatus = 'idle';
+                },
+                updateShopifyCredentials: (state, action: PayloadAction<{ shop: string; access_token: string }>) => {
+                        state.shopify_shop = action.payload.shop;
+                        state.shopify_access_token = action.payload.access_token;
+                },
+                clearShopifyCredentials: (state) => {
+                        state.shopify_shop = null;
+                        state.shopify_access_token = null;
                 }
         },
         extraReducers: (builder) => {
@@ -87,7 +111,7 @@ export const Company = createSlice({
                                 data: {
                                         ...action.payload.data,
                                 },
-                               
+
                         }
                         console.log("load ", data)
                         state.company_info = data;
@@ -96,5 +120,14 @@ export const Company = createSlice({
         },
 });
 
-export const { updateCompany, updateBilling, updateIframeState } = Company.actions;
+export const {
+        updateCompany,
+        updateBilling,
+        updateIframeState,
+        updateWordpressConnectionId,
+        setConnectionVerificationStatus,
+        resetVerificationStatus,
+        updateShopifyCredentials,
+        clearShopifyCredentials
+} = Company.actions;
 
