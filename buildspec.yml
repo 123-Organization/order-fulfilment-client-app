@@ -13,12 +13,6 @@ phases:
       - echo Build started on 'date'
       - npm run build
 
-  post_build:
-    commands:
-      - echo Invalidating CloudFront cache...
-      - aws cloudfront create-invalidation --distribution-id EQF7TPQE2M2DS --paths "/*"
-      - echo Post-build complete
-
 artifacts:
   files:
     - '**/*'
