@@ -16,7 +16,7 @@ phases:
   post_build:
     commands:
       - echo Invalidating CloudFront cache...
-      - aws cloudfront create-invalidation --distribution-id E1ZX5098G7KNLS --paths "/*"
+      - aws cloudfront create-invalidation --distribution-id EQF7TPQE2M2DS --paths "/*"
       - echo Post-build complete
 
 artifacts:
