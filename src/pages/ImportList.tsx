@@ -655,7 +655,7 @@ console.log("checkedOrders", checkedOrders);
           order_items: order.order_items?.map((item) => ({
             product_order_po: item.product_order_po,
             product_qty: item.product_qty,
-            product_sku: item.product_sku,
+            product_sku: item.product_sku || "AP1234567891011",
             product_image: {
               product_url_file: "https://via.placeholder.com/150",
               product_url_thumbnail: "https://via.placeholder.com/150",
@@ -668,7 +668,7 @@ console.log("checkedOrders", checkedOrders);
       const ProductDetails = orders?.data?.flatMap((order) =>
         order.order_items?.map((item) => ({
           order_po: order.order_po,
-          product_sku: item.product_sku,
+          product_sku: item.product_sku || "AP1234567891011",
           product_guid: order.source === "shopify" ? crypto.randomUUID() : item.product_guid,
           product_qty: item.product_qty,
           product_image: {
