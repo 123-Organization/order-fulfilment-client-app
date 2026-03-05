@@ -669,7 +669,7 @@ console.log("checkedOrders", checkedOrders);
         order.order_items?.map((item) => ({
           order_po: order.order_po,
           product_sku: item.product_sku || "AP1234567891011",
-          product_guid: order.source === "shopify" ? crypto.randomUUID() : item.product_guid,
+          product_guid:  item.product_guid || crypto.randomUUID(),
           product_qty: item.product_qty,
           product_image: {
             product_url_file: "https://via.placeholder.com/150",
@@ -719,7 +719,7 @@ console.log("checkedOrders", checkedOrders);
           ?.map((item: any) => ({
             order_po: order.order_po,
             product_sku: item.product_sku,
-            product_guid: order.source === "shopify" ? crypto.randomUUID() : item.product_guid,
+            product_guid: item.product_guid,
             product_qty: item.product_qty,
             product_image: {
               product_url_file: "https://via.placeholder.com/150",
@@ -1136,7 +1136,7 @@ console.log("checkedOrders", checkedOrders);
                             {order?.recipient?.address_1}
                           </div>
                           <div className="w-full text-sm">
-                            {order?.recipient?.city},{order?.recipient?.state}
+                            {order?.recipient?.city},{" "}{order?.recipient?.state}
                             {order?.recipient?.province}{" "}
                             {order?.recipient?.zip_postal_code}
                           </div>

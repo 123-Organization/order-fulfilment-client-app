@@ -330,7 +330,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                       product_qty: edge.node.quantity || 1,
                       product_sku: edge.node.sku || "",
                       product_title: edge.node.title || "",
-                      product_id: edge.node.variant?.product?.product_guid || "",
+                      product_guid: edge.node.variant?.product?.product_guid || crypto.randomUUID(),
                     })) || [];
 
                     // Get shipping address or fall back to billing address
