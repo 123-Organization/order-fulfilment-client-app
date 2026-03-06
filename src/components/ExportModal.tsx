@@ -47,7 +47,6 @@ const ExportModal: React.FC<ExportModalProps> = ({
     onClose();
   };
   const companyInfo = useAppSelector((state) => state.company.company_info);
-  console.log("companyInfo", companyInfo);
   const [selected, setSelected] = useState<string | null>(null);
   const [wooConnected, setWooConnected] = useState<string>("Disconnected");
   const [shopifyConnected, setShopifyConnected] = useState<string>("Disconnected");
@@ -62,7 +61,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
   const wordpressConnectionId = useAppSelector((state) => state.company.wordpress_connection_id);
   const accountKey = companyInfo?.data?.account_key || "";
 
-  console.log("exportResponse", exportResponse);
+  
 
   const exportStatus = useAppSelector((state) => state.Inventory.status);
 
@@ -91,11 +90,11 @@ const ExportModal: React.FC<ExportModalProps> = ({
   // Function to detect if any product might have variants
   // Uses full inventory data to find ALL variants, not just selected ones
   const detectProductsWithVariants = (selectedProducts: any[]): { hasVariants: boolean; variantGroups: any[] } => {
-    console.log("🔍 Detecting variants for selected products:", selectedProducts);
+    
     
     // Get full inventory data
     const fullInventory = listInventory?.data || [];
-    console.log("🔍 Full inventory count:", fullInventory.length);
+    
     
     const variantGroups: any[] = [];
     const processedImageGuids = new Set<string>();
@@ -103,12 +102,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
     
     // For each selected product, find ALL variants from the full inventory
     selectedProducts.forEach((selectedProduct) => {
-      console.log("🔍 Processing selected product:", {
-        sku: selectedProduct.sku,
-        image_guid: selectedProduct.image_guid,
-        parent_sku: selectedProduct.parent_sku,
-        has_children: selectedProduct.has_children
-      });
+      
       
       // Method 1: Find all products with same image_guid from FULL inventory
       if (selectedProduct.image_guid && !processedImageGuids.has(selectedProduct.image_guid)) {
@@ -116,7 +110,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
           (p: any) => p.image_guid === selectedProduct.image_guid
         );
         
-        console.log(`🔍 Found ${allVariantsByImageGuid.length} products with image_guid ${selectedProduct.image_guid}`);
+        
         
         if (allVariantsByImageGuid.length > 1) {
           processedImageGuids.add(selectedProduct.image_guid);
@@ -144,7 +138,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
           (p: any) => p.parent_sku === selectedProduct.parent_sku || p.sku === selectedProduct.parent_sku
         );
         
-        console.log(`🔍 Found ${allVariantsByParent.length} products with parent_sku ${selectedProduct.parent_sku}`);
+        
         
         // Check if not already captured by image_guid
         const alreadyCaptured = variantGroups.some(g => 
@@ -176,7 +170,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
           (p: any) => p.parent_sku === selectedProduct.sku
         );
         
-        console.log(`🔍 Found ${allChildren.length} children for parent ${selectedProduct.sku}`);
+        
         
         if (allChildren.length > 0) {
           processedParentSkus.add(selectedProduct.sku);
@@ -201,8 +195,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
       }
     });
     
-    console.log("🔍 Final variant groups:", variantGroups);
-    console.log("🔍 Has variants:", variantGroups.length > 0);
+    
     
     return {
       hasVariants: variantGroups.length > 0,
@@ -212,7 +205,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
 
   // Handle variant selection confirmation
   const handleVariantConfirm = async (selections: { primary: any; variants: any[] }[]) => {
-    console.log("Variant selections confirmed:", selections);
+    
     setVariantModalVisible(false);
     
     // Format products with primaryItem flag for the API
@@ -237,7 +230,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
       });
     });
     
-    console.log("Formatted products list for export:", formattedProductsList);
+    
     
     if (pendingExportPlatform === "WooCommerce") {
       await dispatch(exportOrders({ data: formattedProductsList, domainName: wordpressConnectionId }));
@@ -257,7 +250,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
 
   // Handle skipping variant configuration (export as individual products)
   const handleSkipVariants = async () => {
-    console.log("Skipping variant configuration, exporting as individual products");
+    
     setVariantModalVisible(false);
     
     if (pendingExportPlatform === "WooCommerce") {
@@ -277,21 +270,9 @@ const ExportModal: React.FC<ExportModalProps> = ({
   };
 
   const handleExport = async (imgname: string) => {
-    console.log("📦 Export clicked for:", imgname);
-    console.log("📦 Inventory selection:", inventorySelection);
-    console.log("📦 List inventory data:", listInventory);
-    console.log("📦 Full inventory array:", listInventory?.data);
-    console.log("📦 Full inventory length:", listInventory?.data?.length);
     
-    // Log sample product to see available fields
-    if (inventorySelection?.length > 0) {
-      console.log("📦 Sample selected product fields:", Object.keys(inventorySelection[0]));
-      console.log("📦 Sample selected product:", inventorySelection[0]);
-    }
-    if (listInventory?.data?.length > 0) {
-      console.log("📦 Sample inventory product fields:", Object.keys(listInventory.data[0]));
-      console.log("📦 Sample inventory product:", listInventory.data[0]);
-    }
+    
+    
 
     if (selected === imgname) {
       setSelected(null);

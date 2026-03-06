@@ -65,8 +65,6 @@ const Landing: React.FC = (): JSX.Element => {
   const [cookies] = useCookies(["Session", "AccountGUID"]);
   const order = useAppSelector((state) => state.order.orders);
   const opensheet = useAppSelector((state) => state.order.openSheet);
-  console.log("companyInfo", companyInfo);
-  console.log("ecommerceGetImportOrders", ecommerceGetImportOrders);
   const ecommerceDisconnectInfo = useAppSelector(
     (state) => state.Ecommerce.status
   );
@@ -78,7 +76,6 @@ const Landing: React.FC = (): JSX.Element => {
 
   const [openExcel, setOpenExcel] = useState<Boolean>(false);
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
-  console.log("customerInfo", customerInfo);
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const typeValue = queryParams.get("type");

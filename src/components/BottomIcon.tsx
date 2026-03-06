@@ -45,7 +45,6 @@ const isValidPhone = (phone: string | number | undefined): boolean => {
   if (!phone) return false;
   // Remove all non-numeric characters and check if there are at least 10 digits
   const digitsOnly = String(phone).replace(/\D/g, '');
-  console.log(    "digitsOnly",digitsOnly)
   return digitsOnly.length >= 10 && digitsOnly.length <= 15;
 };
 
@@ -318,7 +317,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
               );
 
               if (result.payload) {
-                console.log("Shopify orders response:", result.payload);
+               
                 
                 // Check if we have orders in the Shopify response
                 if (result.payload.success && result.payload.orders && result.payload.orders.length > 0) {
@@ -369,7 +368,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                     orders: transformedOrders,
                   };
                   
-                  console.log("Sending Shopify orders to upload-orders-shopify:", sendData);
+                  
                   dispatch(saveShopifyOrder(sendData));
                   
                   notification.success({
@@ -589,7 +588,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   // }, [recipientStatus]);
 
   const onDeleteHandler = () => {};
-  console.log("loc",location.pathname);
+ 
   const onBackHandler = () => {
     switch (location.pathname) {
       case "/billingaddress":
@@ -814,7 +813,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
       dispatch(updateCompanyInfo({}));
     }
   }, []);
-  console.log("orders", orders)
+
 
   useEffect(() => {
     if (orders && checkedOrders) {
@@ -824,7 +823,6 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
         const product = orders?.data?.find(
           (product: any) => product?.order_po == order?.order_po
         );
-        console.log("product", product)
 
         if (product) {
           newTotalPrice += order.Product_price?.grand_total

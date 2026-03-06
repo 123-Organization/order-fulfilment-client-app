@@ -60,15 +60,13 @@ export const getPaymentMethods = createAsyncThunk(
 
                 // If companyInfo is not available, handle it (e.g., return a default value or throw an error)
                 if (!companyInfo) {
-                        console.log("Company info is not available in the state.");
                         return thunkAPI.rejectWithValue("Company info is missing.");
                 }
 
                 // Use the account_key from company info
                 const accountKey = companyInfo?.account_id || "default-key";
-                console.log("Company Info:", companyInfo);
-                console.log("Account Key:", accountKey);
-                console.log("customerId:", customerId);
+                
+                
                 // Fetch customer info using the account key
                 const response = await fetch(BASE_URL + `get-customer-details?customerId=${customerId}`, {
                         method: "GET",
@@ -83,7 +81,7 @@ export const getPaymentMethods = createAsyncThunk(
                 }
 
                 const data = await response.json();
-                console.log("Customer Info Data:", data);
+                
                 return data;
         }
 );

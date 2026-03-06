@@ -24,7 +24,6 @@ const PaymentAddress: React.FC <PaymentAddressProps> = ({remainingTotal, onClose
   const companyInfo = fullCompanyInfo?.data?.billing_info;
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
   const createCustomerStatus = useAppSelector((state) => state.Payment.createCustomerStatus);
-  console.log("companyInfo", customerInfo);
 
   const onChange = (value: string) => {
     console.log(`selected ${value}`);
