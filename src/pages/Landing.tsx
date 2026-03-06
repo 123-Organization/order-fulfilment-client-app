@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Button, Tag } from "antd";
+import { Button, Tag, Modal } from "antd";
 import { ReactSpreadsheetImport } from "react-spreadsheet-import";
 import { useCookies } from "react-cookie";
 import bigcommerce from "../assets/images/store-bigcommerce.svg";
@@ -62,9 +62,12 @@ const Landing: React.FC = (): JSX.Element => {
   );
   const [shopifyConnectionStatus, setShopifyConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('idle');
   const [lastShopifyConnectionData, setLastShopifyConnectionData] = useState<string | null>(null);
+  const [showShopifyConnectModal, setShowShopifyConnectModal] = useState<boolean>(false);
   const [cookies] = useCookies(["Session", "AccountGUID"]);
   const order = useAppSelector((state) => state.order.orders);
   const opensheet = useAppSelector((state) => state.order.openSheet);
+  console.log("companyInfo", companyInfo);
+  console.log("ecommerceGetImportOrders", ecommerceGetImportOrders);
   const ecommerceDisconnectInfo = useAppSelector(
     (state) => state.Ecommerce.status
   );
@@ -76,6 +79,7 @@ const Landing: React.FC = (): JSX.Element => {
 
   const [openExcel, setOpenExcel] = useState<Boolean>(false);
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
+  console.log("customerInfo", customerInfo);
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const typeValue = queryParams.get("type");
@@ -652,20 +656,7 @@ const Landing: React.FC = (): JSX.Element => {
       if (shopifyConnectionStatus === 'connected') {
         navigate("/importfilter?type=Shopify");
       } else if (customerInfo?.data?.user_profile_complete === true) {
-        // TODO: In production, redirect to Shopify OAuth flow
-        // For now, show a notification that OAuth setup is needed
-        notificationApi.info({
-          message: 'Connect to Shopify',
-          description: 'Please set up your Shopify connection through the admin panel.',
-        });
-        
-        // Temporarily for testing - use hardcoded credentials
-        // Remove this block once OAuth is implemented
-        dispatch(updateShopifyCredentials({
-          shop: "finerworks-dev-store.myshopify.com",
-          access_token: "shpua_9c16eb994c4401fa6c9d19a95a930795"
-        }));
-        navigate("/importfilter?type=Shopify");
+        setShowShopifyConnectModal(true);
       } else {
         notificationApi.warning({
           message: "Please complete your profile",
@@ -908,9 +899,24 @@ const Landing: React.FC = (): JSX.Element => {
           </Tag>
         ) : null}
         
+        {/* Shopify Status */}
+        {image.name === "Shopify" && shopifyConnectionStatus === 'verifying' ? (
+          <Tag className="absolute top-0 right-4 z-10 bg-blue-500 text-white animate-pulse shadow-lg">
+            Verifying...
+          </Tag>
+        ) : image.name === "Shopify" && shopifyConnectionStatus === 'connected' ? (
+          <Tag className="absolute top-0 right-4 z-10 shadow-lg" color="#52c41a">
+            Connected
+          </Tag>
+        ) : image.name === "Shopify" && shopifyConnectionStatus === 'disconnected' ? (
+          <Tag className="absolute top-0 right-4 z-10 bg-red-500 text-white shadow-lg">
+            Disconnected
+          </Tag>
+        ) : null}
+        
         <img
           className={`block h-[100px] w-[100px] border-2 cursor-pointer rounded-lg object-cover object-center ${
-            image.name === "WooCommerce" || image.name === "Excel"
+            image.name === "WooCommerce" || image.name === "Excel" || image.name === "Shopify"
               ? "grayscale-0"
               : "grayscale"
           }`}
@@ -946,16 +952,12 @@ const Landing: React.FC = (): JSX.Element => {
           <p>Edit basic account and payment information </p>
           <p>needed in order to import orders from your stores. </p>
         </div>
-        
-        {/* Test Button for Shopify Auth - Remove this in production */}
-       
       </div>
       
       <div className="w-1/2 max-md:w-full">
         <div className="container mx-auto px-5 py-2 xl:px-32 justify-center items-center">
           <div className="-m-1 mx-4 flex flex-wrap md:-m-2">
             {displayTurtles}
-           
           </div>
         </div>
       </div>
@@ -965,6 +967,29 @@ const Landing: React.FC = (): JSX.Element => {
       onClose={onClose}
        />
       )}
+      <Modal
+        title="Connect to Shopify"
+        open={showShopifyConnectModal}
+        onCancel={() => setShowShopifyConnectModal(false)}
+        footer={[
+          <Button key="back" onClick={() => setShowShopifyConnectModal(false)}>
+            Cancel
+          </Button>,
+          <Button 
+            key="submit" 
+            type="primary" 
+            onClick={() => {
+              setShowShopifyConnectModal(false);
+              window.location.href = "https://admin.shopify.com/oauth/install_custom_app?client_id=9ee7cc6b8c1a84382149ca350fd90e1e&no_redirect=true&signature=eyJleHBpcmVzX2F0IjoxNzczNDA4MjYwLCJwZXJtYW5lbnRfZG9tYWluIjoiZmluZXJ3b3Jrcy1kZXYtMy5teXNob3BpZnkuY29tIiwiY2xpZW50X2lkIjoiOWVlN2NjNmI4YzFhODQzODIxNDljYTM1MGZkOTBlMWUiLCJwdXJwb3NlIjoiY3VzdG9tX2FwcCIsIm1lcmNoYW50X29yZ2FuaXphdGlvbl9pZCI6MTI4OTY2OTUyfQ%3D%3D--4832b27e6bfe92d776e673ae4f963674bfda836a";
+            }}
+          >
+            Connect Store
+          </Button>,
+        ]}
+      >
+        <p>You need to link your Shopify account to FinerWorks to import orders.</p>
+        <p>Would you like to authorize this app by opening the Shopify Admin connection panel?</p>
+      </Modal>
     </div>
   );
 };

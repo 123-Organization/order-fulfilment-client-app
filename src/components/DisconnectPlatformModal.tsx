@@ -5,7 +5,7 @@ import { useAppSelector, useAppDispatch } from "../store";
 import { useCookies } from "react-cookie";
 import { disconnectEcommerce, disconnectShopify, resetStatus } from "../store/features/ecommerceSlice";
 import { disconnectInventory } from "../store/features/InventorySlice";
-import { clearShopifyCredentials, setConnectionVerificationStatus } from "../store/features/companySlice";
+import { clearShopifyCredentials, setConnectionVerificationStatus, updateCompanyInfo } from "../store/features/companySlice";
 import { useNotificationContext } from "../context/NotificationContext";
 
 interface Platform {
@@ -97,6 +97,9 @@ const DisconnectPlatformModal: React.FC<DisconnectPlatformModalProps> = ({
           
           // Reset ecommerce status
           dispatch(resetStatus());
+          
+          // Refresh company info to update UI state
+          dispatch(updateCompanyInfo({}));
 
           notificationApi?.success({
             message: "Shopify Disconnected",
@@ -128,6 +131,9 @@ const DisconnectPlatformModal: React.FC<DisconnectPlatformModalProps> = ({
           // Reset ecommerce status and update connection verification
           dispatch(resetStatus());
           dispatch(setConnectionVerificationStatus('disconnected'));
+          
+          // Refresh company info to update UI state
+          dispatch(updateCompanyInfo({}));
 
           notificationApi?.success({
             message: `${platform.name} Disconnected`,
