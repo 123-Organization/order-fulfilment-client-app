@@ -34,8 +34,8 @@ const MyCompany: React.FC = () => {
   const [componentSize, setComponentSize] = useState<SizeType | "default">(
     "default"
   );
-  const [stateData, setStateData] = useState<SelectProps["options"]>(
-    [] as SelectProps["options"]
+  const [stateData, setStateData] = useState<{ label: string; value: string }[]>(
+    []
   );
   const [countryCode, setCountryCode] = useState("");
   const [stateCodeShort, setStateCodeShort] = useState<String | null>("");
@@ -96,24 +96,36 @@ const MyCompany: React.FC = () => {
     let state_code: string | null = value?.toLowerCase();
     console.log(`onChangeState ${state_code}`, countryCode);
     setStateCode(state_code);
-    if (countryCode === "us")
-      setStateCodeShort(convertUsStateAbbrAndName(state_code));
-    else setStateCodeShort(state_code);
-    onFinish({ ...companyAddress, state_code: state_code });
+    let actualCode = state_code;
+    if (countryCode === "us") {
+      actualCode = convertUsStateAbbrAndName(state_code) || state_code;
+      setStateCodeShort(actualCode);
+    } else {
+      setStateCodeShort(state_code);
+    }
+    
+    // Ensure company address state gets updated so other field changes don't revert this
+    setCompanyAddress((prev: any) => {
+      const updated = { ...prev, state_code: actualCode };
+      setTimeout(() => onFinish({ state_code: actualCode }), 0);
+      return updated;
+    });
+    form.setFieldsValue({ state_code: actualCode });
   };
 
-  const onFinish = (values) => {
+  const onFinish = (values: any) => {
     console.log("veve", values);
-    let updatedValues = { ...companyAddress, ...values };
-    // updatedValues.country_code = countryCode;
+    let updatedValues = { ...companyAddress, ...values, country_code: countryCode || companyAddress.country_code };
     if (countryCode === "us" && updatedValues.state_code) {
       // Only convert if it's NOT already an abbreviation (2 characters)
       // This ensures we always send the state code, not the full name
       if (updatedValues.state_code.length !== 2) {
         updatedValues.state_code = convertUsStateAbbrAndName(
           updatedValues?.state_code
-        );
+        ) || updatedValues.state_code;
       }
+      // Ensure it is uppercase for the API validation
+      updatedValues.state_code = updatedValues.state_code.toUpperCase();
     }
     if (countryCode !== "us" && updatedValues.state_code) {
       updatedValues.province = updatedValues?.state_code;
@@ -134,7 +146,7 @@ const MyCompany: React.FC = () => {
       .catch((errorInfo) => {
         console.log("errorInfo", errorInfo);
         // Handle form validation errors
-        const errors = errorInfo.errorFields.reduce((acc, field) => {
+        const errors = errorInfo.errorFields.reduce((acc: any, field: any) => {
           acc[field.name[0]] = field.errors;
           return acc;
         }, {});
@@ -166,10 +178,11 @@ const MyCompany: React.FC = () => {
 
   useEffect(() => {
     let state = countryCode === "us" ? stateCodeShort : stateCode;
-    state = convertUsStateAbbrAndName(state as string);
+    state = (countryCode === "us" ? convertUsStateAbbrAndName(state as string) || state : state);
     console.log("stoto", state);
-    setCompanyAddress({ ...companyAddress, state_code: state as string });
-    dispatch(updateCompany({ business_info: businessInfo, validFields: {} }));
+    if (state) {
+      setCompanyAddress((prev: any) => ({ ...prev, state_code: state as string }));
+    }
   }, [stateCode, stateCodeShort, countryCode]);
   console.log("compa", companyAddress?.company_name );
 
@@ -436,7 +449,9 @@ const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
                 onChange={(e) => {
                   const inputValue = e.target.value;
                   setStateCode(inputValue);
-                  onFinish({ ...companyAddress, state_code: inputValue });
+                  setCompanyAddress(prev => ({ ...prev, state_code: inputValue }));
+                  form.setFieldsValue({ state_code: inputValue });
+                  onFinish({ state_code: inputValue });
                 }}
                 placeholder="Enter province/region"
               />

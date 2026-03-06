@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Checkbox, Form, Input, Select } from "antd";
+import { Checkbox, Form, Input, Select, Spin } from "antd";
 import Payment from "./Payment";
 import { createCustomer } from "../store/features/paymentSlice";
+import { getCustomerInfo } from "../store/features/customerSlice";
+import { updateCompanyInfo } from "../store/features/companySlice";
 import { useAppDispatch, useAppSelector } from "../store";
 
 const { Option } = Select;
@@ -18,10 +20,10 @@ const PaymentAddress: React.FC <PaymentAddressProps> = ({remainingTotal, onClose
     "default"
   );
 
-  const companyInfo = useAppSelector(
-    (state) => state.company.company_info?.data?.billing_info
-  );
+  const fullCompanyInfo = useAppSelector((state) => state.company.company_info);
+  const companyInfo = fullCompanyInfo?.data?.billing_info;
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
+  const createCustomerStatus = useAppSelector((state) => state.Payment.createCustomerStatus);
   console.log("companyInfo", customerInfo);
 
   const onChange = (value: string) => {
@@ -163,9 +165,8 @@ const PaymentAddress: React.FC <PaymentAddressProps> = ({remainingTotal, onClose
       </p>
     </Form>
   );
-  console.log("how", customerInfo?.data.payment_profile_id);
   useEffect(() => {
-    if (companyInfo?.first_name && !customerInfo?.data.payment_profile_id) {
+    if (!customerInfo?.data.payment_profile_id && customerInfo?.data?.account_id && createCustomerStatus === "idle") {
       dispatch(
         createCustomer({
           firstName: companyInfo?.first_name,
@@ -175,9 +176,14 @@ const PaymentAddress: React.FC <PaymentAddressProps> = ({remainingTotal, onClose
           phone: companyInfo?.phone,
           account_key: customerInfo?.data?.account_key,
         })
-      );
+      ).unwrap().then(() => {
+        dispatch(getCustomerInfo());
+        dispatch(updateCompanyInfo({}));
+      }).catch((err) => {
+        console.error("Failed to create customer:", err);
+      });
     }
-  }, [companyInfo, dispatch]);
+  }, [companyInfo, dispatch, customerInfo, createCustomerStatus]);
   
   return (
     <div className="flex justify-end items-center w-full h-full p-8 max-md:flex-col max-md:mt-12">
@@ -203,10 +209,16 @@ const PaymentAddress: React.FC <PaymentAddressProps> = ({remainingTotal, onClose
       <div className="w-1/2 max-md:w-full">
         <div className="container mx-auto px-5 py-2 lg:px-8 md:px-4 justify-center items-center">
           <div className="-m-1 mx-4 flex items-center flex-wrap md:-m-2">
-            <Payment 
-            remainingTotal={remainingTotal}
-            onCloseModal={onClose}
-            />
+            {createCustomerStatus === "loading" || !customerInfo?.data?.payment_profile_id || !fullCompanyInfo?.data?.payment_profile_id ? (
+              <div className="flex justify-center items-center w-full py-12">
+                <Spin size="large" tip="Setting up your account..." />
+              </div>
+            ) : (
+              <Payment
+                remainingTotal={remainingTotal}
+                onCloseModal={onClose}
+              />
+            )}
           </div>
         </div>
       </div>

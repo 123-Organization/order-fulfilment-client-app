@@ -76,7 +76,7 @@ export const Company = createSlice({
         name: "company",
         initialState,
         reducers: {
-                updateCompany: (state, action: PayloadAction) => {
+                updateCompany: (state, action: PayloadAction<any>) => {
                         console.log('updateCompanyAction', state)
                         state.myCompanyInfoFilled = action.payload;
                 },
