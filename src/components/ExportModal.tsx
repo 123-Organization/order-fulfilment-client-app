@@ -89,7 +89,8 @@ const ExportModal: React.FC<ExportModalProps> = ({
 
   // Function to detect if any product might have variants
   // Uses full inventory data to find ALL variants, not just selected ones
-  const detectProductsWithVariants = (selectedProducts: any[]): { hasVariants: boolean; variantGroups: any[] } => {
+  // Also returns standalone products (selected but not part of any variant group)
+  const detectProductsWithVariants = (selectedProducts: any[]): { hasVariants: boolean; variantGroups: any[]; standaloneProducts: any[] } => {
     
     
     // Get full inventory data
@@ -197,11 +198,22 @@ const ExportModal: React.FC<ExportModalProps> = ({
     
     
     
+    // Collect selected products that weren't captured in any variant group
+    const coveredSkus = new Set<string>();
+    variantGroups.forEach((group) => {
+      group.products.forEach((p: any) => coveredSkus.add(p.sku));
+    });
+    const standaloneProducts = selectedProducts.filter((p) => !coveredSkus.has(p.sku));
+
     return {
       hasVariants: variantGroups.length > 0,
-      variantGroups
+      variantGroups,
+      standaloneProducts
     };
   };
+
+  // Standalone products that have no variants — kept in sync with the last detectProductsWithVariants call
+  const [standaloneProducts, setStandaloneProducts] = useState<any[]>([]);
 
   // Handle variant selection confirmation
   const handleVariantConfirm = async (selections: { primary: any; variants: any[] }[]) => {
@@ -229,8 +241,14 @@ const ExportModal: React.FC<ExportModalProps> = ({
         });
       });
     });
-    
-    
+
+    // Also include standalone products (selected but not part of any variant group)
+    standaloneProducts.forEach((product) => {
+      formattedProductsList.push({
+        ...product,
+        primaryItem: true
+      });
+    });
     
     if (pendingExportPlatform === "WooCommerce") {
       await dispatch(exportOrders({ data: formattedProductsList, domainName: wordpressConnectionId }));
@@ -295,10 +313,11 @@ const ExportModal: React.FC<ExportModalProps> = ({
       }
   
       // Check for variant groups before exporting
-      const { hasVariants, variantGroups: detectedVariants } = detectProductsWithVariants(inventorySelection);
+      const { hasVariants, variantGroups: detectedVariants, standaloneProducts: detectedStandalones } = detectProductsWithVariants(inventorySelection);
       if (hasVariants) {
         // Products with variants detected - show variant selection modal
         setVariantGroups(detectedVariants);
+        setStandaloneProducts(detectedStandalones);
         setPendingExportPlatform("WooCommerce");
         setVariantModalVisible(true);
         return;
@@ -340,10 +359,11 @@ const ExportModal: React.FC<ExportModalProps> = ({
       }
 
       // Check for variant groups before exporting
-      const { hasVariants: hasShopifyVariants, variantGroups: detectedShopifyVariants } = detectProductsWithVariants(inventorySelection);
+      const { hasVariants: hasShopifyVariants, variantGroups: detectedShopifyVariants, standaloneProducts: detectedShopifyStandalones } = detectProductsWithVariants(inventorySelection);
       if (hasShopifyVariants) {
         // Products with variants detected - show variant selection modal
         setVariantGroups(detectedShopifyVariants);
+        setStandaloneProducts(detectedShopifyStandalones);
         setPendingExportPlatform("Shopify");
         setVariantModalVisible(true);
         return;
