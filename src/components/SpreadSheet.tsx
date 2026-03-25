@@ -358,7 +358,6 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
       orders: [...postOrders],
       account_key: customerInfo?.data?.account_key,
       accountId: customerInfo?.data?.account_id,
-      payment_token: customerInfo?.data?.payment_profile_id,
     }))
     console.log("asdsdadasd", postOrders);
 
