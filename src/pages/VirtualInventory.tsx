@@ -1437,6 +1437,14 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
           onClose={() => setOpenExport(false)}
           inventorySelection={inventorySelection}
           listInventory={{ data: allInventoryData }}
+          onExportSuccess={() => {
+            // Reset and reload the inventory list from scratch so the latest
+            // third_party_integrations (shopify/woocommerce IDs) are shown immediately
+            setCurrentPage(1);
+            setAllInventoryData([]);
+            setHasMore(true);
+            listInventory(1, true);
+          }}
         />
         <EditInventoryModal
           visible={openEditModal}

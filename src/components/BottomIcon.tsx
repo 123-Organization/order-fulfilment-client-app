@@ -23,7 +23,7 @@ import UpdatePopup from "./UpdatePopup";
 import { updateCompanyInfo } from "../store/features/companySlice";
 import { resetRecipientStatus } from "../store/features/orderSlice";
 import style from "./Components.module.css";
-import { fetchWporder, fetchShopifyOrders, fetchShopifyOrderByName } from "../store/features/orderSlice";
+import { fetchWporder, fetchShopifyOrders, fetchShopifyOrderByName, fetchSquarespaceOrders, fetchSquarespaceOrderByNumber, resetSquarespaceImportStatus, updateWporder } from "../store/features/orderSlice";
 type NotificationType = "success" | "info" | "warning" | "error";
 interface NotificationAlertProps {
   type: NotificationType;
@@ -112,6 +112,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
 
   const myImport = useAppSelector((state) => state.order.myImport);
   const importStatus = useAppSelector((state) => state.order.importStatus);
+  const squarespaceImportStatus = useAppSelector((state) => state.order.squarespaceImportStatus);
 
   const saveOrderInfo = useAppSelector((state) => state.order.saveOrderInfo);
 
@@ -270,6 +271,9 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                 });
                 
                 setTimeout(() => {
+                  dispatch(resetSaveOrderInfo());
+                  dispatch(resetImport());
+                  dispatch(updateWporder('' as any));
                   navigate("/importlist");
                 }, 2000);
               } else {
@@ -377,6 +381,9 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   });
                   
                   setTimeout(() => {
+                    dispatch(resetSaveOrderInfo());
+                    dispatch(resetImport());
+                    dispatch(updateWporder('' as any));
                     navigate("/importlist");
                   }, 2000);
                 } else {
@@ -404,6 +411,390 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
             }
           }
         }
+
+        // ── Handle Squarespace orders ─────────────────────────────────────────
+        else if (platformType === "Squarespace") {
+          // Attempt to get token from localStorage first, then fallback to API connections
+          let squarespaceToken: string =
+            (localStorage.getItem('squarespace_token') ||
+            localStorage.getItem('squarespace_access_token')) as string;
+          let squarespaceRefreshToken = '';
+          const accountKey = customerInfo?.data?.account_key || localStorage.getItem('squarespace_account_key');
+
+          if (companyInfo?.data?.connections) {
+            const sqConnection = companyInfo.data.connections.find(
+              (conn: any) => conn.name === "Squarespace"
+            );
+            
+            if (sqConnection && sqConnection.data) {
+              try {
+                const parsedData = JSON.parse(sqConnection.data);
+                if (!squarespaceToken) {
+                  squarespaceToken = parsedData.access_token || parsedData.token || sqConnection.id;
+                }
+                squarespaceRefreshToken = parsedData.refresh_token;
+              } catch(e) {
+                if (!squarespaceToken) squarespaceToken = sqConnection.id;
+              }
+            } else if (sqConnection && sqConnection.id && !squarespaceToken) {
+              squarespaceToken = sqConnection.id;
+            }
+          }
+
+          if (!squarespaceToken) {
+            notification.error({
+              message: 'Not Connected',
+              description: 'No Squarespace token found. Please reconnect your store.',
+            });
+            setTimeout(() => navigate('/'), 1500);
+            return;
+          }
+
+          setNextSpinning(true);
+
+          let isTokenValid = true;
+          try {
+             // Validate token before fetching orders
+             const validateRes = await fetch('https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/validate-token', {
+                 method: 'POST',
+                 headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify({ access_token: squarespaceToken })
+             });
+             const validateData = await validateRes.json();
+             
+             if (!validateRes.ok || validateData.valid === false || validateData.error || validateData?.message?.toLowerCase().includes("expired")) {
+                 isTokenValid = false;
+             }
+          } catch(e) {
+             console.error("Error validating token", e);
+             // Continue and let the actual API calls fail
+          }
+
+          if (!isTokenValid) {
+             if (squarespaceRefreshToken && accountKey) {
+                 try {
+                     const refreshRes = await fetch('https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/refresh-token', {
+                         method: 'POST',
+                         headers: { 'Content-Type': 'application/json' },
+                         body: JSON.stringify({ account_key: accountKey, refresh_token: squarespaceRefreshToken })
+                     });
+                     if (refreshRes.ok) {
+                         const refreshData = await refreshRes.json();
+                         // User said the system will be updated, but try to use the returned token if present
+                         if (refreshData.access_token || refreshData.token) {
+                             squarespaceToken = refreshData.access_token || refreshData.token;
+                             localStorage.setItem('squarespace_token', squarespaceToken);
+                         } else if (refreshData?.data?.access_token) {
+                             squarespaceToken = refreshData.data.access_token;
+                             localStorage.setItem('squarespace_token', squarespaceToken);
+                         } else {
+                            // If we don't get the new access token back, wait for the backend update
+                            // and reload the window so the app will fetch the updated connections 
+                            notification.info({
+                                message: 'Token Refreshed',
+                                description: 'Applying updated Squarespace authorization...'
+                            });
+                            dispatch(updateCompanyInfo(companyInfo)); // Reload company info
+                            setTimeout(() => window.location.reload(), 1500);
+                            return; 
+                         }
+                     } else {
+                         throw new Error("Refresh token rejected");
+                     }
+                 } catch(e) {
+                     localStorage.removeItem('squarespace_token');
+                     localStorage.removeItem('squarespace_access_token');
+                     localStorage.removeItem('squarespace_account_key');
+                     notification.error({
+                         message: 'Squarespace Token Expired',
+                         description: 'Your Squarespace access token has expired and refresh failed. Please reconnect your store.',
+                     });
+                     dispatch(resetSquarespaceImportStatus());
+                     setTimeout(() => {
+                         window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/auth?account_key=${accountKey}`;
+                     }, 2000);
+                     setNextSpinning(false);
+                     return;
+                 }
+             } else {
+                 localStorage.removeItem('squarespace_token');
+                 localStorage.removeItem('squarespace_access_token');
+                 localStorage.removeItem('squarespace_account_key');
+                 notification.error({
+                     message: 'Squarespace Token Expired',
+                     description: 'Your Squarespace access token has expired. Please reconnect your store.',
+                 });
+                 dispatch(resetSquarespaceImportStatus());
+                 setTimeout(() => {
+                     window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/auth?account_key=${accountKey}`;
+                 }, 2000);
+                 setNextSpinning(false);
+                 return;
+             }
+          }
+
+          // Check if user is trying to import by order number (single orders)
+          if (wporder.length > 0) {
+            const orderNames = wporder.split(",").map((name: string) => name.trim());
+
+            try {
+              const orderPromises = orderNames.map((orderName: string) =>
+                dispatch(
+                  fetchSquarespaceOrderByNumber({
+                    access_token: squarespaceToken,
+                    orderNumber: orderName,
+                  })
+                )
+              );
+
+              const results = await Promise.all(orderPromises);
+
+              const allOrders: any[] = [];
+              let hasErrors = false;
+              let hasTokenExpired = false;
+
+              results.forEach((result, index) => {
+                const payload = result.payload as any;
+                if (payload?.tokenExpired) {
+                  hasTokenExpired = true;
+                } else if (payload && (payload.id || payload.orderNumber || payload.lineItems)) {
+                  allOrders.push(payload);
+                } else if (payload && payload.order) {
+                  allOrders.push(payload.order);
+                } else if (payload && payload.orders && payload.orders.length > 0) {
+                  allOrders.push(...payload.orders);
+                } else {
+                  hasErrors = true;
+                  console.error(`Failed to fetch Squarespace order ${orderNames[index]}:`, payload);
+                }
+              });
+
+              if (hasTokenExpired) {
+                if (squarespaceRefreshToken && accountKey) {
+                   // Ignore error since we tried validate-token earlier
+                   notification.error({
+                     message: 'Error fetching orders',
+                     description: 'Failed to import. Please try again.',
+                   });
+                } else {
+                   localStorage.removeItem('squarespace_token');
+                   localStorage.removeItem('squarespace_account_key');
+                   notification.error({
+                     message: 'Squarespace Token Expired',
+                     description: 'Your Squarespace access token has expired. Please reconnect your store.',
+                   });
+                   dispatch(resetSquarespaceImportStatus());
+                   setTimeout(() => {
+                     const redirectKey = customerInfo?.data?.account_key || localStorage.getItem('squarespace_account_key') || '';
+                     window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/auth?account_key=${redirectKey}`;
+                   }, 2000);
+                }
+                return;
+              }
+
+              if (allOrders.length > 0) {
+                // Transform Squarespace orders to Finerworks format
+                const transformedOrders = allOrders.map((sqOrder: any, orderIndex: number) => {
+                  const addr = sqOrder.shippingAddress || sqOrder.billingAddress || {};
+                  const lineItems: any[] = sqOrder.lineItems || sqOrder.order_items || [];
+
+                  return {
+                    order_po: `SQ_${sqOrder.id || sqOrder.orderNumber || orderIndex}`,
+                    order_key: sqOrder.id || '',
+                    source: 'squarespace',
+                    recipient: {
+                      first_name:       addr.firstName  || addr.first_name  || '',
+                      last_name:        addr.lastName   || addr.last_name   || '',
+                      company_name:     addr.company    || addr.company_name || '',
+                      address_1:        addr.address1   || addr.address_1   || '',
+                      address_2:        addr.address2   || addr.address_2   || '',
+                      address_3:        '',
+                      city:             addr.city       || '',
+                      state_code:       addr.state      || addr.state_code  || '',
+                      province:         addr.state      || '',
+                      zip_postal_code:  addr.zip        || addr.postalCode   || '',
+                      country_code:     addr.countryCode || addr.country_code || 'US',
+                      phone:            addr.phone      || sqOrder.customerEmail || '',
+                      email:            sqOrder.customerEmail || '',
+                      address_order_po: '',
+                    },
+                    order_items: lineItems.map((item: any, itemIndex: number) => ({
+                      product_order_po: `SQ_P_${orderIndex}_${itemIndex}`,
+                      product_qty:      item.quantity  || 1,
+                      product_sku:      item.sku       || item.variantId || '',
+                      product_title:    item.productName || item.name || '',
+                      product_guid:     item.variantId  || crypto.randomUUID(),
+                    })),
+                    order_status:  'Processing',
+                    shipping_code: 'GD',
+                    test_mode:     true,
+                  };
+                });
+
+                const sendData = {
+                  accountId:     customerInfo?.data?.account_id,
+                  payment_token: customerInfo?.data?.account_key,
+                  orders:        transformedOrders,
+                };
+
+                dispatch(saveShopifyOrder(sendData));
+
+                notification.success({
+                  message: 'Success',
+                  description: `${transformedOrders.length} Squarespace order(s) imported successfully${hasErrors ? ' (some failed)' : ''}`,
+                });
+
+                setTimeout(() => {
+                  dispatch(resetSaveOrderInfo());
+                  dispatch(resetImport());
+                  dispatch(updateWporder('' as any));
+                  navigate('/importlist');
+                }, 2000);
+              } else {
+                notification.error({
+                  message: 'Error',
+                  description: 'Failed to fetch any specified Squarespace orders.',
+                });
+              }
+            } catch (error) {
+              console.error("Error fetching Squarespace orders by number:", error);
+              notification.error({
+                message: "Error",
+                description: "An error occurred while fetching Squarespace order details",
+              });
+            } finally {
+              setNextSpinning(false);
+            }
+          }
+          // Require date range for bulk import
+          else if (!myImport?.start_date || !myImport?.end_date) {
+            notification.warning({
+              message: 'Missing Information',
+              description: 'Please select a start and end date to import Squarespace orders.',
+            });
+            return;
+          } else {
+          try {
+            const startISO = `${myImport.start_date}T00:00:00Z`;
+            const endISO   = `${myImport.end_date}T23:59:59Z`;
+
+            const result = await dispatch(
+              fetchSquarespaceOrders({
+                access_token: squarespaceToken,
+                startDate: startISO,
+                endDate:   endISO,
+                fulfillmentStatus: myImport.status || 'PENDING',
+              })
+            );
+
+            // Token expired — clear stored credentials and redirect to reconnect
+            if ((result.payload as any)?.tokenExpired) {
+               if (squarespaceRefreshToken && accountKey) {
+                   notification.error({
+                     message: 'Error fetching orders',
+                     description: 'Failed to import. Please try again.',
+                   });
+               } else {
+                 localStorage.removeItem('squarespace_token');
+                 localStorage.removeItem('squarespace_account_key');
+                 notification.error({
+                   message: 'Squarespace Token Expired',
+                   description: 'Your Squarespace access token has expired. Please reconnect your store.',
+                 });
+                 dispatch(resetSquarespaceImportStatus());
+                 setTimeout(() => {
+                   const redirectKey =
+                     customerInfo?.data?.account_key ||
+                     localStorage.getItem('squarespace_account_key') ||
+                     '';
+                   window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/auth?account_key=${redirectKey}`;
+                 }, 2000);
+               }
+               return;
+            }
+
+            const payload = result.payload as any;
+
+            if (payload?.orders && payload.orders.length > 0) {
+              // Transform Squarespace orders to Finerworks format
+              const transformedOrders = payload.orders.map(
+                (sqOrder: any, orderIndex: number) => {
+                  const addr = sqOrder.shippingAddress || sqOrder.billingAddress || {};
+                  const lineItems: any[] = sqOrder.lineItems || sqOrder.order_items || [];
+
+                  return {
+                    order_po: `SQ_${sqOrder.id || sqOrder.orderNumber || orderIndex}`,
+                    order_key: sqOrder.id || '',
+                    source: 'squarespace',
+                    recipient: {
+                      first_name:       addr.firstName  || addr.first_name  || '',
+                      last_name:        addr.lastName   || addr.last_name   || '',
+                      company_name:     addr.company    || addr.company_name || '',
+                      address_1:        addr.address1   || addr.address_1   || '',
+                      address_2:        addr.address2   || addr.address_2   || '',
+                      address_3:        '',
+                      city:             addr.city       || '',
+                      state_code:       addr.state      || addr.state_code  || '',
+                      province:         addr.state      || '',
+                      zip_postal_code:  addr.zip        || addr.postalCode   || '',
+                      country_code:     addr.countryCode || addr.country_code || 'US',
+                      phone:            addr.phone      || sqOrder.customerEmail || '',
+                      email:            sqOrder.customerEmail || '',
+                      address_order_po: '',
+                    },
+                    order_items: lineItems.map((item: any, itemIndex: number) => ({
+                      product_order_po: `SQ_P_${orderIndex}_${itemIndex}`,
+                      product_qty:      item.quantity  || 1,
+                      product_sku:      item.sku       || item.variantId || '',
+                      product_title:    item.productName || item.name || '',
+                      product_guid:     item.variantId  || crypto.randomUUID(),
+                    })),
+                    order_status:  'Processing',
+                    shipping_code: 'GD',
+                    test_mode:     true,
+                  };
+                }
+              );
+
+              const sendData = {
+                accountId:     customerInfo?.data?.account_id,
+                payment_token: customerInfo?.data?.account_key,
+                orders:        transformedOrders,
+              };
+
+              dispatch(saveShopifyOrder(sendData)); // reuse the generic save endpoint
+
+              notification.success({
+                message: 'Success',
+                description: `${transformedOrders.length} Squarespace order(s) imported successfully`,
+              });
+
+              setTimeout(() => {
+                dispatch(resetSaveOrderInfo());
+                dispatch(resetImport());
+                dispatch(updateWporder('' as any));
+                navigate('/importlist');
+              }, 2000);
+            } else {
+              notification.warning({
+                message: 'No Orders Found',
+                description:
+                  payload?.message ||
+                  'No Squarespace orders matched the selected criteria.',
+              });
+            }
+          } catch (error) {
+            console.error('Error fetching Squarespace orders:', error);
+            notification.error({
+              message: 'Error',
+              description: 'An error occurred while fetching Squarespace orders.',
+            });
+          } finally {
+            setNextSpinning(false);
+          }
+          }
+        }
+
         // Handle WooCommerce orders
         else if (platformType === "WooCommerce") {
           if (wporder.length > 0) {

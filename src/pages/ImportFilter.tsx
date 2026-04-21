@@ -13,6 +13,13 @@ import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import { updateWporder } from "../store/features/orderSlice";
 
+// Squarespace fulfillment status options (from the Squarespace Commerce API)
+const SQUARESPACE_STATUSES = [
+  { value: 'PENDING',   label: 'Pending'   },
+  { value: 'FULFILLED', label: 'Fulfilled' },
+  { value: 'CANCELED',  label: 'Canceled'  },
+];
+
 const countryList = require("../json/order_status_same_label.json");
 const { RangePicker } = DatePicker; 
 const { Option } = Select;
@@ -26,7 +33,7 @@ console.log(formattedDate,formattedDate);
 
 const ImportFilter: React.FC = () => {
   const [countryCode, setCountryCode] = useState("");
-  const [dateRange, setDateRange] = useState([]);
+  const [dateRange, setDateRange] = useState<string[]>([]);
   const [copyCompanyAddress, setCopyCompanyAddress] = useState(false);
   const billingInfo = useAppSelector(
     (state) => state.company?.company_info?.data?.billing_info 
@@ -108,8 +115,8 @@ const ImportFilter: React.FC = () => {
     setStateData(data);
   };
 
-  const onValid = (date:[]) => {
-      let importData = { };
+  const onValid = (date: [string, string] | []) => {
+      let importData: any = {};
       
       // Add status if selected
       if(countryCode) {
@@ -119,7 +126,7 @@ const ImportFilter: React.FC = () => {
       // Add dates if selected
       if(date && date.length === 2) { 
         importData = {...importData, start_date: date[0], end_date: date[1]}
-        setDateRange(date)
+        setDateRange([date[0], date[1]])
       }
       
       // Dispatch if we have either dates or status
@@ -146,7 +153,7 @@ const ImportFilter: React.FC = () => {
       // let cntCode = convertUsStateAbbrAndName(billingInfo?.country_code)+"";
       onChange(billingInfo?.country_code);
       setTimeout(() => {
-        setStateCode(convertUsStateAbbrAndName(billingInfo?.state_code));
+        setStateCode(convertUsStateAbbrAndName(billingInfo?.state_code) ?? '');
         setCompanyAddress(billingInfo)
         form1.setFieldsValue(
           billingInfo
@@ -160,7 +167,7 @@ const ImportFilter: React.FC = () => {
   const getWporder = (values: string[]) => {
     console.log('getWporder', values);
     if (values && values.length > 0) {
-      dispatch(updateWporder(values.join(',')));
+      dispatch(updateWporder(values.join(',') as any));
     }
   };
 
@@ -192,7 +199,7 @@ const ImportFilter: React.FC = () => {
             }}
             onSearch={onSearch}
             filterOption={filterOption}
-            options={countryList}
+            options={typeValue === 'Squarespace' ? SQUARESPACE_STATUSES : countryList}
             // value={
             //   convertUsStateAbbrAndName(countryCode.toUpperCase())
             // }
@@ -204,17 +211,12 @@ const ImportFilter: React.FC = () => {
       </Form.Item>
       {/* <Form.Item name="range_picker" label="Date range" 
       > */}
-        <RangePicker 
-        // onBlur={onValid}
-          maxDate={(dayjs(currentDate, dateFormat))}
-          onChange={(_,info) =>
-            { 
-              console.log('onChange:', info,currentDate); 
-              onValid(info)
-            }
-          }
-
-         className="w-full sm:ml-[100px]" 
+        <RangePicker
+          onChange={(_, info) => {
+            console.log('onChange:', info, currentDate);
+            onValid(info);
+          }}
+          className="w-full sm:ml-[100px]"
         />
         
       {/* </Form.Item> */}
@@ -272,7 +274,7 @@ const ImportFilter: React.FC = () => {
         <div className="text-left text-gray-400 pt-4">
           <p className="text-lg  font-bold">{typeValue} Import</p>
           <p className="pt-5 pb-7">
-            Import orders  or even a single orders
+            Import orders or even a single orders
           </p>
           <p>
           {displayTurtles}

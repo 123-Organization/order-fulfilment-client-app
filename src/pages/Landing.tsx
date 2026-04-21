@@ -63,6 +63,8 @@ const Landing: React.FC = (): JSX.Element => {
   const [shopifyConnectionStatus, setShopifyConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('idle');
   const [lastShopifyConnectionData, setLastShopifyConnectionData] = useState<string | null>(null);
   const [showShopifyConnectModal, setShowShopifyConnectModal] = useState<boolean>(false);
+  const [squarespaceConnectionStatus, setSquarespaceConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('idle');
+  const [lastSquarespaceConnectionData, setLastSquarespaceConnectionData] = useState<string | null>(null);
   const [cookies] = useCookies(["Session", "AccountGUID"]);
   const order = useAppSelector((state) => state.order.orders);
   const opensheet = useAppSelector((state) => state.order.openSheet);
@@ -585,7 +587,7 @@ const Landing: React.FC = (): JSX.Element => {
   ] as const;
   const importData = (imgname: string) => {
     // Check for platforms that are not yet available (including Shopify when disabled)
-    const availablePlatforms = ["WooCommerce", "Excel"];
+    const availablePlatforms = ["WooCommerce", "Excel", "Squarespace"];
     if (SHOPIFY_ENABLED) {
       availablePlatforms.push("Shopify");
     }
@@ -664,12 +666,38 @@ const Landing: React.FC = (): JSX.Element => {
         });
       }
     }
+
+    // Squarespace integration
+    if (imgname === "Squarespace") {
+      // Check if user is logged in first
+      if (!customerInfo?.data?.account_key && !cookies.AccountGUID) {
+        window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`;
+        return;
+      }
+
+      // If already connected, navigate to import filter
+      if (squarespaceConnectionStatus === 'connected') {
+        navigate("/importfilter?type=Squarespace");
+      } else if (customerInfo?.data?.user_profile_complete === true) {
+        // Redirect browser to the Squarespace OAuth initiation URL.
+        // The API endpoint itself performs a server-side redirect to Squarespace.
+        const accountKey = customerInfo?.data?.account_key;
+        window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/auth?account_key=${accountKey}`;
+      } else {
+        notificationApi.warning({
+          message: "Please complete your profile",
+          description: "Please complete your profile to connect to Squarespace",
+        });
+      }
+    }
   };
+  // ── Squarespace: status is derived from companyInfo.connections (see useEffect below) ──
+
   useEffect(() => {
     dispatch(updateApp(false));
   }, [dispatch]);
 
-  // Check if user is returning from Shopify auth
+  // Check if user is returning from Shopify or Squarespace auth
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
     const type = queryParams.get('type');
@@ -688,6 +716,22 @@ const Landing: React.FC = (): JSX.Element => {
         notificationApi.error({
           message: 'Shopify Connection Failed',
           description: 'Failed to connect to your Shopify store. Please try again.',
+        });
+      }
+    }
+
+    if (type === 'squarespace') {
+      if (connected === 'true') {
+        setSquarespaceConnectionStatus('connected');
+        notificationApi.success({
+          message: 'Squarespace Connected',
+          description: 'Your Squarespace store has been successfully connected!',
+        });
+      } else if (error) {
+        setSquarespaceConnectionStatus('disconnected');
+        notificationApi.error({
+          message: 'Squarespace Connection Failed',
+          description: 'Failed to connect to your Squarespace store. Please try again.',
         });
       }
     }
@@ -870,13 +914,58 @@ const Landing: React.FC = (): JSX.Element => {
         }
       }
       console.log("=== END SHOPIFY CONNECTION CHECK ===");
+
+      // Handle Squarespace connection
+      const squarespaceConnection = companyInfo.connections.find((conn: any) => conn.name === "Squarespace");
+      console.log("=== SQUARESPACE CONNECTION CHECK ===");
+      console.log("Squarespace connection found?:", !!squarespaceConnection);
+
+      if (squarespaceConnection) {
+        const sqIdentifier = `${squarespaceConnection.id || 'noid'}_${squarespaceConnection.data || 'nodata'}`;
+
+        if (sqIdentifier !== lastSquarespaceConnectionData) {
+          console.log("Squarespace connection changed or first load, processing...");
+          setLastSquarespaceConnectionData(sqIdentifier);
+
+          if (squarespaceConnection.id) {
+            // Has an access token — check data for explicit disconnect flag
+            let isConnected = true;
+            if (squarespaceConnection.data && squarespaceConnection.data.trim() !== "") {
+              try {
+                const parsed = JSON.parse(squarespaceConnection.data);
+                console.log("Squarespace parsed data:", parsed);
+                if (parsed.isConnected === false || parsed.isConnected === "false") {
+                  isConnected = false;
+                }
+              } catch (e) {
+                console.error("Error parsing Squarespace data:", e);
+              }
+            }
+            console.log("Squarespace isConnected:", isConnected);
+            setSquarespaceConnectionStatus(isConnected ? 'connected' : 'disconnected');
+          } else {
+            console.log("Squarespace entry found but no id — disconnected");
+            setSquarespaceConnectionStatus('disconnected');
+          }
+        } else {
+          console.log("Squarespace connection unchanged, skipping processing");
+        }
+      } else {
+        console.log("No Squarespace connection in connections array — disconnected");
+        if (lastSquarespaceConnectionData !== null) {
+          setLastSquarespaceConnectionData(null);
+          setSquarespaceConnectionStatus('disconnected');
+        }
+      }
+      console.log("=== END SQUARESPACE CONNECTION CHECK ===");
     } else {
       // No connections available
       console.log("No connections available");
       dispatch(setConnectionVerificationStatus('disconnected'));
       setShopifyConnectionStatus('disconnected');
+      setSquarespaceConnectionStatus('disconnected');
     }
-  }, [companyInfo, lastConnectionData, lastShopifyConnectionData, dispatch, shopifyConnectionStatus]);
+  }, [companyInfo, lastConnectionData, lastShopifyConnectionData, lastSquarespaceConnectionData, dispatch]);
 
   const displayTurtles = images.map((image) => (
     <div className="flex w-1/3 max-sm:w-1/2 max-[400px]:w-full flex-wrap">
@@ -913,10 +1002,25 @@ const Landing: React.FC = (): JSX.Element => {
             Disconnected
           </Tag>
         ) : null}
+
+        {/* Squarespace Status */}
+        {image.name === "Squarespace" && squarespaceConnectionStatus === 'verifying' ? (
+          <Tag className="absolute top-0 right-4 z-10 bg-blue-500 text-white animate-pulse shadow-lg">
+            Verifying...
+          </Tag>
+        ) : image.name === "Squarespace" && squarespaceConnectionStatus === 'connected' ? (
+          <Tag className="absolute top-0 right-4 z-10 shadow-lg" color="#52c41a">
+            Connected
+          </Tag>
+        ) : image.name === "Squarespace" && squarespaceConnectionStatus === 'disconnected' ? (
+          <Tag className="absolute top-0 right-4 z-10 bg-red-500 text-white shadow-lg">
+            Disconnected
+          </Tag>
+        ) : null}
         
         <img
           className={`block h-[100px] w-[100px] border-2 cursor-pointer rounded-lg object-cover object-center ${
-            image.name === "WooCommerce" || image.name === "Excel" || image.name === "Shopify"
+            image.name === "WooCommerce" || image.name === "Excel" || image.name === "Shopify" || image.name === "Squarespace"
               ? "grayscale-0"
               : "grayscale"
           }`}

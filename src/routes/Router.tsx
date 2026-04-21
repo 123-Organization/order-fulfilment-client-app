@@ -37,6 +37,7 @@ const Checkout = lazy(() => import("../pages/Checkout"));
 const ImportFilter = lazy(() => import("../pages/ImportFilter"));
 const Confirmation = lazy(() => import("../pages/Confirmation"));
 const ShopifyAuth = lazy(() => import("../pages/ShopifyAuth"));
+const SquarespaceAuth = lazy(() => import("../pages/SquarespaceAuth"));
 
 // ProtectedRoute component to check for authentication
 interface ProtectedRouteProps {
@@ -228,6 +229,12 @@ const Router: React.FC = (): JSX.Element => {
           <>
             {console.log("✅ /auth/shopify route matched!")}
             <ShopifyAuth />
+          </>
+        } />
+        <Route path="/auth/squarespace" element={
+          <>
+            {console.log("✅ /auth/squarespace route matched!")}
+            <SquarespaceAuth />
           </>
         } />
 

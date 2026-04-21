@@ -24,6 +24,7 @@ interface ExportModalProps {
   onClose: () => void;
   inventorySelection: any;
   listInventory: any;
+  onExportSuccess?: () => void; // Optional callback to refresh the inventory list after export
 }
 
 const images = [
@@ -42,6 +43,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
   onClose,
   inventorySelection,
   listInventory,
+  onExportSuccess,
 }) => {
   const handleProductCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onClose();
@@ -402,6 +404,10 @@ const ExportModal: React.FC<ExportModalProps> = ({
       onClose();
       dispatch(inventorySelectionClean());
       setSelected(null);
+      // Re-fetch the inventory list so updated third_party_integrations are shown without a page reload
+      if (onExportSuccess) {
+        onExportSuccess();
+      }
     } else if (exportStatus === "error") {
       notificationApi.error({
         message: "Products Export Failed",
@@ -535,6 +541,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
       onSkip={handleSkipVariants}
       variantGroups={variantGroups}
       platform={pendingExportPlatform || ""}
+      standaloneProducts={standaloneProducts}
     />
     </>
   );

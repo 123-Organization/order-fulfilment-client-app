@@ -205,15 +205,13 @@ export default function VaultedCardPayment({
         ...(isFullyCoveredByCredits ? {} : { payment_token: token?.token }),
       }
 
-      // Log payload to verify payment_token is not sent when using credits only
     
 
-      // Mark that we've actually attempted to submit orders
       setHasAttemptedSubmit(true);
       dispatch(submitOrders(payload));
       dispatch(updateSubmitedOrders(checkedOrders));
     }
-    // Don't navigate here - wait for submitStatus to confirm success/failure
+    
   };
 
   useEffect(() => {
