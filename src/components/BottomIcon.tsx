@@ -599,7 +599,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   const lineItems: any[] = sqOrder.lineItems || sqOrder.order_items || [];
 
                   return {
-                    order_po: `SQ_${sqOrder.id || sqOrder.orderNumber || orderIndex}`,
+                    order_po: `sku_${sqOrder.orderNumber || sqOrder.id || orderIndex}`,
                     order_key: sqOrder.id || '',
                     source: 'squarespace',
                     recipient: {
@@ -723,7 +723,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   const lineItems: any[] = sqOrder.lineItems || sqOrder.order_items || [];
 
                   return {
-                    order_po: `SQ_${sqOrder.id || sqOrder.orderNumber || orderIndex}`,
+                    order_po: `sku_${sqOrder.orderNumber || sqOrder.id || orderIndex}`,
                     order_key: sqOrder.id || '',
                     source: 'squarespace',
                     recipient: {
