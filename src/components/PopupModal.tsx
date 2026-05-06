@@ -4,10 +4,9 @@ import { LoadingOutlined } from "@ant-design/icons";
 import { useAppDispatch, useAppSelector } from "../store";
 import { AddProductToOrder, fetchOrder, updateValidSKU } from "../store/features/orderSlice";
 import { useNotificationContext } from "../context/NotificationContext";
-import { updateIframeState } from "../store/features/companySlice";
-import { getAllImages, setSelectedImage, setProductData, clearSelectedImage } from "../store/features/productSlice";
+import { setProductData, clearSelectedImage } from "../store/features/productSlice";
 import { resetOrderStatus } from "../store/features/orderSlice";
-
+import ImageGalleryModal from "./ImageGalleryModal";
 
 interface PopupModalProps {
   visible: boolean;
@@ -25,77 +24,44 @@ const PopupModal: React.FC<PopupModalProps> = ({
   onProductCodeUpdate,
 }) => {
   const dispatch = useAppDispatch();
-  // const code = useAppSelector((state) => state.order.productCode);
-  // Access the productCode from the Redux store
   const notificationApi = useNotificationContext();
   const productCode = useAppSelector((state) => state.order.productCode);
-  const images = useAppSelector((state) => state.ProductSlice.images);
-  console.log("images", images);
-  const order = useAppSelector((state)=> state.order.orders)
-  const companyinfo=useAppSelector((state)=>state.company.company_info)
-const iframeState = useAppSelector((state)=> state.company.iframeState)
-  // State to track the input value
-  const [inputValue, setInputValue] = useState("");
-  
+  const companyinfo = useAppSelector((state) => state.company.company_info);
   const validSKU = useAppSelector((state) => state.order.validSKU);
-  const [isLoading, setIsLoading] = useState(false);
   const productDataStatus = useAppSelector((state) => state.order.productDataStatus);
-  console.log("datastatus", productDataStatus)
+
+  const [inputValue, setInputValue] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [galleryVisible, setGalleryVisible] = useState(false);
   const isFirstRender = useRef(true);
-  const SelectedImage = useAppSelector(
-    (state) => state.ProductSlice.SelectedImage
-  );
-  console.log("SelectedImage", SelectedImage);
-  // Update state when the input changes
+
+  // Update input value
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInputValue(e.target.value?.trim())
+    setInputValue(e.target.value?.trim());
   };
-  console.log("inputvalue ",inputValue)
-
-  const filterImages = (data: any) => {
-    return data?.data?.fileSelected?.map(
-      (image: any) => image?.public_thumbnail_uri
-    );
-  };
-console.log("inputvalue ",inputValue)
-  const handleMessage = (event: any) => {
-    console.log("Message event:", event.type);
-
-    try {
-      const data = event.data;
-      console.log("dataaa", data);
-      const filteredImages = filterImages(data);
-      console.log("filteredImages", filteredImages);
-      // dispatch(setSelectedImage(filteredImages));
-    } catch (error) {
-      console.error("Error parsing message data:", error);
-    }
-  }
-  ;
 
   // Handler for modal close
   const handleClose = () => {
-    // Clear selected image when modal is closed
     dispatch(clearSelectedImage());
     setInputValue("");
+    setGalleryVisible(false);
     onClose();
   };
 
   const handleProductCodeChange = () => {
+    if (!inputValue) return;
     setIsLoading(true);
 
-    
     if (inputValue.startsWith("AP")) {
+      // Direct SKU code – add it straight to the order
       const data = {
-      skuCode: "",
-      productCode: "",
-      orderFullFillmentId,
-      product_url_file: [],
-      product_url_thumbnail: [],
-      account_key: companyinfo?.data?.account_key
-    };
-
-      data.skuCode = inputValue;
+        skuCode: inputValue,
+        productCode: "",
+        orderFullFillmentId,
+        product_url_file: [],
+        product_url_thumbnail: [],
+        account_key: companyinfo?.data?.account_key,
+      };
       dispatch(AddProductToOrder(data));
       setTimeout(() => {
         setInputValue("");
@@ -106,54 +72,40 @@ console.log("inputvalue ",inputValue)
         onClose();
       }, 1000);
     } else {
-     
-      
-      
-      dispatch(updateIframeState(true));
-      notificationApi.success({
-        message: "Choose A Product Image",
-        description: "Please choose the product image want to add to the order.",
-      });
-      onClose();
+      // Non-SKU product code — open the image gallery
+      setIsLoading(false);
+      setGalleryVisible(true);
     }
-
-   
-
-    console.log("stat", productDataStatus); 
   };
 
-  useEffect(() => {
-    if (SelectedImage) {
-      const data = {
-        skuCode: "",
-        productCode: inputValue,
-        orderFullFillmentId,
-        pixel_width: 1200,
-        pixel_height: 900,
-        product_url_file: [SelectedImage?.private_hires_uri],
-        product_url_thumbnail: [SelectedImage?.public_thumbnail_uri],
-      };
-      console.log("dbdb", data);
-      dispatch(setProductData(data));
-      dispatch(updateValidSKU([...validSKU, data.productCode]));
-    }
-  }, [SelectedImage, inputValue, orderFullFillmentId]);
-
-  useEffect(() => {
-    window.addEventListener("message", handleMessage);
-    window.addEventListener("message", (event) => {
-      if (event.data.type === "REFERRER_UPDATE") {
-        console.log("Received referrer update:", event.data.data);
-      }
-    });
-    if(iframeState){
-    dispatch(getAllImages());
-    }
-    return () => {
-      window.removeEventListener("message", handleMessage);
+  // Called when user picks an image in the gallery
+  const handleImageSelected = (image: any) => {
+    const data = {
+      skuCode: "",
+      productCode: inputValue,
+      orderFullFillmentId,
+      pixel_width: image.pix_w || 1200,
+      pixel_height: image.pix_h || 900,
+      product_url_file: [image.private_hires_uri],
+      product_url_thumbnail: [image.public_thumbnail_uri],
+      account_key: companyinfo?.data?.account_key,
     };
-  }, []);
 
+    dispatch(setProductData(data));
+    dispatch(AddProductToOrder(data));
+    dispatch(updateValidSKU([...validSKU, inputValue]));
+
+    notificationApi.success({
+      message: "Image Selected",
+      description: `"${image.title}" will be used for this product.`,
+    });
+    setGalleryVisible(false);
+    setInputValue("");
+    onProductCodeUpdate();
+    onClose();
+  };
+
+  // Watch for productDataStatus
   useEffect(() => {
     if (productDataStatus === "succeeded") {
       if (isFirstRender.current) {
@@ -165,7 +117,6 @@ console.log("inputvalue ",inputValue)
         description: "Product has been successfully added to the order.",
       });
       dispatch(updateValidSKU([...validSKU, productCode]));
-      // Clear selected image on successful add
       dispatch(clearSelectedImage());
       onClose();
       setInputValue("");
@@ -177,24 +128,19 @@ console.log("inputvalue ",inputValue)
         message: "Failed to Add Product",
         description: "An error occurred while adding the product.",
       });
-      
       setIsLoading(false);
     }
-  }, [productDataStatus, notificationApi, validSKU, productCode]);
+  }, [productDataStatus]);
 
   // UseEffect to handle changes in productCode
   useEffect(() => {
     if (productCode) {
-      // Reset the input field and loading state when productCode updates
-      // setInputValue("");
       setIsLoading(false);
-
-      // Call setProductCode to indicate the update is complete
       setProductCode(false);
     }
   }, [productCode, setProductCode]);
 
-  // Clear selected image when modal becomes visible or invisible
+  // Clear selected image when modal becomes hidden
   useEffect(() => {
     if (!visible) {
       dispatch(clearSelectedImage());
@@ -202,37 +148,92 @@ console.log("inputvalue ",inputValue)
   }, [visible, dispatch]);
 
   return (
-    <Modal
-    className="z-20"
-      title="Enter Product Code"
-      visible={visible}
-      onCancel={handleClose}
-      footer={[
-        <Button key="cancel" onClick={handleClose}>
-          Cancel
-        </Button>,
-        <Button
-          key="submit"
-          type="primary"
-          onClick={handleProductCodeChange}
-          disabled={isLoading}
-        >
-          Submit
-        </Button>,
-      ]}
-    >
-      <Input
-        placeholder="Enter product code here"
-        value={inputValue}
-        onChange={handleInputChange}
-        disabled={isLoading}
-      />
-      {isLoading && (
-        <div style={{ textAlign: "center", marginTop: 20 }}>
-          <Spin indicator={<LoadingOutlined spin />} size="large" />
+    <>
+      <Modal
+        className="z-20"
+        title={
+          <div className="flex items-center gap-2">
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 28,
+                height: 28,
+                borderRadius: "50%",
+                background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+              }}
+            >
+              <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
+                />
+              </svg>
+            </span>
+            <span className="font-semibold text-gray-800">Enter Product Code</span>
+          </div>
+        }
+        open={visible}
+        onCancel={handleClose}
+        footer={[
+          <Button key="cancel" onClick={handleClose}>
+            Cancel
+          </Button>,
+          <Button
+            key="submit"
+            type="primary"
+            onClick={handleProductCodeChange}
+            disabled={isLoading || !inputValue}
+            style={{
+              background: inputValue && !isLoading
+                ? "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)"
+                : undefined,
+              border: "none",
+            }}
+          >
+            {inputValue.startsWith("AP") ? "Add Product" : "Next — Choose Image"}
+          </Button>,
+        ]}
+        centered
+        width={460}
+      >
+        <div className="py-2">
+          <p className="text-sm text-gray-500 mb-3">
+            Enter an <strong>AP-SKU code</strong> to add directly, or enter any product code and you'll
+            be prompted to pick an image from your library.
+          </p>
+          <Input
+            placeholder="e.g. AP1234567891011 or MyProductCode"
+            value={inputValue}
+            onChange={handleInputChange}
+            disabled={isLoading}
+            size="large"
+            prefix={
+              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+              </svg>
+            }
+            onPressEnter={handleProductCodeChange}
+          />
+          {isLoading && (
+            <div style={{ textAlign: "center", marginTop: 20 }}>
+              <Spin indicator={<LoadingOutlined spin />} size="large" />
+            </div>
+          )}
         </div>
-      )}
-    </Modal>
+      </Modal>
+
+      {/* Image Gallery Modal */}
+      <ImageGalleryModal
+        visible={galleryVisible}
+        onClose={() => setGalleryVisible(false)}
+        onImageSelect={handleImageSelected}
+        title={`Choose Image for "${inputValue}"`}
+      />
+    </>
   );
 };
 

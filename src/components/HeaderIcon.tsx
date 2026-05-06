@@ -73,7 +73,6 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
   const [myStores, setMyStores] = useState(false);
   const [disconnectModalVisible, setDisconnectModalVisible] = useState(false);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
-  const [burgerMenuOpen, setBurgerMenuOpen] = useState(false);
   
   // Search context
   const { searchTerm, setSearchTerm } = useSearch();
@@ -300,33 +299,6 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
 
         {/* Navigation Menu */}
         <div className="flex-1 flex flex-col py-2 space-y-1 overflow-y-auto">
-          {/* Burger Menu */}
-          <button
-            type="button"
-            className="flex flex-col items-center justify-center py-1 px-1 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200 text-xs group w-full rounded-lg hover:shadow-sm"
-            onClick={() => setBurgerMenuOpen(!burgerMenuOpen)}
-          >
-            <div className="p-1.5 rounded-lg group-hover:bg-gray-200 transition-all duration-200">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                className="text-gray-600 group-hover:scale-110 transition-transform duration-200"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              </svg>
-            </div>
-            <span className="text-center leading-tight mt-0.5 font-medium">Menu</span>
-          </button>
-
           {/* My Stores */}
           <button
             type="button"
@@ -357,7 +329,8 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
             <span className="text-center leading-tight mt-0.5 font-medium">Pending</span>
           </button>
 
-          {/* My Company */}
+          {/* My Company - hidden */}
+          <div style={{ display: 'none' }}>
                 <button
                   type="button"
             className="flex flex-col items-center justify-center py-1 px-1 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200 text-xs group w-full rounded-lg hover:shadow-sm"
@@ -368,11 +341,12 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
             <div className="p-1.5 rounded-lg group-hover:bg-gray-200 transition-all duration-200">
               <img src={briefcase} width="24" height="24" className="group-hover:scale-110 transition-transform duration-200" />
             </div>
-            <span className="text-center leading-tight mt-0.5 font-medium">My Company</span>
                 </button>
+          </div>
               
 
-          {/* Ship Preferences */}
+          {/* Shipping - hidden */}
+          <div style={{ display: 'none' }}>
                 <button
                   type="button"
             className="flex flex-col items-center justify-center py-1 px-1 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200 text-xs group w-full rounded-lg hover:shadow-sm"
@@ -383,11 +357,12 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
             <div className="p-1.5 rounded-lg group-hover:bg-gray-200 transition-all duration-200">
               <img src={truck} width="24" height="24" className="group-hover:scale-110 transition-transform duration-200" />
             </div>
-            <span className="text-center leading-tight mt-0.5 font-medium">Shipping</span>
                 </button>
+          </div>
                 <ShipmentModal visible={open} onClose={() => setOpen(false)} collapsed={collapsed} />
 
-          {/* Billing */}
+          {/* Billing - hidden */}
+          <div style={{ display: 'none' }}>
                 <button
                   type="button"
             className="flex flex-col items-center justify-center py-1 px-1 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200 text-xs group w-full rounded-lg hover:shadow-sm"
@@ -398,8 +373,8 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
             <div className="p-1.5 rounded-lg group-hover:bg-gray-200 transition-all duration-200">
               <img src={creditcard} width="24" height="24" className="group-hover:scale-110 transition-transform duration-200" />
             </div>
-            <span className="text-center leading-tight mt-0.5 font-medium">Billing</span>
                 </button>
+          </div>
               <div className="relative flex h-16 items-center justify-between md:hidden"></div>
               <div className="relative flex h-16 items-center justify-self-center justify-between md:hidden">
                 <div className="absolute inset-y-0 left-0 flex items-center ">
@@ -465,79 +440,43 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
             <div className="p-2 rounded-lg group-hover:bg-blue-200 transition-all duration-200 flex items-center justify-center">
               <ProfileOutlined style={{ fontSize: 24, color: "#6B7280" }} className="group-hover:scale-110 transition-transform duration-200" />
             </div>
-            <span className="text-center leading-tight mt-0.5 font-medium">Inventory</span>
+            <span className="text-center leading-tight mt-0.5 font-medium">Sync Products</span>
                 </button>
 
+          {/* Disconnect Platform */}
+          <button
+            type="button"
+            className="flex flex-col items-center justify-center py-1 px-1 text-gray-600 hover:bg-red-50 hover:text-red-600 transition-all duration-200 text-xs group w-full rounded-lg hover:shadow-sm"
+            onClick={() => setDisconnectModalVisible(true)}
+            title="Disconnect Platform"
+          >
+            <div className="p-1.5 rounded-lg group-hover:bg-red-100 transition-all duration-200">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                className="group-hover:scale-110 transition-transform duration-200 text-gray-600 group-hover:text-red-600"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+              </svg>
+            </div>
+            <span className="text-center leading-tight mt-0.5 font-medium">Disconnect</span>
+          </button>
+
           {/* User Profile */}
-          <div className="flex flex-col items-center justify-center py-1 px-1 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200 text-xs group w-full rounded-lg hover:shadow-sm">
+          <a 
+            href="https://account.finerworks.com/dashboard"
+            className="flex flex-col items-center justify-center py-1 px-1 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200 text-xs group w-full rounded-lg hover:shadow-sm cursor-pointer"
+          >
             <div className="p-1.5 rounded-lg group-hover:bg-gray-200 transition-all duration-200">
               <UserAvatar />
             </div>
             <span className="text-center leading-tight mt-0.5 font-medium">Profile</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Burger Menu Sidebar */}
-      <div 
-        className={`fixed left-20 top-0 h-full bg-white border-r border-gray-200 shadow-lg transform transition-all duration-300 ease-in-out z-40 ${
-          burgerMenuOpen ? 'w-64 translate-x-0 pointer-events-auto' : 'w-0 -translate-x-full pointer-events-none'
-        }`}
-        style={{ transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)' }}
-      >
-        <div className={`h-full ${burgerMenuOpen ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}>
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-800">Menu</h2>
-            <button
-              onClick={() => setBurgerMenuOpen(false)}
-              className="p-2 rounded-lg hover:bg-gray-100 transition-all duration-200"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 text-gray-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
-          
-          {/* Menu Items */}
-          <div className="p-4 space-y-2">
-            <a 
-              href="https://support.finerworks.com/how-to-use-the-order-fulfillment-app/" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-all duration-200 rounded-lg"
-              onClick={() => setBurgerMenuOpen(false)}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <span className="font-medium">Documentation</span>
-            </a>
-            
-            <button
-              onClick={() => {
-                setDisconnectModalVisible(true);
-                setBurgerMenuOpen(false);
-              }}
-              className="flex items-center w-full px-4 py-3 text-gray-700 hover:bg-gray-50 hover:text-red-600 transition-all duration-200 rounded-lg"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-              </svg>
-              <span className="font-medium">Disconnect Platform</span>
-            </button>
-          </div>
+          </a>
         </div>
       </div>
 

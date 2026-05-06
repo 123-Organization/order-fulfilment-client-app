@@ -10,7 +10,7 @@ import square from "../assets/images/store-square.svg";
 import squarespace from "../assets/images/store-squarespace.svg";
 import wix from "../assets/images/store-wix.svg";
 import woocommerce from "../assets/images/store-woocommerce.svg";
-import { exportOrders, exportToShopify } from "../store/features/InventorySlice";
+import { exportOrders, exportToShopify, exportToWix } from "../store/features/InventorySlice";
 import { useNotificationContext } from "../context/NotificationContext";
 import { inventorySelectionClean } from "../store/features/InventorySlice";
 import { resetStatus } from "../store/features/InventorySlice";
@@ -53,6 +53,8 @@ const ExportModal: React.FC<ExportModalProps> = ({
   const [wooConnected, setWooConnected] = useState<string>("Disconnected");
   const [shopifyConnected, setShopifyConnected] = useState<string>("Disconnected");
   const [shopifyConnectionData, setShopifyConnectionData] = useState<{ shop: string; access_token: string } | null>(null);
+  const [wixConnected, setWixConnected] = useState<string>("Disconnected");
+  const [wixConnectionData, setWixConnectionData] = useState<{ access_token: string } | null>(null);
   const [variantModalVisible, setVariantModalVisible] = useState(false);
   const [variantGroups, setVariantGroups] = useState<any[]>([]);
   const [pendingExportPlatform, setPendingExportPlatform] = useState<string | null>(null);
@@ -263,6 +265,13 @@ const ExportModal: React.FC<ExportModalProps> = ({
         accountKey: accountKey
       }));
       dispatch(resetStatus());
+    } else if (pendingExportPlatform === "Wix" && wixConnectionData) {
+      await dispatch(exportToWix({
+        productList: formattedProductsList,
+        accessToken: wixConnectionData.access_token,
+        accountKey: accountKey,
+      }));
+      dispatch(resetStatus());
     }
     
     setPendingExportPlatform(null);
@@ -282,6 +291,13 @@ const ExportModal: React.FC<ExportModalProps> = ({
         storeName: shopifyConnectionData.shop,
         accessToken: shopifyConnectionData.access_token,
         accountKey: accountKey
+      }));
+      dispatch(resetStatus());
+    } else if (pendingExportPlatform === "Wix" && wixConnectionData) {
+      await dispatch(exportToWix({
+        productList: inventorySelection,
+        accessToken: wixConnectionData.access_token,
+        accountKey: accountKey,
       }));
       dispatch(resetStatus());
     }
@@ -317,7 +333,6 @@ const ExportModal: React.FC<ExportModalProps> = ({
       // Check for variant groups before exporting
       const { hasVariants, variantGroups: detectedVariants, standaloneProducts: detectedStandalones } = detectProductsWithVariants(inventorySelection);
       if (hasVariants) {
-        // Products with variants detected - show variant selection modal
         setVariantGroups(detectedVariants);
         setStandaloneProducts(detectedStandalones);
         setPendingExportPlatform("WooCommerce");
@@ -325,7 +340,6 @@ const ExportModal: React.FC<ExportModalProps> = ({
         return;
       }
 
-      // If no variants, proceed with normal export
       await dispatch(exportOrders({ data: inventorySelection, domainName: wordpressConnectionId }));
       dispatch(resetStatus())
     }
@@ -337,7 +351,6 @@ const ExportModal: React.FC<ExportModalProps> = ({
     } 
     // Handle Shopify Export
     else if (imgname === "Shopify" && shopifyConnected === "Connected") {
-      // Get the list of already exported products to Shopify (check both shopify_product_id and shopify_graphql_product_id)
       const exportedProducts = inventorySelection.filter(
         (product: any) => 
           (product.third_party_integrations?.shopify_product_id && product.third_party_integrations?.shopify_product_id !== 0) ||
@@ -360,10 +373,8 @@ const ExportModal: React.FC<ExportModalProps> = ({
         return;
       }
 
-      // Check for variant groups before exporting
       const { hasVariants: hasShopifyVariants, variantGroups: detectedShopifyVariants, standaloneProducts: detectedShopifyStandalones } = detectProductsWithVariants(inventorySelection);
       if (hasShopifyVariants) {
-        // Products with variants detected - show variant selection modal
         setVariantGroups(detectedShopifyVariants);
         setStandaloneProducts(detectedShopifyStandalones);
         setPendingExportPlatform("Shopify");
@@ -371,7 +382,6 @@ const ExportModal: React.FC<ExportModalProps> = ({
         return;
       }
   
-      // If no variants, proceed with normal export
       await dispatch(exportToShopify({ 
         productsList: inventorySelection, 
         storeName: shopifyConnectionData.shop,
@@ -386,7 +396,51 @@ const ExportModal: React.FC<ExportModalProps> = ({
         description: `Please connect to Shopify to export products`,
       });
     }
-    else if(imgname !== "WooCommerce" && imgname !== "Shopify"){
+    // Handle Wix Export
+    else if (imgname === "Wix" && wixConnected === "Connected") {
+      const exportedProducts = inventorySelection.filter(
+        (product: any) => product.third_party_integrations?.wix_product_id
+      );
+
+      if (exportedProducts.length > 0) {
+        notificationApi.warning({
+          message: "Products Already Exported",
+          description: `${exportedProducts.length} product(s) have already been exported to Wix. Please select only unexported products.`,
+        });
+        return;
+      }
+
+      if (!wixConnectionData) {
+        notificationApi.error({
+          message: "Wix Connection Error",
+          description: "Could not retrieve Wix connection details.",
+        });
+        return;
+      }
+
+      const { hasVariants: hasWixVariants, variantGroups: detectedWixVariants, standaloneProducts: detectedWixStandalones } = detectProductsWithVariants(inventorySelection);
+      if (hasWixVariants) {
+        setVariantGroups(detectedWixVariants);
+        setStandaloneProducts(detectedWixStandalones);
+        setPendingExportPlatform("Wix");
+        setVariantModalVisible(true);
+        return;
+      }
+
+      await dispatch(exportToWix({
+        productList: inventorySelection,
+        accessToken: wixConnectionData.access_token,
+        accountKey: accountKey,
+      }));
+      dispatch(resetStatus());
+    }
+    else if (imgname === "Wix" && wixConnected === "Disconnected") {
+      notificationApi.error({
+        message: "Wix Not Connected",
+        description: `Please connect to Wix to export products`,
+      });
+    }
+    else if (imgname !== "WooCommerce" && imgname !== "Shopify" && imgname !== "Wix") {
       notificationApi.warning({
         message: "Platform is not supported",
         description: `This platform is not supported yet`,
@@ -431,7 +485,6 @@ const ExportModal: React.FC<ExportModalProps> = ({
       let shopifyObj = find(companyInfo.data.connections, {"name":"Shopify"});
       if(shopifyObj?.name){
         setShopifyConnected("Connected");
-        // Parse the Shopify connection data to get shop and access_token
         try {
           const shopifyData = JSON.parse(shopifyObj.data);
           setShopifyConnectionData({
@@ -445,6 +498,22 @@ const ExportModal: React.FC<ExportModalProps> = ({
       } else {
         setShopifyConnected("Disconnected");
         setShopifyConnectionData(null);
+      }
+
+      // Check Wix connection
+      let wixObj = find(companyInfo.data.connections, {"name":"Wix"});
+      if (wixObj?.name) {
+        setWixConnected("Connected");
+        try {
+          const wixData = JSON.parse(wixObj.data);
+          setWixConnectionData({ access_token: wixData.access_token });
+        } catch (error) {
+          console.error("Error parsing Wix connection data:", error);
+          setWixConnectionData(null);
+        }
+      } else {
+        setWixConnected("Disconnected");
+        setWixConnectionData(null);
       }
     }
   }, [companyInfo]);
@@ -478,54 +547,106 @@ const ExportModal: React.FC<ExportModalProps> = ({
             <Spinner message={"Exporting Products"} />
           </div>
         ) : (
-          <div className="container mx-auto px-5 py-2 lg:px-10 justify-center items-center">
-            <div className="-m-1 mx-4 flex flex-wrap md:-m-2">
+          <>
+            <style>{`
+              @keyframes em-fade { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:none} }
+              @keyframes em-pop  { 0%{transform:scale(.94)} 100%{transform:scale(1)} }
+              .em-card { transition: box-shadow .22s ease, transform .22s ease, border-color .22s ease; animation: em-fade .28s ease both; }
+              .em-card:hover { box-shadow: 0 14px 40px rgba(0,0,0,.12) !important; transform: translateY(-4px) !important; }
+              .em-card:hover .em-logo { transform: scale(1.08); }
+              .em-logo { transition: transform .25s ease; }
+            `}</style>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+              gap: 16,
+              padding: "8px 4px 4px",
+            }}>
               {images.map((image, index) => {
-                // Determine connection status for platforms
                 const isWooCommerce = image.name === "WooCommerce";
-                const isShopify = image.name === "Shopify";
-                const isConnected = isWooCommerce ? wooConnected === "Connected" : 
-                                    isShopify ? shopifyConnected === "Connected" : false;
-                const connectionStatus = isWooCommerce ? wooConnected : 
-                                         isShopify ? shopifyConnected : null;
-                
+                const isShopify    = image.name === "Shopify";
+                const isWix        = image.name === "Wix";
+                const isSupportedPlatform = isWooCommerce || isShopify || isWix;
+                const isConnected = isWooCommerce ? wooConnected === "Connected"
+                                  : isShopify    ? shopifyConnected === "Connected"
+                                  : isWix        ? wixConnected === "Connected"
+                                  : false;
+                const isDisconnected = isSupportedPlatform && !isConnected;
+
                 return (
-                <div
-                  key={index}
-                  className="flex w-1/3 max-sm:w-1/2 max-[400px]:w-full flex-wrap"
-                >
                   <div
-                    className="w-full md:p-2 flex flex-col items-center"
-                    onClick={() => importData(image.name)}
+                    key={image.name}
+                    className="em-card"
+                    onClick={() => handleExport(image.name)}
+                    style={{
+                      background: "#fff",
+                      borderRadius: 16,
+                      border: isConnected
+                        ? "2px solid #52c41a"
+                        : selected === image.name
+                        ? "2px solid #3b82f6"
+                        : "2px solid #e8edf5",
+                      boxShadow: isConnected
+                        ? "0 4px 18px rgba(82,196,26,.14)"
+                        : "0 2px 10px rgba(0,0,0,.06)",
+                      padding: "22px 14px 16px",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 10,
+                      cursor: "pointer",
+                      position: "relative",
+                      opacity: isSupportedPlatform ? 1 : 0.5,
+                      animationDelay: `${index * 0.04}s`,
+                    }}
                   >
-                    {(isWooCommerce || isShopify) && (
-                      <Tag className={`absolute ml-12 -mt-3 ${isConnected ? "bg-[#52c41a] text-white" : "bg-red-500 text-white ml-7" }`}>
-                        {connectionStatus}
-                      </Tag>
+                    {/* Status pill */}
+                    {isConnected && (
+                      <span style={{ position: "absolute", top: 10, right: 10, background: "#dcfce7", color: "#15803d", fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 999, letterSpacing: .3 }}>
+                        ✓ CONNECTED
+                      </span>
                     )}
-                    <img
-                      onClick={() => handleExport(image.name)}
-                      className={`block h-[100px] w-[100px] border-2 cursor-pointer rounded-lg object-cover object-center ${
-                        selected === image.name
-                          ? "border-blue-500"
-                          : "border-gray-300"
-                      } ${
-                        (isWooCommerce || isShopify)
-                          ? "grayscale-0"
-                          : "grayscale"
-                      }`}
-                      src={image.img}
-                      alt={image.name}
-                    />
-                    <p className="text-center pt-2 font-bold text-gray-400">
+                    {isDisconnected && (
+                      <span style={{ position: "absolute", top: 10, right: 10, background: "#fee2e2", color: "#b91c1c", fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 999, letterSpacing: .3 }}>
+                        DISCONNECTED
+                      </span>
+                    )}
+                    {!isSupportedPlatform && (
+                      <span style={{ position: "absolute", top: 10, right: 10, background: "#f3f4f6", color: "#9ca3af", fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 999, letterSpacing: .3 }}>
+                        SOON
+                      </span>
+                    )}
+
+                    {/* Logo */}
+                    <div className="em-logo" style={{
+                      width: 68, height: 68,
+                      borderRadius: 14,
+                      background: isSupportedPlatform ? "#f8faff" : "#f3f4f6",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      padding: 10,
+                      boxShadow: "inset 0 1px 3px rgba(0,0,0,.05)",
+                    }}>
+                      <img
+                        src={image.img}
+                        alt={image.name}
+                        style={{ width: "100%", height: "100%", objectFit: "contain", filter: isSupportedPlatform ? "none" : "grayscale(1) opacity(.5)" }}
+                      />
+                    </div>
+
+                    {/* Name */}
+                    <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: isSupportedPlatform ? "#1e2a3b" : "#9ca3af", textAlign: "center" }}>
                       {image.name}
                     </p>
+
+                    {/* Action label */}
+                    <p style={{ margin: 0, fontSize: 11, color: isConnected ? "#15803d" : isSupportedPlatform ? "#6b7280" : "#c4c9d4", fontWeight: 500 }}>
+                      {!isSupportedPlatform ? "Coming soon" : isConnected ? "Click to export →" : "Connect first"}
+                    </p>
                   </div>
-                </div>
-              );
+                );
               })}
             </div>
-          </div>
+          </>
         )}
       </div>
     </Modal>

@@ -20,6 +20,14 @@ const SQUARESPACE_STATUSES = [
   { value: 'CANCELED',  label: 'Canceled'  },
 ];
 
+// Wix order fulfillment status options
+const WIX_STATUSES = [
+  { value: 'NOT_FULFILLED', label: 'Not Fulfilled' },
+  { value: 'FULFILLED',     label: 'Fulfilled'     },
+  { value: 'CANCELED',      label: 'Canceled'      },
+  { value: 'PARTIALLY_FULFILLED', label: 'Partially Fulfilled' },
+];
+
 const countryList = require("../json/order_status_same_label.json");
 const { RangePicker } = DatePicker; 
 const { Option } = Select;
@@ -199,7 +207,7 @@ const ImportFilter: React.FC = () => {
             }}
             onSearch={onSearch}
             filterOption={filterOption}
-            options={typeValue === 'Squarespace' ? SQUARESPACE_STATUSES : countryList}
+            options={typeValue === 'Squarespace' ? SQUARESPACE_STATUSES : typeValue === 'Wix' ? WIX_STATUSES : countryList}
             // value={
             //   convertUsStateAbbrAndName(countryCode.toUpperCase())
             // }

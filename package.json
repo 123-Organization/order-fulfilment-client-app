@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1038.0",
+    "@aws-sdk/s3-request-presigner": "^3.1038.0",
     "@handsontable/react-wrapper": "^15.3.0",
     "@reduxjs/toolkit": "^2.0.1",
     "@testing-library/jest-dom": "^5.17.0",
@@ -69,6 +71,7 @@
     "@types/redux-thunk": "^2.1.0",
     "autoprefixer": "^10.4.17",
     "cross-env": "^7.0.3",
+    "http-proxy-middleware": "^3.0.5",
     "postcss": "^8.4.33",
     "tailwindcss": "^3.4.1"
   }

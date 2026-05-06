@@ -65,6 +65,8 @@ const Landing: React.FC = (): JSX.Element => {
   const [showShopifyConnectModal, setShowShopifyConnectModal] = useState<boolean>(false);
   const [squarespaceConnectionStatus, setSquarespaceConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('idle');
   const [lastSquarespaceConnectionData, setLastSquarespaceConnectionData] = useState<string | null>(null);
+  const [wixConnectionStatus, setWixConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('idle');
+  const [lastWixConnectionData, setLastWixConnectionData] = useState<string | null>(null);
   const [cookies] = useCookies(["Session", "AccountGUID"]);
   const order = useAppSelector((state) => state.order.orders);
   const opensheet = useAppSelector((state) => state.order.openSheet);
@@ -587,7 +589,7 @@ const Landing: React.FC = (): JSX.Element => {
   ] as const;
   const importData = (imgname: string) => {
     // Check for platforms that are not yet available (including Shopify when disabled)
-    const availablePlatforms = ["WooCommerce", "Excel", "Squarespace"];
+    const availablePlatforms = ["WooCommerce", "Excel", "Squarespace", "Wix"];
     if (SHOPIFY_ENABLED) {
       availablePlatforms.push("Shopify");
     }
@@ -690,6 +692,29 @@ const Landing: React.FC = (): JSX.Element => {
         });
       }
     }
+
+    // Wix integration
+    if (imgname === "Wix") {
+      // Check if user is logged in first
+      if (!customerInfo?.data?.account_key && !cookies.AccountGUID) {
+        window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`;
+        return;
+      }
+
+      // If already connected, navigate to import filter
+      if (wixConnectionStatus === 'connected') {
+        navigate("/importfilter?type=Wix");
+      } else if (customerInfo?.data?.user_profile_complete === true) {
+        // Redirect browser to the Wix OAuth initiation URL.
+        const accountKey = customerInfo?.data?.account_key;
+        window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/wix/oauth/start?account_key=${accountKey}`;
+      } else {
+        notificationApi.warning({
+          message: "Please complete your profile",
+          description: "Please complete your profile to connect to Wix",
+        });
+      }
+    }
   };
   // ── Squarespace: status is derived from companyInfo.connections (see useEffect below) ──
 
@@ -732,6 +757,22 @@ const Landing: React.FC = (): JSX.Element => {
         notificationApi.error({
           message: 'Squarespace Connection Failed',
           description: 'Failed to connect to your Squarespace store. Please try again.',
+        });
+      }
+    }
+
+    if (type === 'wix') {
+      if (connected === 'true') {
+        setWixConnectionStatus('connected');
+        notificationApi.success({
+          message: 'Wix Connected',
+          description: 'Your Wix store has been successfully connected!',
+        });
+      } else if (error) {
+        setWixConnectionStatus('disconnected');
+        notificationApi.error({
+          message: 'Wix Connection Failed',
+          description: 'Failed to connect to your Wix store. Please try again.',
         });
       }
     }
@@ -958,118 +999,195 @@ const Landing: React.FC = (): JSX.Element => {
         }
       }
       console.log("=== END SQUARESPACE CONNECTION CHECK ===");
+
+      // Handle Wix connection
+      const wixConnection = companyInfo.connections.find((conn: any) => conn.name === "Wix");
+      console.log("=== WIX CONNECTION CHECK ===");
+      console.log("Wix connection found?:", !!wixConnection);
+
+      if (wixConnection) {
+        const wixIdentifier = `${wixConnection.id || 'noid'}_${wixConnection.data || 'nodata'}`;
+
+        if (wixIdentifier !== lastWixConnectionData) {
+          console.log("Wix connection changed or first load, processing...");
+          setLastWixConnectionData(wixIdentifier);
+
+          if (wixConnection.id) {
+            // Has an access token — check data for explicit disconnect flag
+            let isConnected = true;
+            if (wixConnection.data && wixConnection.data.trim() !== "") {
+              try {
+                const parsed = JSON.parse(wixConnection.data);
+                console.log("Wix parsed data:", parsed);
+                // Only mark disconnected if explicitly flagged — backend handles token refresh
+                if (parsed.isConnected === false || parsed.isConnected === "false") {
+                  isConnected = false;
+                }
+              } catch (e) {
+                console.error("Error parsing Wix data:", e);
+              }
+            }
+            console.log("Wix isConnected:", isConnected);
+            setWixConnectionStatus(isConnected ? 'connected' : 'disconnected');
+          } else {
+            console.log("Wix entry found but no id — disconnected");
+            setWixConnectionStatus('disconnected');
+          }
+        } else {
+          console.log("Wix connection unchanged, skipping processing");
+        }
+      } else {
+        console.log("No Wix connection in connections array — disconnected");
+        if (lastWixConnectionData !== null) {
+          setLastWixConnectionData(null);
+          setWixConnectionStatus('disconnected');
+        }
+      }
+      console.log("=== END WIX CONNECTION CHECK ===");
     } else {
       // No connections available
       console.log("No connections available");
       dispatch(setConnectionVerificationStatus('disconnected'));
       setShopifyConnectionStatus('disconnected');
       setSquarespaceConnectionStatus('disconnected');
+      setWixConnectionStatus('disconnected');
     }
-  }, [companyInfo, lastConnectionData, lastShopifyConnectionData, lastSquarespaceConnectionData, dispatch]);
+  }, [companyInfo, lastConnectionData, lastShopifyConnectionData, lastSquarespaceConnectionData, lastWixConnectionData, dispatch]);
 
-  const displayTurtles = images.map((image) => (
-    <div className="flex w-1/3 max-sm:w-1/2 max-[400px]:w-full flex-wrap">
-      <div
-        className="w-full mt-8 md:mt-0 md:p-2 flex flex-col items-center relative"
-        onClick={() => importData(image.name)}
-      >
-        {/* WooCommerce Status */}
-        {image.name === "WooCommerce" && connectionVerificationStatus === 'verifying' ? (
-          <Tag className="absolute top-0 right-4 z-10 bg-blue-500 text-white animate-pulse shadow-lg">
-            Verifying...
-          </Tag>
-        ) : image.name === "WooCommerce" && connectionVerificationStatus === 'connected' ? (
-          <Tag className="absolute top-0 right-4 z-10 shadow-lg" color="#52c41a">
-            Connected
-          </Tag>
-        ) : image.name === "WooCommerce" && connectionVerificationStatus === 'disconnected' ? (
-          <Tag className="absolute top-0 right-4 z-10 bg-red-500 text-white shadow-lg">
-            Disconnected
-          </Tag>
-        ) : null}
-        
-        {/* Shopify Status */}
-        {image.name === "Shopify" && shopifyConnectionStatus === 'verifying' ? (
-          <Tag className="absolute top-0 right-4 z-10 bg-blue-500 text-white animate-pulse shadow-lg">
-            Verifying...
-          </Tag>
-        ) : image.name === "Shopify" && shopifyConnectionStatus === 'connected' ? (
-          <Tag className="absolute top-0 right-4 z-10 shadow-lg" color="#52c41a">
-            Connected
-          </Tag>
-        ) : image.name === "Shopify" && shopifyConnectionStatus === 'disconnected' ? (
-          <Tag className="absolute top-0 right-4 z-10 bg-red-500 text-white shadow-lg">
-            Disconnected
-          </Tag>
-        ) : null}
-
-        {/* Squarespace Status */}
-        {image.name === "Squarespace" && squarespaceConnectionStatus === 'verifying' ? (
-          <Tag className="absolute top-0 right-4 z-10 bg-blue-500 text-white animate-pulse shadow-lg">
-            Verifying...
-          </Tag>
-        ) : image.name === "Squarespace" && squarespaceConnectionStatus === 'connected' ? (
-          <Tag className="absolute top-0 right-4 z-10 shadow-lg" color="#52c41a">
-            Connected
-          </Tag>
-        ) : image.name === "Squarespace" && squarespaceConnectionStatus === 'disconnected' ? (
-          <Tag className="absolute top-0 right-4 z-10 bg-red-500 text-white shadow-lg">
-            Disconnected
-          </Tag>
-        ) : null}
-        
-        <img
-          className={`block h-[100px] w-[100px] border-2 cursor-pointer rounded-lg object-cover object-center ${
-            image.name === "WooCommerce" || image.name === "Excel" || image.name === "Shopify" || image.name === "Squarespace"
-              ? "grayscale-0"
-              : "grayscale"
-          }`}
-          src={image.img}
-          alt={image.name}
-        />
-        <p className="text-center pt-2 font-bold text-gray-400">{image.name}</p>
-      </div>
-    </div>
-  ));
-
-  useEffect(() => {}, []);
-  const handleAppLaunch = () => {
-    dispatch(updateApp(true));
-    navigate("/mycompany");
+  // ── Per-platform connection status helpers ──────────────────────────────────
+  const getStatus = (name: string) => {
+    if (name === "WooCommerce") return connectionVerificationStatus;
+    if (name === "Shopify")     return shopifyConnectionStatus;
+    if (name === "Squarespace") return squarespaceConnectionStatus;
+    if (name === "Wix")         return wixConnectionStatus;
+    return "idle";
   };
 
+  const ENABLED = ["WooCommerce", "Excel", "Shopify", "Squarespace", "Wix"];
+
   return (
-    <div className="flex justify-end max-md:flex-col items-center w-full h-full p-8">
-      
-      <div className="w-1/2 max-md:w-full flex flex-col justify-center max-md:border-b-2 md:border-r-2 items-center h-[600px] max-md:h-[300px]">
-      
-        <Button
-          onClick={() => {
-            handleAppLaunch();
-          }}
-          type="primary"
-          size="large"
-        >
-         Launch Setup Wizard
-        </Button>
-        <div className="text-center text-gray-400 pt-4">
-          <p>Edit basic account and payment information </p>
-          <p>needed in order to import orders from your stores. </p>
-        </div>
+    <div style={{ minHeight: "100%", background: "linear-gradient(135deg,#f0f4ff 0%,#fafbff 60%,#f4f8ff 100%)", padding: "40px 32px 60px" }}>
+      <style>{`
+        @keyframes lp-fade { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:none} }
+        @keyframes lp-pop  { 0%{transform:scale(.94)} 100%{transform:scale(1)} }
+        .lp-card { transition: box-shadow .22s ease, transform .22s ease, border-color .22s ease; animation: lp-fade .3s ease both; }
+        .lp-card:hover { box-shadow: 0 16px 48px rgba(0,0,0,.13) !important; transform: translateY(-4px) !important; }
+        .lp-card:hover .lp-logo { transform: scale(1.08); }
+        .lp-logo { transition: transform .25s ease; }
+        .lp-card:active { transform: translateY(-1px) scale(.98) !important; }
+      `}</style>
+
+      {/* ── Page header ── */}
+      <div style={{ maxWidth: 900, margin: "0 auto 40px", textAlign: "center", animation: "lp-fade .35s ease both" }}>
+        <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: "#0f1a2e", letterSpacing: -0.5 }}>
+          Connect Your Store
+        </h1>
+        <p style={{ margin: "10px 0 0", fontSize: 15, color: "#6b7280", maxWidth: 480, marginLeft: "auto", marginRight: "auto" }}>
+          Select a platform below to import orders directly into FinerWorks for fulfillment.
+        </p>
       </div>
-      
-      <div className="w-1/2 max-md:w-full">
-        <div className="container mx-auto px-5 py-2 xl:px-32 justify-center items-center">
-          <div className="-m-1 mx-4 flex flex-wrap md:-m-2">
-            {displayTurtles}
-          </div>
-        </div>
+
+      {/* ── Platform grid ── */}
+      <div style={{
+        maxWidth: 1000,
+        margin: "0 auto",
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+        gap: 20,
+      }}>
+        {images.map((image, i) => {
+          const status   = getStatus(image.name);
+          const enabled  = ENABLED.includes(image.name);
+          const isConnected    = status === "connected";
+          const isVerifying    = status === "verifying";
+          const isDisconnected = status === "disconnected";
+
+          return (
+            <div
+              key={image.name}
+              className="lp-card"
+              onClick={() => importData(image.name)}
+              style={{
+                background: "#fff",
+                borderRadius: 18,
+                border: isConnected
+                  ? "2px solid #52c41a"
+                  : "2px solid #e8edf5",
+                boxShadow: isConnected
+                  ? "0 4px 20px rgba(82,196,26,.15)"
+                  : "0 2px 12px rgba(0,0,0,.06)",
+                padding: "28px 20px 22px",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 12,
+                cursor: "pointer",
+                position: "relative",
+                opacity: enabled ? 1 : 0.55,
+                animationDelay: `${i * 0.04}s`,
+              }}
+            >
+              {/* Status pill */}
+              {isVerifying && (
+                <span style={{ position: "absolute", top: 12, right: 12, background: "#dbeafe", color: "#1d4ed8", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 999, letterSpacing: .3, animation: "lp-pop .6s ease infinite alternate" }}>
+                  VERIFYING
+                </span>
+              )}
+              {isConnected && (
+                <span style={{ position: "absolute", top: 12, right: 12, background: "#dcfce7", color: "#15803d", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 999, letterSpacing: .3 }}>
+                  ✓ CONNECTED
+                </span>
+              )}
+              {isDisconnected && enabled && image.name !== "Excel" && (
+                <span style={{ position: "absolute", top: 12, right: 12, background: "#fee2e2", color: "#b91c1c", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 999, letterSpacing: .3 }}>
+                  DISCONNECTED
+                </span>
+              )}
+              {!enabled && (
+                <span style={{ position: "absolute", top: 12, right: 12, background: "#f3f4f6", color: "#9ca3af", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 999, letterSpacing: .3 }}>
+                  SOON
+                </span>
+              )}
+
+              {/* Logo */}
+              <div className="lp-logo" style={{
+                width: 80, height: 80,
+                borderRadius: 16,
+                background: enabled ? "#f8faff" : "#f3f4f6",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                padding: 12,
+                boxShadow: "inset 0 1px 3px rgba(0,0,0,.05)",
+              }}>
+                <img
+                  src={image.img}
+                  alt={image.name}
+                  style={{ width: "100%", height: "100%", objectFit: "contain", filter: enabled ? "none" : "grayscale(1) opacity(.5)" }}
+                />
+              </div>
+
+              {/* Name */}
+              <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: enabled ? "#1e2a3b" : "#9ca3af", textAlign: "center" }}>
+                {image.name}
+              </p>
+
+              {/* Action label */}
+              <p style={{ margin: 0, fontSize: 11, color: isConnected ? "#15803d" : enabled ? "#6b7280" : "#c4c9d4", fontWeight: 500 }}>
+                {!enabled
+                  ? "Coming soon"
+                  : image.name === "Excel"
+                  ? "Upload spreadsheet"
+                  : isConnected
+                  ? "Import orders →"
+                  : "Click to connect"}
+              </p>
+            </div>
+          );
+        })}
       </div>
+
+      {/* ── Modals ── */}
       {(openExcel || opensheet) && (
-      <SpreadSheet 
-      isOpen={isOpen}
-      onClose={onClose}
-       />
+        <SpreadSheet isOpen={isOpen} onClose={onClose} />
       )}
       <Modal
         title="Connect to Shopify"
@@ -1079,9 +1197,9 @@ const Landing: React.FC = (): JSX.Element => {
           <Button key="back" onClick={() => setShowShopifyConnectModal(false)}>
             Cancel
           </Button>,
-          <Button 
-            key="submit" 
-            type="primary" 
+          <Button
+            key="submit"
+            type="primary"
             onClick={() => {
               setShowShopifyConnectModal(false);
               window.location.href = "https://admin.shopify.com/oauth/install_custom_app?client_id=9ee7cc6b8c1a84382149ca350fd90e1e&no_redirect=true&signature=eyJleHBpcmVzX2F0IjoxNzczNDA4MjYwLCJwZXJtYW5lbnRfZG9tYWluIjoiZmluZXJ3b3Jrcy1kZXYtMy5teXNob3BpZnkuY29tIiwiY2xpZW50X2lkIjoiOWVlN2NjNmI4YzFhODQzODIxNDljYTM1MGZkOTBlMWUiLCJwdXJwb3NlIjoiY3VzdG9tX2FwcCIsIm1lcmNoYW50X29yZ2FuaXphdGlvbl9pZCI6MTI4OTY2OTUyfQ%3D%3D--4832b27e6bfe92d776e673ae4f963674bfda836a";

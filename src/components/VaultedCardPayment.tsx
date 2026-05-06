@@ -34,9 +34,9 @@ export default function VaultedCardPayment({
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false); // Track if we actually tried to submit orders
   const orders = useAppSelector((state) => state.order.orders);
   const currentOption = useAppSelector((state) => state.Shipping.currentOption);
-  console.log(currentOption,"ordeasasdadasrs")
-  console.log(orders,"sdfsdf")
-  
+  console.log(currentOption, "ordeasasdadasrs")
+  console.log(orders, "sdfsdf")
+
   const payment_profile_id = companyInfo?.data?.payment_profile_id;
   const notificationApi = useNotificationContext();
   const [token, setToken] = useState<any>(null);
@@ -49,7 +49,7 @@ export default function VaultedCardPayment({
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
   const submitStatus = useAppSelector((state) => state.order.submitStatus);
   const submitError = useAppSelector((state) => state.order.error);
-  console.log("selectedCard",selectedCard);
+  console.log("selectedCard", selectedCard);
   // Track token loading state
 
   // Check if credits cover the full amount
@@ -63,7 +63,7 @@ export default function VaultedCardPayment({
       setIsPayButtonDisabled(false);
       return;
     }
-    
+
     if (paymentTokenStatus === "loading") {
       setIsTokenLoading(true);
       setIsPayButtonDisabled(true);
@@ -91,12 +91,12 @@ export default function VaultedCardPayment({
           );
         }
       }, 2000); // Wait 2 seconds before retrying
-      
+
       return () => clearTimeout(timer);
     } else if (paymentTokenStatus === "failed") {
       setIsTokenLoading(false);
       setIsPayButtonDisabled(false); // Enable the button even if token failed, we'll show error on click
-      
+
       // Only show warning if credits DON'T cover the full amount
       if (!notificationShownRef.current && !isFullyCoveredByCredits) {
         notificationApi.warning({
@@ -128,7 +128,7 @@ export default function VaultedCardPayment({
       setToken(Token);
     }
   }, [paymentToken, selectedCard]);
-  console.log("tooot",token);
+  console.log("tooot", token);
 
   const proccessPayment = () => {
     // If still loading tokens or no token available (and credits don't cover full amount)
@@ -152,26 +152,26 @@ export default function VaultedCardPayment({
 
     notificationShownRef.current = false;
     setIsLoading(true);
-    
+
     // Process all orders using submitOrders API
     if (checkedOrders && checkedOrders.length > 0) {
       const submittedOrders = checkedOrders?.map((order: any) => {
         const orderToSubmit = orders?.data?.filter((o: any) => o.order_po === order.order_po);
         return orderToSubmit;
       }).flat().filter((order: any) => order && order.order_po);
-      
+
       console.log("submittedOrders", submittedOrders);
-      
+
       const editedSubmittedOrders = submittedOrders.map((order: any) => {
         const poParts = order.order_po.split("#");
-      
+
         return {
           ...order,
           order_po: poParts.length > 1 ? poParts[1] : order.order_po,
           shipping_code: currentOption?.allOptions?.find(
             (option: any) => option.order_po === order.order_po
           )?.selectedOption?.id,
-          order_key:null,
+          order_key: crypto.randomUUID(),
           order_items: order.order_items.map((item: any) => {
             if (!item.product_sku.startsWith("AP")) {
               return {
@@ -182,10 +182,10 @@ export default function VaultedCardPayment({
                 product_image: {
                   pixel_width: 600,
                   pixel_height: 600,
-                  product_url_file: item?.product_image?.product_url_file ? 
-                  item?.product_image?.product_url_file : item?.product_url_file,
+                  product_url_file: item?.product_image?.product_url_file ?
+                    item?.product_image?.product_url_file : item?.product_url_file,
                   product_url_thumbnail: item?.product_image?.product_url_thumbnail ?
-                  item?.product_image?.product_url_thumbnail : item?.product_url_thumbnail,
+                    item?.product_image?.product_url_thumbnail : item?.product_url_thumbnail,
                 },
               };
             }
@@ -193,12 +193,41 @@ export default function VaultedCardPayment({
           }),
         };
       });
-      
+
       console.log("editedSubmittedOrders", editedSubmittedOrders);
-      
+
+      // Build Squarespace webhook_url and inject into each Squarespace order
+      const sqConnection = companyInfo?.data?.connections?.find(
+        (c: any) => c.name === "Squarespace" || c.name?.toLowerCase() === "squarespace"
+      );
+      let sqAccessToken = "";
+      if (sqConnection?.data) {
+        try {
+          const sqData = typeof sqConnection.data === "string" ? JSON.parse(sqConnection.data) : sqConnection.data;
+          sqAccessToken = sqData.token || sqData.access_token;
+        } catch (e) {
+          console.error("Error parsing Squarespace connection data", e);
+        }
+      }
+      const sqAccountKey = companyInfo?.data?.account_key;
+
+      const ordersWithWebhook = editedSubmittedOrders.map((order: any) => {
+        const isSquarespace =
+          order.source === "Squarespace" ||
+          order.source?.toLowerCase() === "squarespace" ||
+          order.order_po?.startsWith("SQ_");
+
+        if (isSquarespace && sqAccessToken && sqAccountKey) {
+          const webhookUrl = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/fulfill-order?access_token=${encodeURIComponent(sqAccessToken)}&orderNumber=${encodeURIComponent(order.order_po)}&account_key=${encodeURIComponent(sqAccountKey)}&orderId=${encodeURIComponent(order.order_key)}`;
+          return { ...order, webhook_url: webhookUrl };
+        }
+
+        return order;
+      });
+
       const payload = {
         validate_only: false,
-        orders: [...editedSubmittedOrders],
+        orders: [...ordersWithWebhook],
         account_key: companyInfo?.data?.account_key,
         accountId: companyInfo?.data?.account_id,
         // Only include payment_token if credits don't cover the full amount
@@ -206,53 +235,52 @@ export default function VaultedCardPayment({
       }
 
     
-
       setHasAttemptedSubmit(true);
       dispatch(submitOrders(payload));
       dispatch(updateSubmitedOrders(checkedOrders));
     }
-    
+
   };
 
   useEffect(() => {
     // Only process if we actually attempted to submit orders
     if (!hasAttemptedSubmit) return;
-    
+
     if (submitStatus === "succeeded") {
       setIsLoading(false);
       setHasAttemptedSubmit(false);
-      
+
       notificationApi.success({
         message: "Payment Successful",
-        description: isFullyCoveredByCredits 
+        description: isFullyCoveredByCredits
           ? "Your order has been processed using account credits."
           : "Payment has been successfully processed.",
       });
-      
+
       // DON'T reset submitStatus here - let Confirmation page see it and handle it
       // Navigate to confirmation page
       navigate("/confirmation");
     } else if (submitStatus === "failed") {
       setIsLoading(false);
       setHasAttemptedSubmit(false);
-      
+
       // Parse error to show specific messages
       let errorMessage = "An error occurred while submitting your order.";
       let errorDescription = "";
-      
+
       try {
         // Check if it's a duplicate order error
         const errorData = typeof submitError === 'string' ? JSON.parse(submitError) : submitError;
-        
+
         if (errorData?.message?.ModelState) {
           const modelState = errorData.message.ModelState;
           // Check for duplicate order message
-          const duplicateKey = Object.keys(modelState).find(key => 
+          const duplicateKey = Object.keys(modelState).find(key =>
             modelState[key]?.some((msg: string) => msg.includes("Duplicate order_po"))
           );
-          
+
           if (duplicateKey) {
-            const duplicateMessage = modelState[duplicateKey].find((msg: string) => 
+            const duplicateMessage = modelState[duplicateKey].find((msg: string) =>
               msg.includes("Duplicate order_po")
             );
             errorMessage = "Duplicate Order Detected";
@@ -267,14 +295,14 @@ export default function VaultedCardPayment({
         // If parsing fails, use generic message
         console.log("Error parsing submit error:", e);
       }
-      
+
       // Show error notification with specific message
       notificationApi.error({
         message: errorMessage,
         description: errorDescription || "Please try again or contact support if the issue persists.",
         duration: 8, // Show longer for important errors
       });
-      
+
       // DON'T reset submitStatus here - let Confirmation page see it and show error state
       // Navigate to confirmation page which will show the failure status
       navigate("/confirmation");

@@ -36,7 +36,6 @@ import { updateValidSKU, resetValidSKU } from "../store/features/orderSlice";
 import PopupModal from "../components/PopupModal";
 import VirtualInvModal from "../components/VirtualInvModal";
 import ReplacingCode from "../components/ReplacingCode";
-import { updateIframeState } from "../store/features/companySlice";
 import { setProductData } from "../store/features/productSlice";
 import { convertGoogleDriveUrl, isGoogleDriveUrl, getGoogleDriveImageUrls } from "../helpers/fileHelper";
 import { useSearch } from "../context/SearchContext";
@@ -116,7 +115,7 @@ const ImportList: React.FC = () => {
   const [productToDelete, setProductToDelete] = useState<{ product_guid: string; orderFullFillmentId: string; order_po: string } | null>(null);
   // State for expanded labels
   const [expandedLabels, setExpandedLabels] = useState<Set<string>>(new Set());
-  
+
   const toggleLabels = (productSku: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setExpandedLabels(prev => {
@@ -154,8 +153,6 @@ const ImportList: React.FC = () => {
   // console.log("orderPostData", orderPostData);
   const checkedOrders = useAppSelector((state) => state.order.checkedOrders);
   const customer_info = useAppSelector((state) => state.Customer.customer_info);
-  const iframeState = useAppSelector((state) => state.company.iframeState);
-  // console.log("product_details...", product_details);
   const dispatch = useAppDispatch();
   const [cookies] = useCookies(["session_id", "AccountGUID", "ofa_product"]);
   const shipping_option = useAppSelector(
@@ -172,7 +169,7 @@ const ImportList: React.FC = () => {
   );
   const navigate = useNavigate();
   console.log("productData", productData);
-  
+
   // Search functionality
   const { searchTerm } = useSearch();
 
@@ -256,29 +253,30 @@ const ImportList: React.FC = () => {
     // Set refreshing state to prevent "No Orders Found" flash
     setIsRefreshing(true);
     // Wait for the fetch to complete before clearing orderPostData
-    dispatch(fetchOrder(customerInfo?.data?.account_id));
+
     // Add a small delay to ensure state is updated
     setTimeout(() => {
+      dispatch(fetchOrder(customerInfo?.data?.account_id));
       setOrderPostData([]);
       setIsRefreshing(false);
     }, 500);
-    
+
   };
 
   const AddProductsTemplate = ({ orderFullFillmentId }: { orderFullFillmentId: string }) => {
     return (
       <div className="flex flex-col justify-center items-center w-full h-[220px] text-center bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border-2 border-dashed border-gray-300 hover:border-gray-400 transition-all duration-300">
         <div className="mb-4">
-          <svg 
+          <svg
             className="w-12 h-12 text-gray-300 mx-auto"
-            fill="none" 
-            stroke="currentColor" 
+            fill="none"
+            stroke="currentColor"
             viewBox="0 0 24 24"
           >
-            <path 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              strokeWidth="1.5" 
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.5"
               d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
             />
           </svg>
@@ -304,10 +302,10 @@ const ImportList: React.FC = () => {
           >
             <span className="absolute inset-0 w-full h-full bg-gradient-to-br from-emerald-400 to-green-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
             <span className="relative flex items-center gap-2">
-              <svg 
-                className="w-5 h-5 transition-transform duration-300 group-hover:rotate-90" 
-                fill="none" 
-                stroke="currentColor" 
+              <svg
+                className="w-5 h-5 transition-transform duration-300 group-hover:rotate-90"
+                fill="none"
+                stroke="currentColor"
                 viewBox="0 0 24 24"
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
@@ -328,26 +326,21 @@ const ImportList: React.FC = () => {
       dispatch(resetReplaceCodeResult());
     }, 2000);
   };
-console.log("checkedOrders", checkedOrders);
+  console.log("checkedOrders", checkedOrders);
+
   useEffect(() => {
-    // Only show notifications if we have attempted to replace a code
-    if (replaceCodeResult !== undefined) { // Check if we have a result (success or failure)
-      if (replaceCodeResult?.data && skuToReplace.length > 0) { 
+    if (replaceCodeResult !== undefined) {
+      if (replaceCodeResult?.data && skuToReplace.length > 0) {
         setTimeout(() => {
           notificationApi.success({
             message: "Product Code Replaced",
             description: "Product code has been successfully replaced.",
           });
           dispatch(clearSelectedImage());
-          // setReplacingModal(false);
           dispatch(resetReplaceCodeResult());
           dispatch(fetchOrder(customerInfo?.data?.account_id));
           dispatch(clearProductData());
-          if(iframeState){
-            dispatch(updateIframeState(false));
-          }
           setOrderPostData([]);
-          // setReplacingModal(false);
         }, 2000);
       } else if (replaceCodeResult === null && skuToReplace.length > 0) {
         notificationApi.error({
@@ -356,9 +349,9 @@ console.log("checkedOrders", checkedOrders);
         });
       }
     }
-  }, [replaceCodeResult, skuToReplace, iframeState]);
+  }, [replaceCodeResult, skuToReplace]);
 
-  
+
 
   useEffect(() => {
     // Skip the first render
@@ -388,23 +381,23 @@ console.log("checkedOrders", checkedOrders);
 
   // Keep your second useEffect separate
   useEffect(() => {
-    if (orders?.data ) {
+    if (orders?.data) {
       const invalidSkus = Array.isArray(orders.data)
         ? orders.data.reduce((acc: any[], order: any) => {
-            const invalidItems = order?.order_items?.filter(
-              (item: any) => !validSKUs.includes(item?.product_sku?.toString())
-            );
+          const invalidItems = order?.order_items?.filter(
+            (item: any) => !validSKUs.includes(item?.product_sku?.toString())
+          );
 
-            if (invalidItems?.length > 0) {
-              invalidItems.forEach((item: any) => {
-                acc.push({
-                  sku: item.product_sku,
-                  orderFullFillmentId: order?.orderFullFillmentId,
-                });
+          if (invalidItems?.length > 0) {
+            invalidItems.forEach((item: any) => {
+              acc.push({
+                sku: item.product_sku,
+                orderFullFillmentId: order?.orderFullFillmentId,
               });
-            }
-            return acc;
-          }, [])
+            });
+          }
+          return acc;
+        }, [])
         : [];
 
       setInvalidSKuOrderFullilment(invalidSkus);
@@ -473,7 +466,7 @@ console.log("checkedOrders", checkedOrders);
       setProductData(products);
     }
   }, [product_details]);
-  
+
 
   const onDeleteOrder = async (
     orderFullFillmentId: string,
@@ -510,7 +503,7 @@ console.log("checkedOrders", checkedOrders);
     }
 
     const orderFullFillmentIds = orders.data.map((order: any) => order.orderFullFillmentId);
-    
+
     await dispatch(
       deleteOrder({
         orderFullFillmentId: orderFullFillmentIds,
@@ -527,14 +520,14 @@ console.log("checkedOrders", checkedOrders);
   // Delete a product from an order
   const onDeleteProductFromOrder = (product_guid: string) => {
     if (!productToDelete) return;
-    
+
     const { orderFullFillmentId, order_po } = productToDelete;
-    
+
     // Find the order containing this product
     const orderToUpdate = orders?.data?.find(
       (order: any) => order.orderFullFillmentId === orderFullFillmentId
     );
-    
+
     if (!orderToUpdate) {
       notificationApi.error({
         message: "Error",
@@ -542,17 +535,17 @@ console.log("checkedOrders", checkedOrders);
       });
       return;
     }
-    
+
     // Remove the product from the order items
     const updatedOrderItems = orderToUpdate.order_items?.filter(
       (item: any) => item.product_guid !== product_guid
     );
-    
+
     const updatedOrder = {
       ...orderToUpdate,
       order_items: updatedOrderItems,
     };
-    
+
     // Update all orders with the modified order
     const updatedOrders = orders?.data?.map((order: any) => {
       if (order.orderFullFillmentId === orderFullFillmentId) {
@@ -560,13 +553,13 @@ console.log("checkedOrders", checkedOrders);
       }
       return order;
     });
-    
+
     // Format the data for the API
     const postData = {
       updatedValues: updatedOrders,
       customerId: customerInfo?.data?.account_id,
     };
-    
+
     dispatch(updateOrdersInfo(postData))
       .then((result: any) => {
         if (updateOrdersInfo.fulfilled.match(result)) {
@@ -593,7 +586,7 @@ console.log("checkedOrders", checkedOrders);
           description: "An error occurred while deleting the product.",
         });
       });
-    
+
     setProductDeleteModalVisible(false);
     setProductToDelete(null);
   };
@@ -630,7 +623,7 @@ console.log("checkedOrders", checkedOrders);
       (option) => option.order_po == order_po
     );
     // console.log("shippingForOrder", shippingForOrder);
-    if (shippingForOrder ) {
+    if (shippingForOrder) {
       const selectedOption = shippingForOrder?.selectedOption;
       const charges = {
         grand_total: selectedOption?.calculated_total?.order_grand_total,
@@ -641,9 +634,9 @@ console.log("checkedOrders", checkedOrders);
   };
 
   useEffect(() => {
-    if (orders?.data?.length && !orderPostData.length ) {
+    if (orders?.data?.length && !orderPostData.length) {
       const validOrders = orders?.data?.filter(
-        (order) => (order?.order_items && order?.order_items?.length > 0  ) && order?.shipping_code != null && order?.shipping_code !== ""
+        (order) => (order?.order_items && order?.order_items?.length > 0) && order?.shipping_code != null && order?.shipping_code !== ""
 
       );
       console.log("validOrders", validOrders);
@@ -660,8 +653,8 @@ console.log("checkedOrders", checkedOrders);
               product_url_file: "https://via.placeholder.com/150",
               product_url_thumbnail: "https://via.placeholder.com/150",
             },
-           
-            
+
+
           })),
         }))
         ?.flat();
@@ -669,7 +662,7 @@ console.log("checkedOrders", checkedOrders);
         order.order_items?.map((item) => ({
           order_po: order.order_po,
           product_sku: item.product_sku || "AP1234567891011",
-          product_guid:  item.product_guid || crypto.randomUUID(),
+          product_guid: item.product_guid || crypto.randomUUID(),
           product_qty: item.product_qty,
           product_image: {
             product_url_file: "https://via.placeholder.com/150",
@@ -677,25 +670,25 @@ console.log("checkedOrders", checkedOrders);
           },
         }))
       );
-      
+
       // Track the SKUs we're fetching
       ProductDetails?.forEach((item) => {
         if (item?.product_sku) {
           fetchedSkusRef.current.add(item.product_sku.toString());
         }
       });
-      
-      dispatch(fetchShippingOption({orders: orderPostDataList,account_key: customerInfo?.data?.account_key,}));
-        setOrderPostData(orderPostDataList);
-        dispatch(fetchProductDetails(ProductDetails));
-      
+
+      dispatch(fetchShippingOption({ orders: orderPostDataList, account_key: customerInfo?.data?.account_key, }));
+      setOrderPostData(orderPostDataList);
+      dispatch(fetchProductDetails(ProductDetails));
+
     }
   }, [orders, product_details, orderPostData, dispatch]);
 
   // Separate useEffect to fetch product details for newly added products
   useEffect(() => {
     if (!orders?.data?.length) return;
-    
+
     // Collect all current SKUs from orders
     const allCurrentSkus: string[] = [];
     orders.data.forEach((order: any) => {
@@ -705,13 +698,13 @@ console.log("checkedOrders", checkedOrders);
         }
       });
     });
-    
+
     // Find SKUs that haven't been fetched yet
     const newSkus = allCurrentSkus.filter(sku => !fetchedSkusRef.current.has(sku));
-    
+
     if (newSkus.length > 0) {
       console.log("Fetching details for new SKUs:", newSkus);
-      
+
       // Build product details for new SKUs only
       const newProductDetails = orders.data.flatMap((order: any) =>
         order.order_items
@@ -727,12 +720,12 @@ console.log("checkedOrders", checkedOrders);
             },
           }))
       ).filter(Boolean);
-      
+
       if (newProductDetails.length > 0) {
         // Mark these SKUs as being fetched
         newSkus.forEach(sku => fetchedSkusRef.current.add(sku));
         dispatch(fetchProductDetails(newProductDetails));
-        
+
         // Also update shipping options for orders with new products
         const validOrders = orders.data.filter(
           (order: any) => (order?.order_items && order?.order_items?.length > 0) && order?.shipping_code != null && order?.shipping_code !== ""
@@ -751,9 +744,9 @@ console.log("checkedOrders", checkedOrders);
             },
           })),
         }))?.flat();
-        
+
         if (orderPostDataList?.length) {
-          dispatch(fetchShippingOption({orders: orderPostDataList, account_key: customerInfo?.data?.account_key}));
+          dispatch(fetchShippingOption({ orders: orderPostDataList, account_key: customerInfo?.data?.account_key }));
           setOrderPostData(orderPostDataList);
         }
       }
@@ -766,29 +759,29 @@ console.log("checkedOrders", checkedOrders);
     if (orders?.data && shipping_option.length > 0) {
       const CheckedOrders = Array.isArray(orders.data)
         ? orders.data
-            .filter(
-              (order) =>
-                // Only include orders that:
-                // 1. Have items
-                // 2. Are not in the excluded orders list
-                order.order_items &&
-                order.order_items.length > 0 &&
-                order.shipping_code != null &&
-                order.shipping_code !== "" &&
-                validSKUs.includes(
-                  order.order_items[0]?.product_sku?.toString()
-                ) &&
-                !excludedOrders.includes(order.order_po)
-            )
-            .map((order) => ({
-              order_po: order.order_po,
-              order_key: order.order_key,
-              Product_price: getShippingPrice(order.order_po),
-              productData: order.order_items,
-              source: order.source,
-              productImage:
-                productData[order.order_items[0]?.product_sku]?.image_url_1,
-            }))
+          .filter(
+            (order) =>
+              // Only include orders that:
+              // 1. Have items
+              // 2. Are not in the excluded orders list
+              order.order_items &&
+              order.order_items.length > 0 &&
+              order.shipping_code != null &&
+              order.shipping_code !== "" &&
+              validSKUs.includes(
+                order.order_items[0]?.product_sku?.toString()
+              ) &&
+              !excludedOrders.includes(order.order_po)
+          )
+          .map((order) => ({
+            order_po: order.order_po,
+            order_key: order.order_key,
+            Product_price: getShippingPrice(order.order_po),
+            productData: order.order_items,
+            source: order.source,
+            productImage:
+              productData[order.order_items[0]?.product_sku]?.image_url_1,
+          }))
         : [];
 
       dispatch(updateCheckedOrders(CheckedOrders));
@@ -858,22 +851,22 @@ console.log("checkedOrders", checkedOrders);
   // Function to get the correct image URL, handling Google Drive links
   const getImageUrl = useCallback((order: any, productSku: string): string => {
     let imageUrl = "";
-    console.log(order?.product_url_thumbnail,"order?.order_items?.product_image?.product_url_thumbnail")
+    console.log(order?.product_url_thumbnail, "order?.order_items?.product_image?.product_url_thumbnail")
     // Try thumbnail first, then fallback to product data
     if (order?.product_url_thumbnail) {
       imageUrl = order.product_url_thumbnail;
-    }else if(order?.product_image?.product_url_thumbnail) {
+    } else if (order?.product_image?.product_url_thumbnail) {
       imageUrl = order.product_image.product_url_thumbnail;
     }
-     else if (productData[productSku]?.image_url_1) {
+    else if (productData[productSku]?.image_url_1) {
       imageUrl = productData[productSku].image_url_1;
     }
-    
+
     // Convert Google Drive URLs to direct image URLs
     if (imageUrl && isGoogleDriveUrl(imageUrl)) {
       return convertGoogleDriveUrl(imageUrl);
     }
-    
+
     return imageUrl;
   }, [productData]);
 
@@ -882,14 +875,14 @@ console.log("checkedOrders", checkedOrders);
     if (isGoogleDriveUrl(originalUrl)) {
       const possibleUrls = getGoogleDriveImageUrls(originalUrl);
       const currentIndex = imageUrlIndex[imageKey] || 0;
-      
+
       if (currentIndex < possibleUrls.length - 1) {
         // Try next URL
         setImageUrlIndex(prev => ({ ...prev, [imageKey]: currentIndex + 1 }));
         return;
       }
     }
-    
+
     // Mark as failed if all URLs tried
     setImageErrors(prev => ({ ...prev, [imageKey]: true }));
   };
@@ -897,15 +890,15 @@ console.log("checkedOrders", checkedOrders);
   // Get current image URL for a specific image key
   const getCurrentImageUrl = useCallback((imageKey: string, originalUrl: string): string => {
     if (!originalUrl) return "";
-    console.log(originalUrl,"originalUrl")
-    console.log(imageKey,"imageKey")
-    
+    console.log(originalUrl, "originalUrl")
+    console.log(imageKey, "imageKey")
+
     if (isGoogleDriveUrl(originalUrl)) {
       const possibleUrls = getGoogleDriveImageUrls(originalUrl);
       const currentIndex = imageUrlIndex[imageKey] || 0;
       return possibleUrls[currentIndex] || originalUrl;
     }
-    
+
     return originalUrl;
   }, [imageUrlIndex]);
 
@@ -927,7 +920,7 @@ console.log("checkedOrders", checkedOrders);
     }
 
     const searchLower = searchTerm.toLowerCase().trim();
-    
+
     return orders.data.filter((order: any) => {
       // Search by order number (order_po)
       const orderNumber = order?.order_po?.toLowerCase() || "";
@@ -940,7 +933,7 @@ console.log("checkedOrders", checkedOrders);
         return order.order_items.some((item: any) => {
           const productSku = item?.product_sku?.toString() || "";
           const product = productData[productSku];
-          
+
           if (product?.description_long) {
             // Strip HTML tags for searching
             const tempDiv = document.createElement("div");
@@ -948,7 +941,7 @@ console.log("checkedOrders", checkedOrders);
             const textContent = (tempDiv.textContent || tempDiv.innerText || "").toLowerCase();
             return textContent.includes(searchLower);
           }
-          
+
           return false;
         });
       }
@@ -961,6 +954,12 @@ console.log("checkedOrders", checkedOrders);
     <div
       className={`flex justify-end items-center  h-full p-8 ${style.overAll_box}`}
     >
+      <style>{`
+        @keyframes pulse-border {
+          0%, 100% { box-shadow: 0 0 0 2px rgba(239,68,68,0.25), 0 4px 16px rgba(239,68,68,0.12); }
+          50%       { box-shadow: 0 0 0 4px rgba(239,68,68,0.45), 0 4px 20px rgba(239,68,68,0.22); }
+        }
+      `}</style>
       <div
         className={`h-auto bg-gray-100 pt-4 mt-10 w-full ${style.overAll_box}`}
       >
@@ -1003,85 +1002,74 @@ console.log("checkedOrders", checkedOrders);
         >
           <div className="rounded-lg md:w-full">
             {filteredOrders && filteredOrders.length > 0 ? (
-              filteredOrders?.map((order, index) => (
+              filteredOrders?.map((order, index) => {
+                // An order is visually "excluded" if it is not in checkedOrders
+                // (covers both user-excluded orders AND orders auto-excluded due to invalid SKUs / missing shipping)
+                const isExcluded = shipping_option.length > 0
+                  && order?.order_items?.length > 0
+                  && !checkedOrders.some((c: any) => c.order_po === order.order_po);
+                return (
                 <div
                   key={index}
-                  className="justify-between mb-6  rounded-lg bg-white p-6 shadow-md sm:flex-row sm:justify-start space-y-2 "
+                  className="justify-between mb-6 rounded-lg p-6 shadow-md sm:flex-row sm:justify-start space-y-2 relative overflow-hidden"
+                  style={{
+                    background: isExcluded ? "#f9fafb" : "#ffffff",
+                    borderLeft: isExcluded ? "4px solid #d1d5db" : "4px solid transparent",
+                    transition: "background 0.3s ease, border-color 0.3s ease",
+                  }}
                 >
                   <ul className="grid w-100  md:grid-cols-2 md:grid-rows-1 items-start ">
-                    <li className="w-8">
+                    <li className="flex-1">
                       {shipping_option.length > 0 &&
-                      order?.order_items.length > 0 ? (
-                        <fieldset
-                          id="switch"
-                          className={`${styles.radio} flex`}
-                        >
-                          <input
-                            name={`switch-${order.order_po}`}
-                            id={`on-${order.order_po}`}
-                            type="radio"
-                            value={JSON.stringify({
-                              order_po: order?.order_po,
-                              Product_price: getShippingPrice(order?.order_po),
-                              productData: order?.order_items,
-                              productImage:
-                                productData[order?.order_items[0]?.product_sku]
-                                  ?.image_url_1,
-                            })}
-                            onChange={(e) => handleCheckboxChange(e)}
-                            checked={checkedOrders.some(
-                              (checkedOrder: { order_po: string }) =>
-                                checkedOrder.order_po == order.order_po
-                            )}
-                          />
-                          <label htmlFor={`on-${order.order_po}`}>
-                            Include
-                          </label>
-                          <input
-                            name={`switch-${order.order_po}`}
-                            id={`off-${order.order_po}`}
-                            type="radio"
-                            value="disclude"
-                            className="off"
-                            style={{ display: "none" }}
-                            onChange={() => {
-                              // Remove the order from checked orders if it exists
-                              if (
-                                checkedOrders.some(
-                                  (checkedOrder: { order_po: string }) =>
-                                    checkedOrder.order_po == order.order_po
-                                )
-                              ) {
-                                dispatch(
-                                  updateCheckedOrders(
-                                    checkedOrders.filter(
-                                      (checkedOrder) =>
-                                        checkedOrder.order_po !== order.order_po
-                                    )
-                                  )
-                                );
-                                dispatch(
-                                  updateExcludedOrders([
-                                    ...excludedOrders,
-                                    order.order_po,
-                                  ])
-                                );
+                        order?.order_items.length > 0 ? (
+                        <div className="flex items-center">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              const isCurrentlyIncluded = checkedOrders.some(
+                                (c: { order_po: string }) => c.order_po == order.order_po
+                              );
+                              
+                              if (!isCurrentlyIncluded) {
+                                const parsedValue = {
+                                  order_po: order?.order_po,
+                                  Product_price: getShippingPrice(order?.order_po),
+                                  productData: order?.order_items,
+                                  productImage: productData[order?.order_items[0]?.product_sku]?.image_url_1,
+                                };
+                                dispatch(updateCheckedOrders([...checkedOrders, parsedValue]));
+                                dispatch(updateExcludedOrders(excludedOrders.filter((o) => o !== order.order_po)));
+                              } else {
+                                dispatch(updateCheckedOrders(checkedOrders.filter((c: any) => c.order_po !== order.order_po)));
+                                dispatch(updateExcludedOrders([...excludedOrders, order.order_po]));
                               }
                             }}
-                            checked={
-                              !checkedOrders.some(
-                                (checkedOrder: { order_po: string }) =>
-                                  checkedOrder.order_po == order.order_po
-                              )
-                            }
-                          />
-                          <label
-                            htmlFor={`off-${order.order_po}`}
-                            className="off"
+                            className="relative inline-flex h-9 w-[170px] items-center rounded-full bg-slate-100 p-1 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40 shadow-inner border border-slate-200/60"
+                            role="switch"
+                            aria-checked={checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po)}
                           >
-                            Exclude
-                          </label>
-                        </fieldset>
+                            <div
+                              className={`absolute left-1 h-7 w-[79px] rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-black/5 transition-transform duration-300 ease-out ${
+                                checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po)
+                                  ? 'translate-x-[81px]'
+                                  : 'translate-x-0'
+                              }`}
+                            />
+                            <div className="relative z-10 flex w-full">
+                              <span className={`flex-1 text-center text-[11px] font-bold uppercase tracking-widest transition-colors duration-300 select-none ${
+                                !checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po) ? 'text-slate-700 drop-shadow-sm' : 'text-slate-400 hover:text-slate-500 cursor-pointer'
+                              }`}>
+                                Exclude
+                              </span>
+                              <span className={`flex-1 text-center text-[11px] font-bold uppercase tracking-widest transition-colors duration-300 select-none ${
+                                checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po) ? 'text-emerald-600 drop-shadow-sm' : 'text-slate-400 hover:text-slate-500 cursor-pointer'
+                              }`}>
+                                Include
+                              </span>
+                            </div>
+                          </button>
+                        </div>
                       ) : null}
                     </li>
 
@@ -1119,7 +1107,7 @@ console.log("checkedOrders", checkedOrders);
                     className="grid w-full gap-4 md:grid-cols-[minmax(180px,1fr)_minmax(300px,2fr)_minmax(200px,1fr)]"
                     key={index}
                   >
-                    <li className="">
+                    <li style={{ opacity: isExcluded ? 0.4 : 1, filter: isExcluded ? "grayscale(0.5)" : "none", transition: "opacity 0.3s ease, filter 0.3s ease" }}>
                       <label className="h-[220px] inline-flex items-center justify-between w-full p-3 text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700">
                         <div className="block">
                           <div className="w-full text-sm text-red-800">
@@ -1172,8 +1160,17 @@ console.log("checkedOrders", checkedOrders);
                         <>
                           {order?.order_items?.map((orderItem) =>
                             product_details.length > 0 &&
-                            !validSKUs.includes(orderItem.product_sku.toString()) ? (
-                              <div key={orderItem.product_sku} className="mb-4 p-4 border-2 border-red-200 rounded-lg bg-red-50 h-[220px]">
+                              !validSKUs.includes(orderItem.product_sku.toString()) ? (
+                              <div
+                                key={orderItem.product_sku}
+                                className="mb-4 p-4 border-2 border-red-300 rounded-lg bg-red-50 h-[220px]"
+                                style={{
+                                  opacity: 1,
+                                  filter: "none",
+                                  boxShadow: "0 0 0 2px rgba(239,68,68,0.25), 0 4px 16px rgba(239,68,68,0.12)",
+                                  animation: "pulse-border 2s ease-in-out infinite",
+                                }}
+                              >
                                 <div className="flex items-center justify-between">
                                   <div className="flex-1">
                                     <div className="flex items-center mb-2">
@@ -1239,7 +1236,7 @@ console.log("checkedOrders", checkedOrders);
                                   </button>
                                 </div>
                                 {replacingModal && (
-                                  
+
                                   <ReplacingCode
                                     visible={replacingModal}
                                     onClose={() => setReplacingModal(false)}
@@ -1254,6 +1251,7 @@ console.log("checkedOrders", checkedOrders);
                               <div
                                 key={orderItem.product_sku}
                                 className={`mb-3 w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 ${style.orderes_lable}`}
+                                style={{ opacity: isExcluded ? 0.4 : 1, filter: isExcluded ? "grayscale(0.5)" : "none", transition: "opacity 0.3s ease, filter 0.3s ease" }}
                               >
                                 {/* Main content area */}
                                 <div className="p-4 min-h-[120px]">
@@ -1265,7 +1263,7 @@ console.log("checkedOrders", checkedOrders);
                                         const imageKey = `${orderItem?.product_sku}-${orderItem?.product_order_po}`;
                                         const currentImageUrl = getCurrentImageUrl(imageKey, originalImageUrl);
                                         const hasError = imageErrors[imageKey];
-                                        
+
                                         if (isGoogleDriveUrl(originalImageUrl)) {
                                           console.log(`[${imageKey}] Google Drive Image State:`, {
                                             originalImageUrl,
@@ -1274,7 +1272,7 @@ console.log("checkedOrders", checkedOrders);
                                             urlIndex: imageUrlIndex[imageKey] || 0
                                           });
                                         }
-                                        
+
                                         return (
                                           <img
                                             key={`${imageKey}-${imageUrlIndex[imageKey] || 0}`}
@@ -1303,12 +1301,12 @@ console.log("checkedOrders", checkedOrders);
                                               const labels = productData[orderItem?.product_sku]?.labels || [];
                                               const typeLabel = labels.find((label: any) => label.key?.toLowerCase() === "type");
                                               const otherLabels = labels.filter((label: any) => label.key?.toLowerCase() !== "type");
-                                              
+
                                               // Use a unique key combining order and product info
                                               const expandKey = `${order?.order_po}-${orderItem?.product_sku || orderItem?.product_guid}`;
                                               const isExpanded = expandedLabels.has(expandKey);
                                               const showMoreButton = otherLabels.length > 4;
-                                              
+
                                               return (
                                                 < >
                                                   {/* Type label as header */}
@@ -1318,9 +1316,8 @@ console.log("checkedOrders", checkedOrders);
                                                     </div>
                                                   )}
                                                   {/* Remaining labels */}
-                                                  <div className={`space-y-1 transition-all duration-300 ${
-                                                    isExpanded ? 'max-h-[500px]' : 'max-h-[300px] overflow-hidden'
-                                                  }`}>
+                                                  <div className={`space-y-1 transition-all duration-300 ${isExpanded ? 'max-h-[500px]' : 'max-h-[300px] overflow-hidden'
+                                                    }`}>
                                                     {otherLabels.map((label: any, idx: number) => (
                                                       <div key={idx} className="text-[12px] text-gray-700 leading-tight">
                                                         <span className="text-blue-600 font-medium">{label.key}:</span> {label.value}
@@ -1351,7 +1348,7 @@ console.log("checkedOrders", checkedOrders);
                                     </div>
                                   </div>
                                 </div>
-                                
+
                                 {/* Footer bar */}
                                 <div className="flex justify-between items-center px-3 py-2 bg-gray-50 border-t border-gray-100 rounded-b-lg">
                                   <button
@@ -1375,7 +1372,7 @@ console.log("checkedOrders", checkedOrders);
                                   </button>
                                   <div className="text-sm text-gray-600">
                                     {orderItem?.product_qty || 1}@ ${(productData[orderItem?.product_guid]?.total_price)?.toFixed(2)} ea
-                                    {console.log(orderItem?.product_guid,"productData[orderItem?.product_guid]?.total_price")}
+                                    {console.log(orderItem?.product_guid, "productData[orderItem?.product_guid]?.total_price")}
                                   </div>
                                 </div>
                               </div>
@@ -1402,36 +1399,36 @@ console.log("checkedOrders", checkedOrders);
                                 )}
                               >
                                 {/* Animated background gradient on hover */}
-                                <span 
+                                <span
                                   className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
                                   style={{
                                     background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.25) 100%)',
                                   }}
                                 />
-                                
+
                                 {/* Plus icon with animated circle background */}
                                 <span className="relative flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 shadow-sm group-hover:shadow-md group-hover:shadow-emerald-500/30 transition-all duration-300">
-                                  <svg 
-                                    className="w-3.5 h-3.5 text-white transition-transform duration-300 group-hover:rotate-90" 
-                                    fill="none" 
-                                    stroke="currentColor" 
+                                  <svg
+                                    className="w-3.5 h-3.5 text-white transition-transform duration-300 group-hover:rotate-90"
+                                    fill="none"
+                                    stroke="currentColor"
                                     strokeWidth="2.5"
                                     viewBox="0 0 24 24"
                                   >
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                                   </svg>
                                 </span>
-                                
+
                                 {/* Text */}
                                 <span className="relative text-emerald-700 group-hover:text-emerald-800 transition-colors duration-200">
                                   Add More
                                 </span>
-                                
+
                                 {/* Chevron icon */}
-                                <svg 
-                                  className="relative w-4 h-4 text-emerald-500 group-hover:text-emerald-600 transition-all duration-300 group-hover:translate-y-0.5" 
-                                  fill="none" 
-                                  stroke="currentColor" 
+                                <svg
+                                  className="relative w-4 h-4 text-emerald-500 group-hover:text-emerald-600 transition-all duration-300 group-hover:translate-y-0.5"
+                                  fill="none"
+                                  stroke="currentColor"
                                   viewBox="0 0 24 24"
                                 >
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
@@ -1444,23 +1441,23 @@ console.log("checkedOrders", checkedOrders);
                         <AddProductsTemplate orderFullFillmentId={order?.orderFullFillmentId} />
                       )}
                     </li>
-                    <li>
+                    <li style={{ opacity: isExcluded ? 0.4 : 1, filter: isExcluded ? "grayscale(0.5)" : "none", transition: "opacity 0.3s ease, filter 0.3s ease" }}>
                       <label className={`h-[220px] inline-flex justify-between w-full p-5 text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700 ${hasInvalidSKUs(order?.order_items) ? 'opacity-50 pointer-events-none' : ''}`}>
                         <div className="block w-full relative">
                           {order?.order_items.length > 0 ? (
                             hasInvalidSKUs(order?.order_items) ? (
                               <div className="flex flex-col items-center justify-center h-full">
                                 <div className="relative mb-3">
-                                  <svg 
+                                  <svg
                                     className="w-16 h-16 text-gray-300"
-                                    fill="none" 
-                                    stroke="currentColor" 
+                                    fill="none"
+                                    stroke="currentColor"
                                     viewBox="0 0 24 24"
                                   >
-                                    <path 
-                                      strokeLinecap="round" 
-                                      strokeLinejoin="round" 
-                                      strokeWidth="1.5" 
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth="1.5"
                                       d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
                                     />
                                   </svg>
@@ -1484,7 +1481,7 @@ console.log("checkedOrders", checkedOrders);
                                 localOrder={order}
                                 productchange={false}
                                 clicking={false}
-                                onShippingOptionChange={(poNumber: string, total: any) => 
+                                onShippingOptionChange={(poNumber: string, total: any) =>
                                   handleShippingOptionChange(poNumber, total)
                                 }
                               />
@@ -1492,16 +1489,16 @@ console.log("checkedOrders", checkedOrders);
                           ) : (
                             <div className="flex flex-col items-center justify-center h-full">
                               <div className="relative mb-3">
-                                <svg 
+                                <svg
                                   className="w-16 h-16 text-gray-300"
-                                  fill="none" 
-                                  stroke="currentColor" 
+                                  fill="none"
+                                  stroke="currentColor"
                                   viewBox="0 0 24 24"
                                 >
-                                  <path 
-                                    strokeLinecap="round" 
-                                    strokeLinejoin="round" 
-                                    strokeWidth="1.5" 
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="1.5"
                                     d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
                                   />
                                 </svg>
@@ -1524,7 +1521,8 @@ console.log("checkedOrders", checkedOrders);
                     </li>
                   </ul>
                 </div>
-              ))
+                );
+              })
             ) : !orders?.data || isRefreshing ? (
               <SkeletonOrderCard count={3} />
             ) : orders?.data && orders.data.length === 0 && !isRefreshing ? (
@@ -1582,7 +1580,7 @@ console.log("checkedOrders", checkedOrders);
               deleteItem={orderFullFillmentId}
               order_po={order_po}
             />
-            
+
             {/* Delete Product from Order Modal */}
             <DeleteMessage
               visible={productDeleteModalVisible}
@@ -1732,7 +1730,7 @@ console.log("checkedOrders", checkedOrders);
       <PopupModal
         visible={addProductPopupVisible}
         onClose={() => setAddProductPopupVisible(false)}
-        setProductCode={() => {}}
+        setProductCode={() => { }}
         orderFullFillmentId={currentOrderForAddProduct}
         onProductCodeUpdate={handleAddProductCodeUpdate}
       />
