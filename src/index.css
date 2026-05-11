@@ -2,15 +2,243 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Light mode tokens (default) ── */
+:root {
+  --bg-base:       #f3f4f6;
+  --bg-surface:    #ffffff;
+  --bg-surface-2:  #f9fafb;
+  --bg-sidebar:    #ffffff;
+  --bg-header:     #ffffff;
+  --bg-card:       #ffffff;
+  --bg-card-2:     #f9fafb;
+  --bg-input:      #ffffff;
+
+  --border-color:  #e5e7eb;
+  --border-subtle: #f3f4f6;
+
+  --text-primary:   #111827;
+  --text-secondary: #6b7280;
+  --text-muted:     #9ca3af;
+  --text-inverse:   #ffffff;
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.08);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.10);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,.12);
+
+  --accent:       #3b82f6;
+  --accent-hover: #2563eb;
+  --success:      #22c55e;
+  --error:        #ef4444;
+  --warning:      #f59e0b;
+}
+
+/* ── Dark mode tokens (navy/teal theme) ── */
+html.dark {
+  --bg-base:       #080c14;
+  --bg-surface:    #0f1724;
+  --bg-surface-2:  #0c1520;
+  --bg-sidebar:    #0a1020;
+  --bg-header:     #060a12;
+  --bg-card:       #0f1724;
+  --bg-card-2:     #0a2520;
+  --bg-input:      #131e30;
+
+  --border-color:  #1e2d42;
+  --border-subtle: #111c2c;
+
+  --text-primary:   #e8edf5;
+  --text-secondary: #8892a4;
+  --text-muted:     #4e5a6e;
+  --text-inverse:   #080c14;
+
+  --shadow-sm: 0 1px 4px rgba(0,0,0,.5);
+  --shadow-md: 0 4px 16px rgba(0,0,0,.6);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,.7);
+
+  --accent:         #14b8a6;
+  --accent-hover:   #0d9488;
+  --accent-dim:     #0a2520;
+  --success:        #10b981;
+  --error:          #f87171;
+  --warning:        #fbbf24;
+}
+
+/* ── Base dark overrides ── */
+html.dark body {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+}
+
+/* Ant Design overrides for dark mode */
+html.dark .ant-layout {
+  background: var(--bg-base) !important;
+}
+html.dark .ant-layout-header {
+  background: var(--bg-header) !important;
+  border-bottom: 1px solid var(--border-color);
+}
+html.dark .ant-layout-content {
+  background: var(--bg-base) !important;
+}
+html.dark .ant-layout-footer {
+  background: var(--bg-header) !important;
+  border-top: 1px solid var(--border-color);
+}
+html.dark .ant-modal-content {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-lg) !important;
+}
+html.dark .ant-modal-header {
+  background: var(--bg-surface) !important;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+html.dark .ant-modal-title {
+  color: var(--text-primary) !important;
+}
+html.dark .ant-modal-close {
+  color: var(--text-secondary) !important;
+}
+html.dark .ant-modal-body {
+  color: var(--text-primary) !important;
+}
+html.dark .ant-input,
+html.dark .ant-input-affix-wrapper,
+html.dark .ant-select-selector,
+html.dark .ant-picker {
+  background: var(--bg-input) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+html.dark .ant-input::placeholder {
+  color: var(--text-muted) !important;
+}
+html.dark .ant-select-selection-placeholder {
+  color: var(--text-muted) !important;
+}
+html.dark .ant-card {
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+}
+html.dark .ant-card-head {
+  background: var(--bg-card) !important;
+  border-bottom-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+html.dark .ant-table {
+  background: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+}
+html.dark .ant-table-thead > tr > th {
+  background: var(--bg-surface-2) !important;
+  color: var(--text-secondary) !important;
+  border-bottom-color: var(--border-color) !important;
+}
+html.dark .ant-table-tbody > tr > td {
+  border-bottom-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+html.dark .ant-table-tbody > tr:hover > td {
+  background: var(--bg-surface-2) !important;
+}
+html.dark .ant-dropdown-menu {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-color);
+}
+html.dark .ant-dropdown-menu-item {
+  color: var(--text-primary) !important;
+}
+html.dark .ant-dropdown-menu-item:hover {
+  background: var(--bg-surface-2) !important;
+}
+html.dark .ant-tag {
+  background: var(--bg-surface-2) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+html.dark .ant-skeleton-element .ant-skeleton-input,
+html.dark .ant-skeleton-paragraph > li,
+html.dark .ant-skeleton-title {
+  background: linear-gradient(90deg, #1e293b 25%, #273549 50%, #1e293b 75%) !important;
+  background-size: 400% 100% !important;
+}
+html.dark .ant-notification-notice {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-color);
+}
+html.dark .ant-notification-notice-message {
+  color: var(--text-primary) !important;
+}
+html.dark .ant-notification-notice-description {
+  color: var(--text-secondary) !important;
+}
+html.dark .ant-btn-default {
+  background: var(--bg-input) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+html.dark .ant-btn-default:hover {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+}
+html.dark .ant-pagination-item,
+html.dark .ant-pagination-prev button,
+html.dark .ant-pagination-next button {
+  background: var(--bg-input) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+html.dark .ant-pagination-item-active {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+}
+html.dark .ant-pagination-item-active a {
+  color: #fff !important;
+}
+html.dark .ant-form-item-label > label {
+  color: var(--text-secondary) !important;
+}
+html.dark .ant-radio-wrapper {
+  color: var(--text-primary) !important;
+}
+html.dark .ant-checkbox-wrapper {
+  color: var(--text-primary) !important;
+}
+html.dark .ant-divider {
+  border-color: var(--border-color) !important;
+}
+html.dark .ant-tooltip-inner {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary) !important;
+}
+html.dark .ant-empty-description {
+  color: var(--text-muted) !important;
+}
+
+/* ── Tailwind utility helpers for dark mode (navy/teal palette) ── */
+html.dark .bg-white          { background-color: var(--bg-surface) !important; }
+html.dark .bg-gray-50        { background-color: var(--bg-surface-2) !important; }
+html.dark .bg-gray-100       { background-color: #0c1520 !important; }
+html.dark .bg-gray-200       { background-color: #111c2c !important; }
+html.dark .border-gray-100   { border-color: var(--border-subtle) !important; }
+html.dark .border-gray-200   { border-color: var(--border-color) !important; }
+html.dark .border-gray-300   { border-color: #253347 !important; }
+html.dark .text-gray-400     { color: var(--text-muted) !important; }
+html.dark .text-gray-500     { color: #8892a4 !important; }
+html.dark .text-gray-600     { color: #8892a4 !important; }
+html.dark .text-gray-700     { color: #b0bac8 !important; }
+html.dark .text-gray-800     { color: #cdd4de !important; }
+html.dark .text-gray-900     { color: var(--text-primary) !important; }
+html.dark .shadow-md         { box-shadow: var(--shadow-md) !important; }
+html.dark .shadow-sm         { box-shadow: var(--shadow-sm) !important; }
+html.dark .hover\:bg-gray-50:hover  { background-color: var(--bg-surface-2) !important; }
+html.dark .hover\:bg-gray-100:hover { background-color: #0c1520 !important; }
+
+/* ── Keyframes ── */
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateX(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: translateX(0); }
 }
 
 .animate-fadeIn {
@@ -27,16 +255,11 @@ body {
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
-    
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }
 
-/* Removed global button background reset - was conflicting with Tailwind bg-* classes */
-/* If you need to reset specific buttons, use a more specific selector */
-
-.isSelectedImg{
+.isSelectedImg {
   background-color: lightgray;
   border: solid 3px lightgray;
   border-radius: 4px;
-}
+}

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
+import { useTheme } from "../context/ThemeContext";
 import { Button, Form, Select, Skeleton, Tooltip, Modal, Dropdown } from "antd";
 import type { MenuProps } from "antd";
 import { InfoCircleOutlined, FullscreenOutlined } from "@ant-design/icons";
@@ -950,6 +951,8 @@ const ImportList: React.FC = () => {
     });
   }, [orders?.data, searchTerm, productData]);
 
+  const { isDark } = useTheme();
+
   return (
     <div
       className={`flex justify-end items-center  h-full p-8 ${style.overAll_box}`}
@@ -961,7 +964,8 @@ const ImportList: React.FC = () => {
         }
       `}</style>
       <div
-        className={`h-auto bg-gray-100 pt-4 mt-10 w-full ${style.overAll_box}`}
+        className={`h-auto pt-4 mt-10 w-full ${style.overAll_box}`}
+        style={{ background: isDark ? "#080c14" : "#f3f4f6" }}
       >
         <div className="flex justify-between items-center mb-10 px-9">
           <h1 className="text-left text-2xl font-bold mt-2">Orders</h1>
@@ -1013,8 +1017,12 @@ const ImportList: React.FC = () => {
                   key={index}
                   className="justify-between mb-6 rounded-lg p-6 shadow-md sm:flex-row sm:justify-start space-y-2 relative overflow-hidden"
                   style={{
-                    background: isExcluded ? "#f9fafb" : "#ffffff",
-                    borderLeft: isExcluded ? "4px solid #d1d5db" : "4px solid transparent",
+                    background: isDark
+                      ? (isExcluded ? "#0a1020" : "#0f1724")
+                      : (isExcluded ? "#f9fafb" : "#ffffff"),
+                    borderLeft: isExcluded
+                      ? (isDark ? "4px solid #253347" : "4px solid #d1d5db")
+                      : "4px solid transparent",
                     transition: "background 0.3s ease, border-color 0.3s ease",
                   }}
                 >
@@ -1108,7 +1116,14 @@ const ImportList: React.FC = () => {
                     key={index}
                   >
                     <li style={{ opacity: isExcluded ? 0.4 : 1, filter: isExcluded ? "grayscale(0.5)" : "none", transition: "opacity 0.3s ease, filter 0.3s ease" }}>
-                      <label className="h-[220px] inline-flex items-center justify-between w-full p-3 text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700">
+                      <label
+                        className="h-[220px] inline-flex items-center justify-between w-full p-3 rounded-lg cursor-pointer border-2"
+                        style={{
+                          background: isDark ? "#0c1520" : "#ffffff",
+                          borderColor: isDark ? "#1e2d42" : "#e5e7eb",
+                          color: isDark ? "#8892a4" : undefined,
+                        }}
+                      >
                         <div className="block">
                           <div className="w-full text-sm text-red-800">
                             {order?.order_po}
@@ -1250,8 +1265,14 @@ const ImportList: React.FC = () => {
                             ) : (
                               <div
                                 key={orderItem.product_sku}
-                                className={`mb-3 w-full bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 ${style.orderes_lable}`}
-                                style={{ opacity: isExcluded ? 0.4 : 1, filter: isExcluded ? "grayscale(0.5)" : "none", transition: "opacity 0.3s ease, filter 0.3s ease" }}
+                                className={`mb-3 w-full rounded-lg shadow-sm transition-all duration-200 ${style.orderes_lable}`}
+                                style={{
+                                  background: isDark ? "#0c1520" : "#ffffff",
+                                  border: isDark ? "1px solid #1e2d42" : "1px solid #e5e7eb",
+                                  opacity: isExcluded ? 0.4 : 1,
+                                  filter: isExcluded ? "grayscale(0.5)" : "none",
+                                  transition: "opacity 0.3s ease, filter 0.3s ease",
+                                }}
                               >
                                 {/* Main content area */}
                                 <div className="p-4 min-h-[120px]">
@@ -1350,7 +1371,13 @@ const ImportList: React.FC = () => {
                                 </div>
 
                                 {/* Footer bar */}
-                                <div className="flex justify-between items-center px-3 py-2 bg-gray-50 border-t border-gray-100 rounded-b-lg">
+                                <div
+                                  className="flex justify-between items-center px-3 py-2 border-t rounded-b-lg"
+                                  style={{
+                                    background: isDark ? "#0a1020" : "#f9fafb",
+                                    borderColor: isDark ? "#1e2d42" : "#f3f4f6",
+                                  }}
+                                >
                                   <button
                                     type="button"
                                     className="inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-red-500 transition-colors"
@@ -1442,7 +1469,14 @@ const ImportList: React.FC = () => {
                       )}
                     </li>
                     <li style={{ opacity: isExcluded ? 0.4 : 1, filter: isExcluded ? "grayscale(0.5)" : "none", transition: "opacity 0.3s ease, filter 0.3s ease" }}>
-                      <label className={`h-[220px] inline-flex justify-between w-full p-5 text-gray-500 bg-white border-2 border-gray-200 rounded-lg cursor-pointer dark:hover:text-gray-300 dark:border-gray-700 peer-checked:border-blue-600 hover:text-gray-600 dark:peer-checked:text-gray-300 peer-checked:text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700 ${hasInvalidSKUs(order?.order_items) ? 'opacity-50 pointer-events-none' : ''}`}>
+                      <label
+                        className={`h-[220px] inline-flex justify-between w-full p-5 rounded-lg cursor-pointer border-2 ${hasInvalidSKUs(order?.order_items) ? 'opacity-50 pointer-events-none' : ''}`}
+                        style={{
+                          background: isDark ? "#0c1520" : "#ffffff",
+                          borderColor: isDark ? "#1e2d42" : "#e5e7eb",
+                          color: isDark ? "#8892a4" : undefined,
+                        }}
+                      >
                         <div className="block w-full relative">
                           {order?.order_items.length > 0 ? (
                             hasInvalidSKUs(order?.order_items) ? (
@@ -1526,7 +1560,7 @@ const ImportList: React.FC = () => {
             ) : !orders?.data || isRefreshing ? (
               <SkeletonOrderCard count={3} />
             ) : orders?.data && orders.data.length === 0 && !isRefreshing ? (
-              <div className="flex flex-col items-center justify-center h-64 bg-white rounded-lg shadow-md p-6 mb-20">
+              <div className="flex flex-col items-center justify-center h-64 rounded-lg shadow-md p-6 mb-20" style={{ background: isDark ? "#0f1724" : "#ffffff" }}>
                 <img
                   src={shoppingCart}
                   alt="Empty Orders"
@@ -1547,7 +1581,10 @@ const ImportList: React.FC = () => {
                 </Button>
               </div>
             ) : orders?.data && orders.data.length > 0 && filteredOrders.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 bg-white rounded-lg shadow-md p-6 mb-20">
+              <div
+                className="flex flex-col items-center justify-center h-64 rounded-lg shadow-md p-6 mb-20"
+                style={{ background: isDark ? "#0f1724" : "#ffffff" }}
+              >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   className="w-20 h-20 mb-4 text-gray-300"

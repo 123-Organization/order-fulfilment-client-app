@@ -28,6 +28,7 @@ import { useCookies } from "react-cookie";
 import more from "../assets/images/more.svg"
 import { useSearch } from "../context/SearchContext";
 import { useAppSelector } from "../store";
+import { useTheme } from "../context/ThemeContext";
 
 import finerWorks from "../assets/images/finerworks_logo_icon.49c0d41a2f19011aa3ea27c47041d2ff.svg";
 // import UploadFileModal from "./UploadFileModal";
@@ -73,6 +74,11 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
   const [myStores, setMyStores] = useState(false);
   const [disconnectModalVisible, setDisconnectModalVisible] = useState(false);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const { isDark, toggleDark } = useTheme();
+
+  // Active route helpers
+  const isActive = (path: string) => location.pathname === path;
+  const ACTIVE_CLR  = "#009689";
   
   // Search context
   const { searchTerm, setSearchTerm } = useSearch();
@@ -307,8 +313,14 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
               navigate("/");
             }}
           >
-            <div className="p-1.5 rounded-lg group-hover:bg-gray-200 transition-all duration-200">
-              <img src={store} width="24" height="24" className="group-hover:scale-110 transition-transform duration-200" />
+            <div className="p-1.5 rounded-lg transition-all duration-200">
+              <img
+                src={store}
+                width="24"
+                height="24"
+                className="group-hover:scale-110 transition-transform duration-200"
+                style={{ filter: isActive("/") ? "invert(38%) sepia(98%) saturate(400%) hue-rotate(143deg) brightness(90%)" : undefined }}
+              />
             </div>
             <span className="text-center leading-tight mt-0.5 font-medium">Stores</span>
           </button>
@@ -321,8 +333,16 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
               navigate("/importlist");
             }}
           >
-            <div className="p-1.5 rounded-lg group-hover:bg-gray-200 transition-all duration-200">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="#6B7280" className="group-hover:scale-110 transition-transform duration-200">
+            <div className="p-1.5 rounded-lg transition-all duration-200">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke={isActive("/importlist") ? ACTIVE_CLR : "#6B7280"}
+                className="group-hover:scale-110 transition-transform duration-200"
+              >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
@@ -430,18 +450,21 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
               </div>
                 
           {/* Virtual Inventory */}
-                <button
-                  type="button"
+          <button
+            type="button"
             className="flex flex-col items-center justify-center py-1 px-1 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200 text-xs group w-full rounded-lg hover:shadow-sm"
-                  onClick={() => {
-                    navigate("/virtualinventory");
-                  }}
-                >
-            <div className="p-2 rounded-lg group-hover:bg-blue-200 transition-all duration-200 flex items-center justify-center">
-              <ProfileOutlined style={{ fontSize: 24, color: "#6B7280" }} className="group-hover:scale-110 transition-transform duration-200" />
+            onClick={() => {
+              navigate("/virtualinventory");
+            }}
+          >
+            <div className="p-2 rounded-lg transition-all duration-200 flex items-center justify-center">
+              <ProfileOutlined
+                style={{ fontSize: 24, color: isActive("/virtualinventory") ? ACTIVE_CLR : "#6B7280" }}
+                className="group-hover:scale-110 transition-transform duration-200"
+              />
             </div>
             <span className="text-center leading-tight mt-0.5 font-medium">Sync Products</span>
-                </button>
+          </button>
 
           {/* Disconnect Platform */}
           <button
@@ -465,6 +488,45 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
               </svg>
             </div>
             <span className="text-center leading-tight mt-0.5 font-medium">Disconnect</span>
+          </button>
+
+          {/* Dark Mode Toggle */}
+          <button
+            onClick={toggleDark}
+            title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+            className="flex flex-col items-center justify-center py-1 px-1 transition-all duration-200 text-xs group w-full rounded-lg hover:shadow-sm"
+            style={{
+              color: isDark ? "#60a5fa" : "#6b7280",
+              background: isDark ? "rgba(96,165,250,0.1)" : "transparent",
+            }}
+          >
+            <div
+              className="p-1.5 rounded-lg transition-all duration-200"
+              style={{ background: isDark ? "rgba(96,165,250,0.15)" : undefined }}
+            >
+              {isDark ? (
+                // Sun icon
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="5" />
+                  <line x1="12" y1="1" x2="12" y2="3" />
+                  <line x1="12" y1="21" x2="12" y2="23" />
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                  <line x1="1" y1="12" x2="3" y2="12" />
+                  <line x1="21" y1="12" x2="23" y2="12" />
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                </svg>
+              ) : (
+                // Moon icon
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                </svg>
+              )}
+            </div>
+            <span className="text-center leading-tight mt-0.5 font-medium">
+              {isDark ? "Light" : "Dark"}
+            </span>
           </button>
 
           {/* User Profile */}

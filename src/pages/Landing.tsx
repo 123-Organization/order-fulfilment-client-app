@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useTheme } from "../context/ThemeContext";
 import { Button, Tag, Modal } from "antd";
 import { ReactSpreadsheetImport } from "react-spreadsheet-import";
 import { useCookies } from "react-cookie";
@@ -50,7 +51,7 @@ export enum StepType {
 const Landing: React.FC = (): JSX.Element => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  
+  const { isDark } = useTheme();
   const ecommerceGetImportOrders = useAppSelector(
     (state) => state.Ecommerce.ecommerceGetImportOrders
   );
@@ -1066,7 +1067,7 @@ const Landing: React.FC = (): JSX.Element => {
   const ENABLED = ["WooCommerce", "Excel", "Shopify", "Squarespace", "Wix"];
 
   return (
-    <div style={{ minHeight: "100%", background: "linear-gradient(135deg,#f0f4ff 0%,#fafbff 60%,#f4f8ff 100%)", padding: "40px 32px 60px" }}>
+    <div style={{ minHeight: "100%", background: isDark ? "#080c14" : "linear-gradient(135deg,#f0f4ff 0%,#fafbff 60%,#f4f8ff 100%)", padding: "40px 32px 60px" }}>
       <style>{`
         @keyframes lp-fade { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:none} }
         @keyframes lp-pop  { 0%{transform:scale(.94)} 100%{transform:scale(1)} }
@@ -1079,10 +1080,10 @@ const Landing: React.FC = (): JSX.Element => {
 
       {/* ── Page header ── */}
       <div style={{ maxWidth: 900, margin: "0 auto 40px", textAlign: "center", animation: "lp-fade .35s ease both" }}>
-        <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: "#0f1a2e", letterSpacing: -0.5 }}>
+        <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: isDark ? "#e8edf5" : "#0f1a2e", letterSpacing: -0.5 }}>
           Connect Your Store
         </h1>
-        <p style={{ margin: "10px 0 0", fontSize: 15, color: "#6b7280", maxWidth: 480, marginLeft: "auto", marginRight: "auto" }}>
+        <p style={{ margin: "10px 0 0", fontSize: 15, color: isDark ? "#8892a4" : "#6b7280", maxWidth: 480, marginLeft: "auto", marginRight: "auto" }}>
           Select a platform below to import orders directly into FinerWorks for fulfillment.
         </p>
       </div>
@@ -1108,11 +1109,11 @@ const Landing: React.FC = (): JSX.Element => {
               className="lp-card"
               onClick={() => importData(image.name)}
               style={{
-                background: "#fff",
+                background: isDark ? "#0f1724" : "#fff",
                 borderRadius: 18,
                 border: isConnected
-                  ? "2px solid #52c41a"
-                  : "2px solid #e8edf5",
+                  ? "2px solid " + (isDark ? "#14b8a6" : "#52c41a")
+                  : isDark ? "2px solid #1e2d42" : "2px solid #e8edf5",
                 boxShadow: isConnected
                   ? "0 4px 20px rgba(82,196,26,.15)"
                   : "0 2px 12px rgba(0,0,0,.06)",
@@ -1153,10 +1154,11 @@ const Landing: React.FC = (): JSX.Element => {
               <div className="lp-logo" style={{
                 width: 80, height: 80,
                 borderRadius: 16,
-                background: enabled ? "#f8faff" : "#f3f4f6",
+                background: isDark ? (enabled ? "#1e2d44" : "#172034") : (enabled ? "#f8faff" : "#f3f4f6"),
                 display: "flex", alignItems: "center", justifyContent: "center",
                 padding: 12,
-                boxShadow: "inset 0 1px 3px rgba(0,0,0,.05)",
+                border: isDark ? (enabled ? "1px solid #2d4260" : "1px solid #1d2e45") : "none",
+                boxShadow: isDark ? (enabled ? "0 2px 8px rgba(0,0,0,.35)" : "none") : "inset 0 1px 3px rgba(0,0,0,.05)",
               }}>
                 <img
                   src={image.img}
@@ -1166,12 +1168,12 @@ const Landing: React.FC = (): JSX.Element => {
               </div>
 
               {/* Name */}
-              <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: enabled ? "#1e2a3b" : "#9ca3af", textAlign: "center" }}>
+              <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: isDark ? (enabled ? "#e8edf5" : "#4e5a6e") : (enabled ? "#1e2a3b" : "#9ca3af"), textAlign: "center" }}>
                 {image.name}
               </p>
 
               {/* Action label */}
-              <p style={{ margin: 0, fontSize: 11, color: isConnected ? "#15803d" : enabled ? "#6b7280" : "#c4c9d4", fontWeight: 500 }}>
+              <p style={{ margin: 0, fontSize: 11, color: isConnected ? (isDark ? "#14b8a6" : "#15803d") : enabled ? (isDark ? "#8892a4" : "#6b7280") : (isDark ? "#253347" : "#c4c9d4"), fontWeight: 500 }}>
                 {!enabled
                   ? "Coming soon"
                   : image.name === "Excel"

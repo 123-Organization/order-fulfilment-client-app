@@ -55,6 +55,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
   const [shopifyConnectionData, setShopifyConnectionData] = useState<{ shop: string; access_token: string } | null>(null);
   const [wixConnected, setWixConnected] = useState<string>("Disconnected");
   const [wixConnectionData, setWixConnectionData] = useState<{ access_token: string } | null>(null);
+  const [squarespaceConnected, setSquarespaceConnected] = useState<string>("Disconnected");
   const [variantModalVisible, setVariantModalVisible] = useState(false);
   const [variantGroups, setVariantGroups] = useState<any[]>([]);
   const [pendingExportPlatform, setPendingExportPlatform] = useState<string | null>(null);
@@ -440,7 +441,20 @@ const ExportModal: React.FC<ExportModalProps> = ({
         description: `Please connect to Wix to export products`,
       });
     }
-    else if (imgname !== "WooCommerce" && imgname !== "Shopify" && imgname !== "Wix") {
+    // Handle Squarespace — connection status is shown but export is not yet available
+    else if (imgname === "Squarespace" && squarespaceConnected === "Connected") {
+      notificationApi.warning({
+        message: "Export to Squarespace Coming Soon",
+        description: `Squarespace export is not yet supported. Please check back for updates.`,
+      });
+    }
+    else if (imgname === "Squarespace" && squarespaceConnected === "Disconnected") {
+      notificationApi.error({
+        message: "Squarespace Not Connected",
+        description: `Please connect to Squarespace to export products`,
+      });
+    }
+    else if (imgname !== "WooCommerce" && imgname !== "Shopify" && imgname !== "Wix" && imgname !== "Squarespace") {
       notificationApi.warning({
         message: "Platform is not supported",
         description: `This platform is not supported yet`,
@@ -515,6 +529,14 @@ const ExportModal: React.FC<ExportModalProps> = ({
         setWixConnected("Disconnected");
         setWixConnectionData(null);
       }
+
+      // Check Squarespace connection
+      let squarespaceObj = find(companyInfo.data.connections, {"name":"Squarespace"});
+      if (squarespaceObj?.name) {
+        setSquarespaceConnected("Connected");
+      } else {
+        setSquarespaceConnected("Disconnected");
+      }
     }
   }, [companyInfo]);
 
@@ -563,13 +585,15 @@ const ExportModal: React.FC<ExportModalProps> = ({
               padding: "8px 4px 4px",
             }}>
               {images.map((image, index) => {
-                const isWooCommerce = image.name === "WooCommerce";
-                const isShopify    = image.name === "Shopify";
-                const isWix        = image.name === "Wix";
-                const isSupportedPlatform = isWooCommerce || isShopify || isWix;
-                const isConnected = isWooCommerce ? wooConnected === "Connected"
-                                  : isShopify    ? shopifyConnected === "Connected"
-                                  : isWix        ? wixConnected === "Connected"
+                const isWooCommerce    = image.name === "WooCommerce";
+                const isShopify        = image.name === "Shopify";
+                const isWix            = image.name === "Wix";
+                const isSquarespace    = image.name === "Squarespace";
+                const isSupportedPlatform = isWooCommerce || isShopify || isWix || isSquarespace;
+                const isConnected = isWooCommerce  ? wooConnected === "Connected"
+                                  : isShopify      ? shopifyConnected === "Connected"
+                                  : isWix          ? wixConnected === "Connected"
+                                  : isSquarespace  ? squarespaceConnected === "Connected"
                                   : false;
                 const isDisconnected = isSupportedPlatform && !isConnected;
 

@@ -6,6 +6,8 @@ import { useAppDispatch, useAppSelector } from "../store";
 import { find } from "lodash";
 import wordpress from "../assets/images/wordpress-svgrepo-com (1).svg";
 import shopifyIcon from "../assets/images/store-shopify.svg";
+import wixIcon from "../assets/images/store-wix.svg";
+import squarespaceIcon from "../assets/images/store-squarespace.svg";
 import {
   listVirtualInventory,
   inventorySelectionUpdate,
@@ -1378,6 +1380,26 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
                               alt="Shopify"
                               className="w-6 h-6"
                               title="Connected to Shopify"
+                            />
+                          </div>
+                        )}
+                        {image?.third_party_integrations?.wix_inventory_id && (
+                          <div className="bg-white border border-gray-200 rounded-full p-2 shadow-sm">
+                            <img
+                              src={wixIcon}
+                              alt="Wix"
+                              className="w-6 h-6"
+                              title="Connected to Wix"
+                            />
+                          </div>
+                        )}
+                        {image?.third_party_integrations?.squarespace_product_id && (
+                          <div className="bg-white border border-gray-200 rounded-full p-2 shadow-sm">
+                            <img
+                              src={squarespaceIcon}
+                              alt="Squarespace"
+                              className="w-6 h-6"
+                              title="Connected to Squarespace"
                             />
                           </div>
                         )}
