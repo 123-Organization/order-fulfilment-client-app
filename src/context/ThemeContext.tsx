@@ -2,38 +2,31 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 
 interface ThemeContextValue {
   isDark: boolean;
-  toggleDark: () => void;
 }
 
-const ThemeContext = createContext<ThemeContextValue>({
-  isDark: false,
-  toggleDark: () => {},
-});
+const ThemeContext = createContext<ThemeContextValue>({ isDark: false });
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isDark, setIsDark] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem("fw-dark-mode") === "true";
-    } catch {
-      return false;
-    }
-  });
+  const [isDark, setIsDark] = useState<boolean>(
+    () => window.matchMedia("(prefers-color-scheme: dark)").matches
+  );
 
-  // Keep <html> class in sync so Tailwind dark: variants work
   useEffect(() => {
-    const root = document.documentElement;
-    if (isDark) {
-      root.classList.add("dark");
-    } else {
-      root.classList.remove("dark");
-    }
-    localStorage.setItem("fw-dark-mode", String(isDark));
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+
+    // Keep <html> class in sync for Tailwind dark: variants
+    document.documentElement.classList.toggle("dark", isDark);
+
+    // React to real-time OS theme changes
+    const handler = (e: MediaQueryListEvent) => {
+      setIsDark(e.matches);
+    };
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
   }, [isDark]);
 
-  const toggleDark = () => setIsDark((prev) => !prev);
-
   return (
-    <ThemeContext.Provider value={{ isDark, toggleDark }}>
+    <ThemeContext.Provider value={{ isDark }}>
       {children}
     </ThemeContext.Provider>
   );

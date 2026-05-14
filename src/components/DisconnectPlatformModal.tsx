@@ -182,53 +182,30 @@ const DisconnectPlatformModal: React.FC<DisconnectPlatformModalProps> = ({
 
     try {
       if (platform.type === "ecommerce") {
-        if (platform.id === "shopify") {
-          // Disconnect Shopify
-          await dispatch(disconnectShopify({
-            account_key: cookies.AccountGUID,
-          }));
 
-          // Clear Shopify credentials from state
-          dispatch(clearShopifyCredentials());
-          
-          // Reset ecommerce status
-          dispatch(resetStatus());
-          
-          // Refresh company info to update UI state
-          dispatch(updateCompanyInfo({}));
+        // ── Squarespace & Wix ── use the unified disconnect API
+        if (platform.id === "squarespace" || platform.id === "wix") {
+          const accountKey = cookies.AccountGUID;
 
-          notificationApi?.success({
-            message: "Shopify Disconnected",
-            description: "Shopify has been successfully disconnected.",
-          });
-
-          // Update platform status
-          setPlatforms(prev =>
-            prev.map(p =>
-              p.id === platform.id ? { ...p, isConnected: false } : p
-            )
+          const response = await fetch(
+            `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/stores/disconnect?slug=${platform.id}&account_key=${accountKey}`,
+            { method: "POST" }
           );
-        } else {
-          // Disconnect other ecommerce platforms (WooCommerce, etc.)
-          await dispatch(disconnectEcommerce({
-            client_id: cookies.AccountGUID,
-            platformName: platform.name.toLowerCase(),
-            domainName: platform.connectionId,
-          }));
 
-          // Disconnect inventory
-          await dispatch(disconnectInventory({
-            data: {
-              account_key: cookies.AccountGUID,
-              platform: platform.name.toLowerCase(),
-            },
-          }));
-          
-          // Reset ecommerce status and update connection verification
+          if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData?.message || `Failed to disconnect ${platform.name}`);
+          }
+
+          // Clear any locally stored Squarespace tokens
+          if (platform.id === "squarespace") {
+            localStorage.removeItem("squarespace_token");
+            localStorage.removeItem("squarespace_access_token");
+            localStorage.removeItem("squarespace_account_key");
+          }
+
+          // Reset ecommerce status and refresh company info
           dispatch(resetStatus());
-          dispatch(setConnectionVerificationStatus('disconnected'));
-          
-          // Refresh company info to update UI state
           dispatch(updateCompanyInfo({}));
 
           notificationApi?.success({
@@ -236,19 +213,63 @@ const DisconnectPlatformModal: React.FC<DisconnectPlatformModalProps> = ({
             description: `${platform.name} has been successfully disconnected.`,
           });
 
-          // Update platform status
           setPlatforms(prev =>
-            prev.map(p =>
-              p.id === platform.id ? { ...p, isConnected: false } : p
-            )
+            prev.map(p => p.id === platform.id ? { ...p, isConnected: false } : p)
+          );
+
+        } else if (platform.id === "shopify") {
+          // Disconnect Shopify
+          await dispatch(disconnectShopify({
+            account_key: cookies.AccountGUID,
+          }));
+
+          dispatch(clearShopifyCredentials());
+          dispatch(resetStatus());
+          dispatch(updateCompanyInfo({}));
+
+          notificationApi?.success({
+            message: "Shopify Disconnected",
+            description: "Shopify has been successfully disconnected.",
+          });
+
+          setPlatforms(prev =>
+            prev.map(p => p.id === platform.id ? { ...p, isConnected: false } : p)
+          );
+
+        } else {
+          // WooCommerce (and any future generic platforms)
+          await dispatch(disconnectEcommerce({
+            client_id: cookies.AccountGUID,
+            platformName: platform.name.toLowerCase(),
+            domainName: platform.connectionId,
+          }));
+
+          await dispatch(disconnectInventory({
+            data: {
+              account_key: cookies.AccountGUID,
+              platform: platform.name.toLowerCase(),
+            },
+          }));
+
+          dispatch(resetStatus());
+          dispatch(setConnectionVerificationStatus('disconnected'));
+          dispatch(updateCompanyInfo({}));
+
+          notificationApi?.success({
+            message: `${platform.name} Disconnected`,
+            description: `${platform.name} has been successfully disconnected.`,
+          });
+
+          setPlatforms(prev =>
+            prev.map(p => p.id === platform.id ? { ...p, isConnected: false } : p)
           );
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error disconnecting ${platform.name}:`, error);
       notificationApi?.error({
         message: "Disconnection Failed",
-        description: `Failed to disconnect ${platform.name}. Please try again.`,
+        description: error?.message || `Failed to disconnect ${platform.name}. Please try again.`,
       });
     } finally {
       setDisconnecting(null);

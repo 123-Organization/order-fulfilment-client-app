@@ -682,10 +682,9 @@ const Landing: React.FC = (): JSX.Element => {
       if (squarespaceConnectionStatus === 'connected') {
         navigate("/importfilter?type=Squarespace");
       } else if (customerInfo?.data?.user_profile_complete === true) {
-        // Redirect browser to the Squarespace OAuth initiation URL.
-        // The API endpoint itself performs a server-side redirect to Squarespace.
         const accountKey = customerInfo?.data?.account_key;
-        window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/auth?account_key=${accountKey}`;
+        const returnUrl = `${window.location.origin}/auth/squarespace`;
+        window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/auth?account_key=${accountKey}&return_url=${encodeURIComponent(returnUrl)}&redirect_uri=${encodeURIComponent(returnUrl)}`;
       } else {
         notificationApi.warning({
           message: "Please complete your profile",
@@ -706,9 +705,9 @@ const Landing: React.FC = (): JSX.Element => {
       if (wixConnectionStatus === 'connected') {
         navigate("/importfilter?type=Wix");
       } else if (customerInfo?.data?.user_profile_complete === true) {
-        // Redirect browser to the Wix OAuth initiation URL.
         const accountKey = customerInfo?.data?.account_key;
-        window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/wix/oauth/start?account_key=${accountKey}`;
+        const returnUrl = `${window.location.origin}/auth/wix`;
+        window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/wix/oauth/start?account_key=${accountKey}&return_url=${encodeURIComponent(returnUrl)}&redirect_uri=${encodeURIComponent(returnUrl)}`;
       } else {
         notificationApi.warning({
           message: "Please complete your profile",

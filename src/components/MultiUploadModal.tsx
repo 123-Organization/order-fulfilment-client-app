@@ -4,6 +4,8 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { googleAuth, openDropboxPicker } from '../services/cloudImportService';
+import GoogleDriveBrowser from './GoogleDriveBrowser';
 import {
   UPLOAD_CONFIG,
   initiateMultipartUpload,
@@ -93,6 +95,10 @@ const MultiUploadModal: React.FC<MultiUploadModalProps> = ({
 }) => {
   const [tasks, setTasks] = useState<UploadTask[]>([]);
   const [dragging, setDragging] = useState(false);
+  const [cloudLoading,   setCloudLoading]   = useState<'dropbox' | 'google' | null>(null);
+  const [cloudError,     setCloudError]     = useState<string | null>(null);
+  const [googleToken,    setGoogleToken]    = useState<string | null>(null);
+  const [showGooglePanel,setShowGooglePanel] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const tasksRef = useRef<UploadTask[]>([]);
   const companyInfo = useAppSelector((state) => state.company.company_info.data);
@@ -222,6 +228,39 @@ const MultiUploadModal: React.FC<MultiUploadModalProps> = ({
     e.target.value = '';
   };
 
+  /* ── cloud import handlers ───────────────────────────────────────────────── */
+  const handleDropboxImport = async () => {
+    setCloudLoading('dropbox');
+    setCloudError(null);
+    try {
+      const files = await openDropboxPicker();
+      if (files.length > 0) handleFiles(files);
+    } catch (err: any) {
+      setCloudError(err?.message || 'Dropbox import failed');
+    } finally {
+      setCloudLoading(null);
+    }
+  };
+
+  const handleGoogleDriveImport = async () => {
+    setCloudLoading('google');
+    setCloudError(null);
+    try {
+      const token = googleToken || await googleAuth();
+      setGoogleToken(token);
+      setShowGooglePanel(true);
+    } catch (err: any) {
+      setCloudError(err?.message || 'Google Drive sign-in failed');
+    } finally {
+      setCloudLoading(null);
+    }
+  };
+
+  const handleGoogleFiles = (files: File[]) => {
+    if (files.length > 0) handleFiles(files);
+    setShowGooglePanel(false);
+  };
+
   /* ── drag & drop ─────────────────────────────────────────────────────── */
   const onDragOver = (e: React.DragEvent) => { e.preventDefault(); setDragging(true); };
   const onDragLeave = () => setDragging(false);
@@ -344,6 +383,59 @@ const MultiUploadModal: React.FC<MultiUploadModalProps> = ({
               onChange={onInputChange}
             />
           </div>
+
+          {/* ── Cloud import ── */}
+          {showGooglePanel && googleToken ? (
+            <GoogleDriveBrowser
+              token={googleToken}
+              onFiles={handleGoogleFiles}
+              onClose={() => setShowGooglePanel(false)}
+            />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ flex: 1, height: 1, background: '#e5e7eb' }} />
+                <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 500, whiteSpace: 'nowrap', letterSpacing: 0.3 }}>or import from cloud</span>
+                <div style={{ flex: 1, height: 1, background: '#e5e7eb' }} />
+              </div>
+
+              <div style={{ display: 'flex', gap: 10 }}>
+                {/* Dropbox */}
+                <button
+                  onClick={handleDropboxImport}
+                  disabled={!!cloudLoading}
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 14px', borderRadius: 10, border: '1.5px solid #d1d5db', background: cloudLoading === 'dropbox' ? '#f0f6ff' : '#fff', color: '#0061FE', fontWeight: 600, fontSize: 13, cursor: cloudLoading ? 'not-allowed' : 'pointer', opacity: cloudLoading && cloudLoading !== 'dropbox' ? 0.5 : 1, transition: 'all .18s ease' }}
+                  onMouseEnter={e => { if (!cloudLoading) (e.currentTarget as HTMLButtonElement).style.borderColor = '#0061FE'; }}
+                  onMouseLeave={e => { if (!cloudLoading) (e.currentTarget as HTMLButtonElement).style.borderColor = '#d1d5db'; }}
+                >
+                  {cloudLoading === 'dropbox'
+                    ? <div style={{ width: 18, height: 18, borderRadius: '50%', border: '2.5px solid #0061FE', borderTopColor: 'transparent', animation: 'upl-spin 0.8s linear infinite' }} />
+                    : <svg width="18" height="18" viewBox="0 0 24 24" fill="#0061FE"><path d="M6 2L12 6.5 6 11 0 6.5 6 2zm12 0l6 4.5-6 4.5-6-4.5L18 2zM6 13l6 4.5-6 4.5-6-4.5L6 13zm12 0l6 4.5-6 4.5-6-4.5 6-4.5zM12 12.272L6.273 8 12 3.728 17.727 8 12 12.272z"/></svg>}
+                  Dropbox
+                </button>
+
+                {/* Google Drive */}
+                <button
+                  onClick={handleGoogleDriveImport}
+                  disabled={!!cloudLoading}
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 14px', borderRadius: 10, border: '1.5px solid #d1d5db', background: cloudLoading === 'google' ? '#fff8f6' : '#fff', color: '#4285F4', fontWeight: 600, fontSize: 13, cursor: cloudLoading ? 'not-allowed' : 'pointer', opacity: cloudLoading && cloudLoading !== 'google' ? 0.5 : 1, transition: 'all .18s ease' }}
+                  onMouseEnter={e => { if (!cloudLoading) (e.currentTarget as HTMLButtonElement).style.borderColor = '#4285F4'; }}
+                  onMouseLeave={e => { if (!cloudLoading) (e.currentTarget as HTMLButtonElement).style.borderColor = '#d1d5db'; }}
+                >
+                  {cloudLoading === 'google'
+                    ? <div style={{ width: 18, height: 18, borderRadius: '50%', border: '2.5px solid #4285F4', borderTopColor: 'transparent', animation: 'upl-spin 0.8s linear infinite' }} />
+                    : <svg width="18" height="18" viewBox="0 0 87.3 78" fill="none"><path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3L27.5 53H0c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/><path d="M43.65 25L29.9 1.2C28.55 2 27.4 3.1 26.6 4.5L1.2 48.5A9 9 0 000 53h27.5z" fill="#00ac47"/><path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75L86.1 57.5a9 9 0 000-9L59.8 1.2C59 .4 57.9 0 56.7 0H30.6l-.1.2 13.15 22.8z" fill="#ea4335"/><path d="M43.65 25L57.4 1.2C56.05.4 54.5 0 52.95 0H34.35c-1.55 0-3.1.4-4.5 1.2z" fill="#00832d"/><path d="M59.8 53H27.5L13.75 76.8c1.4.8 2.95 1.2 4.5 1.2h50.8c1.55 0 3.1-.4 4.5-1.2z" fill="#2684fc"/><path d="M73.4 26.5l-12.7-22C59.85 3.1 58.7 2 57.35 1.2L43.6 25 59.75 53h26.3c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/></svg>}
+                  Google Drive
+                </button>
+              </div>
+
+              {cloudError && (
+                <p style={{ margin: 0, fontSize: 12, color: '#ef4444', textAlign: 'center', padding: '4px 8px', background: '#fef2f2', borderRadius: 8 }}>
+                  ⚠ {cloudError}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Task cards */}
           {tasks.length > 0 && (

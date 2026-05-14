@@ -23,7 +23,7 @@ import UpdatePopup from "./UpdatePopup";
 import { updateCompanyInfo } from "../store/features/companySlice";
 import { resetRecipientStatus } from "../store/features/orderSlice";
 import style from "./Components.module.css";
-import { fetchWporder, fetchShopifyOrders, fetchShopifyOrderByName, fetchSquarespaceOrders, fetchSquarespaceOrderByNumber, resetSquarespaceImportStatus, updateWporder } from "../store/features/orderSlice";
+import { fetchWporder, fetchShopifyOrders, fetchShopifyOrderByName, fetchSquarespaceOrders, fetchSquarespaceOrderByNumber, resetSquarespaceImportStatus, updateWporder, fetchWixOrders, fetchWixOrderByNumber, resetWixImportStatus } from "../store/features/orderSlice";
 type NotificationType = "success" | "info" | "warning" | "error";
 interface NotificationAlertProps {
   type: NotificationType;
@@ -872,6 +872,239 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                 ...myImport,
               })
             );
+          }
+        }
+
+        // ── Handle Wix orders ────────────────────────────────────────────────
+        else if (platformType === "Wix") {
+          // Resolve Wix credentials from companyInfo connections
+          let wixAccessToken = '';
+          const wixAccountKey = customerInfo?.data?.account_key || '';
+
+          if (companyInfo?.data?.connections) {
+            const wixConnection = companyInfo.data.connections.find(
+              (conn: any) => conn.name === 'Wix'
+            );
+            if (wixConnection?.data) {
+              try {
+                const parsed = JSON.parse(wixConnection.data);
+                wixAccessToken = parsed.access_token || '';
+              } catch {
+                wixAccessToken = wixConnection.id || '';
+              }
+            } else if (wixConnection?.id) {
+              wixAccessToken = wixConnection.id;
+            }
+          }
+
+          if (!wixAccessToken || !wixAccountKey) {
+            notification.error({
+              message: 'Not Connected',
+              description: 'No Wix credentials found. Please reconnect your store.',
+            });
+            setTimeout(() => navigate('/'), 1500);
+            return;
+          }
+
+          setNextSpinning(true);
+
+          // ── Import by order number (individual orders) ──
+          if (wporder.length > 0) {
+            const orderNumbers = wporder.split(',').map((n: string) => n.trim());
+
+            try {
+              const result = await dispatch(
+                fetchWixOrderByNumber({
+                  account_key: wixAccountKey,
+                  access_token: wixAccessToken,
+                  order_numbers: orderNumbers,
+                })
+              );
+
+              const payload = result.payload as any;
+              const rawOrders: any[] =
+                Array.isArray(payload?.orders) ? payload.orders
+                : Array.isArray(payload) ? payload
+                : payload?.order ? [payload.order]
+                : [];
+
+              if (rawOrders.length > 0) {
+                const transformedOrders = rawOrders.map((wixOrder: any, orderIndex: number) => {
+                  const addr =
+                    wixOrder.shippingInfo?.shipmentDetails?.address ||
+                    wixOrder.billingInfo?.address ||
+                    {};
+                  const lineItems: any[] = wixOrder.lineItems || [];
+
+                  return {
+                    order_po: `WIX_${wixOrder.number || wixOrder.id || orderIndex}`,
+                    order_key: wixOrder.id || '',
+                    source: 'wix',
+                    recipient: {
+                      first_name: addr.firstName || addr.first_name || wixOrder.billingInfo?.contactDetails?.firstName || '',
+                      last_name: addr.lastName || addr.last_name || wixOrder.billingInfo?.contactDetails?.lastName || '',
+                      company_name: addr.company || addr.company_name || '',
+                      address_1: addr.addressLine || addr.address1 || addr.address_1 || '',
+                      address_2: addr.addressLine2 || addr.address2 || addr.address_2 || '',
+                      address_3: '',
+                      city: addr.city || '',
+                      state_code: addr.subdivision || addr.state_code || '',
+                      province: addr.subdivision || '',
+                      zip_postal_code: addr.postalCode || addr.zipCode || '',
+                      country_code: addr.country || addr.country_code || 'US',
+                      phone: wixOrder.billingInfo?.contactDetails?.phone || '',
+                      email: wixOrder.buyerInfo?.email || '',
+                      address_order_po: '',
+                    },
+                    order_items: lineItems.map((item: any, itemIndex: number) => ({
+                      product_order_po: `WIX_P_${orderIndex}_${itemIndex}`,
+                      product_qty: item.quantity || 1,
+                      product_sku: item.catalogReference?.catalogItemId || item.sku || '',
+                      product_title: item.productName?.original || item.name || '',
+                      product_guid: item.id || crypto.randomUUID(),
+                    })),
+                    order_status: 'Processing',
+                    shipping_code: 'GD',
+                    test_mode: true,
+                  };
+                });
+
+                const sendData = {
+                  accountId: customerInfo?.data?.account_id,
+                  payment_token: customerInfo?.data?.account_key,
+                  orders: transformedOrders,
+                };
+
+                dispatch(saveShopifyOrder(sendData));
+
+                notification.success({
+                  message: 'Success',
+                  description: `${transformedOrders.length} Wix order(s) imported successfully`,
+                });
+
+                setTimeout(() => {
+                  dispatch(resetSaveOrderInfo());
+                  dispatch(resetImport());
+                  dispatch(updateWporder('' as any));
+                  navigate('/importlist');
+                }, 2000);
+              } else {
+                notification.error({
+                  message: 'Error',
+                  description: 'Failed to fetch the specified Wix order(s). Please check the order numbers.',
+                });
+              }
+            } catch (error) {
+              console.error('Error fetching Wix orders by number:', error);
+              notification.error({
+                message: 'Error',
+                description: 'An error occurred while fetching Wix order details.',
+              });
+            } finally {
+              setNextSpinning(false);
+            }
+          }
+
+          // ── Import by date range (bulk orders) ──
+          else if (!myImport?.start_date || !myImport?.end_date) {
+            notification.warning({
+              message: 'Missing Information',
+              description: 'Please select a start and end date to import Wix orders.',
+            });
+            setNextSpinning(false);
+          } else {
+            try {
+              const result = await dispatch(
+                fetchWixOrders({
+                  account_key: wixAccountKey,
+                  access_token: wixAccessToken,
+                  start_date: myImport.start_date,
+                  end_date: myImport.end_date,
+                  fulfillmentStatus: myImport.status,
+                })
+              );
+
+              const payload = result.payload as any;
+              const rawOrders: any[] =
+                Array.isArray(payload?.orders) ? payload.orders
+                : Array.isArray(payload) ? payload
+                : [];
+
+              if (rawOrders.length > 0) {
+                const transformedOrders = rawOrders.map((wixOrder: any, orderIndex: number) => {
+                  const addr =
+                    wixOrder.shippingInfo?.shipmentDetails?.address ||
+                    wixOrder.billingInfo?.address ||
+                    {};
+                  const lineItems: any[] = wixOrder.lineItems || [];
+
+                  return {
+                    order_po: `WIX_${wixOrder.number || wixOrder.id || orderIndex}`,
+                    order_key: wixOrder.id || '',
+                    source: 'wix',
+                    recipient: {
+                      first_name: addr.firstName || addr.first_name || wixOrder.billingInfo?.contactDetails?.firstName || '',
+                      last_name: addr.lastName || addr.last_name || wixOrder.billingInfo?.contactDetails?.lastName || '',
+                      company_name: addr.company || addr.company_name || '',
+                      address_1: addr.addressLine || addr.address1 || addr.address_1 || '',
+                      address_2: addr.addressLine2 || addr.address2 || addr.address_2 || '',
+                      address_3: '',
+                      city: addr.city || '',
+                      state_code: addr.subdivision || addr.state_code || '',
+                      province: addr.subdivision || '',
+                      zip_postal_code: addr.postalCode || addr.zipCode || '',
+                      country_code: addr.country || addr.country_code || 'US',
+                      phone: wixOrder.billingInfo?.contactDetails?.phone || '',
+                      email: wixOrder.buyerInfo?.email || '',
+                      address_order_po: '',
+                    },
+                    order_items: lineItems.map((item: any, itemIndex: number) => ({
+                      product_order_po: `WIX_P_${orderIndex}_${itemIndex}`,
+                      product_qty: item.quantity || 1,
+                      product_sku: item.catalogReference?.catalogItemId || item.sku || '',
+                      product_title: item.productName?.original || item.name || '',
+                      product_guid: item.id || crypto.randomUUID(),
+                    })),
+                    order_status: 'Processing',
+                    shipping_code: 'GD',
+                    test_mode: true,
+                  };
+                });
+
+                const sendData = {
+                  accountId: customerInfo?.data?.account_id,
+                  payment_token: customerInfo?.data?.account_key,
+                  orders: transformedOrders,
+                };
+
+                dispatch(saveShopifyOrder(sendData));
+
+                notification.success({
+                  message: 'Success',
+                  description: `${transformedOrders.length} Wix order(s) imported successfully`,
+                });
+
+                setTimeout(() => {
+                  dispatch(resetSaveOrderInfo());
+                  dispatch(resetImport());
+                  dispatch(updateWporder('' as any));
+                  navigate('/importlist');
+                }, 2000);
+              } else {
+                notification.warning({
+                  message: 'No Orders Found',
+                  description: payload?.message || 'No Wix orders matched the selected date range.',
+                });
+              }
+            } catch (error) {
+              console.error('Error fetching Wix orders:', error);
+              notification.error({
+                message: 'Error',
+                description: 'An error occurred while fetching Wix orders.',
+              });
+            } finally {
+              setNextSpinning(false);
+            }
           }
         }
       }

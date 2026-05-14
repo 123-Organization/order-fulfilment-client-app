@@ -38,6 +38,7 @@ const ImportFilter = lazy(() => import("../pages/ImportFilter"));
 const Confirmation = lazy(() => import("../pages/Confirmation"));
 const ShopifyAuth = lazy(() => import("../pages/ShopifyAuth"));
 const SquarespaceAuth = lazy(() => import("../pages/SquarespaceAuth"));
+const WixAuth = lazy(() => import("../pages/WixAuth"));
 
 // ProtectedRoute component to check for authentication
 interface ProtectedRouteProps {
@@ -235,6 +236,12 @@ const Router: React.FC = (): JSX.Element => {
           <>
             {console.log("✅ /auth/squarespace route matched!")}
             <SquarespaceAuth />
+          </>
+        } />
+        <Route path="/auth/wix" element={
+          <>
+            {console.log("✅ /auth/wix route matched!")}
+            <WixAuth />
           </>
         } />
 

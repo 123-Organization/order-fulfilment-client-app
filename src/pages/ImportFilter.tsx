@@ -22,10 +22,11 @@ const SQUARESPACE_STATUSES = [
 
 // Wix order fulfillment status options
 const WIX_STATUSES = [
-  { value: 'NOT_FULFILLED', label: 'Not Fulfilled' },
-  { value: 'FULFILLED',     label: 'Fulfilled'     },
-  { value: 'CANCELED',      label: 'Canceled'      },
+  { value: 'PENDING',           label: 'Pending'            },
+  { value: 'NOT_FULFILLED',     label: 'Not Fulfilled'      },
+  { value: 'FULFILLED',         label: 'Fulfilled'          },
   { value: 'PARTIALLY_FULFILLED', label: 'Partially Fulfilled' },
+  { value: 'CANCELED',          label: 'Canceled'           },
 ];
 
 const countryList = require("../json/order_status_same_label.json");
