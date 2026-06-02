@@ -12,6 +12,7 @@
  */
 
 const DROPBOX_APP_KEY  = process.env.REACT_APP_DROPBOX_APP_KEY  || '';
+const DROPBOX_REDIRECT = `${window.location.origin}/dropbox-callback.html`;
 const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID || '';
 const GOOGLE_API_KEY   = process.env.REACT_APP_GOOGLE_API_KEY   || '';   // optional
 
@@ -153,4 +154,200 @@ export async function googleDownloadFile(
   if (!res.ok) throw new Error(`Could not download "${file.name}" (${res.status})`);
   const blob = await res.blob();
   return new File([blob], file.name, { type: file.mimeType || blob.type });
+}
+
+// ─── DROPBOX — embedded file browser (OAuth Implicit Grant + REST API) ───────
+
+export interface DropboxEntry {
+  id: string;
+  name: string;
+  path_lower: string;
+  '.tag': 'file' | 'folder';
+  size?: number;
+  thumbnailUrl?: string;  // populated by dropboxGetThumbnails
+}
+
+const DROPBOX_ALLOWED_MIME = [
+  'image/jpeg', 'image/png', 'image/tiff', 'image/bmp',
+  'image/heic', 'image/webp', 'application/pdf', 'image/vnd.adobe.photoshop',
+];
+const DROPBOX_ALLOWED_EXT_REGEX = /\.(jpe?g|png|tiff?|bmp|heic|heif|webp|psd|pdf)$/i;
+
+/**
+ * Opens a small popup to Dropbox OAuth (Implicit Grant / token flow).
+ * Returns the access token when the user approves.
+ */
+export function dropboxAuth(): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const url =
+      `https://www.dropbox.com/oauth2/authorize` +
+      `?client_id=${DROPBOX_APP_KEY}` +
+      `&response_type=token` +
+      `&redirect_uri=${encodeURIComponent(DROPBOX_REDIRECT)}`;
+
+    const w = 600, h = 700;
+    const left = Math.max(0, Math.round(window.screenX + (window.outerWidth - w) / 2));
+    const top  = Math.max(0, Math.round(window.screenY + (window.outerHeight - h) / 2));
+    const popup = window.open(
+      url, 'dropbox-auth',
+      `width=${w},height=${h},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`
+    );
+
+    if (!popup) {
+      reject(new Error('Popup blocked. Please allow popups for this site and try again.'));
+      return;
+    }
+
+    const onMessage = (evt: MessageEvent) => {
+      if (evt.origin !== window.location.origin) return;
+      if (evt.data?.type === 'DROPBOX_TOKEN') {
+        cleanup();
+        resolve(evt.data.token as string);
+      } else if (evt.data?.type === 'DROPBOX_ERROR') {
+        cleanup();
+        reject(new Error(evt.data.error || 'Dropbox auth failed'));
+      }
+    };
+
+    // Detect if user closes the popup without completing
+    const pollClosed = setInterval(() => {
+      if (popup.closed) {
+        cleanup();
+        reject(new Error('Dropbox sign-in was cancelled.'));
+      }
+    }, 800);
+
+    function cleanup() {
+      clearInterval(pollClosed);
+      window.removeEventListener('message', onMessage);
+    }
+
+    window.addEventListener('message', onMessage);
+  });
+}
+
+/**
+ * Lists files and sub-folders inside a Dropbox path.
+ * path='' means the root. Only returns files with allowed extensions.
+ */
+export async function dropboxListFolder(
+  token: string,
+  path = '',
+): Promise<DropboxEntry[]> {
+  const res = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      path,
+      recursive: false,
+      include_media_info: true,
+      limit: 300,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const msg = err?.error_summary || err?.error?.path?.['.tag'] || `Dropbox API error (${res.status})`;
+    throw new Error(msg);
+  }
+
+  const data = await res.json();
+  const entries: DropboxEntry[] = (data.entries as any[]).filter(e =>
+    e['.tag'] === 'folder' || DROPBOX_ALLOWED_EXT_REGEX.test(e.name)
+  );
+
+  // Sort: folders first, then files alphabetically
+  return entries.sort((a, b) => {
+    if (a['.tag'] !== b['.tag']) return a['.tag'] === 'folder' ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+/**
+ * Fetches thumbnails for a batch of file paths.
+ * Mutates the entries in-place by adding `thumbnailUrl`.
+ */
+export async function dropboxGetThumbnails(
+  token: string,
+  entries: DropboxEntry[],
+): Promise<void> {
+  const files = entries.filter(e => e['.tag'] === 'file');
+  if (files.length === 0) return;
+
+  const BATCH = 25; // Dropbox max per batch
+  for (let i = 0; i < files.length; i += BATCH) {
+    const batch = files.slice(i, i + BATCH);
+    try {
+      const res = await fetch('https://content.dropboxapi.com/2/files/get_thumbnail_batch', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          entries: batch.map(f => ({
+            path: f.path_lower,
+            format: { '.tag': 'jpeg' },
+            size: { '.tag': 'w128h128' },
+            mode: { '.tag': 'fitone_bestfit' },
+          })),
+        }),
+      });
+
+      if (!res.ok) continue;
+      const data = await res.json();
+      (data.entries as any[]).forEach((result, idx) => {
+        if (result['.tag'] === 'success' && result.thumbnail) {
+          batch[idx].thumbnailUrl = `data:image/jpeg;base64,${result.thumbnail}`;
+        }
+      });
+    } catch (_) {
+      // Silently skip thumbnails that fail — file icons will be shown instead
+    }
+  }
+}
+
+/**
+ * Downloads one Dropbox file by path, returns a browser File object.
+ */
+/** Extension → MIME fallback (Dropbox often returns application/octet-stream) */
+const EXT_MIME: Record<string, string> = {
+  jpg:  'image/jpeg',
+  jpeg: 'image/jpeg',
+  png:  'image/png',
+  tiff: 'image/tiff',
+  tif:  'image/tiff',
+  bmp:  'image/bmp',
+  heic: 'image/heic',
+  heif: 'image/heic',
+  webp: 'image/webp',
+  psd:  'image/vnd.adobe.photoshop',
+  pdf:  'application/pdf',
+};
+
+export async function dropboxDownloadFile(
+  token: string,
+  entry: DropboxEntry,
+): Promise<File> {
+  const res = await fetch('https://content.dropboxapi.com/2/files/download', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Dropbox-API-Arg': JSON.stringify({ path: entry.path_lower }),
+    },
+  });
+  if (!res.ok) throw new Error(`Could not download "${entry.name}" (${res.status})`);
+  const blob = await res.blob();
+
+  // Dropbox often returns application/octet-stream — derive the real MIME from the filename
+  const ext = entry.name.split('.').pop()?.toLowerCase() ?? '';
+  const mimeType =
+    blob.type && blob.type !== 'application/octet-stream'
+      ? blob.type
+      : (EXT_MIME[ext] ?? 'application/octet-stream');
+
+  return new File([blob], entry.name, { type: mimeType });
 }

@@ -196,7 +196,7 @@ export default function VaultedCardPayment({
 
       console.log("editedSubmittedOrders", editedSubmittedOrders);
 
-      // Build Squarespace webhook_url and inject into each Squarespace order
+      // ── Build fulfillment webhook_url for Squarespace orders ──────────────
       const sqConnection = companyInfo?.data?.connections?.find(
         (c: any) => c.name === "Squarespace" || c.name?.toLowerCase() === "squarespace"
       );
@@ -209,16 +209,46 @@ export default function VaultedCardPayment({
           console.error("Error parsing Squarespace connection data", e);
         }
       }
-      const sqAccountKey = companyInfo?.data?.account_key;
+
+      // ── Build fulfillment webhook_url for Wix orders ───────────────────────
+      const wixConnection = companyInfo?.data?.connections?.find(
+        (c: any) => c.name === "Wix" || c.name?.toLowerCase() === "wix"
+      );
+      let wixAccessToken = "";
+      if (wixConnection?.data) {
+        try {
+          const wixData = typeof wixConnection.data === "string" ? JSON.parse(wixConnection.data) : wixConnection.data;
+          wixAccessToken = wixData.access_token || wixData.token;
+          console.log("Wix access token found for fulfillment:", !!wixAccessToken);
+        } catch (e) {
+          console.error("Error parsing Wix connection data", e);
+        }
+      }
+
+      const accountKey = companyInfo?.data?.account_key;
 
       const ordersWithWebhook = editedSubmittedOrders.map((order: any) => {
+        // ── Squarespace fulfillment ──
         const isSquarespace =
           order.source === "Squarespace" ||
           order.source?.toLowerCase() === "squarespace" ||
           order.order_po?.startsWith("SQ_");
 
-        if (isSquarespace && sqAccessToken && sqAccountKey) {
-          const webhookUrl = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/fulfill-order?access_token=${encodeURIComponent(sqAccessToken)}&orderNumber=${encodeURIComponent(order.order_po)}&account_key=${encodeURIComponent(sqAccountKey)}&orderId=${encodeURIComponent(order.order_key)}`;
+        if (isSquarespace && sqAccessToken && accountKey) {
+          const webhookUrl = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/fulfill-order?access_token=${encodeURIComponent(sqAccessToken)}&orderNumber=${encodeURIComponent(order.order_po)}&account_key=${encodeURIComponent(accountKey)}&orderId=${encodeURIComponent(order.order_key)}`;
+          console.log("Injecting Squarespace webhook_url for order:", order.order_po);
+          return { ...order, webhook_url: webhookUrl };
+        }
+
+        // ── Wix fulfillment ──
+        const isWix =
+          order.source === "Wix" ||
+          order.source?.toLowerCase() === "wix" ||
+          order.order_po?.startsWith("WIX_");
+
+        if (isWix && wixAccessToken && accountKey) {
+          const webhookUrl = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/wix/fulfill-order?access_token=${encodeURIComponent(wixAccessToken)}&orderNumber=${encodeURIComponent(order.order_po)}&account_key=${encodeURIComponent(accountKey)}&orderId=${encodeURIComponent(order.order_key)}`;
+          console.log("Injecting Wix webhook_url for order:", order.order_po);
           return { ...order, webhook_url: webhookUrl };
         }
 

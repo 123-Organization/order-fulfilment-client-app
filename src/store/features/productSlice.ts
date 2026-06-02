@@ -80,16 +80,18 @@ interface GetAllImagesParams {
         perPage?: number;
         search?: string;
         libraryName?: "temporary" | "inventory";
+        customerId?: any;
+        guidFilter?: string;
 }
 
 export const getAllImages = createAsyncThunk(
         "product/getAllImages",
         async (params: GetAllImagesParams = {}, thunkAPI) => {
-                const { page = 1, perPage = 24, search = "", libraryName = "temporary" } = params;
+                const { page = 1, perPage = 24, search = "", libraryName = "temporary", guidFilter } = params;
                 const accountKey = getCookie("AccountGUID") || "default-key";
                 const sessionId = getCookie("Session") || "";
                 console.log('params...', params)
-                const postData = {
+                const postData: Record<string, any> = {
                         "libraryName": libraryName,
                         "librarySessionId": sessionId,
                         "libraryAccountKey": accountKey,
@@ -109,7 +111,8 @@ export const getAllImages = createAsyncThunk(
                         "domain": "",
                         "terms_of_service_url": "/terms.aspx",
                         "button_text": "Select Image",
-                        "account_id": params.customerId
+                        "account_id": params.customerId,
+                        ...(guidFilter ? { "guid_filter": [guidFilter] } : {}),
                 };
                 const response = await fetch(
                         "https://prod3-api.finerworks.com/api/getallimages?libraryAccountKey=" + accountKey,

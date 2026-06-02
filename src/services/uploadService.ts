@@ -17,10 +17,6 @@ const S3_REGION = process.env.REACT_APP_S3_REGION || 'us-east-1';
 const S3_BUCKET = process.env.REACT_APP_S3_UPLOAD_BUCKET || 'finerworks-initial-uploads';
 const ACCESS_KEY_ID = process.env.REACT_APP_S3_ACCESS_KEY_ID || '';
 const SECRET_KEY = process.env.REACT_APP_S3_SECRET_ACCESS_KEY || '';
-const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.includes('local.finerworks.com');
-const FW_API_BASE = (process.env.REACT_APP_FINERWORKS_API_URL || 'https://v2.api.finerworks.com');
-const FW_WEB_KEY = process.env.REACT_APP_FINERWORKS_WEB_KEY || '';
-const FW_APP_KEY = process.env.REACT_APP_FINERWORKS_APP_KEY || '';
 
 export const UPLOAD_CONFIG = {
   MAX_UPLOADS: 10,
@@ -286,7 +282,9 @@ export async function uploadAllParts(
   return results;
 }
 
-/** Step 5 – Poll FinerWorks until the image appears in the library */
+/** Step 5 – Poll FinerWorks until the image appears in the library.
+ *  Uses the same getallimages endpoint as the gallery, filtering by guid_filter.
+ */
 export async function pollUntilIndexed(
   imageGuid: string,
   library: string,
@@ -295,6 +293,29 @@ export async function pollUntilIndexed(
   signal: AbortSignal
 ): Promise<string | undefined> {
   const started = Date.now();
+
+  const postData = {
+    libraryName: library,
+    librarySessionId: sessionId,
+    libraryAccountKey: accountKey,
+    librarySiteId: '2',
+    filterSearchFilter: '',
+    filterPageNumber: '1',
+    filterPerPage: '1',
+    filterUploadFrom: '',
+    filterUploadTo: '',
+    filterSortField: 'id',
+    filterSortDirection: 'DESC',
+    filterUpdate: '1',
+    GAID: '',
+    guidPreSelected: '',
+    libraryOptions: ['temporary', 'inventory'],
+    multiselectOptions: false,
+    domain: '',
+    terms_of_service_url: '/terms.aspx',
+    button_text: 'Select Image',
+    guid_filter: [imageGuid],
+  };
 
   while (true) {
     if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
@@ -306,31 +327,24 @@ export async function pollUntilIndexed(
     if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
 
     try {
-      const body = JSON.stringify({
-        library: { name: library, site_id: 2, account_key: accountKey, session_id: sessionId },
-        guid_filter: [imageGuid],
-        page_number: 1,
-        per_page: 1,
-      });
-
-      const res = await fetch(`${FW_API_BASE}/V3/list_images`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'web_api_key': FW_WEB_KEY,
-          'app_key': FW_APP_KEY,
-        },
-        body,
-        signal,
-      });
+      const res = await fetch(
+        `https://prod3-api.finerworks.com/api/getallimages?libraryAccountKey=${encodeURIComponent(accountKey)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(postData),
+          signal,
+        }
+      );
 
       const data = await res.json();
-      if (data?.images?.length > 0) {
-        return data.images[0].public_thumbnail_uri as string;
+      const images: any[] = data?.data?.images ?? [];
+      if (images.length > 0) {
+        return images[0].public_thumbnail_uri as string;
       }
     } catch (err: any) {
       if (err?.name === 'AbortError') throw err;
-      // transient error — keep polling
+      // transient network error — keep polling
     }
   }
 }

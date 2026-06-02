@@ -30,7 +30,6 @@ export default function UserAvatar() {
   const ecommerceDisconnectInfo = useAppSelector((state) => state.Ecommerce.status);
   const notificationApi = useNotificationContext();
   const companyInfo = useAppSelector((state) => state.company.company_info);
-  console.log("ecommerceDisconnectInfo", ecommerceDisconnectInfo);
   const wordpressConnectionId = useAppSelector((state) => state.company.wordpress_connection_id);
 
 

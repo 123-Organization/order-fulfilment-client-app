@@ -26,7 +26,7 @@ const QuantityInput: React.FC<QuantityInputProps> = ({
   const quantityUpdated = useAppSelector(
     (state) => state.ProductSlice.quantityUpdated
   );
-  console.log("quantity test", quantity, orderFullFillmentId, product_guid);
+  
   const { status, error } = useAppSelector((state) => state.ProductSlice);
   const notificationApi = useNotificationContext();
   const product_status = useAppSelector((state) => state.ProductSlice.status);
@@ -47,7 +47,7 @@ const QuantityInput: React.FC<QuantityInputProps> = ({
 
     // Store the timer in a ref to avoid race conditions
     const newTimer = setTimeout(() => {
-      console.log("Updating quantity to:", newValue);
+      
 
       dispatch(setQuantityUpdated(true));
 
@@ -90,7 +90,7 @@ const QuantityInput: React.FC<QuantityInputProps> = ({
   // Add useEffect to monitor quantity prop changes
   useEffect(() => {
     if (quantity !== undefined && quantity !== null && quantity !== value) {
-      console.log("Quantity prop changed, updating local state:", quantity);
+      
       setValue(quantity);
     }
   }, [quantity]);

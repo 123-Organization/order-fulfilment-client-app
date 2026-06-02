@@ -58,8 +58,7 @@ const SelectShippingOption: React.FC<{
   productchange,
   clicking,
 }) => {
-  // console.log("popo", poNumber);
-  // console.log("localOrder", localOrder);
+ 
   const dispatch = useAppDispatch();
 
   const orders = useAppSelector((state) => state.order.orders || []);
@@ -67,17 +66,16 @@ const SelectShippingOption: React.FC<{
     (state) => state.Shipping.shippingOptions || []
   );
   const customerinfo = useAppSelector((state) => state.Customer.customer_info);
-  // console.log("shipping_option", shipping_option);
-  // console.log("shipping_option", shipping_option);
+ 
 
   let currentOption = useAppSelector((state) => state.Shipping.currentOption);
-  console.log("currentOption", currentOption);
+ 
 
   const shipping_details = useMemo(
     () => shipping_option?.find((option) => option.order_po === poNumber),
     [shipping_option, poNumber]
   );
-  console.log("shipping_details", shipping_details);
+ 
   const [selectedOption, setSelectedOption] = useState<any>([]);
 
   // Clear local state when currentOption is null (after logout/purge)
@@ -86,8 +84,7 @@ const SelectShippingOption: React.FC<{
       setSelectedOption(null);
     }
   }, [currentOption]);
-  console.log("selectedOptsssssssssssssion", selectedOption);
-  // console.log("pooooo", poNumber);
+ 
   // Set initial preferred option if available
 
   useEffect(() => {
@@ -96,7 +93,7 @@ const SelectShippingOption: React.FC<{
       let currentOrderOption = currentOption?.allOptions?.find(
         (opt: StoredOption) => opt.order_po === poNumber
       );
-      console.log("currentOrderOption", currentOrderOption);
+   
 
       if (currentOrderOption?.selectedOption) {
         // If we have a previously selected option in the store, use that
@@ -104,16 +101,16 @@ const SelectShippingOption: React.FC<{
           (order: any) => order.order_po == poNumber
         )?.shipping_code;
 
-        // console.log("orderShippingCode", orderShippingCode);
+       
         const orderCodeToShippingOption =
           currentOrderOption?.selectedOption?.options?.find(
             (option: ShippingOption) => {
               if (currentOrderOption?.selectedOption?.options?.length > 1) {
                 const isNumeric = !isNaN(Number(orderShippingCode)) && orderShippingCode !== null && orderShippingCode !== '';
-                console.log("isNumeric", isNumeric, orderShippingCode);
+                
                 if (isNumeric) {
                   const numericCode = Number(orderShippingCode);
-                  console.log("numericCode", option);
+                 
 
                   if(option.id === numericCode){
                     return option.id;
@@ -134,7 +131,7 @@ const SelectShippingOption: React.FC<{
         const optionToSet = orderCodeToShippingOption
           ? orderCodeToShippingOption
           : currentOrderOption?.selectedOption;
-          console.log("optionToSet", optionToSet);
+          
 
         setSelectedOption(optionToSet);
 
@@ -144,7 +141,7 @@ const SelectShippingOption: React.FC<{
         ) {
           // Only update the current order's option in the allOptions array
           const existingOptions = currentOption?.allOptions || [];
-          console.log("existingOptions", existingOptions);
+        
           const updatedOptions = existingOptions.map((opt: StoredOption) => {
             if (opt.order_po === poNumber) {
               return {
@@ -161,15 +158,14 @@ const SelectShippingOption: React.FC<{
             })
           );
         }
-        // console.log("firsteval");
-        console.log("currentOrderOption", currentOrderOption);
+       
       } else if (!currentOrderOption?.selectedOption) {
         // If no previously selected option, use the preferred option
-        // console.log("evava", localOrder);
+       
         const shippingOption = shipping_option?.find(
           (option: ShippingOption) => option.order_po == poNumber
         );
-        console.log("shippingOptioeeeeeeen", shippingOption);
+     
         setSelectedOption(shippingOption);
         // console.log("secondeval");
 

@@ -4,8 +4,9 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { googleAuth, openDropboxPicker } from '../services/cloudImportService';
+import { googleAuth, openDropboxPicker, dropboxAuth } from '../services/cloudImportService';
 import GoogleDriveBrowser from './GoogleDriveBrowser';
+import DropboxBrowser from './DropboxBrowser';
 import {
   UPLOAD_CONFIG,
   initiateMultipartUpload,
@@ -95,10 +96,12 @@ const MultiUploadModal: React.FC<MultiUploadModalProps> = ({
 }) => {
   const [tasks, setTasks] = useState<UploadTask[]>([]);
   const [dragging, setDragging] = useState(false);
-  const [cloudLoading,   setCloudLoading]   = useState<'dropbox' | 'google' | null>(null);
-  const [cloudError,     setCloudError]     = useState<string | null>(null);
-  const [googleToken,    setGoogleToken]    = useState<string | null>(null);
-  const [showGooglePanel,setShowGooglePanel] = useState(false);
+  const [cloudLoading,    setCloudLoading]    = useState<'dropbox' | 'google' | null>(null);
+  const [cloudError,      setCloudError]      = useState<string | null>(null);
+  const [googleToken,     setGoogleToken]     = useState<string | null>(null);
+  const [showGooglePanel, setShowGooglePanel] = useState(false);
+  const [dropboxToken,    setDropboxToken]    = useState<string | null>(null);
+  const [showDropboxPanel,setShowDropboxPanel] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const tasksRef = useRef<UploadTask[]>([]);
   const companyInfo = useAppSelector((state) => state.company.company_info.data);
@@ -232,19 +235,27 @@ const MultiUploadModal: React.FC<MultiUploadModalProps> = ({
   const handleDropboxImport = async () => {
     setCloudLoading('dropbox');
     setCloudError(null);
+    setShowGooglePanel(false);
     try {
-      const files = await openDropboxPicker();
-      if (files.length > 0) handleFiles(files);
+      const token = dropboxToken || await dropboxAuth();
+      setDropboxToken(token);
+      setShowDropboxPanel(true);
     } catch (err: any) {
-      setCloudError(err?.message || 'Dropbox import failed');
+      setCloudError(err?.message || 'Dropbox sign-in failed');
     } finally {
       setCloudLoading(null);
     }
   };
 
+  const handleDropboxFiles = (files: File[]) => {
+    if (files.length > 0) handleFiles(files);
+    setShowDropboxPanel(false);
+  };
+
   const handleGoogleDriveImport = async () => {
     setCloudLoading('google');
     setCloudError(null);
+    setShowDropboxPanel(false);
     try {
       const token = googleToken || await googleAuth();
       setGoogleToken(token);
@@ -385,7 +396,13 @@ const MultiUploadModal: React.FC<MultiUploadModalProps> = ({
           </div>
 
           {/* ── Cloud import ── */}
-          {showGooglePanel && googleToken ? (
+          {showDropboxPanel && dropboxToken ? (
+            <DropboxBrowser
+              token={dropboxToken}
+              onFiles={handleDropboxFiles}
+              onClose={() => setShowDropboxPanel(false)}
+            />
+          ) : showGooglePanel && googleToken ? (
             <GoogleDriveBrowser
               token={googleToken}
               onFiles={handleGoogleFiles}

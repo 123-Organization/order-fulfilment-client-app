@@ -38,7 +38,7 @@ const SquarespaceAuthWaiting: React.FC<SquarespaceAuthWaitingProps> = ({
         setMessage('Verifying your credentials...');
 
         const accountKey = customerInfo?.data?.account_key;
-        console.log('🔑 [Squarespace] Account Key:', accountKey);
+        
 
         if (!accountKey) {
           throw new Error('Account key not found. Please log in again.');
@@ -48,7 +48,7 @@ const SquarespaceAuthWaiting: React.FC<SquarespaceAuthWaitingProps> = ({
           throw new Error('No authentication token received from Squarespace.');
         }
 
-        console.log('🔐 [Squarespace] Saving token for account:', accountKey);
+        
 
         // POST the token back to the backend to persist the connection
         const response = await fetch(
@@ -61,7 +61,7 @@ const SquarespaceAuthWaiting: React.FC<SquarespaceAuthWaitingProps> = ({
         );
 
         const data = await response.json().catch(() => ({}));
-        console.log('📦 [Squarespace] Callback response:', data);
+    
 
         if (response.ok) {
           setProgress(100);

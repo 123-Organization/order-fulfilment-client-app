@@ -67,7 +67,7 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
-  console.log("cococ", customerInfo);
+  
 
   const fetchImages = useCallback(
     (page: number, search: string, library: "temporary" | "inventory" = activeLibrary) =>

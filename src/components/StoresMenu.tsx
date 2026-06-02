@@ -33,7 +33,7 @@ const StoresMenu: React.FC<StoresMenuProps> = ({ setMyStores }) => {
         message: "Coming Soon",
         description: "This platform is under development ",
       });
-      console.log("click", e);
+    
     }
   };
   const [clicked, setClicked] = useState(false);

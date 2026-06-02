@@ -49,7 +49,7 @@ export default function FilesGallery({
     (state) => state.Inventory.inventoryImages.loading
   ); // Assume loading state is tracked
   const error = useAppSelector((state) => state.order.error); // Assume error state is tracked
-  console.log(images);
+  
   const [selectedImage, setSelectedImage] = useState(null); // State to store selected image
   const [isConfirmPage, setIsConfirmPage] = useState(false); // State to toggle between gallery and confirm page
   const [selectedCategory, setSelectedCategory] = useState("inventory");
@@ -86,7 +86,7 @@ export default function FilesGallery({
 
   const handleConfirm = () => {
     // Handle confirmation logic here, like updating state or closing the modal
-    console.log("Confirmed image:", selectedImage);
+   
     setOpen(false); // Close modal after confirming
   };
   const onClose = () => {

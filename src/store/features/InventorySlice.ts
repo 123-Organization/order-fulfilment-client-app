@@ -215,6 +215,50 @@ export const exportToWix = createAsyncThunk(
 	},
 );
 
+// Squarespace API base URL
+const SQUARESPACE_API_URL = "https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/";
+
+// Export products to Squarespace
+export const exportToSquarespace = createAsyncThunk(
+	"export/squarespace",
+	async (
+		args: {
+			productsList: any[];
+			accessToken: string;
+			sessionId: string;
+			accountKey: string;
+			currency?: string;
+			siteId?: number;
+		},
+		thunkAPI: any
+	) => {
+		const payload = {
+			access_token: args.accessToken,
+			currency: args.currency || "USD",
+			siteId: args.siteId || 2,
+			session_id: args.sessionId,
+			account_key: args.accountKey,
+			productsList: args.productsList,
+		};
+
+		const response = await fetch(`${SQUARESPACE_API_URL}squarespace/sync-products`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				"Accept": "*/*",
+			},
+			body: JSON.stringify(payload),
+		});
+
+		if (!response.ok) {
+			throw new Error('Failed to export products to Squarespace');
+		}
+
+		const data = await response.json();
+		return data;
+	},
+);
+
 export const updateVirtualInventory = createAsyncThunk(
         "update/virtual/inventory",
         async (args: { data: any }, thunkAPI: any) => {
@@ -371,6 +415,18 @@ export const InventorySlice = createSlice({
 				state.status = "loading";
 			});
 			builder.addCase(exportToWix.rejected, (state, action) => {
+				state.status = "error";
+				state.exportResponse = action.payload;
+			});
+			// Squarespace export handlers
+			builder.addCase(exportToSquarespace.fulfilled, (state, action) => {
+				state.status = "success";
+				state.exportResponse = action.payload;
+			});
+			builder.addCase(exportToSquarespace.pending, (state, action) => {
+				state.status = "loading";
+			});
+			builder.addCase(exportToSquarespace.rejected, (state, action) => {
 				state.status = "error";
 				state.exportResponse = action.payload;
 			});

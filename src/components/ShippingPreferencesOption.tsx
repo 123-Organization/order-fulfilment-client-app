@@ -21,7 +21,7 @@ const ShippingPreferencesOption: React.FC<ShippingPreferencesOptionProps> = ({
   }, [initialValue]);
 
   const handleChange = (e: RadioChangeEvent) => {
-    console.log("radio checked", e.target.value);
+    
     setValue(e.target.value);
     onChange(e.target.value);
   };

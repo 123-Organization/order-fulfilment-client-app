@@ -59,7 +59,7 @@ const ReplacingCode: React.FC<ReplacingCodeProps> = ({
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value?.trim());
-    console.log("inpu", e.target.value);
+
   };
 
   const filterImages = (data: any) => {
@@ -69,13 +69,13 @@ const ReplacingCode: React.FC<ReplacingCodeProps> = ({
   };
 
   const handleReplace = (event: any) => {
-    console.log("Message event:", event.type);
+
 
     try {
       const data = event.data;
-      console.log("dataaa", data);
+
       const filteredImages = filterImages(data);
-      console.log("filteredImages", filteredImages);
+
       dispatch(setSelectedImage(filteredImages));
     } catch (error) {
       console.error("Error parsing message data:", error);
@@ -101,6 +101,7 @@ const ReplacingCode: React.FC<ReplacingCodeProps> = ({
         skuCode: inputValue,
         product_url_file: [],
         product_url_thumbnail: [],
+        account_key: customerInfo.data.account_key,
         toReplace,
         accountId,
       };
@@ -114,7 +115,7 @@ const ReplacingCode: React.FC<ReplacingCodeProps> = ({
         onClose();
       }, 1000);
     } else {
-      console.log("🔄 ReplacingCode - Opening ImageGalleryModal for product code:", inputValue);
+
       setGalleryVisible(true);
     }
   };
@@ -152,7 +153,7 @@ const ReplacingCode: React.FC<ReplacingCodeProps> = ({
         toReplace,
         accountId,
       };
-      console.log("deeeedo", data);
+
       dispatch(setProductData(data));
     }
   }, [SelectedImage, inputValue, orderFullFillmentId]);
@@ -167,8 +168,7 @@ const ReplacingCode: React.FC<ReplacingCodeProps> = ({
     };
   }, []);
 
-  console.log("productDataStatus", productDataStatus);
-  console.log("replaceCodeStatus", replaceCodeStatus);
+
 
   // useEffect(() => {
   //   if (replaceCodeStatus === "succeeded") {

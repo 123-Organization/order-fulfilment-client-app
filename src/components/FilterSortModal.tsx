@@ -27,7 +27,7 @@ const FilterSortModal = ({openModel, setOpen} : FilterSortModalProps) => {
         // values.map((value:any) => value?value:"");
         
         map(values, (val,key) => {
-          console.log('result',val,key);
+          
           if(key==='per_page'){
             values[key] = val?val:"2";
           }
@@ -46,7 +46,7 @@ const FilterSortModal = ({openModel, setOpen} : FilterSortModalProps) => {
           }
         });
         
-        console.log('Success:', values);
+        
         if(values?.filterPerPage){
 
           if(values.dateRange) {
@@ -68,7 +68,7 @@ const FilterSortModal = ({openModel, setOpen} : FilterSortModalProps) => {
 
         
       } catch (errorInfo) {
-        console.log('Failed:', errorInfo);
+        
       }
       setTimeout(() => {
         setLoading(false);

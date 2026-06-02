@@ -26,6 +26,7 @@ import { updateApp, UploadOrdersExcel } from "../store/features/orderSlice";
 import { updateOpenSheet } from "../store/features/orderSlice";
 // import { connectAdvanced } from "react-redux";
 import SpreadSheet from "../components/SpreadSheet";
+import PlatformSettingsModal from "../components/PlatformSettingsModal";
 // Set to true when Shopify integration is fully ready
 const SHOPIFY_ENABLED = true;
 
@@ -68,6 +69,17 @@ const Landing: React.FC = (): JSX.Element => {
   const [lastSquarespaceConnectionData, setLastSquarespaceConnectionData] = useState<string | null>(null);
   const [wixConnectionStatus, setWixConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('idle');
   const [lastWixConnectionData, setLastWixConnectionData] = useState<string | null>(null);
+
+  // ── Order-sync toggle state ──────────────────────────────────────────────
+  const [wixOrderSync, setWixOrderSync] = useState<boolean>(false);
+  const [squarespaceOrderSync, setSquarespaceOrderSync] = useState<boolean>(false);
+  const [shopifyOrderSync, setShopifyOrderSync] = useState<boolean>(false);
+  const [wixOrderSyncLoading, setWixOrderSyncLoading] = useState<boolean>(false);
+  const [squarespaceOrderSyncLoading, setSquarespaceOrderSyncLoading] = useState<boolean>(false);
+  const [shopifyOrderSyncLoading, setShopifyOrderSyncLoading] = useState<boolean>(false);
+  const [wixOrderSyncDisconnecting, setWixOrderSyncDisconnecting] = useState<boolean>(false);
+  const [squarespaceOrderSyncDisconnecting, setSquarespaceOrderSyncDisconnecting] = useState<boolean>(false);
+  const [shopifyOrderSyncDisconnecting, setShopifyOrderSyncDisconnecting] = useState<boolean>(false);
   const [cookies] = useCookies(["Session", "AccountGUID"]);
   const order = useAppSelector((state) => state.order.orders);
   const opensheet = useAppSelector((state) => state.order.openSheet);
@@ -933,6 +945,16 @@ const Landing: React.FC = (): JSX.Element => {
                   shop: shop || "finerworks-dev-store.myshopify.com",
                   access_token: access_token
                 }));
+
+                // Read order_sync initial state from parsed data
+                if (shopifyConnection.data && shopifyConnection.data.trim() !== "") {
+                  try {
+                    const pd = JSON.parse(shopifyConnection.data);
+                    if (pd.order_sync !== undefined) {
+                      setShopifyOrderSync(pd.order_sync === true || pd.order_sync === "true");
+                    }
+                  } catch (_) {}
+                }
               } else {
                 console.log("Setting Shopify status to DISCONNECTED (not connected)");
                 setShopifyConnectionStatus('disconnected');
@@ -977,6 +999,10 @@ const Landing: React.FC = (): JSX.Element => {
                 console.log("Squarespace parsed data:", parsed);
                 if (parsed.isConnected === false || parsed.isConnected === "false") {
                   isConnected = false;
+                }
+                // Read order_sync initial state
+                if (parsed.order_sync !== undefined) {
+                  setSquarespaceOrderSync(parsed.order_sync === true || parsed.order_sync === "true");
                 }
               } catch (e) {
                 console.error("Error parsing Squarespace data:", e);
@@ -1023,6 +1049,10 @@ const Landing: React.FC = (): JSX.Element => {
                 if (parsed.isConnected === false || parsed.isConnected === "false") {
                   isConnected = false;
                 }
+                // Read order_sync initial state
+                if (parsed.order_sync !== undefined) {
+                  setWixOrderSync(parsed.order_sync === true || parsed.order_sync === "true");
+                }
               } catch (e) {
                 console.error("Error parsing Wix data:", e);
               }
@@ -1065,16 +1095,119 @@ const Landing: React.FC = (): JSX.Element => {
 
   const ENABLED = ["WooCommerce", "Excel", "Shopify", "Squarespace", "Wix"];
 
+  // ── Order-sync toggle API call ───────────────────────────────────────────
+  const ORDER_SYNC_PLATFORMS: Record<string, boolean> = { Wix: true, Squarespace: true, Shopify: true };
+  const platformToKey: Record<string, string> = { Wix: "wix", Squarespace: "squarespace", Shopify: "shopify" };
+
+  const handleOrderSyncToggle = async (platform: string, newValue: boolean, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const accountKey = customerInfo?.data?.account_key;
+    if (!accountKey) return;
+
+    const setLoading = platform === "Wix"
+      ? setWixOrderSyncLoading
+      : platform === "Squarespace"
+      ? setSquarespaceOrderSyncLoading
+      : setShopifyOrderSyncLoading;
+
+    const setSync = platform === "Wix"
+      ? setWixOrderSync
+      : platform === "Squarespace"
+      ? setSquarespaceOrderSync
+      : setShopifyOrderSync;
+
+    const setDisconnecting = platform === "Wix"
+      ? setWixOrderSyncDisconnecting
+      : platform === "Squarespace"
+      ? setSquarespaceOrderSyncDisconnecting
+      : setShopifyOrderSyncDisconnecting;
+
+    // When turning OFF, play the disconnect burst animation first
+    if (!newValue) {
+      setDisconnecting(true);
+      await new Promise((r) => setTimeout(r, 560));
+      setDisconnecting(false);
+    }
+
+    setLoading(true);
+    try {
+      // Build request body — Shopify needs storeName + access_token
+      const body: Record<string, any> = {
+        account_key: accountKey,
+        platform: platformToKey[platform],
+        order_sync: newValue,
+      };
+
+      if (platform === "Shopify") {
+        // Read Shopify connection to get shop + access_token
+        const shopifyConn = companyInfo?.connections?.find((c: any) => c.name === "Shopify");
+        let storeName = "";
+        let access_token = shopifyConn?.id || "";
+        if (shopifyConn?.data) {
+          try {
+            const pd = JSON.parse(shopifyConn.data);
+            storeName    = pd.shop         || pd.storeName    || "";
+            access_token = pd.access_token || shopifyConn.id  || "";
+          } catch (_) {}
+        }
+        body.storeName    = storeName;
+        body.access_token = access_token;
+      }
+
+      const res = await fetch(
+        "https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/stores/order-sync",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }
+      );
+      if (!res.ok) throw new Error("API error");
+      setSync(newValue);
+      notificationApi.success({
+        message: `Auto-sync ${newValue ? "enabled" : "disabled"}`,
+        description: `Automatic order sync for ${platform} has been ${newValue ? "turned on" : "turned off"}.`,
+      });
+    } catch {
+      notificationApi.error({
+        message: "Sync toggle failed",
+        description: "Could not update the automatic order sync setting. Please try again.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Per-platform disconnect handler (passed into PlatformSettingsModal) ──
+  const handlePlatformDisconnected = (platformName: string) => {
+    if (platformName === "Wix") setWixConnectionStatus("disconnected");
+    if (platformName === "Squarespace") setSquarespaceConnectionStatus("disconnected");
+    if (platformName === "Shopify") setShopifyConnectionStatus("disconnected");
+    if (platformName === "WooCommerce") dispatch(setConnectionVerificationStatus("disconnected"));
+  };
+
   return (
     <div style={{ minHeight: "100%", background: isDark ? "#080c14" : "linear-gradient(135deg,#f0f4ff 0%,#fafbff 60%,#f4f8ff 100%)", padding: "40px 32px 60px" }}>
       <style>{`
-        @keyframes lp-fade { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:none} }
-        @keyframes lp-pop  { 0%{transform:scale(.94)} 100%{transform:scale(1)} }
-        .lp-card { transition: box-shadow .22s ease, transform .22s ease, border-color .22s ease; animation: lp-fade .3s ease both; }
-        .lp-card:hover { box-shadow: 0 16px 48px rgba(0,0,0,.13) !important; transform: translateY(-4px) !important; }
+        @keyframes lp-fade   { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:none} }
+        @keyframes lp-pop    { 0%{transform:scale(.94)} 100%{transform:scale(1)} }
+        @keyframes lp-badge  { from{opacity:0;transform:scale(.7)} to{opacity:1;transform:scale(1)} }
+        @keyframes gear-float { 0%,100%{transform:translateY(0px) rotate(0deg)} 50%{transform:translateY(-3px) rotate(8deg)} }
+        .lp-card {
+          transition: box-shadow .22s ease, transform .22s ease, border-color .22s ease;
+          animation: lp-fade .3s ease both;
+          position: relative;
+          z-index: 1;
+          will-change: transform;
+        }
+        .lp-card:hover {
+          box-shadow: 0 16px 48px rgba(0,0,0,.18) !important;
+          transform: translateY(-5px) !important;
+          z-index: 10;
+        }
         .lp-card:hover .lp-logo { transform: scale(1.08); }
         .lp-logo { transition: transform .25s ease; }
-        .lp-card:active { transform: translateY(-1px) scale(.98) !important; }
+        .lp-card:active { transform: translateY(-1px) scale(.98) !important; z-index: 10; }
       `}</style>
 
       {/* ── Page header ── */}
@@ -1094,11 +1227,16 @@ const Landing: React.FC = (): JSX.Element => {
         display: "grid",
         gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
         gap: 20,
+        overflow: "visible",
+        padding: "16px 16px 16px",
       }}>
         {images.map((image, i) => {
           const status   = getStatus(image.name);
           const enabled  = ENABLED.includes(image.name);
           const isConnected    = status === "connected";
+          const hasOrderSync   = ORDER_SYNC_PLATFORMS[image.name] === true;
+          const orderSyncOn    = image.name === "Wix" ? wixOrderSync    : image.name === "Shopify" ? shopifyOrderSync    : squarespaceOrderSync;
+          const orderSyncLoad  = image.name === "Wix" ? wixOrderSyncLoading : image.name === "Shopify" ? shopifyOrderSyncLoading : squarespaceOrderSyncLoading;
           const isVerifying    = status === "verifying";
           const isDisconnected = status === "disconnected";
 
@@ -1127,26 +1265,40 @@ const Landing: React.FC = (): JSX.Element => {
                 animationDelay: `${i * 0.04}s`,
               }}
             >
-              {/* Status pill */}
+              {/* ── Status badge — top LEFT ── */}
               {isVerifying && (
-                <span style={{ position: "absolute", top: 12, right: 12, background: "#dbeafe", color: "#1d4ed8", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 999, letterSpacing: .3, animation: "lp-pop .6s ease infinite alternate" }}>
+                <span style={{ position: "absolute", top: 12, left: 12, background: "#dbeafe", color: "#1d4ed8", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 999, letterSpacing: .3, animation: "lp-pop .6s ease infinite alternate" }}>
                   VERIFYING
                 </span>
               )}
               {isConnected && (
-                <span style={{ position: "absolute", top: 12, right: 12, background: "#dcfce7", color: "#15803d", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 999, letterSpacing: .3 }}>
+                <span style={{ position: "absolute", top: 12, left: 12, background: "#dcfce7", color: "#15803d", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 999, letterSpacing: .3, animation: "lp-badge .3s ease both" }}>
                   ✓ CONNECTED
                 </span>
               )}
               {isDisconnected && enabled && image.name !== "Excel" && (
-                <span style={{ position: "absolute", top: 12, right: 12, background: "#fee2e2", color: "#b91c1c", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 999, letterSpacing: .3 }}>
+                <span style={{ position: "absolute", top: 12, left: 12, background: "#fee2e2", color: "#b91c1c", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 999, letterSpacing: .3 }}>
                   DISCONNECTED
                 </span>
               )}
               {!enabled && (
-                <span style={{ position: "absolute", top: 12, right: 12, background: "#f3f4f6", color: "#9ca3af", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 999, letterSpacing: .3 }}>
+                <span style={{ position: "absolute", top: 12, right: 12, background: isDark ? "#1a2a40" : "#f3f4f6", color: isDark ? "#3a5070" : "#9ca3af", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 999, letterSpacing: .3 }}>
                   SOON
                 </span>
+              )}
+
+              {/* ── Gear settings modal — top RIGHT corner, only when connected ── */}
+              {isConnected && image.name !== "Excel" && (
+                <PlatformSettingsModal
+                  platform={image.name}
+                  hasOrderSync={hasOrderSync}
+                  orderSyncOn={orderSyncOn}
+                  orderSyncLoading={orderSyncLoad}
+                  orderSyncDisconnecting={image.name === "Wix" ? wixOrderSyncDisconnecting : image.name === "Shopify" ? shopifyOrderSyncDisconnecting : squarespaceOrderSyncDisconnecting}
+                  onOrderSyncToggle={(val, e) => handleOrderSyncToggle(image.name, val, e)}
+                  onDisconnected={() => handlePlatformDisconnected(image.name)}
+                  isDark={isDark}
+                />
               )}
 
               {/* Logo */}

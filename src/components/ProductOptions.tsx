@@ -41,8 +41,8 @@ export default function ProductOptions({ id, recipient, onProductCodeUpdate , se
   const productDatastat = useAppSelector((state) => state.order.productDataStatus);
   const firstRender = useRef(true);
   const validSKU = useAppSelector((state) => state.order.validSKU);
-  console.log("imagesss", images);
-console.log("prods", productDatastat)
+ 
+ 
   const [cookies, setCookie, removeCookie] = useCookies(["session_id", "AccountGUID", "ofa_product"]);
   const postSettings = {
           "settings": {
@@ -65,7 +65,6 @@ encodeURIComponent(JSON.stringify(postSettings));
 //use effect for parsing the cookie returned 
 useEffect(() => {
   const ofaProduct = cookies?.ofa_product;
-  console.log("ofaProduct", ofaProduct);
 
   // Only proceed if we have a valid ofa_product cookie
   if (ofaProduct && Array.isArray(ofaProduct) && ofaProduct.length > 0) {
@@ -83,8 +82,6 @@ useEffect(() => {
       };
       return postData;
     });
-
-    console.log("mapp", mappedData);
     
     if (mappedData.length > 0) {
       dispatch(AddProductToOrder(mappedData[0]));

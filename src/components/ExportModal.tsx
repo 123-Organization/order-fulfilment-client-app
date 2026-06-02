@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Modal, Button, Input, Tag, Spin } from "antd";
 import { useAppDispatch, useAppSelector } from "../store";
+import { useCookies } from "react-cookie";
 
 import bigcommerce from "../assets/images/store-bigcommerce.svg";
 import etsy from "../assets/images/store-etsy.svg";
@@ -10,7 +11,7 @@ import square from "../assets/images/store-square.svg";
 import squarespace from "../assets/images/store-squarespace.svg";
 import wix from "../assets/images/store-wix.svg";
 import woocommerce from "../assets/images/store-woocommerce.svg";
-import { exportOrders, exportToShopify, exportToWix } from "../store/features/InventorySlice";
+import { exportOrders, exportToShopify, exportToWix, exportToSquarespace } from "../store/features/InventorySlice";
 import { useNotificationContext } from "../context/NotificationContext";
 import { inventorySelectionClean } from "../store/features/InventorySlice";
 import { resetStatus } from "../store/features/InventorySlice";
@@ -49,6 +50,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
     onClose();
   };
   const companyInfo = useAppSelector((state) => state.company.company_info);
+  const [cookies] = useCookies(["Session", "AccountGUID"]);
   const [selected, setSelected] = useState<string | null>(null);
   const [wooConnected, setWooConnected] = useState<string>("Disconnected");
   const [shopifyConnected, setShopifyConnected] = useState<string>("Disconnected");
@@ -56,6 +58,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
   const [wixConnected, setWixConnected] = useState<string>("Disconnected");
   const [wixConnectionData, setWixConnectionData] = useState<{ access_token: string } | null>(null);
   const [squarespaceConnected, setSquarespaceConnected] = useState<string>("Disconnected");
+  const [squarespaceConnectionData, setSquarespaceConnectionData] = useState<{ access_token: string } | null>(null);
   const [variantModalVisible, setVariantModalVisible] = useState(false);
   const [variantGroups, setVariantGroups] = useState<any[]>([]);
   const [pendingExportPlatform, setPendingExportPlatform] = useState<string | null>(null);
@@ -65,8 +68,8 @@ const ExportModal: React.FC<ExportModalProps> = ({
   );
   const wordpressConnectionId = useAppSelector((state) => state.company.wordpress_connection_id);
   const accountKey = companyInfo?.data?.account_key || "";
-
   
+
 
   const exportStatus = useAppSelector((state) => state.Inventory.status);
 
@@ -273,6 +276,14 @@ const ExportModal: React.FC<ExportModalProps> = ({
         accountKey: accountKey,
       }));
       dispatch(resetStatus());
+    } else if (pendingExportPlatform === "Squarespace" && squarespaceConnectionData) {
+      await dispatch(exportToSquarespace({
+        productsList: formattedProductsList,
+        accessToken: squarespaceConnectionData.access_token,
+        sessionId: cookies.Session || "",
+        accountKey: accountKey,
+      }));
+      dispatch(resetStatus());
     }
     
     setPendingExportPlatform(null);
@@ -298,6 +309,14 @@ const ExportModal: React.FC<ExportModalProps> = ({
       await dispatch(exportToWix({
         productList: inventorySelection,
         accessToken: wixConnectionData.access_token,
+        accountKey: accountKey,
+      }));
+      dispatch(resetStatus());
+    } else if (pendingExportPlatform === "Squarespace" && squarespaceConnectionData) {
+      await dispatch(exportToSquarespace({
+        productsList: inventorySelection,
+        accessToken: squarespaceConnectionData.access_token,
+        sessionId: cookies.Session || "",
         accountKey: accountKey,
       }));
       dispatch(resetStatus());
@@ -441,12 +460,44 @@ const ExportModal: React.FC<ExportModalProps> = ({
         description: `Please connect to Wix to export products`,
       });
     }
-    // Handle Squarespace — connection status is shown but export is not yet available
+    // Handle Squarespace Export
     else if (imgname === "Squarespace" && squarespaceConnected === "Connected") {
-      notificationApi.warning({
-        message: "Export to Squarespace Coming Soon",
-        description: `Squarespace export is not yet supported. Please check back for updates.`,
-      });
+      const exportedProducts = inventorySelection.filter(
+        (product: any) => product.third_party_integrations?.squarespace_product_id
+      );
+
+      if (exportedProducts.length > 0) {
+        notificationApi.warning({
+          message: "Products Already Exported",
+          description: `${exportedProducts.length} product(s) have already been exported to Squarespace. Please select only unexported products.`,
+        });
+        return;
+      }
+
+      if (!squarespaceConnectionData) {
+        notificationApi.error({
+          message: "Squarespace Connection Error",
+          description: "Could not retrieve Squarespace connection details.",
+        });
+        return;
+      }
+
+      const { hasVariants: hasSqVariants, variantGroups: detectedSqVariants, standaloneProducts: detectedSqStandalones } = detectProductsWithVariants(inventorySelection);
+      if (hasSqVariants) {
+        setVariantGroups(detectedSqVariants);
+        setStandaloneProducts(detectedSqStandalones);
+        setPendingExportPlatform("Squarespace");
+        setVariantModalVisible(true);
+        return;
+      }
+
+      await dispatch(exportToSquarespace({
+        productsList: inventorySelection,
+        accessToken: squarespaceConnectionData.access_token,
+        sessionId: cookies.Session || "",
+        accountKey: accountKey,
+      }));
+      dispatch(resetStatus());
     }
     else if (imgname === "Squarespace" && squarespaceConnected === "Disconnected") {
       notificationApi.error({
@@ -534,8 +585,22 @@ const ExportModal: React.FC<ExportModalProps> = ({
       let squarespaceObj = find(companyInfo.data.connections, {"name":"Squarespace"});
       if (squarespaceObj?.name) {
         setSquarespaceConnected("Connected");
+        // The access token is stored in the .id field (same as Shopify/Wix pattern)
+        const accessToken = squarespaceObj.id || "";
+        if (accessToken) {
+          setSquarespaceConnectionData({ access_token: accessToken });
+        } else {
+          // Try parsing from data field
+          try {
+            const sqData = JSON.parse(squarespaceObj.data || "{}");
+            setSquarespaceConnectionData({ access_token: sqData.access_token || "" });
+          } catch {
+            setSquarespaceConnectionData(null);
+          }
+        }
       } else {
         setSquarespaceConnected("Disconnected");
+        setSquarespaceConnectionData(null);
       }
     }
   }, [companyInfo]);
