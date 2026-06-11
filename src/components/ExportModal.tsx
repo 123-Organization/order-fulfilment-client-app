@@ -516,10 +516,31 @@ const ExportModal: React.FC<ExportModalProps> = ({
 
   useEffect(() => {
     if (exportStatus === "success") {
-      notificationApi.success({
-        message: "Products Exported Successfully",
-        description: `${inventorySelection.length} products exported  `,
-      });
+      // Use the report object from the API response for accurate counts
+      const report = exportResponse?.report;
+      const uploaded = report?.uploaded ?? inventorySelection.length;
+      const failed   = report?.failed   ?? 0;
+
+      if (failed > 0 && uploaded > 0) {
+        // Partial success — some exported, some failed
+        notificationApi.warning({
+          message: "Products Partially Exported",
+          description: `${uploaded} product(s) exported successfully, ${failed} product(s) failed to export.`,
+        });
+      } else if (failed > 0 && uploaded === 0) {
+        // All failed
+        notificationApi.error({
+          message: "Products Export Failed",
+          description: `${failed} product(s) failed to export.`,
+        });
+      } else {
+        // All succeeded
+        notificationApi.success({
+          message: "Products Exported Successfully",
+          description: `${uploaded} product(s) exported successfully.`,
+        });
+      }
+
       onClose();
       dispatch(inventorySelectionClean());
       setSelected(null);
@@ -528,9 +549,11 @@ const ExportModal: React.FC<ExportModalProps> = ({
         onExportSuccess();
       }
     } else if (exportStatus === "error") {
+      const report = exportResponse?.report;
+      const failed = report?.failed ?? inventorySelection.length;
       notificationApi.error({
         message: "Products Export Failed",
-        description: `${inventorySelection.length} products failed to export  `,
+        description: `${failed} product(s) failed to export.`,
       });
     }
   }, [exportStatus, notificationApi]);

@@ -484,13 +484,13 @@ const SelectShippingOption: React.FC<{
         </Form.Item>
       </Form>
 
-      <div className="w-full text-sm pt-5"></div>
-      <div className="w-full text-sm">Sub Total: ${subTotal.toFixed(2)}</div>
-      <div className="w-full text-sm">Discount: (${discount.toFixed(2)})</div>
-      <div className="w-full text-sm">Shipping: ${shipping.toFixed(2)}</div>
-      <div className="w-full text-sm">Sales Tax: ${salesTax.toFixed(2)}</div>
-      <div className="w-full text-sm">GrandTotal: ${grandTotal}</div>
-      {/* <div className="w-full text-sm text-amber-500">Account Credit: ${accountCredit}</div> */}
+      <div className="w-full pt-3"></div>
+      <div className="w-full text-[12px] text-gray-700 leading-tight"><span className="text-blue-600 font-medium">Sub Total:</span> ${subTotal.toFixed(2)}</div>
+      <div className="w-full text-[12px] text-gray-700 leading-tight"><span className="text-blue-600 font-medium">Discount:</span> (${discount.toFixed(2)})</div>
+      <div className="w-full text-[12px] text-gray-700 leading-tight"><span className="text-blue-600 font-medium">Shipping:</span> ${shipping.toFixed(2)}</div>
+      <div className="w-full text-[12px] text-gray-700 leading-tight"><span className="text-blue-600 font-medium">Sales Tax:</span> ${salesTax.toFixed(2)}</div>
+      <div className="w-full text-[12px] text-gray-700 leading-tight"><span className="text-blue-600 font-medium">Grand Total:</span> ${grandTotal}</div>
+      {/* <div className="w-full text-[12px] text-gray-700 leading-tight"><span className="text-amber-500 font-medium">Account Credit:</span> ${accountCredit}</div> */}
     </>
   );
 };

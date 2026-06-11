@@ -177,6 +177,9 @@ const ImportFilter: React.FC = () => {
     console.log('getWporder', values);
     if (values && values.length > 0) {
       dispatch(updateWporder(values.join(',') as any));
+    } else {
+      // Clear the stored order number so the Next button falls back to date-based import
+      dispatch(updateWporder('' as any));
     }
   };
 

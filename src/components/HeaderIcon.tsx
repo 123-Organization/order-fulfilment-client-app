@@ -164,7 +164,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                location.pathname === "/checkout" ? "Checkout" :
                location.pathname === "/importfilter" ? "Import Orders" :
                location.pathname.includes("/editorder") ? "Edit Order" :
-               "Dashboard"}
+               ""}
             </h1>
             {location.pathname === "/importlist" && (
               <span className="px-3 py-1 bg-blue-50 text-blue-600 text-sm font-medium rounded-full whitespace-nowrap">
@@ -466,6 +466,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
             <span className="text-center leading-tight mt-0.5 font-medium">Sync Products</span>
           </button>
 
+
           {/* Disconnect Platform */}
           <button
             type="button"
@@ -473,6 +474,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
             onClick={() => setDisconnectModalVisible(true)}
             title="Disconnect Platform"
           >
+
             <div className="p-1.5 rounded-lg group-hover:bg-red-100 transition-all duration-200">
               <svg
                 xmlns="http://www.w3.org/2000/svg"

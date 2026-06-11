@@ -26,7 +26,7 @@ interface ProductOptionsProps {
   localorder: any;
 }
 
-export default function ProductOptions({ id, recipient, onProductCodeUpdate , setOpenModal, localorder}: ProductOptionsProps) {
+export default function ProductOptions({ id, recipient, onProductCodeUpdate, setOpenModal, localorder }: ProductOptionsProps) {
   const [popupVisible, setPopupVisible] = useState(false);
   const [PostModalVisible, setPostModalVisible] = useState(false);
   const [virtualINv, setVirtualInv] = useState(false);
@@ -41,60 +41,89 @@ export default function ProductOptions({ id, recipient, onProductCodeUpdate , se
   const productDatastat = useAppSelector((state) => state.order.productDataStatus);
   const firstRender = useRef(true);
   const validSKU = useAppSelector((state) => state.order.validSKU);
- 
- 
+
+
   const [cookies, setCookie, removeCookie] = useCookies(["session_id", "AccountGUID", "ofa_product"]);
   const postSettings = {
-          "settings": {
-                  "guid": "",
-                  "session_id": cookies.session_id,
-                  "account_key": cookies.AccountGUID  ,
-                  "multiselect": true,
-                  "libraries": ["inventory","temporary"],
-                  "domain": "finerworks.com",
-                  "terms_of_service_url": "/terms.aspx",
-                  "button_text": "Add Selected",
-                  "account_id": customerInfo?.data?.account_id,
-                  "ReturnUrl": window.location.href,
-          }
-  }
-const encodedURI =
-"https://finerworks.com/apps/orderform/post4.aspx?source=ofa&settings=" +
-encodeURIComponent(JSON.stringify(postSettings));
-
-//use effect for parsing the cookie returned 
-useEffect(() => {
-  const ofaProduct = cookies?.ofa_product;
-
-  // Only proceed if we have a valid ofa_product cookie
-  if (ofaProduct && Array.isArray(ofaProduct) && ofaProduct.length > 0) {
-    const mappedData = ofaProduct.map((item:any) => {
-      const postData = {
-        productCode: item.product_code,
-        product_url_file: [item.thumbnail_url],
-        product_url_thumbnail: [item.thumbnail_url],
-        product_guid :item.id,
-        skuCode: "",
-        pixel_width: 1200,
-        pixel_height: 900,
-        orderFullFillmentId: id,
-        account_key: cookies.AccountGUID,
-      };
-      return postData;
-    });
-    
-    if (mappedData.length > 0) {
-      dispatch(AddProductToOrder(mappedData[0]));
-      // Remove cookie using document.cookie
-      dispatch(updateValidSKU([...validSKU, mappedData[0].productCode]));
+    "settings": {
+      "guid": "",
+      "session_id": cookies.session_id,
+      "account_key": cookies.AccountGUID,
+      "multiselect": true,
+      "libraries": ["inventory", "temporary"],
+      "domain": "finerworks.com",
+      "terms_of_service_url": "/terms.aspx",
+      "button_text": "Add Selected",
+      "account_id": customerInfo?.data?.account_id,
+      "ReturnUrl": "https://local.finerworks.com:3000/#/" + window.location.hash,
     }
   }
-}, []); // Removed removeCookie since we're not using it anymore
+  const encodedURI =
+    "https://post5.finerworks.com/?source=ofa&settings=" +
+    encodeURIComponent(JSON.stringify(postSettings));
 
-// Handle success/error notifications in a separate effect
-useEffect(() => {
-  if(productDatastat === "succeeded") {
-    document.cookie = "ofa_product=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+  const cookiePollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Start polling for ofa_product cookie once the popup is opened
+  const startCookiePolling = () => {
+    if (cookiePollingRef.current) clearInterval(cookiePollingRef.current);
+
+    cookiePollingRef.current = setInterval(() => {
+      const rawCookie = document.cookie
+        .split("; ")
+        .find(row => row.startsWith("ofa_product="));
+
+      if (!rawCookie) return;
+
+      try {
+        const rawValue = rawCookie.split("=").slice(1).join("=");
+        const ofaProduct = JSON.parse(decodeURIComponent(rawValue));
+
+        if (Array.isArray(ofaProduct) && ofaProduct.length > 0) {
+          const item = ofaProduct[0];
+          const postData = {
+            productCode: item.product_code,
+            product_url_file: [item.thumbnail_url],
+            product_url_thumbnail: [item.thumbnail_url],
+            product_guid: item.id,
+            skuCode: "",
+            pixel_width: 1200,
+            pixel_height: 900,
+            orderFullFillmentId: id,
+            account_key: cookies.AccountGUID,
+            qty: item.qty ?? 1,
+            mode: item.mode,
+          };
+
+          // Stop polling before async work
+          clearInterval(cookiePollingRef.current!);
+          cookiePollingRef.current = null;
+
+          // Clear the cookie
+          document.cookie = "ofa_product=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+          document.cookie = "ofa_product=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.finerworks.com";
+          document.cookie = "ofa_product=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=finerworks.com";
+
+          dispatch(AddProductToOrder(postData));
+          dispatch(updateValidSKU([...validSKU, postData.productCode]));
+        }
+      } catch (e) {
+        console.error("[ofa_product] Cookie parse error:", e);
+      }
+    }, 1500);
+  };
+
+  // Cleanup poller on unmount
+  useEffect(() => {
+    return () => {
+      if (cookiePollingRef.current) clearInterval(cookiePollingRef.current);
+    };
+  }, []);
+
+  // Handle success/error notifications in a separate effect
+  useEffect(() => {
+    if (productDatastat === "succeeded") {
+      document.cookie = "ofa_product=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
       // Also try with domain
       document.cookie = "ofa_product=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.finerworks.com";
       document.cookie = "ofa_product=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=finerworks.com";
@@ -105,16 +134,16 @@ useEffect(() => {
         });
         firstRender.current = false;
       }
-    onProductCodeUpdate();
-    
-    dispatch(resetProductDataStatus());
-  } else if(productDatastat === "failed") {
-    notificationApi.error({
-      message: "Product Addition Failed",
-      description: "Product addition failed",
-    });
-  }
-}, [productDatastat, notificationApi]);
+      onProductCodeUpdate();
+
+      dispatch(resetProductDataStatus());
+    } else if (productDatastat === "failed") {
+      notificationApi.error({
+        message: "Product Addition Failed",
+        description: "Product addition failed",
+      });
+    }
+  }, [productDatastat, notificationApi]);
 
   const items: MenuProps["items"] = [
     {
@@ -123,7 +152,8 @@ useEffect(() => {
         <p
           className="text-sm font-mono  flex gap-1 "
           onClick={() => {
-            window.location.href = encodedURI;
+            window.open(encodedURI, "_blank");
+            startCookiePolling();
           }}
         >
           Create New

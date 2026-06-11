@@ -11,6 +11,7 @@ import {
   resetReplaceCodeStatus,
   updateCheckedOrders,
   deleteOrder,
+  AddProductToOrder,
 } from "../store/features/orderSlice";
 import { fetchOrder } from "../store/features/orderSlice";
 import { fetchShippingOption } from "../store/features/shippingSlice";
@@ -111,6 +112,9 @@ const ImportList: React.FC = () => {
   const [addProductDropdownVisible, setAddProductDropdownVisible] = useState<string | null>(null);
   const [currentOrderForAddProduct, setCurrentOrderForAddProduct] = useState<string>("");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  // Tracks which order is waiting for a product to be added via post5 popup
+  const pendingNewProductOrderId = useRef<string | null>(null);
+  const cookiePollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // State for product deletion within an order
   const [productDeleteModalVisible, setProductDeleteModalVisible] = useState(false);
   const [productToDelete, setProductToDelete] = useState<{ product_guid: string; orderFullFillmentId: string; order_po: string } | null>(null);
@@ -174,6 +178,84 @@ const ImportList: React.FC = () => {
   // Search functionality
   const { searchTerm } = useSearch();
 
+  // Starts polling document.cookie every 1.5 s for the ofa_product cookie.
+  // Once found, dispatches AddProductToOrder for the pending order and clears the cookie.
+  const startCookiePolling = (orderFullFillmentId: string) => {
+    // Stop any previously running poller
+    if (cookiePollingRef.current) clearInterval(cookiePollingRef.current);
+    pendingNewProductOrderId.current = orderFullFillmentId;
+
+    cookiePollingRef.current = setInterval(() => {
+      // Read raw cookie string to bypass the react-cookie cache
+      const rawCookie = document.cookie
+        .split("; ")
+        .find(row => row.startsWith("ofa_product="));
+
+      if (!rawCookie) return; // not set yet
+
+      try {
+        const rawValue = rawCookie.split("=").slice(1).join("=");
+        const ofaProduct = JSON.parse(decodeURIComponent(rawValue));
+
+        if (Array.isArray(ofaProduct) && ofaProduct.length > 0 && pendingNewProductOrderId.current) {
+          const item = ofaProduct[0];
+          const postData = {
+            productCode: item.product_code,
+            product_url_file: [item.thumbnail_url],
+            product_url_thumbnail: [item.thumbnail_url],
+            product_guid: item.id,
+            skuCode: "",
+            pixel_width: 1200,
+            pixel_height: 900,
+            orderFullFillmentId: pendingNewProductOrderId.current,
+            account_key: cookies.AccountGUID,
+            qty: item.qty ?? 1,
+            mode: item.mode,
+          };
+
+          // Stop polling immediately before async work
+          clearInterval(cookiePollingRef.current!);
+          cookiePollingRef.current = null;
+          pendingNewProductOrderId.current = null;
+
+          // Clear the cookie
+          document.cookie = "ofa_product=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+          document.cookie = "ofa_product=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.finerworks.com";
+          document.cookie = "ofa_product=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=finerworks.com";
+
+          dispatch(AddProductToOrder(postData)).then((result: any) => {
+            if (AddProductToOrder.fulfilled.match(result)) {
+              notificationApi.success({
+                message: "Product Added",
+                description: "Product has been successfully added to the order.",
+              });
+              dispatch(updateValidSKU([...validSKUs, postData.productCode]));
+              // Refresh orders list
+              setTimeout(() => {
+                dispatch(fetchOrder(customerInfo?.data?.account_id));
+                setOrderPostData([]);
+              }, 500);
+            } else {
+              notificationApi.error({
+                message: "Product Addition Failed",
+                description: "Could not add the product to the order.",
+              });
+            }
+          });
+        }
+      } catch (e) {
+        console.error("[ofa_product] Cookie parse error:", e);
+      }
+    }, 1500);
+  };
+
+  // Cleanup poller on unmount
+  useEffect(() => {
+    return () => {
+      if (cookiePollingRef.current) clearInterval(cookiePollingRef.current);
+    };
+  }, []);
+
   const getAddProductMenuItems = (orderFullFillmentId: string): MenuProps["items"] => {
     const postSettings = {
       "settings": {
@@ -186,11 +268,11 @@ const ImportList: React.FC = () => {
         "terms_of_service_url": "/terms.aspx",
         "button_text": "Add Selected",
         "account_id": customerInfo?.data?.account_id,
-        "ReturnUrl": window.location.href,
+        "ReturnUrl": "https://local.finerworks.com:3000" + window.location.hash,
       }
     };
     const encodedURI =
-      "https://finerworks.com/apps/orderform/post4.aspx?source=ofa&settings=" +
+      "https://post5.finerworks.com/?source=ofa&settings=" +
       encodeURIComponent(JSON.stringify(postSettings));
 
     return [
@@ -200,7 +282,9 @@ const ImportList: React.FC = () => {
           <div
             className="flex items-center gap-3 px-2 py-1.5 text-gray-700 hover:text-emerald-600 transition-colors duration-200 cursor-pointer"
             onClick={() => {
+              // Open the popup and start polling for the cookie response
               window.open(encodedURI, "_blank");
+              startCookiePolling(orderFullFillmentId);
               setAddProductDropdownVisible(null);
             }}
           >
@@ -953,6 +1037,87 @@ const ImportList: React.FC = () => {
 
   const { isDark } = useTheme();
 
+  // Returns an SVG icon element for the given order source platform
+  const getPlatformIcon = (source: string) => {
+    const s = (source || "").toLowerCase();
+
+    if (s.includes("squarespace")) {
+      return (
+        <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18 }}>
+          <path d="M12.001 0C5.373 0 0 5.373 0 12s5.373 12 12.001 12C18.627 24 24 18.627 24 12S18.627 0 12.001 0zm5.908 7.387a1.377 1.377 0 01-.403.977L8.364 17.506a1.382 1.382 0 01-1.953-1.953l9.142-9.143a1.381 1.381 0 011.953 1.953l-.006.006.409-.409-.006.006zm-1.818 8.154l-1.378 1.378-6.208-6.208 1.378-1.378 6.208 6.208zm-7.588 2.068a1.381 1.381 0 010-1.953l1.033-1.033 1.953 1.953-1.033 1.033a1.381 1.381 0 01-1.953 0zm9.54-9.541a1.381 1.381 0 010-1.953l-.975.975a1.381 1.381 0 011.952 1.952l.975-.974a1.381 1.381 0 01-1.953 0z"/>
+        </svg>
+      );
+    }
+
+    if (s.includes("shopify")) {
+      return (
+        <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18 }}>
+          <path d="M15.337.009c-.074-.003-.154.022-.22.073l-1.01.76c-.167-.498-.41-.956-.73-1.33C12.77-1.166 11.82-1.5 10.84-1.5c-.013 0-.027 0-.04.002-.09.004-.18.024-.266.058C10.48-1.567 9.43-2 8.31-2c-.864 0-1.67.264-2.353.763-.683.5-1.21 1.196-1.522 2.01a8.29 8.29 0 00-.26 1.004l-.06.382C2.34 2.46.87 3.58.42 5.14L.002 6.73a.34.34 0 00.229.41l1.064.306v11.96a.34.34 0 00.34.34h16.5a.34.34 0 00.34-.34V7.856l1.064-.306a.34.34 0 00.23-.41L19.36 5.56c-.41-1.453-1.71-2.526-3.27-2.78l-.05-.334a7.67 7.67 0 00-.703-2.437zm-4.497 1.96c.307.345.533.77.672 1.272l-3.24 2.437a8.47 8.47 0 01-.14-.946 6.15 6.15 0 01-.027-.692c0-.596.075-1.145.216-1.621.135-.462.323-.83.547-1.09.11-.126.226-.222.342-.286.116-.064.234-.097.355-.1.404-.01.842.21 1.275 1.026zm-2.86-.693c-.166.192-.314.432-.44.716-.215.484-.357 1.082-.413 1.753a9.17 9.17 0 00.01 1.15l-1.62 1.22c.043-.412.126-.8.244-1.153a4.6 4.6 0 011.012-1.69 3.57 3.57 0 011.207-.996zm6.77 3.09l-8.28 6.23a.34.34 0 01-.54-.275V9.42a.34.34 0 01.136-.274l8.684-6.534v1.754zm1.01 12.64H8.31v-6.81l5.96-4.485v11.295h2.49z"/>
+        </svg>
+      );
+    }
+
+    if (s.includes("wix")) {
+      return (
+        <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18 }}>
+          <path d="M12.648 7.662l-1.514 8.676-1.017-4.795c-.156-.75-.42-1.244-.79-1.484-.37-.24-.888-.361-1.553-.361l-1.37 6.64L4.89 7.662H3l2.254 8.676c.156.735.435 1.23.837 1.484.403.254.94.36 1.614.31.686-.05 1.185-.217 1.499-.5.314-.285.55-.763.706-1.434l.945-4.49.946 4.49c.156.671.392 1.15.706 1.434.314.283.813.45 1.499.5.673.05 1.21-.056 1.613-.31.403-.254.681-.749.837-1.484L18.65 7.662H16.76l-1.506 8.578-1.072-6.64c-.12-.567-.314-.966-.58-1.2-.266-.235-.648-.352-1.145-.352-.498 0-.88.117-1.146.352-.265.234-.46.633-.58 1.2l-1.073 6.64-1.01-8.578z"/>
+        </svg>
+      );
+    }
+
+    if (s.includes("woocommerce") || s.includes("wordpress")) {
+      return (
+        <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18 }}>
+          <path d="M2.047 5.357C1.2 6.523.778 7.912.778 9.524c0 2.04.554 3.722 1.66 5.045L.013 20.03h3.838l1.23-3.494h7.03l1.23 3.494h3.838l-2.426-5.461c1.106-1.323 1.66-3.004 1.66-5.045 0-1.612-.422-3.001-1.27-4.167C14.158 4.19 13.085 3.5 11.8 3.5H4.52c-1.285 0-2.358.69-3.144 1.857zm1.836 1.37c.4-.567.94-.85 1.623-.85h7.225c.683 0 1.223.283 1.623.85.4.567.6 1.276.6 2.127 0 .851-.2 1.56-.6 2.127-.4.567-.94.85-1.623.85H5.506c-.683 0-1.223-.283-1.623-.85-.4-.567-.6-1.276-.6-2.127 0-.851.2-1.56.6-2.127zm1.047 4.754h6.131l-1.553 4.413H6.483l-1.553-4.413z"/>
+        </svg>
+      );
+    }
+
+    if (s.includes("etsy")) {
+      return (
+        <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18 }}>
+          <path d="M9.386 3.578H6.75V3c0-.265-.265-.375-.53-.375H4.173c-.375 0-.53.11-.53.375v.578H.973C.598 3.578.375 3.8.375 4.176v1.922c0 .375.223.597.598.597h.756v12.555c0 .433.172.75.605.75h10.007c.434 0 .607-.317.607-.75V6.695h.756c.375 0 .597-.222.597-.597V4.176c0-.375-.222-.598-.597-.598H9.386V3zm-2.58 13.635H5.352v-4.77h1.454v4.77zm2.742 0H8.094v-4.77h1.454v4.77zm-.07-6.228H5.423a.675.675 0 010-1.348h4.055a.675.675 0 010 1.348z"/>
+        </svg>
+      );
+    }
+
+    if (s.includes("amazon")) {
+      return (
+        <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18 }}>
+          <path d="M13.958 10.09c0 1.232.029 2.256-.591 3.351-.502.891-1.301 1.438-2.186 1.438-1.214 0-1.922-.924-1.922-2.292 0-2.692 2.415-3.182 4.7-3.182v.685zm3.186 7.705a.66.66 0 01-.77.075c-1.079-.897-1.269-1.313-1.86-2.169-1.78 1.814-3.037 2.357-5.345 2.357-2.729 0-4.854-1.686-4.854-5.054 0-2.633 1.426-4.42 3.461-5.298 1.762-.77 4.222-.908 6.109-1.122v-.418c0-.77.06-1.682-.393-2.348-.395-.6-1.152-.848-1.823-.848-1.236 0-2.338.634-2.609 1.948-.056.294-.271.584-.567.598l-3.165-.34c-.265-.059-.561-.274-.484-.682C5.694 1.998 8.703 1 11.394 1c1.375 0 3.172.366 4.254 1.407 1.375 1.288 1.243 3.007 1.243 4.877v4.42c0 1.329.552 1.913 1.071 2.632.183.256.223.563-.01.754-.579.484-1.609 1.381-2.176 1.883l-.632-.178zm3.768 1.639c-2.973 2.204-7.284 3.375-10.996 3.375-5.2 0-9.88-1.923-13.42-5.123-.278-.252-.03-.596.305-.4 3.82 2.221 8.543 3.554 13.428 3.554 3.293 0 6.913-.683 10.244-2.096.503-.215.925.33.439.69zm1.248-1.421c-.379-.487-2.504-.23-3.461-.116-.291.035-.336-.218-.074-.401 1.695-1.192 4.479-.848 4.804-.449.325.402-.086 3.184-1.676 4.512-.244.205-.477.096-.369-.174.358-.894 1.156-2.886.776-3.372z"/>
+        </svg>
+      );
+    }
+
+    if (s.includes("ebay")) {
+      return (
+        <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18 }}>
+          <path d="M0 7.856l3.578 8.284h2.008L9.03 7.856H6.937l-2.254 5.567L2.43 7.856H0zm10.14 0v8.284h1.95V7.856h-1.95zm3.025 0l3.396 4.035-3.396 4.249h2.292l2.238-2.842 2.253 2.842H22l-3.41-4.22L22 7.856h-2.237L17.51 10.64l-2.108-2.784h-2.237z"/>
+        </svg>
+      );
+    }
+
+    // Generic store icon for unknown sources
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 18, height: 18 }}>
+        <path d="M3 9l1-5h16l1 5M3 9h18M3 9v11a1 1 0 001 1h16a1 1 0 001-1V9"/>
+        <path d="M9 9v12M15 9v12"/>
+      </svg>
+    );
+  };
+
+  const getPlatformColor = (source: string): { bg: string; color: string; border: string } => {
+    const s = (source || "").toLowerCase();
+    if (s.includes("squarespace")) return { bg: "#000000", color: "#ffffff", border: "#333" };
+    if (s.includes("shopify")) return { bg: "#96bf48", color: "#ffffff", border: "#7aa83a" };
+    if (s.includes("wix")) return { bg: "#faad00", color: "#000000", border: "#e09800" };
+    if (s.includes("woocommerce") || s.includes("wordpress")) return { bg: "#7f54b3", color: "#ffffff", border: "#6a459a" };
+    if (s.includes("etsy")) return { bg: "#f1641e", color: "#ffffff", border: "#d45518" };
+    if (s.includes("amazon")) return { bg: "#ff9900", color: "#000000", border: "#e68a00" };
+    if (s.includes("ebay")) return { bg: "#e53238", color: "#ffffff", border: "#c42a2f" };
+    return { bg: "#6b7280", color: "#ffffff", border: "#4b5563" };
+  };
+
   return (
     <div
       className={`flex justify-end items-center  h-full p-8 ${style.overAll_box}`}
@@ -1013,473 +1178,538 @@ const ImportList: React.FC = () => {
                   && order?.order_items?.length > 0
                   && !checkedOrders.some((c: any) => c.order_po === order.order_po);
                 return (
-                <div
-                  key={index}
-                  className="justify-between mb-6 rounded-lg p-6 shadow-md sm:flex-row sm:justify-start space-y-2 relative overflow-hidden"
-                  style={{
-                    background: isDark
-                      ? (isExcluded ? "#0a1020" : "#0f1724")
-                      : (isExcluded ? "#f9fafb" : "#ffffff"),
-                    borderLeft: isExcluded
-                      ? (isDark ? "4px solid #253347" : "4px solid #d1d5db")
-                      : "4px solid transparent",
-                    transition: "background 0.3s ease, border-color 0.3s ease",
-                  }}
-                >
-                  <ul className="grid w-100  md:grid-cols-2 md:grid-rows-1 items-start ">
-                    <li className="flex-1">
-                      {shipping_option.length > 0 &&
-                        order?.order_items.length > 0 ? (
-                        <div className="flex items-center">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              const isCurrentlyIncluded = checkedOrders.some(
-                                (c: { order_po: string }) => c.order_po == order.order_po
-                              );
-                              
-                              if (!isCurrentlyIncluded) {
-                                const parsedValue = {
-                                  order_po: order?.order_po,
-                                  Product_price: getShippingPrice(order?.order_po),
-                                  productData: order?.order_items,
-                                  productImage: productData[order?.order_items[0]?.product_sku]?.image_url_1,
-                                };
-                                dispatch(updateCheckedOrders([...checkedOrders, parsedValue]));
-                                dispatch(updateExcludedOrders(excludedOrders.filter((o) => o !== order.order_po)));
-                              } else {
-                                dispatch(updateCheckedOrders(checkedOrders.filter((c: any) => c.order_po !== order.order_po)));
-                                dispatch(updateExcludedOrders([...excludedOrders, order.order_po]));
-                              }
-                            }}
-                            className="relative inline-flex h-9 w-[170px] items-center rounded-full bg-slate-100 p-1 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40 shadow-inner border border-slate-200/60"
-                            role="switch"
-                            aria-checked={checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po)}
-                          >
-                            <div
-                              className={`absolute left-1 h-7 w-[79px] rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-black/5 transition-transform duration-300 ease-out ${
-                                checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po)
+                  <div
+                    key={index}
+                    className="justify-between mb-6 rounded-lg p-6 shadow-md sm:flex-row sm:justify-start space-y-2 relative overflow-hidden"
+                    style={{
+                      background: isDark
+                        ? (isExcluded ? "#0a1020" : "#0f1724")
+                        : (isExcluded ? "#f9fafb" : "#ffffff"),
+                      borderLeft: isExcluded
+                        ? (isDark ? "4px solid #253347" : "4px solid #d1d5db")
+                        : "4px solid transparent",
+                      transition: "background 0.3s ease, border-color 0.3s ease",
+                    }}
+                  >
+                    <ul className="grid w-100  md:grid-cols-2 md:grid-rows-1 items-start ">
+                      <li className="flex-1">
+                        {shipping_option.length > 0 &&
+                          order?.order_items.length > 0 ? (
+                          <div className="flex items-center">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                const isCurrentlyIncluded = checkedOrders.some(
+                                  (c: { order_po: string }) => c.order_po == order.order_po
+                                );
+
+                                if (!isCurrentlyIncluded) {
+                                  const parsedValue = {
+                                    order_po: order?.order_po,
+                                    Product_price: getShippingPrice(order?.order_po),
+                                    productData: order?.order_items,
+                                    productImage: productData[order?.order_items[0]?.product_sku]?.image_url_1,
+                                  };
+                                  dispatch(updateCheckedOrders([...checkedOrders, parsedValue]));
+                                  dispatch(updateExcludedOrders(excludedOrders.filter((o) => o !== order.order_po)));
+                                } else {
+                                  dispatch(updateCheckedOrders(checkedOrders.filter((c: any) => c.order_po !== order.order_po)));
+                                  dispatch(updateExcludedOrders([...excludedOrders, order.order_po]));
+                                }
+                              }}
+                              className="relative inline-flex h-9 w-[170px] items-center rounded-full bg-slate-100 p-1 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40 shadow-inner border border-slate-200/60"
+                              role="switch"
+                              aria-checked={checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po)}
+                            >
+                              <div
+                                className={`absolute left-1 h-7 w-[79px] rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-black/5 transition-transform duration-300 ease-out ${checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po)
                                   ? 'translate-x-[81px]'
                                   : 'translate-x-0'
-                              }`}
-                            />
-                            <div className="relative z-10 flex w-full">
-                              <span className={`flex-1 text-center text-[11px] font-bold uppercase tracking-widest transition-colors duration-300 select-none ${
-                                !checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po) ? 'text-slate-700 drop-shadow-sm' : 'text-slate-400 hover:text-slate-500 cursor-pointer'
-                              }`}>
-                                Exclude
-                              </span>
-                              <span className={`flex-1 text-center text-[11px] font-bold uppercase tracking-widest transition-colors duration-300 select-none ${
-                                checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po) ? 'text-emerald-600 drop-shadow-sm' : 'text-slate-400 hover:text-slate-500 cursor-pointer'
-                              }`}>
-                                Include
-                              </span>
-                            </div>
-                          </button>
-                        </div>
-                      ) : null}
-                    </li>
+                                  }`}
+                              />
+                              <div className="relative z-10 flex w-full">
+                                <span className={`flex-1 text-center text-[11px] font-bold uppercase tracking-widest transition-colors duration-300 select-none ${!checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po) ? 'text-slate-700 drop-shadow-sm' : 'text-slate-400 hover:text-slate-500 cursor-pointer'
+                                  }`}>
+                                  Exclude
+                                </span>
+                                <span className={`flex-1 text-center text-[11px] font-bold uppercase tracking-widest transition-colors duration-300 select-none ${checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po) ? 'text-emerald-600 drop-shadow-sm' : 'text-slate-400 hover:text-slate-500 cursor-pointer'
+                                  }`}>
+                                  Include
+                                </span>
+                              </div>
+                            </button>
+                          </div>
+                        ) : null}
+                      </li>
 
-                    <div className="w-100%   text-end">
-                      <button
-                        data-tooltip-target="tooltip-document"
-                        type="button"
-                        className="max-md:pl-2  inline-flex  flex-col justify-start items-start  hover:bg-gray-50 dark:hover:bg-gray-800 group"
-                        onClick={() => {
-                          setDeleteMessageVisible(true);
-                          setOrderFullFillmentId(order?.orderFullFillmentId);
-                          setOrder_po(order?.order_po);
-                        }}
-                      >
-                        <svg
-                          className="w-5 h-5 mb-1 text-gray-500 dark:text-gray-400 group-hover:text-red-600 dark:group-hover:text-blue-500"
-                          aria-hidden="true"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 18 20"
+                      <div className="w-100%   text-end">
+                        <button
+                          data-tooltip-target="tooltip-document"
+                          type="button"
+                          className="max-md:pl-2  inline-flex  flex-col justify-start items-start  hover:bg-gray-50 dark:hover:bg-gray-800 group"
+                          onClick={() => {
+                            setDeleteMessageVisible(true);
+                            setOrderFullFillmentId(order?.orderFullFillmentId);
+                            setOrder_po(order?.order_po);
+                          }}
                         >
-                          <path
-                            stroke="currentColor"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M1 5h16M7 8v8m4-8v8M7 1h4a1 1 0 0 1 1 1v3H6V2a1 1 0 0 1 1-1ZM3 5h12v13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5Z"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-                  </ul>
+                          <svg
+                            className="w-5 h-5 mb-1 text-gray-500 dark:text-gray-400 group-hover:text-red-600 dark:group-hover:text-blue-500"
+                            aria-hidden="true"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 18 20"
+                          >
+                            <path
+                              stroke="currentColor"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M1 5h16M7 8v8m4-8v8M7 1h4a1 1 0 0 1 1 1v3H6V2a1 1 0 0 1 1-1ZM3 5h12v13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5Z"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    </ul>
 
-                  <ul
-                    className="grid w-full gap-4 md:grid-cols-[minmax(180px,1fr)_minmax(300px,2fr)_minmax(200px,1fr)]"
-                    key={index}
-                  >
-                    <li style={{ opacity: isExcluded ? 0.4 : 1, filter: isExcluded ? "grayscale(0.5)" : "none", transition: "opacity 0.3s ease, filter 0.3s ease" }}>
-                      <label
-                        className="h-[220px] inline-flex items-center justify-between w-full p-3 rounded-lg cursor-pointer border-2"
-                        style={{
-                          background: isDark ? "#0c1520" : "#ffffff",
-                          borderColor: isDark ? "#1e2d42" : "#e5e7eb",
-                          color: isDark ? "#8892a4" : undefined,
-                        }}
-                      >
-                        <div className="block">
-                          <div className="w-full text-sm text-red-800">
-                            {order?.order_po}
-                          </div>
-                          <div className="w-full text-sm pt-2 pb-2 font-semibold">
-                            Ship To
-                          </div>
-                          <div className="w-full text-sm">
-                            {order?.recipient?.first_name}{" "}
-                            {order?.recipient?.last_name}
-                          </div>
-                          <div className="w-full text-sm">
-                            {order?.recipient?.address_1}
-                          </div>
-                          <div className="w-full text-sm">
-                            {order?.recipient?.city},{" "}{order?.recipient?.state}
-                            {order?.recipient?.province}{" "}
-                            {order?.recipient?.zip_postal_code}
-                          </div>
-                          <div className="w-full text-sm">
-                            {order?.recipient?.country_code}
-                          </div>
-                          <div className="w-full pt-3">
-                            <Button
-                              key="submit"
-                              className="   w-full text-gray-500"
-                              size={"small"}
-                              type="default"
-                            >
-                              <Link
-                                to={"/editorder/" + order?.orderFullFillmentId}
-                              >
-                                Edit order
-                              </Link>
-                            </Button>
-                          </div>
-                        </div>
-                      </label>
-                    </li>
-
-                    <li className="min-h-[200px]">
-                      <input
-                        type="checkbox"
-                        id="flowbite-option"
-                        value=""
-                        className="hidden peer"
-                      />
-                      {order?.order_items.length > 0 ? (
-                        <>
-                          {order?.order_items?.map((orderItem) =>
-                            product_details.length > 0 &&
-                              !validSKUs.includes(orderItem.product_sku.toString()) ? (
+                    <ul
+                      className="grid w-full gap-4 md:grid-cols-[minmax(180px,1fr)_minmax(300px,2fr)_minmax(200px,1fr)]"
+                      key={index}
+                    >
+                      <li style={{ opacity: isExcluded ? 0.4 : 1, filter: isExcluded ? "grayscale(0.5)" : "none", transition: "opacity 0.3s ease, filter 0.3s ease" }}>
+                        <label
+                          className="h-[220px] inline-flex items-center justify-between w-full p-3 rounded-lg cursor-pointer border-2"
+                          style={{
+                            position: "relative",
+                            background: isDark ? "#0c1520" : "#ffffff",
+                            borderColor: isDark ? "#1e2d42" : "#e5e7eb",
+                            color: isDark ? "#8892a4" : undefined,
+                          }}
+                        >
+                          {/* Platform source icon badge — top-right corner */}
+                          {order?.source && (() => {
+                            const palette = getPlatformColor(order.source);
+                            return (
                               <div
-                                key={orderItem.product_sku}
-                                className="mb-4 p-4 border-2 border-red-300 rounded-lg bg-red-50 h-[220px]"
+                                title={order.source}
                                 style={{
-                                  opacity: 1,
-                                  filter: "none",
-                                  boxShadow: "0 0 0 2px rgba(239,68,68,0.25), 0 4px 16px rgba(239,68,68,0.12)",
-                                  animation: "pulse-border 2s ease-in-out infinite",
+                                  position: "absolute",
+                                  top: 8,
+                                  right: 8,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  backgroundColor: palette.bg,
+                                  color: palette.color,
+                                  border: `1px solid ${palette.border}`,
+                                  borderRadius: "50%",
+                                  padding: "5px",
+                                  boxShadow: "0 1px 4px rgba(0,0,0,0.18)",
+                                  zIndex: 2,
+                                  userSelect: "none",
                                 }}
                               >
-                                <div className="flex items-center justify-between">
-                                  <div className="flex-1">
-                                    <div className="flex items-center mb-2">
+                                {getPlatformIcon(order.source)}
+                              </div>
+                            );
+                          })()}
+                          <div className="block">
+                            <div className="w-full text-[12px] text-gray-700 leading-tight">
+                              <span className="text-blue-600 font-medium">Order:</span> {order?.order_po}
+                            </div>
+                            <div className="w-full text-[12px] font-semibold text-gray-700 pt-2 pb-1">
+                              Ship To
+                            </div>
+                            <div className="w-full text-[12px] text-gray-700 leading-tight">
+                              {order?.recipient?.first_name}{" "}
+                              {order?.recipient?.last_name}
+                            </div>
+                            <div className="w-full text-[12px] text-gray-700 leading-tight">
+                              {order?.recipient?.address_1}
+                            </div>
+                            <div className="w-full text-[12px] text-gray-700 leading-tight">
+                              {order?.recipient?.city},{" "}{order?.recipient?.state}
+                              {order?.recipient?.province}{" "}
+                              {order?.recipient?.zip_postal_code}
+                            </div>
+                            <div className="w-full text-[12px] text-gray-700 leading-tight">
+                              {order?.recipient?.country_code}
+                            </div>
+                            <div className="w-full pt-3">
+                              <Button
+                                key="submit"
+                                className="   w-full text-gray-500"
+                                size={"small"}
+                                type="default"
+                              >
+                                <Link
+                                  to={"/editorder/" + order?.orderFullFillmentId}
+                                >
+                                  Edit order
+                                </Link>
+                              </Button>
+                            </div>
+                          </div>
+                        </label>
+                      </li>
+
+                      <li className="min-h-[200px]">
+                        <input
+                          type="checkbox"
+                          id="flowbite-option"
+                          value=""
+                          className="hidden peer"
+                        />
+                        {order?.order_items.length > 0 ? (
+                          <>
+                            {order?.order_items?.map((orderItem) =>
+                              product_details.length > 0 &&
+                                !validSKUs.includes(orderItem.product_sku.toString()) ? (
+                                <div
+                                  key={orderItem.product_sku}
+                                  className="mb-4 p-4 border-2 border-red-300 rounded-lg bg-red-50 h-[220px]"
+                                  style={{
+                                    opacity: 1,
+                                    filter: "none",
+                                    boxShadow: "0 0 0 2px rgba(239,68,68,0.25), 0 4px 16px rgba(239,68,68,0.12)",
+                                    animation: "pulse-border 2s ease-in-out infinite",
+                                  }}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex-1">
+                                      <div className="flex items-center mb-2">
+                                        <svg
+                                          className="w-5 h-5 text-red-500 mr-2"
+                                          fill="currentColor"
+                                          viewBox="0 0 20 20"
+                                          xmlns="http://www.w3.org/2000/svg"
+                                        >
+                                          <path
+                                            fillRule="evenodd"
+                                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                                            clipRule="evenodd"
+                                          />
+                                        </svg>
+                                        <h2 className="text-lg font-semibold text-red-700">
+                                          Invalid SKU Detected
+                                        </h2>
+                                      </div>
+                                      <div className="ml-7">
+                                        <p className="text-red-600 mb-2">
+                                          Current SKU:{" "}
+                                          <span className="font-mono bg-red-100 px-2 py-1 rounded">
+                                            {orderItem?.product_sku}
+                                          </span>
+                                        </p>
+                                        <p className="text-sm text-red-600">
+                                          This SKU is not recognized in the system.
+                                          Please add a valid SKU to proceed.
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="mt-4 ml-7">
+                                    <button
+                                      className="h-9 inline-flex items-center px-4 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 hover:border-red-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
+                                      onClick={() => {
+                                        setReplacingModal(true);
+                                        setSkuToReplace(orderItem?.product_sku);
+                                        setSkuOrderFullilment(
+                                          invalidSKuOrderFullilment?.find(
+                                            (item: any) =>
+                                              orderItem?.product_sku === item.sku
+                                          )?.orderFullFillmentId || ""
+                                        );
+                                      }}
+                                    >
                                       <svg
-                                        className="w-5 h-5 text-red-500 mr-2"
-                                        fill="currentColor"
-                                        viewBox="0 0 20 20"
+                                        className="w-4 h-4 mr-2"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
                                         xmlns="http://www.w3.org/2000/svg"
                                       >
                                         <path
-                                          fillRule="evenodd"
-                                          d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                                          clipRule="evenodd"
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth="2"
+                                          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
                                         />
                                       </svg>
-                                      <h2 className="text-lg font-semibold text-red-700">
-                                        Invalid SKU Detected
-                                      </h2>
+                                      Replace SKU
+                                    </button>
+                                  </div>
+                                  {replacingModal && (
+
+                                    <ReplacingCode
+                                      visible={replacingModal}
+                                      onClose={() => setReplacingModal(false)}
+                                      orderFullFillmentId={skuOrderFullilment}
+                                      toReplace={skuToReplace}
+                                      accountId={customerInfo?.data?.account_id}
+                                      onProductCodeUpdate={onProductCodeReplace}
+                                    />
+                                  )}
+                                </div>
+                              ) : (
+                                <div
+                                  key={orderItem.product_sku}
+                                  className={`mb-3 w-full rounded-lg shadow-sm transition-all duration-200 ${style.orderes_lable}`}
+                                  style={{
+                                    background: isDark ? "#0c1520" : "#ffffff",
+                                    border: isDark ? "1px solid #1e2d42" : "1px solid #e5e7eb",
+                                    opacity: isExcluded ? 0.4 : 1,
+                                    filter: isExcluded ? "grayscale(0.5)" : "none",
+                                    transition: "opacity 0.3s ease, filter 0.3s ease",
+                                  }}
+                                >
+                                  {/* Main content area */}
+                                  <div className="p-4 min-h-[120px]">
+                                    <div className={`flex gap-3 ${style.description_box}`}>
+                                      {/* Image */}
+                                      <div className={`flex-shrink-0 ${style.importlist_pic}`}>
+                                        {(() => {
+                                          const originalImageUrl = getImageUrl(orderItem, orderItem?.product_sku);
+                                          const imageKey = `${orderItem?.product_sku}-${orderItem?.product_order_po}`;
+                                          const currentImageUrl = getCurrentImageUrl(imageKey, originalImageUrl);
+                                          const hasError = imageErrors[imageKey];
+
+                                          if (isGoogleDriveUrl(originalImageUrl)) {
+                                            console.log(`[${imageKey}] Google Drive Image State:`, {
+                                              originalImageUrl,
+                                              currentImageUrl,
+                                              hasError,
+                                              urlIndex: imageUrlIndex[imageKey] || 0
+                                            });
+                                          }
+
+                                          return (
+                                            <img
+                                              key={`${imageKey}-${imageUrlIndex[imageKey] || 0}`}
+                                              src={originalImageUrl}
+                                              alt="product"
+                                              className="w-24 h-24 object-contain rounded border border-gray-100"
+                                              onError={() => handleImageError(imageKey, originalImageUrl)}
+                                              onLoad={() => {
+                                                setImageErrors(prev => {
+                                                  const newState = { ...prev };
+                                                  delete newState[imageKey];
+                                                  return newState;
+                                                });
+                                              }}
+                                            />
+                                          );
+                                        })()}
+                                      </div>
+
+                                      {/* Labels */}
+                                      <div className="flex-1 min-w-0">
+                                        {(Object.keys(productData)?.length && (
+                                          <div className="w-full">
+                                            {productData[orderItem?.product_sku]?.labels?.length > 0 ? (
+                                              (() => {
+                                                const labels = productData[orderItem?.product_sku]?.labels || [];
+                                                const typeLabel = labels.find((label: any) => label.key?.toLowerCase() === "type");
+                                                const otherLabels = labels.filter((label: any) => label.key?.toLowerCase() !== "type");
+
+                                                // Use a unique key combining order and product info
+                                                const expandKey = `${order?.order_po}-${orderItem?.product_sku || orderItem?.product_guid}`;
+                                                const isExpanded = expandedLabels.has(expandKey);
+                                                const showMoreButton = otherLabels.length > 4;
+
+                                                return (
+                                                  < >
+                                                    {/* Type label as header */}
+                                                    {typeLabel && (
+                                                      <div className="text-[13px] font-semibold text-gray-800 mb-1.5 pb-1 border-b border-gray-100">
+                                                        <span className="text-blue-600 font-medium">type:</span> {typeLabel.value}
+                                                      </div>
+                                                    )}
+                                                    {/* Remaining labels */}
+                                                    <div className={`space-y-1 transition-all duration-300 ${isExpanded ? 'max-h-[500px]' : 'max-h-[300px] overflow-hidden'
+                                                      }`}>
+                                                      {otherLabels.map((label: any, idx: number) => (
+                                                        <div key={idx} className="text-[12px] text-gray-700 leading-tight">
+                                                          <span className="text-blue-600 font-medium">{label.key}:</span> {label.value}
+                                                        </div>
+                                                      ))}
+                                                    </div>
+                                                    {showMoreButton && (
+                                                      <button
+                                                        onClick={(e) => toggleLabels(expandKey, e)}
+                                                        className="text-[11px] text-blue-600 hover:text-blue-800 font-medium mt-1 inline-flex items-center gap-0.5"
+                                                      >
+                                                        {isExpanded ? 'Less' : 'More'}
+                                                        <svg className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                        </svg>
+                                                      </button>
+                                                    )}
+                                                  </>
+                                                );
+                                              })()
+                                            ) : (
+                                              <div className={`w-full text-xs text-gray-600 ${style.order_description}`}>
+                                                {parse(truncateText(productData[orderItem?.product_sku]?.description_long || "", descriptionCharLimit))}
+                                              </div>
+                                            )}
+                                          </div>
+                                        )) || <Skeleton active />}
+                                      </div>
                                     </div>
-                                    <div className="ml-7">
-                                      <p className="text-red-600 mb-2">
-                                        Current SKU:{" "}
-                                        <span className="font-mono bg-red-100 px-2 py-1 rounded">
-                                          {orderItem?.product_sku}
-                                        </span>
-                                      </p>
-                                      <p className="text-sm text-red-600">
-                                        This SKU is not recognized in the system.
-                                        Please add a valid SKU to proceed.
-                                      </p>
+                                  </div>
+
+                                  {/* Footer bar */}
+                                  <div
+                                    className="flex justify-between items-center px-3 py-2 border-t rounded-b-lg"
+                                    style={{
+                                      background: isDark ? "#0a1020" : "#f9fafb",
+                                      borderColor: isDark ? "#1e2d42" : "#f3f4f6",
+                                    }}
+                                  >
+                                    <button
+                                      type="button"
+                                      className="inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-red-500 transition-colors"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setProductToDelete({
+                                          product_guid: orderItem?.product_guid,
+                                          orderFullFillmentId: order?.orderFullFillmentId,
+                                          order_po: order?.order_po,
+                                        });
+                                        setProductDeleteModalVisible(true);
+                                      }}
+                                      title="Delete product"
+                                    >
+                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                      </svg>
+                                      Remove
+                                    </button>
+                                    <div className="text-sm text-gray-600">
+                                      {orderItem?.product_qty || 1}@ ${(productData[orderItem?.product_guid]?.total_price)?.toFixed(2)} ea
+                                      {console.log(orderItem?.product_guid, "productData[orderItem?.product_guid]?.total_price")}
                                     </div>
                                   </div>
                                 </div>
-                                <div className="mt-4 ml-7">
-                                  <button
-                                    className="h-9 inline-flex items-center px-4 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 hover:border-red-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
-                                    onClick={() => {
-                                      setReplacingModal(true);
-                                      setSkuToReplace(orderItem?.product_sku);
-                                      setSkuOrderFullilment(
-                                        invalidSKuOrderFullilment?.find(
-                                          (item: any) =>
-                                            orderItem?.product_sku === item.sku
-                                        )?.orderFullFillmentId || ""
-                                      );
+                              )
+                            )}
+                            {/* Add More Products Button */}
+                            <div className="mt-4 flex justify-center">
+                              <Dropdown
+                                menu={{ items: getAddProductMenuItems(order?.orderFullFillmentId) }}
+                                trigger={["click"]}
+                                placement="bottom"
+                                open={addProductDropdownVisible === `add-more-${order?.orderFullFillmentId}`}
+                                onOpenChange={(visible) => setAddProductDropdownVisible(visible ? `add-more-${order?.orderFullFillmentId}` : null)}
+                              >
+                                <button
+                                  className="group relative inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl overflow-hidden transition-all duration-300 ease-out hover:scale-[1.02] active:scale-[0.98]"
+                                  style={{
+                                    background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.15) 100%)',
+                                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                                    boxShadow: '0 2px 8px rgba(16, 185, 129, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.5)',
+                                  }}
+                                  onClick={() => setAddProductDropdownVisible(
+                                    addProductDropdownVisible === `add-more-${order?.orderFullFillmentId}` ? null : `add-more-${order?.orderFullFillmentId}`
+                                  )}
+                                >
+                                  {/* Animated background gradient on hover */}
+                                  <span
+                                    className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                                    style={{
+                                      background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.25) 100%)',
                                     }}
-                                  >
+                                  />
+
+                                  {/* Plus icon with animated circle background */}
+                                  <span className="relative flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 shadow-sm group-hover:shadow-md group-hover:shadow-emerald-500/30 transition-all duration-300">
                                     <svg
-                                      className="w-4 h-4 mr-2"
+                                      className="w-3.5 h-3.5 text-white transition-transform duration-300 group-hover:rotate-90"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="2.5"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                                    </svg>
+                                  </span>
+
+                                  {/* Text */}
+                                  <span className="relative text-emerald-700 group-hover:text-emerald-800 transition-colors duration-200">
+                                    Add More
+                                  </span>
+
+                                  {/* Chevron icon */}
+                                  <svg
+                                    className="relative w-4 h-4 text-emerald-500 group-hover:text-emerald-600 transition-all duration-300 group-hover:translate-y-0.5"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                </button>
+                              </Dropdown>
+                            </div>
+                          </>
+                        ) : (
+                          <AddProductsTemplate orderFullFillmentId={order?.orderFullFillmentId} />
+                        )}
+                      </li>
+                      <li style={{ opacity: isExcluded ? 0.4 : 1, filter: isExcluded ? "grayscale(0.5)" : "none", transition: "opacity 0.3s ease, filter 0.3s ease" }}>
+                        <label
+                          className={`h-[220px] inline-flex justify-between w-full p-5 rounded-lg cursor-pointer border-2 ${hasInvalidSKUs(order?.order_items) ? 'opacity-50 pointer-events-none' : ''}`}
+                          style={{
+                            background: isDark ? "#0c1520" : "#ffffff",
+                            borderColor: isDark ? "#1e2d42" : "#e5e7eb",
+                            color: isDark ? "#8892a4" : undefined,
+                          }}
+                        >
+                          <div className="block w-full relative">
+                            {order?.order_items.length > 0 ? (
+                              hasInvalidSKUs(order?.order_items) ? (
+                                <div className="flex flex-col items-center justify-center h-full">
+                                  <div className="relative mb-3">
+                                    <svg
+                                      className="w-16 h-16 text-gray-300"
                                       fill="none"
                                       stroke="currentColor"
                                       viewBox="0 0 24 24"
-                                      xmlns="http://www.w3.org/2000/svg"
                                     >
                                       <path
                                         strokeLinecap="round"
                                         strokeLinejoin="round"
-                                        strokeWidth="2"
-                                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                                        strokeWidth="1.5"
+                                        d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
                                       />
                                     </svg>
-                                    Replace SKU
-                                  </button>
-                                </div>
-                                {replacingModal && (
-
-                                  <ReplacingCode
-                                    visible={replacingModal}
-                                    onClose={() => setReplacingModal(false)}
-                                    orderFullFillmentId={skuOrderFullilment}
-                                    toReplace={skuToReplace}
-                                    accountId={customerInfo?.data?.account_id}
-                                    onProductCodeUpdate={onProductCodeReplace}
-                                  />
-                                )}
-                              </div>
-                            ) : (
-                              <div
-                                key={orderItem.product_sku}
-                                className={`mb-3 w-full rounded-lg shadow-sm transition-all duration-200 ${style.orderes_lable}`}
-                                style={{
-                                  background: isDark ? "#0c1520" : "#ffffff",
-                                  border: isDark ? "1px solid #1e2d42" : "1px solid #e5e7eb",
-                                  opacity: isExcluded ? 0.4 : 1,
-                                  filter: isExcluded ? "grayscale(0.5)" : "none",
-                                  transition: "opacity 0.3s ease, filter 0.3s ease",
-                                }}
-                              >
-                                {/* Main content area */}
-                                <div className="p-4 min-h-[120px]">
-                                  <div className={`flex gap-3 ${style.description_box}`}>
-                                    {/* Image */}
-                                    <div className={`flex-shrink-0 ${style.importlist_pic}`}>
-                                      {(() => {
-                                        const originalImageUrl = getImageUrl(orderItem, orderItem?.product_sku);
-                                        const imageKey = `${orderItem?.product_sku}-${orderItem?.product_order_po}`;
-                                        const currentImageUrl = getCurrentImageUrl(imageKey, originalImageUrl);
-                                        const hasError = imageErrors[imageKey];
-
-                                        if (isGoogleDriveUrl(originalImageUrl)) {
-                                          console.log(`[${imageKey}] Google Drive Image State:`, {
-                                            originalImageUrl,
-                                            currentImageUrl,
-                                            hasError,
-                                            urlIndex: imageUrlIndex[imageKey] || 0
-                                          });
-                                        }
-
-                                        return (
-                                          <img
-                                            key={`${imageKey}-${imageUrlIndex[imageKey] || 0}`}
-                                            src={originalImageUrl}
-                                            alt="product"
-                                            className="w-24 h-24 object-contain rounded border border-gray-100"
-                                            onError={() => handleImageError(imageKey, originalImageUrl)}
-                                            onLoad={() => {
-                                              setImageErrors(prev => {
-                                                const newState = { ...prev };
-                                                delete newState[imageKey];
-                                                return newState;
-                                              });
-                                            }}
-                                          />
-                                        );
-                                      })()}
-                                    </div>
-
-                                    {/* Labels */}
-                                    <div className="flex-1 min-w-0">
-                                      {(Object.keys(productData)?.length && (
-                                        <div className="w-full">
-                                          {productData[orderItem?.product_sku]?.labels?.length > 0 ? (
-                                            (() => {
-                                              const labels = productData[orderItem?.product_sku]?.labels || [];
-                                              const typeLabel = labels.find((label: any) => label.key?.toLowerCase() === "type");
-                                              const otherLabels = labels.filter((label: any) => label.key?.toLowerCase() !== "type");
-
-                                              // Use a unique key combining order and product info
-                                              const expandKey = `${order?.order_po}-${orderItem?.product_sku || orderItem?.product_guid}`;
-                                              const isExpanded = expandedLabels.has(expandKey);
-                                              const showMoreButton = otherLabels.length > 4;
-
-                                              return (
-                                                < >
-                                                  {/* Type label as header */}
-                                                  {typeLabel && (
-                                                    <div className="text-[13px] font-semibold text-gray-800 mb-1.5 pb-1 border-b border-gray-100">
-                                                      <span className="text-blue-600 font-medium">type:</span> {typeLabel.value}
-                                                    </div>
-                                                  )}
-                                                  {/* Remaining labels */}
-                                                  <div className={`space-y-1 transition-all duration-300 ${isExpanded ? 'max-h-[500px]' : 'max-h-[300px] overflow-hidden'
-                                                    }`}>
-                                                    {otherLabels.map((label: any, idx: number) => (
-                                                      <div key={idx} className="text-[12px] text-gray-700 leading-tight">
-                                                        <span className="text-blue-600 font-medium">{label.key}:</span> {label.value}
-                                                      </div>
-                                                    ))}
-                                                  </div>
-                                                  {showMoreButton && (
-                                                    <button
-                                                      onClick={(e) => toggleLabels(expandKey, e)}
-                                                      className="text-[11px] text-blue-600 hover:text-blue-800 font-medium mt-1 inline-flex items-center gap-0.5"
-                                                    >
-                                                      {isExpanded ? 'Less' : 'More'}
-                                                      <svg className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                                      </svg>
-                                                    </button>
-                                                  )}
-                                                </>
-                                              );
-                                            })()
-                                          ) : (
-                                            <div className={`w-full text-xs text-gray-600 ${style.order_description}`}>
-                                              {parse(truncateText(productData[orderItem?.product_sku]?.description_long || "", descriptionCharLimit))}
-                                            </div>
-                                          )}
-                                        </div>
-                                      )) || <Skeleton active />}
+                                    <div className="absolute -top-1 -right-1 bg-amber-100 rounded-full p-1">
+                                      <svg className="w-5 h-5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                      </svg>
                                     </div>
                                   </div>
+                                  <p className="text-gray-500 text-center text-sm font-medium">
+                                    Shipping Locked
+                                  </p>
+                                  <p className="text-gray-400 text-center text-xs mt-1">
+                                    Fix invalid SKUs to unlock
+                                  </p>
                                 </div>
-
-                                {/* Footer bar */}
-                                <div
-                                  className="flex justify-between items-center px-3 py-2 border-t rounded-b-lg"
-                                  style={{
-                                    background: isDark ? "#0a1020" : "#f9fafb",
-                                    borderColor: isDark ? "#1e2d42" : "#f3f4f6",
-                                  }}
-                                >
-                                  <button
-                                    type="button"
-                                    className="inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-red-500 transition-colors"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setProductToDelete({
-                                        product_guid: orderItem?.product_guid,
-                                        orderFullFillmentId: order?.orderFullFillmentId,
-                                        order_po: order?.order_po,
-                                      });
-                                      setProductDeleteModalVisible(true);
-                                    }}
-                                    title="Delete product"
-                                  >
-                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                    Remove
-                                  </button>
-                                  <div className="text-sm text-gray-600">
-                                    {orderItem?.product_qty || 1}@ ${(productData[orderItem?.product_guid]?.total_price)?.toFixed(2)} ea
-                                    {console.log(orderItem?.product_guid, "productData[orderItem?.product_guid]?.total_price")}
-                                  </div>
-                                </div>
-                              </div>
-                            )
-                          )}
-                          {/* Add More Products Button */}
-                          <div className="mt-4 flex justify-center">
-                            <Dropdown
-                              menu={{ items: getAddProductMenuItems(order?.orderFullFillmentId) }}
-                              trigger={["click"]}
-                              placement="bottom"
-                              open={addProductDropdownVisible === `add-more-${order?.orderFullFillmentId}`}
-                              onOpenChange={(visible) => setAddProductDropdownVisible(visible ? `add-more-${order?.orderFullFillmentId}` : null)}
-                            >
-                              <button
-                                className="group relative inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl overflow-hidden transition-all duration-300 ease-out hover:scale-[1.02] active:scale-[0.98]"
-                                style={{
-                                  background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.15) 100%)',
-                                  border: '1px solid rgba(16, 185, 129, 0.3)',
-                                  boxShadow: '0 2px 8px rgba(16, 185, 129, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.5)',
-                                }}
-                                onClick={() => setAddProductDropdownVisible(
-                                  addProductDropdownVisible === `add-more-${order?.orderFullFillmentId}` ? null : `add-more-${order?.orderFullFillmentId}`
-                                )}
-                              >
-                                {/* Animated background gradient on hover */}
-                                <span
-                                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                                  style={{
-                                    background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.25) 100%)',
-                                  }}
+                              ) : (
+                                <SelectShippingOption
+                                  poNumber={order?.order_po.toString()}
+                                  orderItems={order?.order_items}
+                                  localOrder={order}
+                                  productchange={false}
+                                  clicking={false}
+                                  onShippingOptionChange={(poNumber: string, total: any) =>
+                                    handleShippingOptionChange(poNumber, total)
+                                  }
                                 />
-
-                                {/* Plus icon with animated circle background */}
-                                <span className="relative flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 shadow-sm group-hover:shadow-md group-hover:shadow-emerald-500/30 transition-all duration-300">
-                                  <svg
-                                    className="w-3.5 h-3.5 text-white transition-transform duration-300 group-hover:rotate-90"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2.5"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                                  </svg>
-                                </span>
-
-                                {/* Text */}
-                                <span className="relative text-emerald-700 group-hover:text-emerald-800 transition-colors duration-200">
-                                  Add More
-                                </span>
-
-                                {/* Chevron icon */}
-                                <svg
-                                  className="relative w-4 h-4 text-emerald-500 group-hover:text-emerald-600 transition-all duration-300 group-hover:translate-y-0.5"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                                </svg>
-                              </button>
-                            </Dropdown>
-                          </div>
-                        </>
-                      ) : (
-                        <AddProductsTemplate orderFullFillmentId={order?.orderFullFillmentId} />
-                      )}
-                    </li>
-                    <li style={{ opacity: isExcluded ? 0.4 : 1, filter: isExcluded ? "grayscale(0.5)" : "none", transition: "opacity 0.3s ease, filter 0.3s ease" }}>
-                      <label
-                        className={`h-[220px] inline-flex justify-between w-full p-5 rounded-lg cursor-pointer border-2 ${hasInvalidSKUs(order?.order_items) ? 'opacity-50 pointer-events-none' : ''}`}
-                        style={{
-                          background: isDark ? "#0c1520" : "#ffffff",
-                          borderColor: isDark ? "#1e2d42" : "#e5e7eb",
-                          color: isDark ? "#8892a4" : undefined,
-                        }}
-                      >
-                        <div className="block w-full relative">
-                          {order?.order_items.length > 0 ? (
-                            hasInvalidSKUs(order?.order_items) ? (
+                              )
+                            ) : (
                               <div className="flex flex-col items-center justify-center h-full">
                                 <div className="relative mb-3">
                                   <svg
@@ -1492,69 +1722,28 @@ const ImportList: React.FC = () => {
                                       strokeLinecap="round"
                                       strokeLinejoin="round"
                                       strokeWidth="1.5"
-                                      d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+                                      d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
                                     />
                                   </svg>
-                                  <div className="absolute -top-1 -right-1 bg-amber-100 rounded-full p-1">
-                                    <svg className="w-5 h-5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
-                                      <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                  <div className="absolute -bottom-1 -right-1 bg-gray-100 rounded-full p-1">
+                                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                                     </svg>
                                   </div>
                                 </div>
-                                <p className="text-gray-500 text-center text-sm font-medium">
-                                  Shipping Locked
+                                <p className="text-gray-400 text-center text-sm">
+                                  Add products to see
                                 </p>
-                                <p className="text-gray-400 text-center text-xs mt-1">
-                                  Fix invalid SKUs to unlock
+                                <p className="text-gray-400 text-center text-xs">
+                                  shipping options
                                 </p>
                               </div>
-                            ) : (
-                              <SelectShippingOption
-                                poNumber={order?.order_po.toString()}
-                                orderItems={order?.order_items}
-                                localOrder={order}
-                                productchange={false}
-                                clicking={false}
-                                onShippingOptionChange={(poNumber: string, total: any) =>
-                                  handleShippingOptionChange(poNumber, total)
-                                }
-                              />
-                            )
-                          ) : (
-                            <div className="flex flex-col items-center justify-center h-full">
-                              <div className="relative mb-3">
-                                <svg
-                                  className="w-16 h-16 text-gray-300"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="1.5"
-                                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-                                  />
-                                </svg>
-                                <div className="absolute -bottom-1 -right-1 bg-gray-100 rounded-full p-1">
-                                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                  </svg>
-                                </div>
-                              </div>
-                              <p className="text-gray-400 text-center text-sm">
-                                Add products to see
-                              </p>
-                              <p className="text-gray-400 text-center text-xs">
-                                shipping options
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </label>
-                    </li>
-                  </ul>
-                </div>
+                            )}
+                          </div>
+                        </label>
+                      </li>
+                    </ul>
+                  </div>
                 );
               })
             ) : !orders?.data || isRefreshing ? (
@@ -1781,3 +1970,4 @@ const ImportList: React.FC = () => {
 };
 
 export default ImportList;
+

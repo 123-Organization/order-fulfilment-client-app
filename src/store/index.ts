@@ -12,6 +12,7 @@ import customerSlice from "./features/customerSlice";
 import InventorySlice from "./features/InventorySlice";
 import ShippingSlice from "./features/shippingSlice";
 
+
 // Create a more selective persist configuration for the order slice
 const orderPersistConfig = {
   key: 'order',
@@ -37,7 +38,7 @@ const companyPersistConfig = {
 const rootPersistConfig = {
   key: 'root',
   storage,
-  blacklist: ['order', 'Shipping', "Inventory", "company","Payment","Ecommerce", ],
+  blacklist: ['order', 'Shipping', "Inventory", "company","Payment","Ecommerce"],
 };
 
 // Apply the nested persist config to the order slice
@@ -55,6 +56,7 @@ const rootReducer = combineReducers({
   Customer: customerSlice.reducer,
   Inventory: InventorySlice.reducer,
   Shipping: persistedShippingReducer,
+
 });
 
 // Create a persisted reducer for the root
