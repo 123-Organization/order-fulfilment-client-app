@@ -124,10 +124,7 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
     
     const cleanedData = [...jsonData];
     
-    const handleChange = (changes: any) => {
-      console.log("changes", changes);
-    }
-    // Clean up data rows (skip header row)
+
     for (let i = 1; i < cleanedData.length; i++) {
       const row = [...(cleanedData[i] as any[])];
       const countryCode = row[countryCodeIndex];
@@ -262,23 +259,13 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
           (order.ship_country_code.toString().toLowerCase() === "us" || 
            order.ship_country_code.toString().toLowerCase() === "usa" ||
            order.ship_country_code.toString().toLowerCase() === "united states");
-           console.log("adsadads", order);
+       
 
-        console.log(`Order ${order.order_po} after cleanup:`, {
-          country: order.ship_country_code,
-          isUSCountry: isUSCountry,
-          ship_state_code: order.ship_state_code,
-          ship_province: order.ship_province,
-          willMapTo: isUSCountry ? 'state' : 'province'
-        });
+       
 
         const mappedState = isUSCountry ? order.ship_state_code : "";
         const mappedProvince = !isUSCountry ? order.ship_province : "";
 
-        console.log(`Final mapping for ${order.order_po}:`, {
-          state: mappedState,
-          province: mappedProvince
-        });
 
         const orderData: any = {
           order_po: order.order_po ? order.order_po.toString().replace(/^#/, '') : order.order_po,
@@ -325,13 +312,10 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
       });
       return postOrders;
   } catch (error) {
-    console.log("error", error);
   }
   }
   const errors: ValidationError[] = [];
-  console.log("errors", validationErrors);
   useEffect(() => {
-    console.log("Redux validatedOrders", validatedOrders);
     if(validatedOrders.status === false) {
       errors.push({
         row: 0,
@@ -340,7 +324,6 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
       });
       setValidationErrors((prev) => [...prev, ...errors]);
     }else if(validatedOrders.status === true){
-      console.log("validatedOrders", validatedOrders);
       const filteredErrors = validationErrors.filter((error) => error.column !== "response");
       setValidationErrors([ ...filteredErrors]);
     }
@@ -358,11 +341,7 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
       orders: [...postOrders],
       account_key: customerInfo?.data?.account_key,
       accountId: customerInfo?.data?.account_id,
-      payment_token: customerInfo?.data?.payment_profile_id,
     }))
-    console.log("asdsdadasd", postOrders);
-
-
   }
 
   const hotSettings = {
@@ -391,8 +370,6 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
         validatePostOrders();
         validateData();
       }
-      // validatePostOrders();
-      console.log("changes", changes);
       
      
     },
@@ -407,7 +384,7 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
     const missingFields = requiredFields.filter(
       (field) => !headers.includes(field)
     );
-    console.log("missingFields", missingFields);
+    
     if (missingFields.length > 0) {
       errors.push({
         row: 0,
@@ -502,7 +479,7 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
           orders: [...postOrders],
         })
       );
-      console.log("to send", postOrders);
+      
 
       setStep(3);
       setStepStatus("finish");

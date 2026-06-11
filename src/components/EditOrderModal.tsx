@@ -93,13 +93,13 @@ const UploadFileModal: FC<UploadFileModalProps> = ({openModel, setOpen, imgData,
       setLoading(true);
       try {
         const values = await form.validateFields();
-        console.log('Success:', values);
+        
         if(values?.title){
           // await putImagesFn({...values,...{guid:imgData.guid,"libraryAccountKey":userInfo.libraryAccountKey,"librarySiteId":userInfo.librarySiteId}})
         }
        
       } catch (errorInfo) {
-        console.log('Failed:', errorInfo);
+        
       }
     
     };

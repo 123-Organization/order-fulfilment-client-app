@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Modal, Button, Radio, Checkbox, Tag, Tooltip } from "antd";
-import { CrownOutlined, BranchesOutlined, InfoCircleOutlined } from "@ant-design/icons";
+import { CrownOutlined, BranchesOutlined, InfoCircleOutlined, ShoppingOutlined } from "@ant-design/icons";
 
 interface Product {
   sku: string;
@@ -35,6 +35,7 @@ interface VariantSelectionModalProps {
   onSkip?: () => void; // Option to skip variant configuration and export directly
   variantGroups: VariantGroup[];
   platform: string;
+  standaloneProducts?: Product[]; // Single products (no variants) also selected for export
 }
 
 const VariantSelectionModal: React.FC<VariantSelectionModalProps> = ({
@@ -44,6 +45,7 @@ const VariantSelectionModal: React.FC<VariantSelectionModalProps> = ({
   onSkip,
   variantGroups,
   platform,
+  standaloneProducts = [],
 }) => {
   // State to track selections for each variant group
   // Key: imageGuid, Value: { primarySku: string, variantSkus: string[] }
@@ -374,6 +376,56 @@ const VariantSelectionModal: React.FC<VariantSelectionModalProps> = ({
           <div className="text-center py-12 text-gray-500">
             <BranchesOutlined className="text-4xl mb-3 text-gray-300" />
             <p>No variant groups found</p>
+          </div>
+        )}
+
+        {/* Standalone products hint */}
+        {standaloneProducts.length > 0 && (
+          <div className="bg-gradient-to-r from-slate-50 to-gray-50 border border-gray-200 rounded-xl p-4 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-1.5 bg-slate-600 rounded-md">
+                <ShoppingOutlined className="text-white text-sm" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-gray-800 text-sm m-0">
+                  Also included in export
+                </h4>
+                <p className="text-xs text-gray-500 m-0">
+                  {standaloneProducts.length} single product{standaloneProducts.length > 1 ? "s" : ""} without variants — exported as-is
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {standaloneProducts.map((product) => (
+                <div
+                  key={product.sku}
+                  className="flex items-center gap-3 p-2.5 bg-white border border-gray-200 rounded-lg"
+                >
+                  <div className="w-10 h-10 bg-gray-100 rounded-md flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {product.image_url_1 ? (
+                      <img
+                        src={product.image_url_1}
+                        alt={product.name}
+                        className="max-w-full max-h-full object-contain"
+                      />
+                    ) : (
+                      <ShoppingOutlined className="text-gray-400" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-700 text-sm truncate m-0" title={product.name}>
+                      {product.name}
+                    </p>
+                    <span className="bg-gray-100 text-gray-500 text-xs px-1.5 py-0.5 rounded font-mono">
+                      {product.sku}
+                    </span>
+                  </div>
+                  <Tag color="geekblue" className="m-0 flex-shrink-0">
+                    Single Product
+                  </Tag>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

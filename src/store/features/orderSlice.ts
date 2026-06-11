@@ -29,6 +29,10 @@ interface OrderState {
   submitedOrders: any;
   submitOrdersResponse: any;
   shopifyOrdersResponse: any;
+  squarespaceOrdersResponse: any;
+  squarespaceImportStatus: "idle" | "loading" | "succeeded" | "failed" | "token_expired";
+  wixOrdersResponse: any;
+  wixImportStatus: "idle" | "loading" | "succeeded" | "failed";
   Wporder: any;
   appLunched: boolean;
   iframeOpened: boolean;
@@ -70,6 +74,10 @@ const initialState: OrderState = {
   submitedOrders: [],
   submitOrdersResponse: null,
   shopifyOrdersResponse: null,
+  squarespaceOrdersResponse: null,
+  squarespaceImportStatus: "idle",
+  wixOrdersResponse: null,
+  wixImportStatus: "idle",
   validSKU: [],
   validatedOrders: {},
   error: null,
@@ -419,6 +427,158 @@ export const fetchShopifyOrderByName = createAsyncThunk(
 );
 
 
+export const fetchSquarespaceOrders = createAsyncThunk(
+  "order/fetch/squarespace",
+  async (
+    postData: {
+      access_token: string;
+      startDate: string;
+      endDate: string;
+      fulfillmentStatus?: string;
+    },
+    thunkAPI
+  ) => {
+    console.log('Fetching Squarespace orders with:', postData);
+    try {
+      const response = await fetch(
+        'https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/orders',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(postData),
+        }
+      );
+
+      const data = await response.json();
+
+      // Detect token expiry: HTTP 401 or explicit error indicators
+      if (
+        response.status === 401 ||
+        data?.error === 'AUTHENTICATION_ERROR' ||
+        data?.message?.toLowerCase().includes('unauthorized') ||
+        data?.message?.toLowerCase().includes('token') ||
+        data?.code === 'AUTHENTICATION_ERROR'
+      ) {
+        console.warn('⚠️ [Squarespace] Access token expired or invalid.');
+        return thunkAPI.rejectWithValue({ tokenExpired: true, message: data?.message || 'Token expired' });
+      }
+
+      if (!response.ok) {
+        console.error('API error in fetchSquarespaceOrders:', data);
+        return thunkAPI.rejectWithValue(data);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('API call failed in fetchSquarespaceOrders:', error);
+      return thunkAPI.rejectWithValue('Failed to fetch Squarespace orders');
+    }
+  }
+);
+
+export const fetchSquarespaceOrderByNumber = createAsyncThunk(
+  "order/fetch/squarespace/bynumber",
+  async (postData: { access_token: string; orderNumber: string }, thunkAPI) => {
+    console.log('Fetching Squarespace order by number:', postData);
+    try {
+      const response = await fetch('https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/order-by-number', {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(postData)
+      });
+
+      const data = await response.json();
+
+      if (
+        response.status === 401 ||
+        data?.error === 'AUTHENTICATION_ERROR' ||
+        data?.message?.toLowerCase().includes('unauthorized') ||
+        data?.message?.toLowerCase().includes('token') ||
+        data?.code === 'AUTHENTICATION_ERROR'
+      ) {
+        console.warn('⚠️ [Squarespace] Access token expired or invalid.');
+        return thunkAPI.rejectWithValue({ tokenExpired: true, message: data?.message || 'Token expired' });
+      }
+
+      if (!response.ok) {
+        console.error('API error in fetchSquarespaceOrderByNumber:', data);
+        return thunkAPI.rejectWithValue(data);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('API call failed in fetchSquarespaceOrderByNumber:', error);
+      return thunkAPI.rejectWithValue('Failed to fetch Squarespace order by number');
+    }
+  },
+);
+
+export const fetchWixOrders = createAsyncThunk(
+  "order/fetch/wix",
+  async (
+    postData: {
+      account_key: string;
+      access_token: string;
+      start_date: string;
+      end_date: string;
+      fulfillmentStatus?: string;
+    },
+    thunkAPI
+  ) => {
+    console.log('Fetching Wix orders with:', postData);
+    try {
+      let url = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/wix/orders?account_key=${postData.account_key}&access_token=${postData.access_token}&start_date=${postData.start_date}&end_date=${postData.end_date}`;
+      if (postData.fulfillmentStatus) {
+        url += `&fulfillment_status=${postData.fulfillmentStatus}`;
+      }
+      const response = await fetch(url, { method: 'POST' });
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error('API error in fetchWixOrders:', data);
+        return thunkAPI.rejectWithValue(data);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('API call failed in fetchWixOrders:', error);
+      return thunkAPI.rejectWithValue('Failed to fetch Wix orders');
+    }
+  }
+);
+
+export const fetchWixOrderByNumber = createAsyncThunk(
+  "order/fetch/wix/bynumber",
+  async (
+    postData: {
+      account_key: string;
+      access_token: string;
+      order_numbers: string[];
+    },
+    thunkAPI
+  ) => {
+    console.log('Fetching Wix order by number:', postData);
+    try {
+      const orderNumbersEncoded = encodeURIComponent(JSON.stringify(postData.order_numbers));
+      const url = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/wix/order-by-number?account_key=${postData.account_key}&access_token=${postData.access_token}&order_number=${orderNumbersEncoded}`;
+      const response = await fetch(url, { method: 'POST' });
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error('API error in fetchWixOrderByNumber:', data);
+        return thunkAPI.rejectWithValue(data);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('API call failed in fetchWixOrderByNumber:', error);
+      return thunkAPI.rejectWithValue('Failed to fetch Wix order by number');
+    }
+  }
+);
+
 export const DeleteAllOrders = createAsyncThunk(
   "order/delete/all",
   async (postData: any, thunkAPI) => {
@@ -708,6 +868,18 @@ export const OrderSlice = createSlice({
     resetShopifyOrdersResponse: (state) => {
       state.shopifyOrdersResponse = null
     },
+    resetSquarespaceOrdersResponse: (state) => {
+      state.squarespaceOrdersResponse = null;
+    },
+    resetSquarespaceImportStatus: (state) => {
+      state.squarespaceImportStatus = 'idle';
+    },
+    resetWixOrdersResponse: (state) => {
+      state.wixOrdersResponse = null;
+    },
+    resetWixImportStatus: (state) => {
+      state.wixImportStatus = 'idle';
+    },
     resetSaveOrderInfo: (state) => {
       state.saveOrderInfo = {}
     },
@@ -878,6 +1050,37 @@ export const OrderSlice = createSlice({
     builder.addCase(submitShopifyOrders.pending, (state, action) => {
       state.submitStatus = 'loading';
     })
+
+    // ── Squarespace orders ──────────────────────────────────────────────────
+    builder.addCase(fetchSquarespaceOrders.pending, (state) => {
+      state.squarespaceImportStatus = 'loading';
+    });
+    builder.addCase(fetchSquarespaceOrders.fulfilled, (state, action) => {
+      state.squarespaceOrdersResponse = action.payload;
+      state.squarespaceImportStatus = 'succeeded';
+    });
+    builder.addCase(fetchSquarespaceOrders.rejected, (state, action) => {
+      const payload = action.payload as any;
+      if (payload?.tokenExpired) {
+        state.squarespaceImportStatus = 'token_expired';
+      } else {
+        state.squarespaceImportStatus = 'failed';
+      }
+      state.error = payload?.message || (action.payload as string);
+    });
+    // ── Wix orders ─────────────────────────────────────────────────────────
+    builder.addCase(fetchWixOrders.pending, (state) => {
+      state.wixImportStatus = 'loading';
+    });
+    builder.addCase(fetchWixOrders.fulfilled, (state, action) => {
+      state.wixOrdersResponse = action.payload;
+      state.wixImportStatus = 'succeeded';
+    });
+    builder.addCase(fetchWixOrders.rejected, (state, action) => {
+      state.wixImportStatus = 'failed';
+      state.error = (action.payload as any)?.message || (action.payload as string);
+    });
+
     builder.addCase(sendOrderInformation.fulfilled, (state, action) => {
       state.sendOrderInfoStatus = 'succeeded';
     })
@@ -911,4 +1114,4 @@ export const OrderSlice = createSlice({
 });
 
 export default OrderSlice.reducer;
-export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, updateIframe, updateApp, updateOpenSheet, updateExcludedOrders, resetExcludedOrders, updateValidSKU, resetValidSKU, updateReplacingCode, resetReplacingCode, resetReplaceCodeResult, resetReplaceCodeStatus, resetSubmitStatus, resetSendOrderInfoStatus, resetSubmitOrdersResponse, resetShopifyOrdersResponse, resetSaveOrderInfo, resetUpdateImageStatus } = OrderSlice.actions;
+export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, updateIframe, updateApp, updateOpenSheet, updateExcludedOrders, resetExcludedOrders, updateValidSKU, resetValidSKU, updateReplacingCode, resetReplacingCode, resetReplaceCodeResult, resetReplaceCodeStatus, resetSubmitStatus, resetSendOrderInfoStatus, resetSubmitOrdersResponse, resetShopifyOrdersResponse, resetSaveOrderInfo, resetUpdateImageStatus, resetSquarespaceOrdersResponse, resetSquarespaceImportStatus, resetWixOrdersResponse, resetWixImportStatus } = OrderSlice.actions;

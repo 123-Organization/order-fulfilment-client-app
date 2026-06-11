@@ -89,13 +89,39 @@ const BillingAddress: React.FC = () => {
     }
     
     setStateCode(state_code);
+    let stateAbbr = state_code;
     if (countryCode === "us") {
       // When saving, convert full state name back to abbreviation
-      const stateAbbr = state_code.length > 2 ? convertUsStateAbbrAndName(state_code) : state_code.toUpperCase();
+      stateAbbr = state_code.length > 2 ? convertUsStateAbbrAndName(state_code) || state_code.toUpperCase() : state_code.toUpperCase();
       setStateCodeShort(stateAbbr || "");
     } else {
       setStateCodeShort(state_code);
     }
+    
+    // Ensure company address state gets updated so other field changes don't revert this
+    setCompanyAddress((prev: any) => {
+      const updated = { ...prev, state_code: stateAbbr };
+      
+      // We must explicitly dispatch to Redux here otherwise clicking Next prematurely will send old context
+      let payload = { ...updated, country_code: countryCode };
+      if (countryCode === "us" && payload.state_code) {
+        payload.state_code = payload.state_code.length !== 2 
+            ? convertUsStateAbbrAndName(payload.state_code) || payload.state_code.toUpperCase() 
+            : payload.state_code.toUpperCase();
+      }
+      
+      form1.validateFields().then(() => {
+        dispatch(updateBilling({ billing_info: payload }));
+      }).catch(err => {
+        const errors = err.errorFields?.reduce((acc: any, field: any) => {
+          acc[field.name[0]] = field.errors;
+          return acc;
+        }, {});
+        dispatch(updateBilling({ billing_info: payload, validFields: errors || err }));
+      });
+      return updated;
+    });
+    form1.setFieldsValue({ state_code: stateAbbr });
   };
 
   const onChange = (value: string) => {
@@ -130,18 +156,23 @@ const BillingAddress: React.FC = () => {
   const onValid = () => {
     const values = form1.getFieldsValue();
     console.log("vovvo", values);
-    const normalizedStateCode =
-      countryCode === "us" ? stateCodeShort : stateCode;
-    console.log("normalizedStateCode", normalizedStateCode);
+    let current_state_code = values?.state_code || (countryCode === "us" ? stateCodeShort : stateCode);
+
+    if (countryCode === "us" && current_state_code) {
+      if (current_state_code.length !== 2) {
+        current_state_code = convertUsStateAbbrAndName(current_state_code) || current_state_code;
+      }
+      current_state_code = current_state_code.toUpperCase();
+    }
 
     let payload = {
       ...values,
       country_code: countryCode,
-      state_code: normalizedStateCode || values?.state_code,
+      state_code: current_state_code || values?.state_code,
     };
     if (countryCode !== "us") {
       payload.state_code = "";
-      payload.province = stateCode || normalizedStateCode;
+      payload.province = current_state_code;
     }
     form1
       .validateFields()
@@ -210,7 +241,14 @@ const BillingAddress: React.FC = () => {
       form1
         .validateFields()
         .then(() => {
-          dispatch(updateBilling({ billing_info: updated }));
+          let payload = { ...updated };
+          if (countryCode === "us" && payload.state_code) {
+            if (payload.state_code.length !== 2) {
+              payload.state_code = convertUsStateAbbrAndName(payload.state_code) || payload.state_code;
+            }
+            payload.state_code = payload.state_code.toUpperCase();
+          }
+          dispatch(updateBilling({ billing_info: payload }));
         })
         .catch((errorInfo) => {
           const errors = errorInfo.errorFields.reduce(
@@ -528,12 +566,14 @@ const BillingAddress: React.FC = () => {
                   }
                   
                   // For full names or invalid 2-letter codes
-                  const stateAbbr = convertUsStateAbbrAndName(inputValue);
+                  const stateAbbr = convertUsStateAbbrAndName(inputValue) || inputValue.toUpperCase();
                   setStateCode(inputValue);
-                  setStateCodeShort(stateAbbr || inputValue);
+                  setStateCodeShort(stateAbbr);
+                  setCompanyAddress((prev: any) => ({...prev, state_code: stateAbbr}));
                 } else {
                   setStateCode(inputValue);
                   setStateCodeShort(inputValue);
+                  setCompanyAddress((prev: any) => ({...prev, state_code: inputValue}));
                 }
                 // Only validate if initial data is loaded
                 if (isInitialDataLoaded) {

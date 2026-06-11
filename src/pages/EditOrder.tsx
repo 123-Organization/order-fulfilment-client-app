@@ -90,7 +90,7 @@ const EditOrder: React.FC = () => {
   );
   const { order_items, order_key, order_status, recipient } = order || {};
   const product_status = useAppSelector((state) => state.ProductSlice.status);
-  
+
   const InventoryImages =
     useAppSelector((state) => state.Inventory.inventoryImages) || [];
   const validSKU = useAppSelector((state) => state.order.validSKU) || [];
@@ -114,20 +114,20 @@ const EditOrder: React.FC = () => {
   const [isModified, setIsModified] = useState(false); // Track if values are modified
   const [changedValues, setChangedValues] = useState<any>({});
   const [localOrder, setLocalOrder] = useState(order);
-  const[stateCodeShort, setStateCodeShort] = useState(recipient?.state_code)
+  const [stateCodeShort, setStateCodeShort] = useState(recipient?.state_code)
   const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({});
   const [imageUrlIndex, setImageUrlIndex] = useState<{ [key: string]: number }>({});
   console.log("recipient", recipient);
   const product_details =
     useAppSelector(
       (state) => state.ProductSlice.product_details?.data?.product_list
-    || [] ) ;
+        || []);
   console.log("product_details...", product_details);
   const orderEdited = useAppSelector((state) => state.order.orderEdited) || [];
   console.log("product_details...", product_details);
   // parse the string to html
-const {phone} = useAppSelector((state) => state.company.company_info?.data?.billing_info) || {};
-console.log("company_info", phone);
+  const { phone } = useAppSelector((state) => state.company.company_info?.data?.billing_info) || {};
+  console.log("company_info", phone);
 
   // Function to get the correct image URL, handling Google Drive links
   const getImageUrl = useCallback((item: any, productSku: string): string => {
@@ -136,17 +136,17 @@ console.log("company_info", phone);
     // Try thumbnail first, then fallback to product data
     if (item?.product_url_thumbnail) {
       imageUrl = item?.product_url_thumbnail;
-    }else if(item?.product_image?.product_url_thumbnail) {
+    } else if (item?.product_image?.product_url_thumbnail) {
       imageUrl = item?.product_image?.product_url_thumbnail;
     } else if (productData[productSku]?.image_url_1) {
       imageUrl = productData[productSku].image_url_1;
     }
-    
+
     // Convert Google Drive URLs to direct image URLs
     if (imageUrl && isGoogleDriveUrl(imageUrl)) {
       return convertGoogleDriveUrl(imageUrl);
     }
-    
+
     return imageUrl;
   }, [productData]);
 
@@ -155,14 +155,14 @@ console.log("company_info", phone);
     if (isGoogleDriveUrl(originalUrl)) {
       const possibleUrls = getGoogleDriveImageUrls(originalUrl);
       const currentIndex = imageUrlIndex[imageKey] || 0;
-      
+
       if (currentIndex < possibleUrls.length - 1) {
         // Try next URL
         setImageUrlIndex(prev => ({ ...prev, [imageKey]: currentIndex + 1 }));
         return;
       }
     }
-    
+
     // Mark as failed if all URLs tried
     setImageErrors(prev => ({ ...prev, [imageKey]: true }));
   };
@@ -170,13 +170,13 @@ console.log("company_info", phone);
   // Get current image URL for a specific image key
   const getCurrentImageUrl = useCallback((imageKey: string, originalUrl: string): string => {
     if (!originalUrl) return "";
-    
+
     if (isGoogleDriveUrl(originalUrl)) {
       const possibleUrls = getGoogleDriveImageUrls(originalUrl);
       const currentIndex = imageUrlIndex[imageKey] || 0;
       return possibleUrls[currentIndex] || originalUrl;
     }
-    
+
     return originalUrl;
   }, [imageUrlIndex]);
   console.log("local", localOrder);
@@ -204,22 +204,22 @@ console.log("company_info", phone);
       // Update the shipping price for the existing order
       updatedOrders[orderIndex] = {
         ...updatedOrders[orderIndex],
-        Product_price: {grand_total: updatedPrice?.order_grand_total || updatedPrice},
+        Product_price: { grand_total: updatedPrice?.order_grand_total || updatedPrice },
       };
     } else {
       // Add the order with the updated shipping price
       console.log("updatedPrice", updatedPrice);
       updatedOrders.push({
         order_po,
-        Product_price: {grand_total: updatedPrice?.order_grand_total || updatedPrice},
+        Product_price: { grand_total: updatedPrice?.order_grand_total || updatedPrice },
       });
     }
 
     dispatch(updateCheckedOrders(updatedOrders));
   };
 
-  useEffect(()=>{
-// updateOrderStatus()
+  useEffect(() => {
+    // updateOrderStatus()
   }, [])
 
   //send the orders array without the dedeleted product object
@@ -245,9 +245,9 @@ console.log("company_info", phone);
       updatedValues: updatedOrders,
       customerId: customerInfo?.data?.account_id  // Fallback to a default if missing
     };
-    
+
     console.log("Sending updated orders:", postData);
-    
+
     // Dispatch with the properly formatted data
     dispatch(updateOrdersInfo(postData))
       .then((result) => {
@@ -302,9 +302,10 @@ console.log("company_info", phone);
   console.log("recipient", recipient);
 
   useEffect(() => {
-    if(recipient?.state_code || recipient?.state){
-    const stateCode = recipient?.state_code?.toLowerCase()
-    setStateCodeShort(convertUsStateAbbrAndName(stateCode))}
+    if (recipient?.state_code || recipient?.state) {
+      const stateCode = recipient?.state_code?.toLowerCase()
+      setStateCodeShort(convertUsStateAbbrAndName(stateCode))
+    }
   }, [recipient])
 
   useEffect(() => {
@@ -367,9 +368,9 @@ console.log("company_info", phone);
     dispatch(
       fetchSingleOrderDetails({ accountId: customerInfo?.data?.account_id, orderFullFillmentId: id })
     );
-    
+
   };
-const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
+  const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
   const [componentSize, setComponentSize] = useState<SizeType | "default">(
     "default"
   );
@@ -384,7 +385,7 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
     );
     console.log("hasChanged:", hasChanged);
     console.log("changedValues:", changedValues);
-    if(changedValues?.state_code){
+    if (changedValues?.state_code) {
       changedValues.state_code = convertUsStateAbbrAndName(changedValues.state_code);
     }
 
@@ -457,7 +458,7 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
       setTimeout(() => {
         dispatch(
           fetchSingleOrderDetails({
-            accountId: customerInfo?.data?.account_id, 
+            accountId: customerInfo?.data?.account_id,
             orderFullFillmentId: id,
           })
         );
@@ -607,12 +608,12 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
             options={stateData}
             value={recipient?.state_code || ""}
           >
-            
+
           </Select>
         </Form.Item>
         <label htmlFor="floating_outlined" className="fw-label">
-              State
-            </label>
+          State
+        </label>
       </div>
 
       <div className="relative w-full">
@@ -636,14 +637,14 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
             { required: false, message: "Please enter Your Phone Number" },
           ]}
         >
-          <Input 
-            className="fw-input" 
-            value={phoneValue} 
+          <Input
+            className="fw-input"
+            value={phoneValue}
             disabled={!isPhoneEditable}
-            style={!isPhoneEditable ? { 
-              backgroundColor: "#f5f5f5", 
-              color: "#999", 
-              cursor: "not-allowed" 
+            style={!isPhoneEditable ? {
+              backgroundColor: "#f5f5f5",
+              color: "#999",
+              cursor: "not-allowed"
             } : {}}
             placeholder={isPhoneEditable ? "Enter phone number" : "Phone from billing info"}
           />
@@ -658,7 +659,7 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
     </Form>
   );
 
-  
+
   console.log("localorder", localOrder);
 
   return (
@@ -725,7 +726,7 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
                         const imageKey = `${item?.product_sku}-${item?.product_guid}`;
                         const currentImageUrl = getCurrentImageUrl(imageKey, originalImageUrl);
                         const hasError = imageErrors[imageKey];
-                        
+
                         if (currentImageUrl && !hasError) {
                           return (
                             <img
@@ -754,12 +755,11 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
                           <h3 className="font-medium text-gray-900 text-sm leading-tight line-clamp-2 mb-2">
                             {productData[item.product_sku]?.name || 'Untitled Product'}
                           </h3>
-                          
+
                           {/* Labels with keys */}
                           {productData[item.product_sku]?.labels?.length > 1 && (
-                            <div className={`space-y-0.5 overflow-hidden transition-all duration-300 ${
-                              expandedDescriptions.has(item.product_sku) ? 'max-h-[300px]' : 'max-h-[80px]'
-                            }`}>
+                            <div className={`space-y-0.5 overflow-hidden transition-all duration-300 ${expandedDescriptions.has(item.product_sku) ? 'max-h-[300px]' : 'max-h-[80px]'
+                              }`}>
                               {productData[item.product_sku]?.labels.slice(1).map((label: any, idx: number) => (
                                 <div key={idx} className="text-[11px] text-gray-600 leading-tight">
                                   <span className="text-blue-600 font-medium">{label.key}:</span> {label.value}
@@ -767,7 +767,7 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
                               ))}
                             </div>
                           )}
-                          
+
                           {/* Expand/Collapse */}
                           {productData[item.product_sku]?.labels?.length > 5 && (
                             <button
@@ -819,7 +819,7 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
                         deleteItem={product_guid}
                         order_po=""
                       />
-                      
+
                       {/* Change Image Button - only show if product_sku starts with "AP" */}
                       {item.product_sku?.toString().startsWith("AP") && (
                         <button
@@ -840,7 +840,7 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
                         </button>
                       )}
                     </div>
-                    
+
                     {/* Price */}
                     <div className="text-sm font-semibold text-gray-900">
                       {clicking || product_status === "loading" || !product_details?.find(
@@ -868,9 +868,9 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
             ChangedValues={changedValues}
             visible={orderEdited.clicked}
             onClose={() => dispatch(updateOrderStatus({ status: false, clicked: false }))}
-            
-          /> 
-          
+
+          />
+
         ) || null}
 
         {/* File Management Iframe for changing product images */}
@@ -903,7 +903,7 @@ const changeStatus = useAppSelector((state) => state.ProductSlice.changeStatus);
                 clicking={clicking}
               />
             </div>
-            <NewProduct/>
+            <NewProduct />
           </div>
         </div>
       </div>

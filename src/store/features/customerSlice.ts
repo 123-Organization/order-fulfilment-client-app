@@ -30,14 +30,14 @@ export const getCustomerInfo = createAsyncThunk(
 
                 // If companyInfo is not available, handle it (e.g., return a default value or throw an error)
                 if (!companyInfo) {
-                        console.log("Company info is not available in the state.");
+                        
                         return thunkAPI.rejectWithValue("Company info is missing.");
                 }
 
                 // Get cookie value directly instead of using the hook
                 const accountKey = getCookie("AccountGUID") || "default-key";
-                console.log("Company Info:", companyInfo);
-                console.log("Account Key:", accountKey);
+                
+                
 
                 // Fetch customer info using the account key
                 const response = await fetch(BASE_URL + `get-info?account_key=${accountKey}`, {
@@ -53,7 +53,7 @@ export const getCustomerInfo = createAsyncThunk(
                 }
 
                 const data = await response.json();
-                console.log("Customer Info Data:", data);
+                
                 return data;
         }
 );

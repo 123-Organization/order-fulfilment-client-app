@@ -47,19 +47,19 @@ export default function FileManagementIframe({
   const SelectedImage = useAppSelector(
     (state) => state.ProductSlice.SelectedImage
   );
-  console.log("lolo", logo);
+  
 
   const location = useLocation();
-  console.log("SelectedImage", SelectedImage);
+  
   const iframeState = useAppSelector((state) => state.company.iframeState);
-  console.log("🎬 FileManagementIframe - iframeState:", iframeState);
+  
   const productData = useAppSelector((state) => state.ProductSlice.productData);
   const ordersStatus = useAppSelector((state) => state.order.status);
   const companyinfoStatus = useAppSelector(
     (state) => state.company.companyinfoStatus
   );
   const companyinfo=useAppSelector((state)=>state.company.company_info)
-  console.log("comcom", companyinfo);
+
   const productDataStatus = useAppSelector(
     (state) => state.order.productDataStatus
   );
@@ -78,7 +78,7 @@ export default function FileManagementIframe({
         product_url_file: [SelectedImage],
         product_url_thumbnail: [SelectedImage],
       };
-      console.log("deeeedo", data);
+      
       dispatch(setProductData(data)); 
     }
   }
@@ -99,8 +99,7 @@ export default function FileManagementIframe({
         account_id: companyinfo?.data?.account_id,
       },
     };
-    console.log("sotsot", settings);
-
+  
     // Add an event listener for the iframe load event
     const handleIframeLoad = () => {
       const iframeElement = document.getElementById("file-manager-iframe") as HTMLIFrameElement | null;
@@ -140,7 +139,7 @@ export default function FileManagementIframe({
       setIsMaximized(!isMaximized);
     }
   };
-  console.log("iframeState...", iframeState);
+
   // Handle full-screen change event
   useEffect(() => {
     const handleFullScreenChange = () => {
@@ -196,16 +195,15 @@ export default function FileManagementIframe({
     try {
       const data = event.data;
 
-      console.log("dataaa", data);
       const filteredImages = filterImages(data);
-      console.log("filteredImages", filteredImages);
+    
       dispatch(setSelectedImage(filteredImages[0]));
       setLogo(filteredImages[0]);
     } catch (error) {
       console.error("Error parsing message data:", error);
     }
   };
-  console.log("logo", logo);
+
 
   useEffect(() => {
     window.addEventListener("message", handleMessage);
@@ -268,7 +266,7 @@ export default function FileManagementIframe({
       accountId: companyinfo?.data?.account_id,
     };
 
-    console.log("Updating product image with:", postData);
+  
     dispatch(updateOrderItemImage(postData));
   };
 
@@ -344,7 +342,7 @@ export default function FileManagementIframe({
       setIframeLink("https://prod1-filemanger-app.finerworks.com/#/thumbnail");
     }
   }, [iframe, iframeState]);
-  console.log("wee", productData?.product_url_file)
+  
 
   return (
     <div className="z-100">

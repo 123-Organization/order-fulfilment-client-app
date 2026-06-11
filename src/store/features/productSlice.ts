@@ -10,7 +10,9 @@ interface ProductState {
         quantityUpdated: boolean;
         SelectedImage: any;
         productData: any;
-        images: any;
+        images: any[];
+        imagesCount: number;
+        imagesStatus: "idle" | "loading" | "succeeded" | "failed";
 }
 
 const initialState: ProductState = {
@@ -20,14 +22,16 @@ const initialState: ProductState = {
         quantityUpdated: false,
         SelectedImage: [],
         productData: null,
-        images: []
+        images: [],
+        imagesCount: 0,
+        imagesStatus: "idle",
 };
 
 const getCookie = (name: string) => {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop()?.split(';').shift();
-    return null;
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop()?.split(';').shift();
+        return null;
 };
 
 export const fetchProductDetails = createAsyncThunk(
@@ -35,7 +39,7 @@ export const fetchProductDetails = createAsyncThunk(
         async (postData: any, thunkAPI) => {
                 console.log('postData...', postData)
                 const sendData = {
-                        "products":[...postData],
+                        "products": [...postData],
                         "account_key": getCookie("AccountGUID") || "default-key"
                 }
                 const response = await fetch(BASE_URL + "get-product-details", {
@@ -71,18 +75,30 @@ export const increaseProductQuantity = createAsyncThunk(
         },
 );
 
+interface GetAllImagesParams {
+        page?: number;
+        perPage?: number;
+        search?: string;
+        libraryName?: "temporary" | "inventory";
+        customerId?: any;
+        guidFilter?: string;
+}
+
 export const getAllImages = createAsyncThunk(
         "product/getAllImages",
-        async (thunkAPI) => {
-                const postData = {
-
-                        "libraryName": "temporary",
-                        "librarySessionId": "vhgetkqbwatywv3fucs4z2xk",
-                        "libraryAccountKey": getCookie("AccountGUID") || "default-key",
+        async (params: GetAllImagesParams = {}, thunkAPI) => {
+                const { page = 1, perPage = 24, search = "", libraryName = "temporary", guidFilter } = params;
+                const accountKey = getCookie("AccountGUID") || "default-key";
+                const sessionId = getCookie("Session") || "";
+                console.log('params...', params)
+                const postData: Record<string, any> = {
+                        "libraryName": libraryName,
+                        "librarySessionId": sessionId,
+                        "libraryAccountKey": accountKey,
                         "librarySiteId": "2",
-                        "filterSearchFilter": "",
-                        "filterPageNumber": "1",
-                        "filterPerPage": "12",
+                        "filterSearchFilter": search,
+                        "filterPageNumber": String(page),
+                        "filterPerPage": String(perPage),
                         "filterUploadFrom": "",
                         "filterUploadTo": "",
                         "filterSortField": "id",
@@ -90,25 +106,22 @@ export const getAllImages = createAsyncThunk(
                         "filterUpdate": "1",
                         "GAID": "",
                         "guidPreSelected": "",
-                        "libraryOptions": [
-                                "temporary",
-                                "inventory"
-                        ],
-                        "multiselectOptions": true,
+                        "libraryOptions": ["temporary", "inventory"],
+                        "multiselectOptions": false,
                         "domain": "",
                         "terms_of_service_url": "/terms.aspx",
-                        "button_text": "Create Print",
-                        "account_id": 12
-
-                }
-                const accountKey = getCookie("AccountGUID") || "default-key";
-                const response = await fetch("https://prod3-api.finerworks.com/api/getallimages?libraryAccountKey="+accountKey, {
-                        method: "POST",
-                        headers: {
-                                "Content-Type": "application/json",
-                        },
-                        body: JSON.stringify(postData)
-                });
+                        "button_text": "Select Image",
+                        "account_id": params.customerId,
+                        ...(guidFilter ? { "guid_filter": [guidFilter] } : {}),
+                };
+                const response = await fetch(
+                        "https://prod3-api.finerworks.com/api/getallimages?libraryAccountKey=" + accountKey,
+                        {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify(postData),
+                        }
+                );
                 const data = response.json();
                 return data;
         },
@@ -137,60 +150,60 @@ export const ProductSlice = createSlice({
                         state.status = "idle";
                 }
         },
-	extraReducers: (builder) => {
-		builder.addCase(fetchProductDetails.fulfilled, (state, action) => {
-			// Merge new product details with existing ones instead of replacing
-			if (state.product_details?.data?.product_list && action.payload?.data?.product_list) {
-				const existingProducts = state.product_details.data.product_list;
-				const newProducts = action.payload.data.product_list;
-				
-				// Create a map of existing products by SKU for quick lookup
-				const existingSkuMap = new Map();
-				existingProducts.forEach((product: any) => {
-					const key = product.sku || product.product_code || product.product_guid;
-					if (key) existingSkuMap.set(key, product);
-				});
-				
-				// Add only new products that don't already exist
-				newProducts.forEach((product: any) => {
-					const key = product.sku || product.product_code || product.product_guid;
-					if (key && !existingSkuMap.has(key)) {
-						existingProducts.push(product);
-					} else if (key && existingSkuMap.has(key)) {
-						// Update existing product with new data
-						const index = existingProducts.findIndex((p: any) => 
-							(p.sku || p.product_code || p.product_guid) === key
-						);
-						if (index !== -1) {
-							existingProducts[index] = { ...existingProducts[index], ...product };
-						}
-					}
-				});
-				
-				state.product_details = {
-					...action.payload,
-					data: {
-						...action.payload.data,
-						product_list: existingProducts
-					}
-				};
-			} else {
-				// If no existing data, just set the new payload
-				state.product_details = action.payload;
-			}
-			state.status = "succeeded";
-		});
-		builder.addCase(fetchProductDetails.pending, (state, action) => {
-			state.status = "loading";
-			// Don't overwrite product_details during pending state
-		});
-		builder.addCase(fetchProductDetails.rejected, (state, action) => {
-			state.status = "failed";
-			state.error = action.payload as string;
-		});
+        extraReducers: (builder) => {
+                builder.addCase(fetchProductDetails.fulfilled, (state, action) => {
+                        // Merge new product details with existing ones instead of replacing
+                        if (state.product_details?.data?.product_list && action.payload?.data?.product_list) {
+                                const existingProducts = state.product_details.data.product_list;
+                                const newProducts = action.payload.data.product_list;
+
+                                // Create a map of existing products by SKU for quick lookup
+                                const existingSkuMap = new Map();
+                                existingProducts.forEach((product: any) => {
+                                        const key = product.sku || product.product_code || product.product_guid;
+                                        if (key) existingSkuMap.set(key, product);
+                                });
+
+                                // Add only new products that don't already exist
+                                newProducts.forEach((product: any) => {
+                                        const key = product.sku || product.product_code || product.product_guid;
+                                        if (key && !existingSkuMap.has(key)) {
+                                                existingProducts.push(product);
+                                        } else if (key && existingSkuMap.has(key)) {
+                                                // Update existing product with new data
+                                                const index = existingProducts.findIndex((p: any) =>
+                                                        (p.sku || p.product_code || p.product_guid) === key
+                                                );
+                                                if (index !== -1) {
+                                                        existingProducts[index] = { ...existingProducts[index], ...product };
+                                                }
+                                        }
+                                });
+
+                                state.product_details = {
+                                        ...action.payload,
+                                        data: {
+                                                ...action.payload.data,
+                                                product_list: existingProducts
+                                        }
+                                };
+                        } else {
+                                // If no existing data, just set the new payload
+                                state.product_details = action.payload;
+                        }
+                        state.status = "succeeded";
+                });
+                builder.addCase(fetchProductDetails.pending, (state, action) => {
+                        state.status = "loading";
+                        // Don't overwrite product_details during pending state
+                });
+                builder.addCase(fetchProductDetails.rejected, (state, action) => {
+                        state.status = "failed";
+                        state.error = action.payload as string;
+                });
                 builder.addCase(increaseProductQuantity.fulfilled, (state, action) => {
                         state.product_details = action.payload;
-                        
+
                         state.status = "succeeded";
                 });
                 builder.addCase(increaseProductQuantity.rejected, (state, action) => {
@@ -198,17 +211,21 @@ export const ProductSlice = createSlice({
                         state.error = action.payload as string;
                 });
                 builder.addCase(getAllImages.fulfilled, (state, action) => {
-                        state.images = action.payload;
-                        state.status = "succeeded";
+                        state.images = action.payload?.data?.images || [];
+                        state.imagesCount = action.payload?.data?.count || 0;
+                        state.imagesStatus = "succeeded";
                 });
-                builder.addCase(getAllImages.pending, (state, action) => {
-                        state.status = "loading";
+                builder.addCase(getAllImages.pending, (state) => {
+                        state.imagesStatus = "loading";
                 });
-               
+                builder.addCase(getAllImages.rejected, (state) => {
+                        state.imagesStatus = "failed";
+                });
+
 
 
         },
 });
 
-export const { setQuantityUpdated, setSelectedImage, setProductData, clearProductData, clearSelectedImage , resetProductStatus} = ProductSlice.actions;
+export const { setQuantityUpdated, setSelectedImage, setProductData, clearProductData, clearSelectedImage, resetProductStatus } = ProductSlice.actions;
 export default ProductSlice;

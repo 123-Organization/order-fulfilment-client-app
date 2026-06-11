@@ -14,7 +14,7 @@ export default function NewOrder({ iframe, setIframe, recipient }) {
   const notificationApi = useNotificationContext();
   const  currentOrderFullFillmentId= useAppSelector((state) => state.order.currentOrderFullFillmentId);
 
-  console.log("ee", recipient);
+  
 
   const toggleMaximize = () => {
     if (isSmallScreen) {
@@ -26,18 +26,18 @@ export default function NewOrder({ iframe, setIframe, recipient }) {
       setIsMaximized(!isMaximized);
     }
   };
-  console.log("nono", isMaximized, isSmallScreen);
+ 
   // Listen for messages from iframe
   useEffect(() => {
     const handleMessage = (event) => {
-      console.log("Message event:", event.data);
+     
 
       // Check if the message is coming from the expected origin
       if (event.origin !== "https://finerworks.com") return;
 
       try {
         const data = JSON.parse(event.data);
-        console.log("daaaaa", data);
+       
         if (recipient) {
           if (Array.isArray(data)) {
             setAddedProducts(data);

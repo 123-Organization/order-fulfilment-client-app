@@ -66,7 +66,6 @@ export const updateCompanyInfo = createAsyncThunk(
                         body: JSON.stringify(postData)
                 });
                 const data = await response.json();
-                console.log("company data", data)
                 return data;
         },
 );
@@ -76,7 +75,7 @@ export const Company = createSlice({
         name: "company",
         initialState,
         reducers: {
-                updateCompany: (state, action: PayloadAction) => {
+                updateCompany: (state, action: PayloadAction<any>) => {
                         console.log('updateCompanyAction', state)
                         state.myCompanyInfoFilled = action.payload;
                 },
@@ -106,14 +105,13 @@ export const Company = createSlice({
         },
         extraReducers: (builder) => {
                 builder.addCase(updateCompanyInfo.fulfilled, (state, action) => {
-                        console.log("load ", action.payload)
+                        
                         const data = {
                                 data: {
                                         ...action.payload.data,
                                 },
 
                         }
-                        console.log("load ", data)
                         state.company_info = data;
                         state.companyinfoStatus = "success";
                 });

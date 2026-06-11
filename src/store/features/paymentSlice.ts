@@ -7,8 +7,9 @@ interface PaymentState {
         createCustomerInfo: any;
         selectedCard: any;
         paymentToken: any;
-        status: "idle" | "loading" | "succeeded" | "failed"; // ✅ Add status here
+        status: "idle" | "loading" | "succeeded" | "failed";
         tokenStatus: "idle" | "loading" | "succeeded" | "failed";
+        createCustomerStatus: "idle" | "loading" | "succeeded" | "failed";
         error: string | null;
         cardRemoved: boolean;
 }
@@ -20,6 +21,7 @@ const initialState: PaymentState = {
         paymentToken: {},
         status: "idle",
         tokenStatus: "idle",
+        createCustomerStatus: "idle",
         error: null,
         cardRemoved: false,
 }
@@ -58,15 +60,13 @@ export const getPaymentMethods = createAsyncThunk(
 
                 // If companyInfo is not available, handle it (e.g., return a default value or throw an error)
                 if (!companyInfo) {
-                        console.log("Company info is not available in the state.");
                         return thunkAPI.rejectWithValue("Company info is missing.");
                 }
 
                 // Use the account_key from company info
                 const accountKey = companyInfo?.account_id || "default-key";
-                console.log("Company Info:", companyInfo);
-                console.log("Account Key:", accountKey);
-                console.log("customerId:", customerId);
+                
+                
                 // Fetch customer info using the account key
                 const response = await fetch(BASE_URL + `get-customer-details?customerId=${customerId}`, {
                         method: "GET",
@@ -81,7 +81,7 @@ export const getPaymentMethods = createAsyncThunk(
                 }
 
                 const data = await response.json();
-                console.log("Customer Info Data:", data);
+                
                 return data;
         }
 );
@@ -102,9 +102,9 @@ export const getPaymentToken = createAsyncThunk(
 
                 });
                 const data = await response.json();
-                return data;         
-        },              
-);      
+                return data;
+        },
+);
 
 
 export const processVaultedPayment = createAsyncThunk(
@@ -123,9 +123,9 @@ export const processVaultedPayment = createAsyncThunk(
                         body: JSON.stringify(Data)
                 });
                 const data = await response.json();
-                if(data.success){
+                if (data.success) {
                         return data;
-                }else{
+                } else {
                         return thunkAPI.rejectWithValue(data.message);
                 }
         },
@@ -142,9 +142,9 @@ export const removeSelectedCard = createAsyncThunk(
                         body: JSON.stringify(postData)
                 });
                 const data = await response.json();
-                if(data.success){
+                if (data.success) {
                         return data;
-                }else{
+                } else {
                         return thunkAPI.rejectWithValue(data.message);
                 }
         },
@@ -160,60 +160,69 @@ export const PaymentSlice = createSlice({
                 resetPaymentStatus: (state) => {
                         state.status = "idle"; // ✅ Reset status
                         state.error = null;
-                    },
-                    clearPaymentMethods: (state) => {
+                },
+                clearPaymentMethods: (state) => {
                         state.payment_methods = {};
                         state.createCustomerInfo = {};
                         state.paymentToken = {};
                         state.status = "idle";
                         state.tokenStatus = "idle";
-                    },
-                    setCardRemoved: (state, action: PayloadAction<boolean>) => {
+                },
+                setCardRemoved: (state, action: PayloadAction<boolean>) => {
                         state.cardRemoved = action.payload;
-                    },
+                },
         },
         extraReducers: (builder) => {
                 builder.addCase(getPaymentMethods.fulfilled, (state, action) => {
                         state.payment_methods = action.payload;
                 });
 
+                builder.addCase(createCustomer.pending, (state) => {
+                        state.createCustomerStatus = "loading";
+                });
+
                 builder.addCase(createCustomer.fulfilled, (state, action) => {
                         state.createCustomerInfo = action.payload;
+                        state.createCustomerStatus = "succeeded";
                 });
-                
+
+                builder.addCase(createCustomer.rejected, (state) => {
+                        state.createCustomerStatus = "failed";
+                });
+
                 builder.addCase(getPaymentToken.pending, (state) => {
                         state.tokenStatus = "loading";
                 });
-                
+
                 builder.addCase(getPaymentToken.fulfilled, (state, action) => {
                         state.paymentToken = action.payload;
                         state.tokenStatus = "succeeded";
                 });
-                
+
                 builder.addCase(getPaymentToken.rejected, (state) => {
                         state.tokenStatus = "failed";
                 });
-                
+
                 builder.addCase(processVaultedPayment.pending, (state) => {
                         state.status = "loading";
                 });
-                
+
                 builder.addCase(processVaultedPayment.fulfilled, (state, action) => {
                         state.status = "succeeded";
                         console.log("action.payload", action.payload);
                         // state.paymentToken = action.payload;
                 });
-               
+
                 builder.addCase(processVaultedPayment.rejected, (state, action) => {
                         state.status = 'failed';
                         state.error = action.payload as string;
                 });
-                
+
                 builder.addCase(removeSelectedCard.fulfilled, (state, action) => {
                         // state.status = "succeeded";
                         // console.log("action.payload", action.payload);
                 });
-                
+
                 builder.addCase(removeSelectedCard.rejected, (state, action) => {
                         state.error = action.payload as string;
                 });

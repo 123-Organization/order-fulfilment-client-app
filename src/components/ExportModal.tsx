@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Modal, Button, Input, Tag, Spin } from "antd";
 import { useAppDispatch, useAppSelector } from "../store";
+import { useCookies } from "react-cookie";
 
 import bigcommerce from "../assets/images/store-bigcommerce.svg";
 import etsy from "../assets/images/store-etsy.svg";
@@ -10,7 +11,7 @@ import square from "../assets/images/store-square.svg";
 import squarespace from "../assets/images/store-squarespace.svg";
 import wix from "../assets/images/store-wix.svg";
 import woocommerce from "../assets/images/store-woocommerce.svg";
-import { exportOrders, exportToShopify } from "../store/features/InventorySlice";
+import { exportOrders, exportToShopify, exportToWix, exportToSquarespace } from "../store/features/InventorySlice";
 import { useNotificationContext } from "../context/NotificationContext";
 import { inventorySelectionClean } from "../store/features/InventorySlice";
 import { resetStatus } from "../store/features/InventorySlice";
@@ -24,6 +25,7 @@ interface ExportModalProps {
   onClose: () => void;
   inventorySelection: any;
   listInventory: any;
+  onExportSuccess?: () => void; // Optional callback to refresh the inventory list after export
 }
 
 const images = [
@@ -42,16 +44,21 @@ const ExportModal: React.FC<ExportModalProps> = ({
   onClose,
   inventorySelection,
   listInventory,
+  onExportSuccess,
 }) => {
   const handleProductCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onClose();
   };
   const companyInfo = useAppSelector((state) => state.company.company_info);
-  console.log("companyInfo", companyInfo);
+  const [cookies] = useCookies(["Session", "AccountGUID"]);
   const [selected, setSelected] = useState<string | null>(null);
   const [wooConnected, setWooConnected] = useState<string>("Disconnected");
   const [shopifyConnected, setShopifyConnected] = useState<string>("Disconnected");
   const [shopifyConnectionData, setShopifyConnectionData] = useState<{ shop: string; access_token: string } | null>(null);
+  const [wixConnected, setWixConnected] = useState<string>("Disconnected");
+  const [wixConnectionData, setWixConnectionData] = useState<{ access_token: string } | null>(null);
+  const [squarespaceConnected, setSquarespaceConnected] = useState<string>("Disconnected");
+  const [squarespaceConnectionData, setSquarespaceConnectionData] = useState<{ access_token: string } | null>(null);
   const [variantModalVisible, setVariantModalVisible] = useState(false);
   const [variantGroups, setVariantGroups] = useState<any[]>([]);
   const [pendingExportPlatform, setPendingExportPlatform] = useState<string | null>(null);
@@ -61,8 +68,8 @@ const ExportModal: React.FC<ExportModalProps> = ({
   );
   const wordpressConnectionId = useAppSelector((state) => state.company.wordpress_connection_id);
   const accountKey = companyInfo?.data?.account_key || "";
+  
 
-  console.log("exportResponse", exportResponse);
 
   const exportStatus = useAppSelector((state) => state.Inventory.status);
 
@@ -90,12 +97,13 @@ const ExportModal: React.FC<ExportModalProps> = ({
 
   // Function to detect if any product might have variants
   // Uses full inventory data to find ALL variants, not just selected ones
-  const detectProductsWithVariants = (selectedProducts: any[]): { hasVariants: boolean; variantGroups: any[] } => {
-    console.log("🔍 Detecting variants for selected products:", selectedProducts);
+  // Also returns standalone products (selected but not part of any variant group)
+  const detectProductsWithVariants = (selectedProducts: any[]): { hasVariants: boolean; variantGroups: any[]; standaloneProducts: any[] } => {
+    
     
     // Get full inventory data
     const fullInventory = listInventory?.data || [];
-    console.log("🔍 Full inventory count:", fullInventory.length);
+    
     
     const variantGroups: any[] = [];
     const processedImageGuids = new Set<string>();
@@ -103,12 +111,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
     
     // For each selected product, find ALL variants from the full inventory
     selectedProducts.forEach((selectedProduct) => {
-      console.log("🔍 Processing selected product:", {
-        sku: selectedProduct.sku,
-        image_guid: selectedProduct.image_guid,
-        parent_sku: selectedProduct.parent_sku,
-        has_children: selectedProduct.has_children
-      });
+      
       
       // Method 1: Find all products with same image_guid from FULL inventory
       if (selectedProduct.image_guid && !processedImageGuids.has(selectedProduct.image_guid)) {
@@ -116,7 +119,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
           (p: any) => p.image_guid === selectedProduct.image_guid
         );
         
-        console.log(`🔍 Found ${allVariantsByImageGuid.length} products with image_guid ${selectedProduct.image_guid}`);
+        
         
         if (allVariantsByImageGuid.length > 1) {
           processedImageGuids.add(selectedProduct.image_guid);
@@ -144,7 +147,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
           (p: any) => p.parent_sku === selectedProduct.parent_sku || p.sku === selectedProduct.parent_sku
         );
         
-        console.log(`🔍 Found ${allVariantsByParent.length} products with parent_sku ${selectedProduct.parent_sku}`);
+        
         
         // Check if not already captured by image_guid
         const alreadyCaptured = variantGroups.some(g => 
@@ -176,7 +179,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
           (p: any) => p.parent_sku === selectedProduct.sku
         );
         
-        console.log(`🔍 Found ${allChildren.length} children for parent ${selectedProduct.sku}`);
+        
         
         if (allChildren.length > 0) {
           processedParentSkus.add(selectedProduct.sku);
@@ -201,18 +204,28 @@ const ExportModal: React.FC<ExportModalProps> = ({
       }
     });
     
-    console.log("🔍 Final variant groups:", variantGroups);
-    console.log("🔍 Has variants:", variantGroups.length > 0);
     
+    
+    // Collect selected products that weren't captured in any variant group
+    const coveredSkus = new Set<string>();
+    variantGroups.forEach((group) => {
+      group.products.forEach((p: any) => coveredSkus.add(p.sku));
+    });
+    const standaloneProducts = selectedProducts.filter((p) => !coveredSkus.has(p.sku));
+
     return {
       hasVariants: variantGroups.length > 0,
-      variantGroups
+      variantGroups,
+      standaloneProducts
     };
   };
 
+  // Standalone products that have no variants — kept in sync with the last detectProductsWithVariants call
+  const [standaloneProducts, setStandaloneProducts] = useState<any[]>([]);
+
   // Handle variant selection confirmation
   const handleVariantConfirm = async (selections: { primary: any; variants: any[] }[]) => {
-    console.log("Variant selections confirmed:", selections);
+    
     setVariantModalVisible(false);
     
     // Format products with primaryItem flag for the API
@@ -236,8 +249,14 @@ const ExportModal: React.FC<ExportModalProps> = ({
         });
       });
     });
-    
-    console.log("Formatted products list for export:", formattedProductsList);
+
+    // Also include standalone products (selected but not part of any variant group)
+    standaloneProducts.forEach((product) => {
+      formattedProductsList.push({
+        ...product,
+        primaryItem: true
+      });
+    });
     
     if (pendingExportPlatform === "WooCommerce") {
       await dispatch(exportOrders({ data: formattedProductsList, domainName: wordpressConnectionId }));
@@ -250,6 +269,21 @@ const ExportModal: React.FC<ExportModalProps> = ({
         accountKey: accountKey
       }));
       dispatch(resetStatus());
+    } else if (pendingExportPlatform === "Wix" && wixConnectionData) {
+      await dispatch(exportToWix({
+        productList: formattedProductsList,
+        accessToken: wixConnectionData.access_token,
+        accountKey: accountKey,
+      }));
+      dispatch(resetStatus());
+    } else if (pendingExportPlatform === "Squarespace" && squarespaceConnectionData) {
+      await dispatch(exportToSquarespace({
+        productsList: formattedProductsList,
+        accessToken: squarespaceConnectionData.access_token,
+        sessionId: cookies.Session || "",
+        accountKey: accountKey,
+      }));
+      dispatch(resetStatus());
     }
     
     setPendingExportPlatform(null);
@@ -257,7 +291,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
 
   // Handle skipping variant configuration (export as individual products)
   const handleSkipVariants = async () => {
-    console.log("Skipping variant configuration, exporting as individual products");
+    
     setVariantModalVisible(false);
     
     if (pendingExportPlatform === "WooCommerce") {
@@ -271,27 +305,30 @@ const ExportModal: React.FC<ExportModalProps> = ({
         accountKey: accountKey
       }));
       dispatch(resetStatus());
+    } else if (pendingExportPlatform === "Wix" && wixConnectionData) {
+      await dispatch(exportToWix({
+        productList: inventorySelection,
+        accessToken: wixConnectionData.access_token,
+        accountKey: accountKey,
+      }));
+      dispatch(resetStatus());
+    } else if (pendingExportPlatform === "Squarespace" && squarespaceConnectionData) {
+      await dispatch(exportToSquarespace({
+        productsList: inventorySelection,
+        accessToken: squarespaceConnectionData.access_token,
+        sessionId: cookies.Session || "",
+        accountKey: accountKey,
+      }));
+      dispatch(resetStatus());
     }
     
     setPendingExportPlatform(null);
   };
 
   const handleExport = async (imgname: string) => {
-    console.log("📦 Export clicked for:", imgname);
-    console.log("📦 Inventory selection:", inventorySelection);
-    console.log("📦 List inventory data:", listInventory);
-    console.log("📦 Full inventory array:", listInventory?.data);
-    console.log("📦 Full inventory length:", listInventory?.data?.length);
     
-    // Log sample product to see available fields
-    if (inventorySelection?.length > 0) {
-      console.log("📦 Sample selected product fields:", Object.keys(inventorySelection[0]));
-      console.log("📦 Sample selected product:", inventorySelection[0]);
-    }
-    if (listInventory?.data?.length > 0) {
-      console.log("📦 Sample inventory product fields:", Object.keys(listInventory.data[0]));
-      console.log("📦 Sample inventory product:", listInventory.data[0]);
-    }
+    
+    
 
     if (selected === imgname) {
       setSelected(null);
@@ -314,16 +351,15 @@ const ExportModal: React.FC<ExportModalProps> = ({
       }
   
       // Check for variant groups before exporting
-      const { hasVariants, variantGroups: detectedVariants } = detectProductsWithVariants(inventorySelection);
+      const { hasVariants, variantGroups: detectedVariants, standaloneProducts: detectedStandalones } = detectProductsWithVariants(inventorySelection);
       if (hasVariants) {
-        // Products with variants detected - show variant selection modal
         setVariantGroups(detectedVariants);
+        setStandaloneProducts(detectedStandalones);
         setPendingExportPlatform("WooCommerce");
         setVariantModalVisible(true);
         return;
       }
 
-      // If no variants, proceed with normal export
       await dispatch(exportOrders({ data: inventorySelection, domainName: wordpressConnectionId }));
       dispatch(resetStatus())
     }
@@ -335,7 +371,6 @@ const ExportModal: React.FC<ExportModalProps> = ({
     } 
     // Handle Shopify Export
     else if (imgname === "Shopify" && shopifyConnected === "Connected") {
-      // Get the list of already exported products to Shopify (check both shopify_product_id and shopify_graphql_product_id)
       const exportedProducts = inventorySelection.filter(
         (product: any) => 
           (product.third_party_integrations?.shopify_product_id && product.third_party_integrations?.shopify_product_id !== 0) ||
@@ -358,17 +393,15 @@ const ExportModal: React.FC<ExportModalProps> = ({
         return;
       }
 
-      // Check for variant groups before exporting
-      const { hasVariants: hasShopifyVariants, variantGroups: detectedShopifyVariants } = detectProductsWithVariants(inventorySelection);
+      const { hasVariants: hasShopifyVariants, variantGroups: detectedShopifyVariants, standaloneProducts: detectedShopifyStandalones } = detectProductsWithVariants(inventorySelection);
       if (hasShopifyVariants) {
-        // Products with variants detected - show variant selection modal
         setVariantGroups(detectedShopifyVariants);
+        setStandaloneProducts(detectedShopifyStandalones);
         setPendingExportPlatform("Shopify");
         setVariantModalVisible(true);
         return;
       }
   
-      // If no variants, proceed with normal export
       await dispatch(exportToShopify({ 
         productsList: inventorySelection, 
         storeName: shopifyConnectionData.shop,
@@ -383,7 +416,96 @@ const ExportModal: React.FC<ExportModalProps> = ({
         description: `Please connect to Shopify to export products`,
       });
     }
-    else if(imgname !== "WooCommerce" && imgname !== "Shopify"){
+    // Handle Wix Export
+    else if (imgname === "Wix" && wixConnected === "Connected") {
+      const exportedProducts = inventorySelection.filter(
+        (product: any) => product.third_party_integrations?.wix_product_id
+      );
+
+      if (exportedProducts.length > 0) {
+        notificationApi.warning({
+          message: "Products Already Exported",
+          description: `${exportedProducts.length} product(s) have already been exported to Wix. Please select only unexported products.`,
+        });
+        return;
+      }
+
+      if (!wixConnectionData) {
+        notificationApi.error({
+          message: "Wix Connection Error",
+          description: "Could not retrieve Wix connection details.",
+        });
+        return;
+      }
+
+      const { hasVariants: hasWixVariants, variantGroups: detectedWixVariants, standaloneProducts: detectedWixStandalones } = detectProductsWithVariants(inventorySelection);
+      if (hasWixVariants) {
+        setVariantGroups(detectedWixVariants);
+        setStandaloneProducts(detectedWixStandalones);
+        setPendingExportPlatform("Wix");
+        setVariantModalVisible(true);
+        return;
+      }
+
+      await dispatch(exportToWix({
+        productList: inventorySelection,
+        accessToken: wixConnectionData.access_token,
+        accountKey: accountKey,
+      }));
+      dispatch(resetStatus());
+    }
+    else if (imgname === "Wix" && wixConnected === "Disconnected") {
+      notificationApi.error({
+        message: "Wix Not Connected",
+        description: `Please connect to Wix to export products`,
+      });
+    }
+    // Handle Squarespace Export
+    else if (imgname === "Squarespace" && squarespaceConnected === "Connected") {
+      const exportedProducts = inventorySelection.filter(
+        (product: any) => product.third_party_integrations?.squarespace_product_id
+      );
+
+      if (exportedProducts.length > 0) {
+        notificationApi.warning({
+          message: "Products Already Exported",
+          description: `${exportedProducts.length} product(s) have already been exported to Squarespace. Please select only unexported products.`,
+        });
+        return;
+      }
+
+      if (!squarespaceConnectionData) {
+        notificationApi.error({
+          message: "Squarespace Connection Error",
+          description: "Could not retrieve Squarespace connection details.",
+        });
+        return;
+      }
+
+      const { hasVariants: hasSqVariants, variantGroups: detectedSqVariants, standaloneProducts: detectedSqStandalones } = detectProductsWithVariants(inventorySelection);
+      if (hasSqVariants) {
+        setVariantGroups(detectedSqVariants);
+        setStandaloneProducts(detectedSqStandalones);
+        setPendingExportPlatform("Squarespace");
+        setVariantModalVisible(true);
+        return;
+      }
+
+      await dispatch(exportToSquarespace({
+        productsList: inventorySelection,
+        accessToken: squarespaceConnectionData.access_token,
+        sessionId: cookies.Session || "",
+        accountKey: accountKey,
+      }));
+      dispatch(resetStatus());
+    }
+    else if (imgname === "Squarespace" && squarespaceConnected === "Disconnected") {
+      notificationApi.error({
+        message: "Squarespace Not Connected",
+        description: `Please connect to Squarespace to export products`,
+      });
+    }
+    else if (imgname !== "WooCommerce" && imgname !== "Shopify" && imgname !== "Wix" && imgname !== "Squarespace") {
       notificationApi.warning({
         message: "Platform is not supported",
         description: `This platform is not supported yet`,
@@ -394,17 +516,44 @@ const ExportModal: React.FC<ExportModalProps> = ({
 
   useEffect(() => {
     if (exportStatus === "success") {
-      notificationApi.success({
-        message: "Products Exported Successfully",
-        description: `${inventorySelection.length} products exported  `,
-      });
+      // Use the report object from the API response for accurate counts
+      const report = exportResponse?.report;
+      const uploaded = report?.uploaded ?? inventorySelection.length;
+      const failed   = report?.failed   ?? 0;
+
+      if (failed > 0 && uploaded > 0) {
+        // Partial success — some exported, some failed
+        notificationApi.warning({
+          message: "Products Partially Exported",
+          description: `${uploaded} product(s) exported successfully, ${failed} product(s) failed to export.`,
+        });
+      } else if (failed > 0 && uploaded === 0) {
+        // All failed
+        notificationApi.error({
+          message: "Products Export Failed",
+          description: `${failed} product(s) failed to export.`,
+        });
+      } else {
+        // All succeeded
+        notificationApi.success({
+          message: "Products Exported Successfully",
+          description: `${uploaded} product(s) exported successfully.`,
+        });
+      }
+
       onClose();
       dispatch(inventorySelectionClean());
       setSelected(null);
+      // Re-fetch the inventory list so updated third_party_integrations are shown without a page reload
+      if (onExportSuccess) {
+        onExportSuccess();
+      }
     } else if (exportStatus === "error") {
+      const report = exportResponse?.report;
+      const failed = report?.failed ?? inventorySelection.length;
       notificationApi.error({
         message: "Products Export Failed",
-        description: `${inventorySelection.length} products failed to export  `,
+        description: `${failed} product(s) failed to export.`,
       });
     }
   }, [exportStatus, notificationApi]);
@@ -424,7 +573,6 @@ const ExportModal: React.FC<ExportModalProps> = ({
       let shopifyObj = find(companyInfo.data.connections, {"name":"Shopify"});
       if(shopifyObj?.name){
         setShopifyConnected("Connected");
-        // Parse the Shopify connection data to get shop and access_token
         try {
           const shopifyData = JSON.parse(shopifyObj.data);
           setShopifyConnectionData({
@@ -438,6 +586,44 @@ const ExportModal: React.FC<ExportModalProps> = ({
       } else {
         setShopifyConnected("Disconnected");
         setShopifyConnectionData(null);
+      }
+
+      // Check Wix connection
+      let wixObj = find(companyInfo.data.connections, {"name":"Wix"});
+      if (wixObj?.name) {
+        setWixConnected("Connected");
+        try {
+          const wixData = JSON.parse(wixObj.data);
+          setWixConnectionData({ access_token: wixData.access_token });
+        } catch (error) {
+          console.error("Error parsing Wix connection data:", error);
+          setWixConnectionData(null);
+        }
+      } else {
+        setWixConnected("Disconnected");
+        setWixConnectionData(null);
+      }
+
+      // Check Squarespace connection
+      let squarespaceObj = find(companyInfo.data.connections, {"name":"Squarespace"});
+      if (squarespaceObj?.name) {
+        setSquarespaceConnected("Connected");
+        // The access token is stored in the .id field (same as Shopify/Wix pattern)
+        const accessToken = squarespaceObj.id || "";
+        if (accessToken) {
+          setSquarespaceConnectionData({ access_token: accessToken });
+        } else {
+          // Try parsing from data field
+          try {
+            const sqData = JSON.parse(squarespaceObj.data || "{}");
+            setSquarespaceConnectionData({ access_token: sqData.access_token || "" });
+          } catch {
+            setSquarespaceConnectionData(null);
+          }
+        }
+      } else {
+        setSquarespaceConnected("Disconnected");
+        setSquarespaceConnectionData(null);
       }
     }
   }, [companyInfo]);
@@ -471,54 +657,108 @@ const ExportModal: React.FC<ExportModalProps> = ({
             <Spinner message={"Exporting Products"} />
           </div>
         ) : (
-          <div className="container mx-auto px-5 py-2 lg:px-10 justify-center items-center">
-            <div className="-m-1 mx-4 flex flex-wrap md:-m-2">
+          <>
+            <style>{`
+              @keyframes em-fade { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:none} }
+              @keyframes em-pop  { 0%{transform:scale(.94)} 100%{transform:scale(1)} }
+              .em-card { transition: box-shadow .22s ease, transform .22s ease, border-color .22s ease; animation: em-fade .28s ease both; }
+              .em-card:hover { box-shadow: 0 14px 40px rgba(0,0,0,.12) !important; transform: translateY(-4px) !important; }
+              .em-card:hover .em-logo { transform: scale(1.08); }
+              .em-logo { transition: transform .25s ease; }
+            `}</style>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+              gap: 16,
+              padding: "8px 4px 4px",
+            }}>
               {images.map((image, index) => {
-                // Determine connection status for platforms
-                const isWooCommerce = image.name === "WooCommerce";
-                const isShopify = image.name === "Shopify";
-                const isConnected = isWooCommerce ? wooConnected === "Connected" : 
-                                    isShopify ? shopifyConnected === "Connected" : false;
-                const connectionStatus = isWooCommerce ? wooConnected : 
-                                         isShopify ? shopifyConnected : null;
-                
+                const isWooCommerce    = image.name === "WooCommerce";
+                const isShopify        = image.name === "Shopify";
+                const isWix            = image.name === "Wix";
+                const isSquarespace    = image.name === "Squarespace";
+                const isSupportedPlatform = isWooCommerce || isShopify || isWix || isSquarespace;
+                const isConnected = isWooCommerce  ? wooConnected === "Connected"
+                                  : isShopify      ? shopifyConnected === "Connected"
+                                  : isWix          ? wixConnected === "Connected"
+                                  : isSquarespace  ? squarespaceConnected === "Connected"
+                                  : false;
+                const isDisconnected = isSupportedPlatform && !isConnected;
+
                 return (
-                <div
-                  key={index}
-                  className="flex w-1/3 max-sm:w-1/2 max-[400px]:w-full flex-wrap"
-                >
                   <div
-                    className="w-full md:p-2 flex flex-col items-center"
-                    onClick={() => importData(image.name)}
+                    key={image.name}
+                    className="em-card"
+                    onClick={() => handleExport(image.name)}
+                    style={{
+                      background: "#fff",
+                      borderRadius: 16,
+                      border: isConnected
+                        ? "2px solid #52c41a"
+                        : selected === image.name
+                        ? "2px solid #3b82f6"
+                        : "2px solid #e8edf5",
+                      boxShadow: isConnected
+                        ? "0 4px 18px rgba(82,196,26,.14)"
+                        : "0 2px 10px rgba(0,0,0,.06)",
+                      padding: "22px 14px 16px",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 10,
+                      cursor: "pointer",
+                      position: "relative",
+                      opacity: isSupportedPlatform ? 1 : 0.5,
+                      animationDelay: `${index * 0.04}s`,
+                    }}
                   >
-                    {(isWooCommerce || isShopify) && (
-                      <Tag className={`absolute ml-12 -mt-3 ${isConnected ? "bg-[#52c41a] text-white" : "bg-red-500 text-white ml-7" }`}>
-                        {connectionStatus}
-                      </Tag>
+                    {/* Status pill */}
+                    {isConnected && (
+                      <span style={{ position: "absolute", top: 10, right: 10, background: "#dcfce7", color: "#15803d", fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 999, letterSpacing: .3 }}>
+                        ✓ CONNECTED
+                      </span>
                     )}
-                    <img
-                      onClick={() => handleExport(image.name)}
-                      className={`block h-[100px] w-[100px] border-2 cursor-pointer rounded-lg object-cover object-center ${
-                        selected === image.name
-                          ? "border-blue-500"
-                          : "border-gray-300"
-                      } ${
-                        (isWooCommerce || isShopify)
-                          ? "grayscale-0"
-                          : "grayscale"
-                      }`}
-                      src={image.img}
-                      alt={image.name}
-                    />
-                    <p className="text-center pt-2 font-bold text-gray-400">
+                    {isDisconnected && (
+                      <span style={{ position: "absolute", top: 10, right: 10, background: "#fee2e2", color: "#b91c1c", fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 999, letterSpacing: .3 }}>
+                        DISCONNECTED
+                      </span>
+                    )}
+                    {!isSupportedPlatform && (
+                      <span style={{ position: "absolute", top: 10, right: 10, background: "#f3f4f6", color: "#9ca3af", fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 999, letterSpacing: .3 }}>
+                        SOON
+                      </span>
+                    )}
+
+                    {/* Logo */}
+                    <div className="em-logo" style={{
+                      width: 68, height: 68,
+                      borderRadius: 14,
+                      background: isSupportedPlatform ? "#f8faff" : "#f3f4f6",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      padding: 10,
+                      boxShadow: "inset 0 1px 3px rgba(0,0,0,.05)",
+                    }}>
+                      <img
+                        src={image.img}
+                        alt={image.name}
+                        style={{ width: "100%", height: "100%", objectFit: "contain", filter: isSupportedPlatform ? "none" : "grayscale(1) opacity(.5)" }}
+                      />
+                    </div>
+
+                    {/* Name */}
+                    <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: isSupportedPlatform ? "#1e2a3b" : "#9ca3af", textAlign: "center" }}>
                       {image.name}
                     </p>
+
+                    {/* Action label */}
+                    <p style={{ margin: 0, fontSize: 11, color: isConnected ? "#15803d" : isSupportedPlatform ? "#6b7280" : "#c4c9d4", fontWeight: 500 }}>
+                      {!isSupportedPlatform ? "Coming soon" : isConnected ? "Click to export →" : "Connect first"}
+                    </p>
                   </div>
-                </div>
-              );
+                );
               })}
             </div>
-          </div>
+          </>
         )}
       </div>
     </Modal>
@@ -534,6 +774,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
       onSkip={handleSkipVariants}
       variantGroups={variantGroups}
       platform={pendingExportPlatform || ""}
+      standaloneProducts={standaloneProducts}
     />
     </>
   );

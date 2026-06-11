@@ -147,6 +147,33 @@ export const disconnectShopify = createAsyncThunk(
         },
 );
 
+export const disconnectSquarespace = createAsyncThunk(
+        "ecommerce/disconnect/squarespace",
+        async (postData: { account_key: string }, thunkAPI) => {
+                console.log('Disconnecting Squarespace...', postData)
+                try {
+                        const response = await fetch("https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/disconnect", {
+                                method: "POST",
+                                headers: {
+                                        "Content-Type": "application/json",
+                                },
+                                body: JSON.stringify(postData)
+                        });
+                        if (!response.ok) {
+                                const error = await response.json()
+                                return thunkAPI.rejectWithValue(error)
+                        }
+                        // Clear locally-stored token
+                        localStorage.removeItem('squarespace_token');
+                        localStorage.removeItem('squarespace_account_key');
+                        const data = await response.json();
+                        return data;
+                } catch (error) {
+                        return thunkAPI.rejectWithValue(error);
+                }
+        },
+);
+
 const ecommerceSlice = createSlice({
         name: "ecommerce",
         initialState,
@@ -198,6 +225,16 @@ const ecommerceSlice = createSlice({
                 });
 
                 builder.addCase(disconnectShopify.rejected, (state, action) => {
+                        state.ecommerceDisconnectInfo = { data: { status: 500 } };
+                        state.status = "failed";
+                });
+
+                builder.addCase(disconnectSquarespace.fulfilled, (state, action) => {
+                        state.ecommerceDisconnectInfo = action.payload;
+                        state.status = "succeeded";
+                });
+
+                builder.addCase(disconnectSquarespace.rejected, (state, action) => {
                         state.ecommerceDisconnectInfo = { data: { status: 500 } };
                         state.status = "failed";
                 });

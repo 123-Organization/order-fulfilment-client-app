@@ -187,6 +187,78 @@ export const exportToShopify = createAsyncThunk(
 	},
 );
 
+// Wix API base URL (same gateway as Shopify)
+const WIX_API_URL = "https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/";
+
+// Export products to Wix
+export const exportToWix = createAsyncThunk(
+	"export/wix",
+	async (args: { productList: any[], accessToken: string, accountKey: string }, thunkAPI: any) => {
+		const response = await fetch(
+			`${WIX_API_URL}wix/sync-products?account_key=${args.accountKey}&access_token=${args.accessToken}`,
+			{
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"Accept": "*/*",
+				},
+				body: JSON.stringify({ productList: args.productList }),
+			}
+		);
+
+		if (!response.ok) {
+			throw new Error('Failed to export products to Wix');
+		}
+
+		const data = await response.json();
+		return data;
+	},
+);
+
+// Squarespace API base URL
+const SQUARESPACE_API_URL = "https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/";
+
+// Export products to Squarespace
+export const exportToSquarespace = createAsyncThunk(
+	"export/squarespace",
+	async (
+		args: {
+			productsList: any[];
+			accessToken: string;
+			sessionId: string;
+			accountKey: string;
+			currency?: string;
+			siteId?: number;
+		},
+		thunkAPI: any
+	) => {
+		const payload = {
+			access_token: args.accessToken,
+			currency: args.currency || "USD",
+			siteId: args.siteId || 2,
+			session_id: args.sessionId,
+			account_key: args.accountKey,
+			productsList: args.productsList,
+		};
+
+		const response = await fetch(`${SQUARESPACE_API_URL}squarespace/sync-products`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				"Accept": "*/*",
+			},
+			body: JSON.stringify(payload),
+		});
+
+		if (!response.ok) {
+			throw new Error('Failed to export products to Squarespace');
+		}
+
+		const data = await response.json();
+		return data;
+	},
+);
+
 export const updateVirtualInventory = createAsyncThunk(
         "update/virtual/inventory",
         async (args: { data: any }, thunkAPI: any) => {
@@ -333,6 +405,30 @@ export const InventorySlice = createSlice({
 			builder.addCase(exportToShopify.rejected, (state, action) => {
 				state.status = "error"
 				state.exportResponse = action.payload
+			});
+			// Wix export handlers
+			builder.addCase(exportToWix.fulfilled, (state, action) => {
+				state.status = "success";
+				state.exportResponse = action.payload;
+			});
+			builder.addCase(exportToWix.pending, (state, action) => {
+				state.status = "loading";
+			});
+			builder.addCase(exportToWix.rejected, (state, action) => {
+				state.status = "error";
+				state.exportResponse = action.payload;
+			});
+			// Squarespace export handlers
+			builder.addCase(exportToSquarespace.fulfilled, (state, action) => {
+				state.status = "success";
+				state.exportResponse = action.payload;
+			});
+			builder.addCase(exportToSquarespace.pending, (state, action) => {
+				state.status = "loading";
+			});
+			builder.addCase(exportToSquarespace.rejected, (state, action) => {
+				state.status = "error";
+				state.exportResponse = action.payload;
 			});
                 builder.addCase(updateVirtualInventory.fulfilled, (state, action) => {
                         state.exportResponse = action.payload

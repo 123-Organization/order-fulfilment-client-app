@@ -6,6 +6,8 @@ import { useAppDispatch, useAppSelector } from "../store";
 import { find } from "lodash";
 import wordpress from "../assets/images/wordpress-svgrepo-com (1).svg";
 import shopifyIcon from "../assets/images/store-shopify.svg";
+import wixIcon from "../assets/images/store-wix.svg";
+import squarespaceIcon from "../assets/images/store-squarespace.svg";
 import {
   listVirtualInventory,
   inventorySelectionUpdate,
@@ -1381,6 +1383,26 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
                             />
                           </div>
                         )}
+                        {image?.third_party_integrations?.wix_inventory_id && (
+                          <div className="bg-white border border-gray-200 rounded-full p-2 shadow-sm">
+                            <img
+                              src={wixIcon}
+                              alt="Wix"
+                              className="w-6 h-6"
+                              title="Connected to Wix"
+                            />
+                          </div>
+                        )}
+                        {image?.third_party_integrations?.squarespace_product_id && (
+                          <div className="bg-white border border-gray-200 rounded-full p-2 shadow-sm">
+                            <img
+                              src={squarespaceIcon}
+                              alt="Squarespace"
+                              className="w-6 h-6"
+                              title="Connected to Squarespace"
+                            />
+                          </div>
+                        )}
                         {image?.parent_sku && (
                           <div className="bg-purple-100 text-purple-700 rounded-full px-3 py-1 shadow-sm text-xs font-semibold" title={`Child of ${image.parent_sku}`}>
                             Child
@@ -1437,6 +1459,14 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
           onClose={() => setOpenExport(false)}
           inventorySelection={inventorySelection}
           listInventory={{ data: allInventoryData }}
+          onExportSuccess={() => {
+            // Reset and reload the inventory list from scratch so the latest
+            // third_party_integrations (shopify/woocommerce IDs) are shown immediately
+            setCurrentPage(1);
+            setAllInventoryData([]);
+            setHasMore(true);
+            listInventory(1, true);
+          }}
         />
         <EditInventoryModal
           visible={openEditModal}

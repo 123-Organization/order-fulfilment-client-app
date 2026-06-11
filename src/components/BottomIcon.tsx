@@ -23,7 +23,7 @@ import UpdatePopup from "./UpdatePopup";
 import { updateCompanyInfo } from "../store/features/companySlice";
 import { resetRecipientStatus } from "../store/features/orderSlice";
 import style from "./Components.module.css";
-import { fetchWporder, fetchShopifyOrders, fetchShopifyOrderByName } from "../store/features/orderSlice";
+import { fetchWporder, fetchShopifyOrders, fetchShopifyOrderByName, fetchSquarespaceOrders, fetchSquarespaceOrderByNumber, resetSquarespaceImportStatus, updateWporder, fetchWixOrders, fetchWixOrderByNumber, resetWixImportStatus } from "../store/features/orderSlice";
 type NotificationType = "success" | "info" | "warning" | "error";
 interface NotificationAlertProps {
   type: NotificationType;
@@ -35,9 +35,9 @@ type bottomIconProps = {
   //bolean or null or undefined
   collapsed: boolean | null | undefined;
   setCollapsed:
-    | React.Dispatch<React.SetStateAction<boolean>>
-    | undefined
-    | null;
+  | React.Dispatch<React.SetStateAction<boolean>>
+  | undefined
+  | null;
 };
 
 // Helper function to validate phone numbers (allows formatted input like "(585) 729-4716")
@@ -45,7 +45,6 @@ const isValidPhone = (phone: string | number | undefined): boolean => {
   if (!phone) return false;
   // Remove all non-numeric characters and check if there are at least 10 digits
   const digitsOnly = String(phone).replace(/\D/g, '');
-  console.log(    "digitsOnly",digitsOnly)
   return digitsOnly.length >= 10 && digitsOnly.length <= 15;
 };
 
@@ -113,6 +112,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
 
   const myImport = useAppSelector((state) => state.order.myImport);
   const importStatus = useAppSelector((state) => state.order.importStatus);
+  const squarespaceImportStatus = useAppSelector((state) => state.order.squarespaceImportStatus);
 
   const saveOrderInfo = useAppSelector((state) => state.order.saveOrderInfo);
 
@@ -201,7 +201,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
               );
 
               const results = await Promise.all(orderPromises);
-              
+
               // Collect all successfully fetched orders
               const allOrders: any[] = [];
               let hasErrors = false;
@@ -224,13 +224,12 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                     product_qty: edge.node.quantity || 1,
                     product_sku: edge.node.sku || "",
                     product_title: edge.node.title || "",
-                    product_id: edge.node.variant.product?.product_guid
- || "",
+                    product_id: edge.node.variant?.product?.product_guid || "",
                   })) || [];
 
                   // Get shipping address or fall back to billing address
                   const shippingAddr = shopifyOrder.shippingAddress || shopifyOrder.billingAddress || {};
-                  
+
                   // Transform to the expected order format
                   return {
                     order_po: `SHOPIFY_${shopifyOrder.name.replace('#', '')}`,
@@ -263,15 +262,18 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   payment_token: customerInfo?.data?.account_key,
                   orders: transformedOrders,
                 };
-                
+
                 dispatch(saveShopifyOrder(sendData));
-                
+
                 notification.success({
                   message: "Success",
                   description: `${allOrders.length} Shopify order(s) imported successfully${hasErrors ? ' (some orders failed)' : ''}`,
                 });
-                
+
                 setTimeout(() => {
+                  dispatch(resetSaveOrderInfo());
+                  dispatch(resetImport());
+                  dispatch(updateWporder('' as any));
                   navigate("/importlist");
                 }, 2000);
               } else {
@@ -309,103 +311,491 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
               setNextSpinning(true);
               try {
                 const result = await dispatch(
-                fetchShopifyOrders({
-                  shop: shopifyShop,
-                  access_token: shopifyAccessToken,
-                  startDate: myImport.start_date,
-                  endDate: myImport.end_date,
-                  status: myImport.status,
-                })
-              );
+                  fetchShopifyOrders({
+                    shop: shopifyShop,
+                    access_token: shopifyAccessToken,
+                    startDate: myImport.start_date,
+                    endDate: myImport.end_date,
+                    status: myImport.status,
+                  })
+                );
 
-              if (result.payload) {
-                console.log("Shopify orders response:", result.payload);
-                
-                // Check if we have orders in the Shopify response
-                if (result.payload.success && result.payload.orders && result.payload.orders.length > 0) {
-                  // Transform Shopify orders to the format expected by upload-orders API
-                  const transformedOrders = result.payload.orders.map((shopifyOrder: any, orderIndex: number) => {
-                    // Extract and transform line items to match the expected format
-                    const orderItems = shopifyOrder.lineItems?.edges?.map((edge: any, itemIndex: number) => ({
-                      product_order_po: `SHOPIFY_P_${orderIndex}_${itemIndex}`,
-                      product_qty: edge.node.quantity || 1,
-                      product_sku: edge.node.sku || "",
-                      product_title: edge.node.title || "",
-                      product_id: edge.node.variant.product?.product_guid || "", // Using Shopify's line item ID as GUID
-                    })) || [];
+                if (result.payload) {
 
-                    // Get shipping address or fall back to billing address
-                    const shippingAddr = shopifyOrder.shippingAddress || shopifyOrder.billingAddress || {};
-                    
-                    // Transform to the expected order format
-                    return {
-                      order_po: `SHOPIFY_${shopifyOrder.name.replace('#', '')}`, // e.g., "SHOPIFY_1005"
-                      order_key: shopifyOrder.id, // Shopify's unique order ID
-                      recipient: {
-                        first_name: shippingAddr.firstName || "",
-                        last_name: shippingAddr.lastName || "",
-                        company_name: shippingAddr.company || "",
-                        address_1: shippingAddr.address1 || "",
-                        address_2: shippingAddr.address2 || "",
-                        address_3: "",
-                        city: shippingAddr.city || "",
-                        state_code: shippingAddr.provinceCode || "",
-                        province: shippingAddr.province || "",
-                        zip_postal_code: shippingAddr.zip || "",
-                        country_code: shippingAddr.countryCodeV2 || "US",
-                        phone: shippingAddr.phone || shopifyOrder.customer?.phone || "",
-                        email: shopifyOrder.customer?.email || "",
-                        address_order_po: "",
-                      },
-                      order_items: orderItems,
-                      order_status: shopifyOrder.displayFulfillmentStatus === "UNFULFILLED" ? "Processing" : "Completed",
-                      shipping_code: "GD", // Default shipping code, you may want to map this from Shopify shipping lines
-                      test_mode: true, // Set based on your environment
+
+                  // Check if we have orders in the Shopify response
+                  if (result.payload.success && result.payload.orders && result.payload.orders.length > 0) {
+                    // Transform Shopify orders to the format expected by upload-orders API
+                    const transformedOrders = result.payload.orders.map((shopifyOrder: any, orderIndex: number) => {
+                      // Extract and transform line items to match the expected format
+                      const orderItems = shopifyOrder.lineItems?.edges?.map((edge: any, itemIndex: number) => ({
+                        product_order_po: `SHOPIFY_P_${orderIndex}_${itemIndex}`,
+                        product_qty: edge.node.quantity || 1,
+                        product_sku: edge.node.sku || "",
+                        product_title: edge.node.title || "",
+                        product_guid: edge.node.variant?.product?.product_guid || crypto.randomUUID(),
+                      })) || [];
+
+                      // Get shipping address or fall back to billing address
+                      const shippingAddr = shopifyOrder.shippingAddress || shopifyOrder.billingAddress || {};
+
+                      // Transform to the expected order format
+                      return {
+                        order_po: `SHOPIFY_${shopifyOrder.name.replace('#', '')}`, // e.g., "SHOPIFY_1005"
+                        order_key: shopifyOrder.id, // Shopify's unique order ID
+                        recipient: {
+                          first_name: shippingAddr.firstName || "",
+                          last_name: shippingAddr.lastName || "",
+                          company_name: shippingAddr.company || "",
+                          address_1: shippingAddr.address1 || "",
+                          address_2: shippingAddr.address2 || "",
+                          address_3: "",
+                          city: shippingAddr.city || "",
+                          state_code: shippingAddr.provinceCode || "",
+                          province: shippingAddr.province || "",
+                          zip_postal_code: shippingAddr.zip || "",
+                          country_code: shippingAddr.countryCodeV2 || "US",
+                          phone: shippingAddr.phone || shopifyOrder.customer?.phone || "",
+                          email: shopifyOrder.customer?.email || "",
+                          address_order_po: "",
+                        },
+                        order_items: orderItems,
+                        order_status: shopifyOrder.displayFulfillmentStatus === "UNFULFILLED" ? "Processing" : "Completed",
+                        shipping_code: "GD", // Default shipping code, you may want to map this from Shopify shipping lines
+                        test_mode: true, // Set based on your environment
+                      };
+                    });
+
+                    const sendData = {
+                      accountId: customerInfo?.data?.account_id,
+                      payment_token: customerInfo?.data?.account_key,
+                      orders: transformedOrders,
                     };
-                  });
 
-                  const sendData = {
-                    accountId: customerInfo?.data?.account_id,
-                    payment_token: customerInfo?.data?.account_key,
-                    orders: transformedOrders,
-                  };
-                  
-                  console.log("Sending Shopify orders to upload-orders-shopify:", sendData);
-                  dispatch(saveShopifyOrder(sendData));
-                  
-                  notification.success({
-                    message: "Success",
-                    description: `${result.payload.count} Shopify order(s) imported successfully`,
-                  });
-                  
-                  setTimeout(() => {
-                    navigate("/importlist");
-                  }, 2000);
+
+                    dispatch(saveShopifyOrder(sendData));
+
+                    notification.success({
+                      message: "Success",
+                      description: `${result.payload.count} Shopify order(s) imported successfully`,
+                    });
+
+                    setTimeout(() => {
+                      dispatch(resetSaveOrderInfo());
+                      dispatch(resetImport());
+                      dispatch(updateWporder('' as any));
+                      navigate("/importlist");
+                    }, 2000);
+                  } else {
+                    notification.warning({
+                      message: "Warning",
+                      description: result.payload.message || "No orders found for the selected criteria",
+                    });
+                    console.error("No orders in response:", result.payload);
+                  }
                 } else {
-                  notification.warning({
-                    message: "Warning",
-                    description: result.payload.message || "No orders found for the selected criteria",
+                  notification.error({
+                    message: "Error",
+                    description: "Failed to fetch Shopify orders",
                   });
-                  console.error("No orders in response:", result.payload);
                 }
-              } else {
+              } catch (error) {
+                console.error("Error fetching Shopify orders:", error);
                 notification.error({
                   message: "Error",
-                  description: "Failed to fetch Shopify orders",
+                  description: "An error occurred while fetching Shopify orders",
+                });
+              } finally {
+                setNextSpinning(false);
+              }
+            }
+          }
+        }
+
+        // ── Handle Squarespace orders ─────────────────────────────────────────
+        else if (platformType === "Squarespace") {
+          // Attempt to get token from localStorage first, then fallback to API connections
+          let squarespaceToken: string =
+            (localStorage.getItem('squarespace_token') ||
+              localStorage.getItem('squarespace_access_token')) as string;
+          let squarespaceRefreshToken = '';
+          const accountKey = customerInfo?.data?.account_key || localStorage.getItem('squarespace_account_key');
+
+          if (companyInfo?.data?.connections) {
+            const sqConnection = companyInfo.data.connections.find(
+              (conn: any) => conn.name === "Squarespace"
+            );
+
+            if (sqConnection && sqConnection.data) {
+              try {
+                const parsedData = JSON.parse(sqConnection.data);
+                if (!squarespaceToken) {
+                  squarespaceToken = parsedData.access_token || parsedData.token || sqConnection.id;
+                }
+                squarespaceRefreshToken = parsedData.refresh_token;
+              } catch (e) {
+                if (!squarespaceToken) squarespaceToken = sqConnection.id;
+              }
+            } else if (sqConnection && sqConnection.id && !squarespaceToken) {
+              squarespaceToken = sqConnection.id;
+            }
+          }
+
+          if (!squarespaceToken) {
+            notification.error({
+              message: 'Not Connected',
+              description: 'No Squarespace token found. Please reconnect your store.',
+            });
+            setTimeout(() => navigate('/'), 1500);
+            return;
+          }
+
+          setNextSpinning(true);
+
+          let isTokenValid = true;
+          try {
+            // Validate token before fetching orders
+            const validateRes = await fetch('https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/validate-token', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ access_token: squarespaceToken })
+            });
+            const validateData = await validateRes.json();
+
+            if (!validateRes.ok || validateData.valid === false || validateData.error || validateData?.message?.toLowerCase().includes("expired")) {
+              isTokenValid = false;
+            }
+          } catch (e) {
+            console.error("Error validating token", e);
+            // Continue and let the actual API calls fail
+          }
+
+          if (!isTokenValid) {
+            if (squarespaceRefreshToken && accountKey) {
+              try {
+                const refreshRes = await fetch('https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/refresh-token', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ account_key: accountKey, refresh_token: squarespaceRefreshToken })
+                });
+                if (refreshRes.ok) {
+                  const refreshData = await refreshRes.json();
+                  // User said the system will be updated, but try to use the returned token if present
+                  if (refreshData.access_token || refreshData.token) {
+                    squarespaceToken = refreshData.access_token || refreshData.token;
+                    localStorage.setItem('squarespace_token', squarespaceToken);
+                  } else if (refreshData?.data?.access_token) {
+                    squarespaceToken = refreshData.data.access_token;
+                    localStorage.setItem('squarespace_token', squarespaceToken);
+                  } else {
+                    // If we don't get the new access token back, wait for the backend update
+                    // and reload the window so the app will fetch the updated connections 
+                    notification.info({
+                      message: 'Token Refreshed',
+                      description: 'Applying updated Squarespace authorization...'
+                    });
+                    dispatch(updateCompanyInfo(companyInfo)); // Reload company info
+                    setTimeout(() => window.location.reload(), 1500);
+                    return;
+                  }
+                } else {
+                  throw new Error("Refresh token rejected");
+                }
+              } catch (e) {
+                localStorage.removeItem('squarespace_token');
+                localStorage.removeItem('squarespace_access_token');
+                localStorage.removeItem('squarespace_account_key');
+                notification.error({
+                  message: 'Squarespace Token Expired',
+                  description: 'Your Squarespace access token has expired and refresh failed. Please reconnect your store.',
+                });
+                dispatch(resetSquarespaceImportStatus());
+                setTimeout(() => {
+                  window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/auth?account_key=${accountKey}`;
+                }, 2000);
+                setNextSpinning(false);
+                return;
+              }
+            } else {
+              localStorage.removeItem('squarespace_token');
+              localStorage.removeItem('squarespace_access_token');
+              localStorage.removeItem('squarespace_account_key');
+              notification.error({
+                message: 'Squarespace Token Expired',
+                description: 'Your Squarespace access token has expired. Please reconnect your store.',
+              });
+              dispatch(resetSquarespaceImportStatus());
+              setTimeout(() => {
+                window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/auth?account_key=${accountKey}`;
+              }, 2000);
+              setNextSpinning(false);
+              return;
+            }
+          }
+
+          // Check if user is trying to import by order number (single orders)
+          if (wporder.length > 0) {
+            const orderNames = wporder.split(",").map((name: string) => name.trim());
+
+            try {
+              const orderPromises = orderNames.map((orderName: string) =>
+                dispatch(
+                  fetchSquarespaceOrderByNumber({
+                    access_token: squarespaceToken,
+                    orderNumber: orderName,
+                  })
+                )
+              );
+
+              const results = await Promise.all(orderPromises);
+
+              const allOrders: any[] = [];
+              let hasErrors = false;
+              let hasTokenExpired = false;
+
+              results.forEach((result, index) => {
+                const payload = result.payload as any;
+                if (payload?.tokenExpired) {
+                  hasTokenExpired = true;
+                } else if (payload && (payload.id || payload.orderNumber || payload.lineItems)) {
+                  allOrders.push(payload);
+                } else if (payload && payload.order) {
+                  allOrders.push(payload.order);
+                } else if (payload && payload.orders && payload.orders.length > 0) {
+                  allOrders.push(...payload.orders);
+                } else {
+                  hasErrors = true;
+                  console.error(`Failed to fetch Squarespace order ${orderNames[index]}:`, payload);
+                }
+              });
+
+              if (hasTokenExpired) {
+                if (squarespaceRefreshToken && accountKey) {
+                  // Ignore error since we tried validate-token earlier
+                  notification.error({
+                    message: 'Error fetching orders',
+                    description: 'Failed to import. Please try again.',
+                  });
+                } else {
+                  localStorage.removeItem('squarespace_token');
+                  localStorage.removeItem('squarespace_account_key');
+                  notification.error({
+                    message: 'Squarespace Token Expired',
+                    description: 'Your Squarespace access token has expired. Please reconnect your store.',
+                  });
+                  dispatch(resetSquarespaceImportStatus());
+                  setTimeout(() => {
+                    const redirectKey = customerInfo?.data?.account_key || localStorage.getItem('squarespace_account_key') || '';
+                    window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/auth?account_key=${redirectKey}`;
+                  }, 2000);
+                }
+                return;
+              }
+
+              if (allOrders.length > 0) {
+                // Transform Squarespace orders to Finerworks format
+                const transformedOrders = allOrders.map((sqOrder: any, orderIndex: number) => {
+                  const addr = sqOrder.shippingAddress || sqOrder.billingAddress || {};
+                  const lineItems: any[] = sqOrder.lineItems || sqOrder.order_items || [];
+
+                  return {
+                    order_po: `${sqOrder.orderNumber || sqOrder.id || orderIndex}`,
+                    order_key: sqOrder.id || '',
+                    source: sqOrder.channelName || 'squarespace',
+                    recipient: {
+                      first_name: addr.firstName || addr.first_name || '',
+                      last_name: addr.lastName || addr.last_name || '',
+                      company_name: addr.company || addr.company_name || '',
+                      address_1: addr.address1 || addr.address_1 || '',
+                      address_2: addr.address2 || addr.address_2 || '',
+                      address_3: '',
+                      city: addr.city || '',
+                      state_code: addr.state || addr.state_code || '',
+                      province: addr.state || '',
+                      zip_postal_code: addr.zip || addr.postalCode || '',
+                      country_code: addr.countryCode || addr.country_code || 'US',
+                      phone: addr.phone || sqOrder.customerEmail || '',
+                      email: sqOrder.customerEmail || '',
+                      address_order_po: '',
+                    },
+                    order_items: lineItems.map((item: any, itemIndex: number) => ({
+                      product_order_po: `SQ_P_${orderIndex}_${itemIndex}`,
+                      product_qty: item.quantity || 1,
+                      product_sku: item.sku || item.variantId || '',
+                      product_title: item.productName || item.name || '',
+                      product_guid: item.variantId || crypto.randomUUID(),
+                    })),
+                    order_status: 'Processing',
+                    shipping_code: 'GD',
+                    test_mode: true,
+                  };
+                });
+
+                const sendData = {
+                  accountId: customerInfo?.data?.account_id,
+                  payment_token: customerInfo?.data?.account_key,
+                  orders: transformedOrders,
+                };
+
+                dispatch(saveShopifyOrder(sendData));
+
+                notification.success({
+                  message: 'Success',
+                  description: `${transformedOrders.length} Squarespace order(s) imported successfully${hasErrors ? ' (some failed)' : ''}`,
+                });
+
+                setTimeout(() => {
+                  dispatch(resetSaveOrderInfo());
+                  dispatch(resetImport());
+                  dispatch(updateWporder('' as any));
+                  navigate('/importlist');
+                }, 2000);
+              } else {
+                notification.error({
+                  message: 'Error',
+                  description: 'Failed to fetch any specified Squarespace orders.',
                 });
               }
             } catch (error) {
-              console.error("Error fetching Shopify orders:", error);
+              console.error("Error fetching Squarespace orders by number:", error);
               notification.error({
                 message: "Error",
-                description: "An error occurred while fetching Shopify orders",
+                description: "An error occurred while fetching Squarespace order details",
               });
             } finally {
               setNextSpinning(false);
             }
+          }
+          // Require date range for bulk import
+          else if (!myImport?.start_date || !myImport?.end_date) {
+            notification.warning({
+              message: 'Missing Information',
+              description: 'Please select a start and end date to import Squarespace orders.',
+            });
+            return;
+          } else {
+            try {
+              const startISO = `${myImport.start_date}T00:00:00Z`;
+              const endISO = `${myImport.end_date}T23:59:59Z`;
+
+              const result = await dispatch(
+                fetchSquarespaceOrders({
+                  access_token: squarespaceToken,
+                  startDate: startISO,
+                  endDate: endISO,
+                  fulfillmentStatus: myImport.status || 'PENDING',
+                })
+              );
+
+              // Token expired — clear stored credentials and redirect to reconnect
+              if ((result.payload as any)?.tokenExpired) {
+                if (squarespaceRefreshToken && accountKey) {
+                  notification.error({
+                    message: 'Error fetching orders',
+                    description: 'Failed to import. Please try again.',
+                  });
+                } else {
+                  localStorage.removeItem('squarespace_token');
+                  localStorage.removeItem('squarespace_account_key');
+                  notification.error({
+                    message: 'Squarespace Token Expired',
+                    description: 'Your Squarespace access token has expired. Please reconnect your store.',
+                  });
+                  dispatch(resetSquarespaceImportStatus());
+                  setTimeout(() => {
+                    const redirectKey =
+                      customerInfo?.data?.account_key ||
+                      localStorage.getItem('squarespace_account_key') ||
+                      '';
+                    window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/auth?account_key=${redirectKey}`;
+                  }, 2000);
+                }
+                return;
+              }
+
+              const payload = result.payload as any;
+
+              if (payload?.orders && payload.orders.length > 0) {
+                // Transform Squarespace orders to Finerworks format
+                const transformedOrders = payload.orders.map(
+                  (sqOrder: any, orderIndex: number) => {
+                    const addr = sqOrder.shippingAddress || sqOrder.billingAddress || {};
+                    const lineItems: any[] = sqOrder.lineItems || sqOrder.order_items || [];
+                    console.log(sqOrder, 'addr')
+
+                    return {
+                      order_po: `${sqOrder.orderNumber || sqOrder.id || orderIndex}`,
+                      order_key: sqOrder.id || '',
+                      source: sqOrder.channelName || 'squarespace',
+                      recipient: {
+                        first_name: addr.firstName || addr.first_name || '',
+                        last_name: addr.lastName || addr.last_name || '',
+                        company_name: addr.company || addr.company_name || '',
+                        address_1: addr.address1 || addr.address_1 || '',
+                        address_2: addr.address2 || addr.address_2 || '',
+                        address_3: '',
+                        city: addr.city || '',
+                        state_code: addr.state || addr.state_code || '',
+                        province: addr.state || '',
+                        zip_postal_code: addr.zip || addr.postalCode || '',
+                        country_code: addr.countryCode || addr.country_code || 'US',
+                        phone: addr.phone || sqOrder.customerEmail || '',
+                        email: sqOrder.customerEmail || '',
+                        address_order_po: '',
+                      },
+                      order_items: lineItems.map((item: any, itemIndex: number) => ({
+                        product_order_po: `SQ_P_${orderIndex}_${itemIndex}`,
+                        product_qty: item.quantity || 1,
+                        product_sku: item.sku || item.variantId || '',
+                        product_title: item.productName || item.name || '',
+                        product_guid: item.variantId || crypto.randomUUID(),
+                      })),
+                      order_status: 'Processing',
+                      shipping_code: 'GD',
+                      test_mode: true,
+                    };
+                  }
+                );
+
+                const sendData = {
+                  accountId: customerInfo?.data?.account_id,
+                  payment_token: customerInfo?.data?.account_key,
+                  orders: transformedOrders,
+                };
+
+                dispatch(saveShopifyOrder(sendData)); // reuse the generic save endpoint
+
+                notification.success({
+                  message: 'Success',
+                  description: `${transformedOrders.length} Squarespace order(s) imported successfully`,
+                });
+
+                setTimeout(() => {
+                  dispatch(resetSaveOrderInfo());
+                  dispatch(resetImport());
+                  dispatch(updateWporder('' as any));
+                  navigate('/importlist');
+                }, 2000);
+              } else {
+                notification.warning({
+                  message: 'No Orders Found',
+                  description:
+                    payload?.message ||
+                    'No Squarespace orders matched the selected criteria.',
+                });
+              }
+            } catch (error) {
+              console.error('Error fetching Squarespace orders:', error);
+              notification.error({
+                message: 'Error',
+                description: 'An error occurred while fetching Squarespace orders.',
+              });
+            } finally {
+              setNextSpinning(false);
             }
           }
         }
+
         // Handle WooCommerce orders
         else if (platformType === "WooCommerce") {
           if (wporder.length > 0) {
@@ -484,12 +874,245 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
             );
           }
         }
+
+        // ── Handle Wix orders ────────────────────────────────────────────────
+        else if (platformType === "Wix") {
+          // Resolve Wix credentials from companyInfo connections
+          let wixAccessToken = '';
+          const wixAccountKey = customerInfo?.data?.account_key || '';
+
+          if (companyInfo?.data?.connections) {
+            const wixConnection = companyInfo.data.connections.find(
+              (conn: any) => conn.name === 'Wix'
+            );
+            if (wixConnection?.data) {
+              try {
+                const parsed = JSON.parse(wixConnection.data);
+                wixAccessToken = parsed.access_token || '';
+              } catch {
+                wixAccessToken = wixConnection.id || '';
+              }
+            } else if (wixConnection?.id) {
+              wixAccessToken = wixConnection.id;
+            }
+          }
+
+          if (!wixAccessToken || !wixAccountKey) {
+            notification.error({
+              message: 'Not Connected',
+              description: 'No Wix credentials found. Please reconnect your store.',
+            });
+            setTimeout(() => navigate('/'), 1500);
+            return;
+          }
+
+          setNextSpinning(true);
+
+          // ── Import by order number (individual orders) ──
+          if (wporder.length > 0) {
+            const orderNumbers = wporder.split(',').map((n: string) => n.trim());
+
+            try {
+              const result = await dispatch(
+                fetchWixOrderByNumber({
+                  account_key: wixAccountKey,
+                  access_token: wixAccessToken,
+                  order_numbers: orderNumbers,
+                })
+              );
+
+              const payload = result.payload as any;
+              const rawOrders: any[] =
+                Array.isArray(payload?.orders) ? payload.orders
+                : Array.isArray(payload) ? payload
+                : payload?.order ? [payload.order]
+                : [];
+
+              if (rawOrders.length > 0) {
+                const transformedOrders = rawOrders.map((wixOrder: any, orderIndex: number) => {
+                  const addr =
+                    wixOrder.shippingInfo?.shipmentDetails?.address ||
+                    wixOrder.billingInfo?.address ||
+                    {};
+                  const lineItems: any[] = wixOrder.lineItems || [];
+
+                  return {
+                    order_po: `WIX_${wixOrder.number || wixOrder.id || orderIndex}`,
+                    order_key: wixOrder.id || '',
+                    source: 'wix',
+                    recipient: {
+                      first_name: addr.firstName || addr.first_name || wixOrder.billingInfo?.contactDetails?.firstName || '',
+                      last_name: addr.lastName || addr.last_name || wixOrder.billingInfo?.contactDetails?.lastName || '',
+                      company_name: addr.company || addr.company_name || '',
+                      address_1: addr.addressLine || addr.address1 || addr.address_1 || '',
+                      address_2: addr.addressLine2 || addr.address2 || addr.address_2 || '',
+                      address_3: '',
+                      city: addr.city || '',
+                      state_code: addr.subdivision || addr.state_code || '',
+                      province: addr.subdivision || '',
+                      zip_postal_code: addr.postalCode || addr.zipCode || '',
+                      country_code: addr.country || addr.country_code || 'US',
+                      phone: wixOrder.billingInfo?.contactDetails?.phone || '',
+                      email: wixOrder.buyerInfo?.email || '',
+                      address_order_po: '',
+                    },
+                    order_items: lineItems.map((item: any, itemIndex: number) => ({
+                      product_order_po: `WIX_P_${orderIndex}_${itemIndex}`,
+                      product_qty: item.quantity || 1,
+                      product_sku: item.catalogReference?.catalogItemId || item.sku || '',
+                      product_title: item.productName?.original || item.name || '',
+                      product_guid: item.id || crypto.randomUUID(),
+                    })),
+                    order_status: 'Processing',
+                    shipping_code: 'GD',
+                    test_mode: true,
+                  };
+                });
+
+                const sendData = {
+                  accountId: customerInfo?.data?.account_id,
+                  payment_token: customerInfo?.data?.account_key,
+                  orders: transformedOrders,
+                };
+
+                dispatch(saveShopifyOrder(sendData));
+
+                notification.success({
+                  message: 'Success',
+                  description: `${transformedOrders.length} Wix order(s) imported successfully`,
+                });
+
+                setTimeout(() => {
+                  dispatch(resetSaveOrderInfo());
+                  dispatch(resetImport());
+                  dispatch(updateWporder('' as any));
+                  navigate('/importlist');
+                }, 2000);
+              } else {
+                notification.error({
+                  message: 'Error',
+                  description: 'Failed to fetch the specified Wix order(s). Please check the order numbers.',
+                });
+              }
+            } catch (error) {
+              console.error('Error fetching Wix orders by number:', error);
+              notification.error({
+                message: 'Error',
+                description: 'An error occurred while fetching Wix order details.',
+              });
+            } finally {
+              setNextSpinning(false);
+            }
+          }
+
+          // ── Import by date range (bulk orders) ──
+          else if (!myImport?.start_date || !myImport?.end_date) {
+            notification.warning({
+              message: 'Missing Information',
+              description: 'Please select a start and end date to import Wix orders.',
+            });
+            setNextSpinning(false);
+          } else {
+            try {
+              const result = await dispatch(
+                fetchWixOrders({
+                  account_key: wixAccountKey,
+                  access_token: wixAccessToken,
+                  start_date: myImport.start_date,
+                  end_date: myImport.end_date,
+                  fulfillmentStatus: myImport.status,
+                })
+              );
+
+              const payload = result.payload as any;
+              const rawOrders: any[] =
+                Array.isArray(payload?.orders) ? payload.orders
+                : Array.isArray(payload) ? payload
+                : [];
+
+              if (rawOrders.length > 0) {
+                const transformedOrders = rawOrders.map((wixOrder: any, orderIndex: number) => {
+                  const addr =
+                    wixOrder.shippingInfo?.shipmentDetails?.address ||
+                    wixOrder.billingInfo?.address ||
+                    {};
+                  const lineItems: any[] = wixOrder.lineItems || [];
+
+                  return {
+                    order_po: `WIX_${wixOrder.number || wixOrder.id || orderIndex}`,
+                    order_key: wixOrder.id || '',
+                    source: 'wix',
+                    recipient: {
+                      first_name: addr.firstName || addr.first_name || wixOrder.billingInfo?.contactDetails?.firstName || '',
+                      last_name: addr.lastName || addr.last_name || wixOrder.billingInfo?.contactDetails?.lastName || '',
+                      company_name: addr.company || addr.company_name || '',
+                      address_1: addr.addressLine || addr.address1 || addr.address_1 || '',
+                      address_2: addr.addressLine2 || addr.address2 || addr.address_2 || '',
+                      address_3: '',
+                      city: addr.city || '',
+                      state_code: addr.subdivision || addr.state_code || '',
+                      province: addr.subdivision || '',
+                      zip_postal_code: addr.postalCode || addr.zipCode || '',
+                      country_code: addr.country || addr.country_code || 'US',
+                      phone: wixOrder.billingInfo?.contactDetails?.phone || '',
+                      email: wixOrder.buyerInfo?.email || '',
+                      address_order_po: '',
+                    },
+                    order_items: lineItems.map((item: any, itemIndex: number) => ({
+                      product_order_po: `WIX_P_${orderIndex}_${itemIndex}`,
+                      product_qty: item.quantity || 1,
+                      product_sku: item.catalogReference?.catalogItemId || item.sku || '',
+                      product_title: item.productName?.original || item.name || '',
+                      product_guid: item.id || crypto.randomUUID(),
+                    })),
+                    order_status: 'Processing',
+                    shipping_code: 'GD',
+                    test_mode: true,
+                  };
+                });
+
+                const sendData = {
+                  accountId: customerInfo?.data?.account_id,
+                  payment_token: customerInfo?.data?.account_key,
+                  orders: transformedOrders,
+                };
+
+                dispatch(saveShopifyOrder(sendData));
+
+                notification.success({
+                  message: 'Success',
+                  description: `${transformedOrders.length} Wix order(s) imported successfully`,
+                });
+
+                setTimeout(() => {
+                  dispatch(resetSaveOrderInfo());
+                  dispatch(resetImport());
+                  dispatch(updateWporder('' as any));
+                  navigate('/importlist');
+                }, 2000);
+              } else {
+                notification.warning({
+                  message: 'No Orders Found',
+                  description: payload?.message || 'No Wix orders matched the selected date range.',
+                });
+              }
+            } catch (error) {
+              console.error('Error fetching Wix orders:', error);
+              notification.error({
+                message: 'Error',
+                description: 'An error occurred while fetching Wix orders.',
+              });
+            } finally {
+              setNextSpinning(false);
+            }
+          }
+        }
       }
 
       if (location.pathname === "/billingaddress") {
         if (
           myBillingInfoFilled.billing_info &&
-          !isNaN(myBillingInfoFilled.billing_info.zip_postal_code) 
+          !isNaN(myBillingInfoFilled.billing_info.zip_postal_code)
         ) {
           setNextSpinning(true);
           await dispatch(updateCompanyInfo(myBillingInfoFilled));
@@ -589,8 +1212,8 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   //   }
   // }, [recipientStatus]);
 
-  const onDeleteHandler = () => {};
-  console.log("loc",location.pathname);
+  const onDeleteHandler = () => { };
+
   const onBackHandler = () => {
     switch (location.pathname) {
       case "/billingaddress":
@@ -618,7 +1241,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
     }
   };
 
-  const onDownloadHandler = () => {};
+  const onDownloadHandler = () => { };
   useEffect(() => {
     if (
       myCompanyInfoFilled?.business_info &&
@@ -815,7 +1438,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
       dispatch(updateCompanyInfo({}));
     }
   }, []);
-  console.log("orders", orders)
+
 
   useEffect(() => {
     if (orders && checkedOrders) {
@@ -825,7 +1448,6 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
         const product = orders?.data?.find(
           (product: any) => product?.order_po == order?.order_po
         );
-        console.log("product", product)
 
         if (product) {
           newTotalPrice += order.Product_price?.grand_total
@@ -908,73 +1530,73 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
 
       {/* Glassmorphism Bottom Navigation */}
       <div className="fixed bottom-6 left-28 right-6 z-40 flex items-center justify-between gap-4">
-          {backVisiable && (
-            <div className="backdrop-blur-xl bg-white/70 border border-white/40 rounded-2xl shadow-2xl hover:shadow-blue-200/50 transition-all duration-300 hover:-translate-y-1">
+        {backVisiable && (
+          <div className="backdrop-blur-xl bg-white/70 border border-white/40 rounded-2xl shadow-2xl hover:shadow-blue-200/50 transition-all duration-300 hover:-translate-y-1">
+            <Button
+              key="submit"
+              className={`min-w-[110px] h-12 rounded-2xl font-semibold bg-transparent border-0 hover:bg-white/50 ${style.backButton}`}
+              size="large"
+              type="default"
+              onClick={onBackHandler}
+              icon={
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              }
+            >
+              Back
+            </Button>
+          </div>
+        )}
+
+        {totalVisiable && (
+          <div className="flex-1 mx-4 backdrop-blur-xl bg-gradient-to-r from-blue-500/20 to-indigo-500/20 border border-white/40 rounded-3xl shadow-2xl px-6 py-3.5">
+            <div className="flex items-center justify-center gap-8 text-sm font-medium">
+              <span className="flex items-center gap-3">
+                <div className="p-2 bg-white/80 backdrop-blur-sm rounded-xl shadow-lg">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-gray-900 text-lg">{checkedOrders.length}</span>
+                  <span className="text-gray-700 font-medium">of {orders?.data?.length} selected</span>
+                </div>
+              </span>
+              {product_details?.totalPrice && (
+                <>
+                  <div className="h-8 w-px bg-white/40"></div>
+                  <span className="flex items-center gap-3 bg-white/90 backdrop-blur-sm px-5 py-2 rounded-xl shadow-lg">
+                    <span className="text-gray-700 font-semibold">Total:</span>
+                    <span className="font-bold text-blue-600 text-xl">${grandTotal.toFixed(2)}</span>
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {nextVisiable && (
+          <div className="backdrop-blur-xl bg-gradient-to-r from-blue-600/90 to-indigo-600/90 border border-white/30 rounded-2xl shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 hover:-translate-y-1 hover:scale-105">
+            <Spin tip="Updating..." spinning={nextSpinning}>
               <Button
-                key="submit"
-                className={`min-w-[110px] h-12 rounded-2xl font-semibold bg-transparent border-0 hover:bg-white/50 ${style.backButton}`}
+                onClick={onNextHandler}
+                className={`min-w-[130px] h-12 rounded-2xl font-bold border-0 bg-transparent hover:bg-white/10 text-white ${style.bottomIcon}`}
+                type="primary"
                 size="large"
-                type="default"
-                onClick={onBackHandler}
                 icon={
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                 }
+                iconPosition="end"
               >
-                Back
+                {location.pathname === "/shippingpreference" || location.pathname.includes("/editorder") ? "Update" : "Next"}
               </Button>
-            </div>
-          )}
-
-          {totalVisiable && (
-            <div className="flex-1 mx-4 backdrop-blur-xl bg-gradient-to-r from-blue-500/20 to-indigo-500/20 border border-white/40 rounded-3xl shadow-2xl px-6 py-3.5">
-              <div className="flex items-center justify-center gap-8 text-sm font-medium">
-                <span className="flex items-center gap-3">
-                  <div className="p-2 bg-white/80 backdrop-blur-sm rounded-xl shadow-lg">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-gray-900 text-lg">{checkedOrders.length}</span>
-                    <span className="text-gray-700 font-medium">of {orders?.data?.length} selected</span>
-                  </div>
-                </span>
-                {product_details?.totalPrice && (
-                  <>
-                    <div className="h-8 w-px bg-white/40"></div>
-                    <span className="flex items-center gap-3 bg-white/90 backdrop-blur-sm px-5 py-2 rounded-xl shadow-lg">
-                      <span className="text-gray-700 font-semibold">Total:</span>
-                      <span className="font-bold text-blue-600 text-xl">${grandTotal.toFixed(2)}</span>
-                    </span>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
-          {nextVisiable && (
-            <div className="backdrop-blur-xl bg-gradient-to-r from-blue-600/90 to-indigo-600/90 border border-white/30 rounded-2xl shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 hover:-translate-y-1 hover:scale-105">
-              <Spin tip="Updating..." spinning={nextSpinning}>
-                <Button
-                  onClick={onNextHandler}
-                  className={`min-w-[130px] h-12 rounded-2xl font-bold border-0 bg-transparent hover:bg-white/10 text-white ${style.bottomIcon}`}
-                  type="primary"
-                  size="large"
-                  icon={
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  }
-                  iconPosition="end"
-                >
-                  {location.pathname === "/shippingpreference" || location.pathname.includes("/editorder") ? "Update" : "Next"}
-                </Button>
-              </Spin>
-            </div>
-          )}
-        </div>
+            </Spin>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

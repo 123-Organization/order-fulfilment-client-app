@@ -10,11 +10,11 @@ interface ShopifyAuthWaitingProps {
   shop?: string;
 }
 
-const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({ 
+const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
   onAuthComplete,
   authCode,
   accessToken,
-  shop 
+  shop
 }) => {
   const navigate = useNavigate();
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
@@ -41,28 +41,28 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
     const authenticateWithShopify = async () => {
       try {
         setMessage('Verifying your credentials...');
-        
-        console.log('🔍 ShopifyAuthWaiting - Customer Info:', customerInfo);
-        
+
+
+
         // Get account_key from Redux store
         const accountKey = customerInfo?.data?.account_key;
-        
-        console.log('🔑 Account Key:', accountKey);
-        
+
+
+
         if (!accountKey) {
           console.error('❌ No account key found in Redux store');
           throw new Error('Account key not found. Please log in again.');
         }
-        
+
         // Use access_token if available, otherwise use code
         const tokenToSend = accessToken || authCode;
-        
+
         if (!tokenToSend) {
           throw new Error('No authentication token found.');
         }
-        
-        console.log('🔐 Authenticating with Shopify:', { shop, accountKey });
-        
+
+
+
         // Make API call to backend
         const response = await fetch('https://dwe8rzhebf.execute-api.us-east-1.amazonaws.com/Prod/api/shopify/callback', {
           method: 'POST',
@@ -77,25 +77,29 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
         });
 
         const data = await response.json();
-        
-        console.log('📦 Shopify API Response:', data);
-        
+
+
+
         if (response.ok && (data.success || data.message === 'Shop connected successfully')) {
           setProgress(100);
           setStatus('success');
           setMessage('Successfully connected to Shopify! Redirecting to your store...');
-          
+
           // Wait 2 seconds to show success message then redirect to Shopify store with account_key
           setTimeout(() => {
             if (onAuthComplete) {
               onAuthComplete();
             }
-            
+
             // Redirect back to Shopify store admin with account_key in URL
+            const shopifyRedirectUrl = `http://bedroom-rail-tower-relatives.trycloudflare.com/auth/finerworks-callback?shop=${shop}&account_key=${accountKey}`;
+
+
+
             const shopifyRedirectUrl = `https://shopify.finerworks.com/auth/finerworks-callback?shop=${shop}&account_key=${accountKey}`;
-            
+
             console.log(' Redirecting to Shopify store:', shopifyRedirectUrl);
-            
+
             // Redirect to Shopify store
             window.location.href = ""
             window.location.href = shopifyRedirectUrl;
@@ -103,13 +107,13 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
         } else {
           throw new Error(data.message || data.error || 'Authentication failed');
         }
-        
+
       } catch (error: any) {
         console.error('❌ Shopify authentication error:', error);
         setStatus('error');
         setMessage(error.message || 'Failed to connect to Shopify. Please try again.');
         setProgress(0);
-        
+
         // Redirect to landing after error
         setTimeout(() => {
           navigate('/?type=shopify&error=auth_failed');
@@ -136,15 +140,14 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
         <div className="bg-white rounded-3xl shadow-2xl p-8 backdrop-blur-lg bg-opacity-90">
           {/* Logo Animation */}
           <div className="flex justify-center mb-8">
-            <div className={`relative ${
-              status === 'authenticating' ? 'animate-pulse' : 
-              status === 'success' ? 'animate-bounce' : 
-              'animate-shake'
-            }`}>
+            <div className={`relative ${status === 'authenticating' ? 'animate-pulse' :
+              status === 'success' ? 'animate-bounce' :
+                'animate-shake'
+              }`}>
               <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-blue-500 rounded-full blur-xl opacity-50"></div>
-              <img 
-                src={shopifyLogo} 
-                alt="Shopify" 
+              <img
+                src={shopifyLogo}
+                alt="Shopify"
                 className="relative w-24 h-24 object-contain"
               />
             </div>
@@ -160,7 +163,7 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
                 </svg>
               </div>
             )}
-            
+
             {status === 'success' && (
               <div className="animate-scale-in">
                 <svg className="h-16 w-16 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -168,7 +171,7 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
                 </svg>
               </div>
             )}
-            
+
             {status === 'error' && (
               <div className="animate-shake">
                 <svg className="h-16 w-16 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -179,11 +182,10 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
           </div>
 
           {/* Status Message */}
-          <h2 className={`text-2xl font-bold text-center mb-4 transition-colors duration-300 ${
-            status === 'authenticating' ? 'text-gray-800' :
+          <h2 className={`text-2xl font-bold text-center mb-4 transition-colors duration-300 ${status === 'authenticating' ? 'text-gray-800' :
             status === 'success' ? 'text-green-600' :
-            'text-red-600'
-          }`}>
+              'text-red-600'
+            }`}>
             {status === 'authenticating' && 'Authenticating...'}
             {status === 'success' && 'Connected!'}
             {status === 'error' && 'Connection Failed'}
@@ -195,12 +197,11 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
 
           {/* Progress Bar */}
           <div className="w-full bg-gray-200 rounded-full h-3 mb-6 overflow-hidden">
-            <div 
-              className={`h-full rounded-full transition-all duration-500 ease-out ${
-                status === 'success' ? 'bg-gradient-to-r from-green-400 to-green-600' :
+            <div
+              className={`h-full rounded-full transition-all duration-500 ease-out ${status === 'success' ? 'bg-gradient-to-r from-green-400 to-green-600' :
                 status === 'error' ? 'bg-gradient-to-r from-red-400 to-red-600' :
-                'bg-gradient-to-r from-green-400 to-blue-500'
-              }`}
+                  'bg-gradient-to-r from-green-400 to-blue-500'
+                }`}
               style={{ width: `${progress}%` }}
             ></div>
           </div>

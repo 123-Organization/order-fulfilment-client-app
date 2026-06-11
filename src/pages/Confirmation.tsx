@@ -109,9 +109,7 @@ export default function Confirmation() {
     const hasShopifyOrders = shopifyOrdersResponse && shopifyOrdersResponse.data;
     
     if ((hasNormalOrders || hasShopifyOrders) && companyInfo?.data?.account_key) {
-      console.log("Sending order information - Normal:", submitOrdersResponse);
-      console.log("Sending order information - Shopify:", shopifyOrdersResponse);
-      console.log("Company info for domain lookup:", companyInfo);
+      
       
       // Get domain name from various possible sources in the state
       // Check multiple possible locations where domain might be stored

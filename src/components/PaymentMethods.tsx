@@ -35,12 +35,12 @@ export default function PaymentMethods(remainingTotal: any = 0) {
     (state) => state.Payment.payment_methods
   );
   const isCardRemoved = useAppSelector((state) => state.Payment.cardRemoved);
-  console.log("paymentMethods", paymentMethods);
+  
   const showPaymentMethod =
     location.pathname === "/checkout" && remainingTotal?.remainingTotal === 0;
-  console.log("rere", remainingTotal?.remainingTotal);
+ 
   const dispatch = useAppDispatch();
-  console.log("Car", value);
+ 
 
   const onChangePaymentMethod = (e: any) => {
     setValue(e.target.value);
@@ -78,8 +78,7 @@ export default function PaymentMethods(remainingTotal: any = 0) {
   }, [paymentMethods]);
 
   useEffect(() => {
-    console.log("coco", companyInfo?.data?.payment_profile_id);
-
+    
     const payment_profile_id = companyInfo?.data?.payment_profile_id;
     if (payment_profile_id) {
       setIsLoading(true);
@@ -88,11 +87,9 @@ export default function PaymentMethods(remainingTotal: any = 0) {
   }, [companyInfo, dispatch]);
 
   const onChange1 = (e: RadioChangeEvent) => {
-    console.log("radio checked", e.target.value);
     dispatch(setSelectedCard(e.target.value));
     setValue(e.target.value);
   };
-  console.log("valv", paymentToken);
 
   const handleRemoveCard = () => {
     const Token = paymentToken?.payment_tokens?.find(
@@ -100,7 +97,7 @@ export default function PaymentMethods(remainingTotal: any = 0) {
         token?.associated_payment_method?.slice(-4) ===
           String(value)?.slice(-4) || token?.token === String(value)
     );
-    console.log("yoyo", Token);
+   
     const data = {
       customerId: companyInfo?.data?.payment_profile_id,
       paymentMethodToken: Token?.token,

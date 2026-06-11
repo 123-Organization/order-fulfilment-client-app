@@ -17,6 +17,7 @@ import {
   clearSelectedImage,
 } from "../store/features/productSlice";
 import { resetOrderStatus } from "../store/features/orderSlice";
+import ImageGalleryModal from "./ImageGalleryModal";
 
 interface ReplacingCodeProps {
   visible: boolean;
@@ -40,6 +41,7 @@ const ReplacingCode: React.FC<ReplacingCodeProps> = ({
   const images = useAppSelector((state) => state.ProductSlice.images);
   const iframeState = useAppSelector((state) => state.company.iframeState);
   const [inputValue, setInputValue] = useState("");
+  const [galleryVisible, setGalleryVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const productDataStatus = useAppSelector(
     (state) => state.order.productDataStatus
@@ -54,10 +56,10 @@ const ReplacingCode: React.FC<ReplacingCodeProps> = ({
   const replaceCodeStatus = useAppSelector(
     (state) => state.order.replaceCodeStatus
   );
-
+  const customerInfo = useAppSelector((state) => state.Customer.customer_info);
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value?.trim());
-    console.log("inpu", e.target.value);
+
   };
 
   const filterImages = (data: any) => {
@@ -67,13 +69,13 @@ const ReplacingCode: React.FC<ReplacingCodeProps> = ({
   };
 
   const handleReplace = (event: any) => {
-    console.log("Message event:", event.type);
+
 
     try {
       const data = event.data;
-      console.log("dataaa", data);
+
       const filteredImages = filterImages(data);
-      console.log("filteredImages", filteredImages);
+
       dispatch(setSelectedImage(filteredImages));
     } catch (error) {
       console.error("Error parsing message data:", error);
@@ -99,6 +101,7 @@ const ReplacingCode: React.FC<ReplacingCodeProps> = ({
         skuCode: inputValue,
         product_url_file: [],
         product_url_thumbnail: [],
+        account_key: customerInfo.data.account_key,
         toReplace,
         accountId,
       };
@@ -112,26 +115,32 @@ const ReplacingCode: React.FC<ReplacingCodeProps> = ({
         onClose();
       }, 1000);
     } else {
-      console.log("🔄 ReplacingCode - Opening file manager for product code:", inputValue);
-      // First ensure iframe is closed, then open it to force re-render
-      dispatch(updateIframeState(false));
-      setTimeout(() => {
-        console.log("🎬 ReplacingCode - Setting iframeState to TRUE");
-        dispatch(updateIframeState(true));
-        notificationApi.success({
-          message: "Choose A Product Image",
-          description:
-            "Please choose the product image you want to add to the order.",
-        });
-        setTimeout(() => {
-          onClose();
-        }, 500);
-      }, 100);
+
+      setGalleryVisible(true);
     }
   };
 
+  const handleImageSelect = (image: any) => {
+    setIsLoading(true);
+    const data = {
+      orderFullFillmentId,
+      productCode: inputValue,
+      skuCode: "",
+      product_url_file: [image.private_hires_uri || image.public_preview_uri || image.public_thumbnail_uri],
+      product_url_thumbnail: [image.public_thumbnail_uri],
+      toReplace,
+      accountId,
+    };
 
-  console.log("lue", inputValue);
+    dispatch(updateProductValidSKU(data));
+    setTimeout(() => {
+      setInputValue("");
+      onProductCodeUpdate(inputValue);
+      setIsLoading(false);
+      onClose();
+    }, 1000);
+    setGalleryVisible(false);
+  };
 
   useEffect(() => {
     if (SelectedImage) {
@@ -144,7 +153,7 @@ const ReplacingCode: React.FC<ReplacingCodeProps> = ({
         toReplace,
         accountId,
       };
-      console.log("deeeedo", data);
+
       dispatch(setProductData(data));
     }
   }, [SelectedImage, inputValue, orderFullFillmentId]);
@@ -152,15 +161,14 @@ const ReplacingCode: React.FC<ReplacingCodeProps> = ({
   useEffect(() => {
     window.addEventListener("replace", handleReplace);
     if (iframeState) {
-      dispatch(getAllImages());
+      dispatch(getAllImages({ customerId: customerInfo.data.account_id }));
     }
     return () => {
       window.removeEventListener("replace", handleReplace);
     };
   }, []);
 
-  console.log("productDataStatus", productDataStatus);
-  console.log("replaceCodeStatus", replaceCodeStatus);
+
 
   // useEffect(() => {
   //   if (replaceCodeStatus === "succeeded") {
@@ -169,7 +177,7 @@ const ReplacingCode: React.FC<ReplacingCodeProps> = ({
   //       return;
   //     }
 
-      
+
   //       notificationApi.success({
   //         message: "SKU Replaced",
   //         description: "Product SKU has been successfully replaced.",
@@ -202,43 +210,52 @@ const ReplacingCode: React.FC<ReplacingCodeProps> = ({
   }, [visible, dispatch]);
 
   return (
-    <Modal
-      title="Replace Invalid SKU"
-      visible={visible}
-      onCancel={handleClose}
-      style={{ zIndex: 10 }}
-      footer={[
-        <Button key="cancel" onClick={handleClose}>
-          Cancel
-        </Button>,
-        <Button
-          key="submit"
-          type="primary"
-          onClick={handleReplaceSKU}
+    <>
+      <Modal
+        title="Replace Invalid SKU"
+        visible={visible}
+        onCancel={handleClose}
+        style={{ zIndex: 10 }}
+        footer={[
+          <Button key="cancel" onClick={handleClose}>
+            Cancel
+          </Button>,
+          <Button
+            key="submit"
+            type="primary"
+            onClick={handleReplaceSKU}
+            disabled={isLoading}
+          >
+            Replace SKU
+          </Button>,
+        ]}
+      >
+        <div className="mb-4">
+          <div className="text-gray-600 mb-2">Current SKU to replace:</div>
+          <div className="bg-red-50 text-red-700 px-3 py-2 rounded-md font-mono">
+            {toReplace}
+          </div>
+        </div>
+        <Input
+          placeholder="Enter new SKU code here"
+          value={inputValue}
+          onChange={handleInputChange}
           disabled={isLoading}
-        >
-          Replace SKU
-        </Button>,
-      ]}
-    >
-      <div className="mb-4">
-        <div className="text-gray-600 mb-2">Current SKU to replace:</div>
-        <div className="bg-red-50 text-red-700 px-3 py-2 rounded-md font-mono">
-          {toReplace}
-        </div>
-      </div>
-      <Input
-        placeholder="Enter new SKU code here"
-        value={inputValue}
-        onChange={handleInputChange}
-        disabled={isLoading}
+        />
+        {isLoading && (
+          <div style={{ textAlign: "center", marginTop: 20 }}>
+            <Spin indicator={<LoadingOutlined spin />} size="large" />
+          </div>
+        )}
+      </Modal>
+
+      <ImageGalleryModal
+        visible={galleryVisible}
+        onClose={() => setGalleryVisible(false)}
+        onImageSelect={handleImageSelect}
+        title="Select Product Image"
       />
-      {isLoading && (
-        <div style={{ textAlign: "center", marginTop: 20 }}>
-          <Spin indicator={<LoadingOutlined spin />} size="large" />
-        </div>
-      )}
-    </Modal>
+    </>
   );
 };
 
