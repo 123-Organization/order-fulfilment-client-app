@@ -28,7 +28,7 @@ import { updateOpenSheet } from "../store/features/orderSlice";
 import SpreadSheet from "../components/SpreadSheet";
 import PlatformSettingsModal from "../components/PlatformSettingsModal";
 // Set to true when Shopify integration is fully ready
-const SHOPIFY_ENABLED = true;
+const SHOPIFY_ENABLED = false;
 
 const images = [
   { name: "Squarespace", img: squarespace },
@@ -1093,7 +1093,7 @@ const Landing: React.FC = (): JSX.Element => {
     return "idle";
   };
 
-  const ENABLED = ["WooCommerce", "Excel", "Shopify", "Squarespace", "Wix"];
+  const ENABLED = ["WooCommerce", "Excel", "Squarespace", "Wix"];
 
   // ── Order-sync toggle API call ───────────────────────────────────────────
   const ORDER_SYNC_PLATFORMS: Record<string, boolean> = { Wix: true, Squarespace: true, Shopify: true };
@@ -1266,12 +1266,12 @@ const Landing: React.FC = (): JSX.Element => {
               }}
             >
               {/* ── Status badge — top LEFT ── */}
-              {isVerifying && (
+              {isVerifying && enabled && (
                 <span style={{ position: "absolute", top: 12, left: 12, background: "#dbeafe", color: "#1d4ed8", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 999, letterSpacing: .3, animation: "lp-pop .6s ease infinite alternate" }}>
                   VERIFYING
                 </span>
               )}
-              {isConnected && (
+              {isConnected && enabled && (
                 <span style={{ position: "absolute", top: 12, left: 12, background: "#dcfce7", color: "#15803d", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 999, letterSpacing: .3, animation: "lp-badge .3s ease both" }}>
                   ✓ CONNECTED
                 </span>
@@ -1288,7 +1288,7 @@ const Landing: React.FC = (): JSX.Element => {
               )}
 
               {/* ── Gear settings modal — top RIGHT corner, only when connected ── */}
-              {isConnected && image.name !== "Excel" && (
+              {isConnected && enabled && image.name !== "Excel" && (
                 <PlatformSettingsModal
                   platform={image.name}
                   hasOrderSync={hasOrderSync}
