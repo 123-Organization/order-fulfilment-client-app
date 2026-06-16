@@ -78,16 +78,16 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
 
   // Active route helpers
   const isActive = (path: string) => location.pathname === path;
-  const ACTIVE_CLR  = "#009689";
-  
+  const ACTIVE_CLR = "#009689";
+
   // Search context
   const { searchTerm, setSearchTerm } = useSearch();
-  
+
   // Get orders from Redux to show/hide notification
   const orders = useAppSelector((state) => state.order.orders || []);
   const hasOrders = orders?.data && orders.data.length > 0;
 
-  const handleMenuClick: MenuProps["onClick"] = (e) => {};
+  const handleMenuClick: MenuProps["onClick"] = (e) => { };
 
   const items: MenuProps["items"] = [];
 
@@ -101,7 +101,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
     setOpen(true);
   };
 
-  const createPrints = () => {};
+  const createPrints = () => { };
   const getLocation = () => true; // (window.location.href !== window.parent.location.href)
   const locationIsDiff = getLocation();
   console.log("locationIsDiff", locationIsDiff);
@@ -125,8 +125,8 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
           </p>
         </div>
       ),
-      onOk() {},
-      onCancel() {},
+      onOk() { },
+      onCancel() { },
     });
   };
   const addtional = "pb-500";
@@ -134,9 +134,9 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
     setDash(!openDash);
   };
   const onIframeClick = () => {
-    if(cookies.AccountGUID){
+    if (cookies.AccountGUID) {
       setIframeVisible(!iframeVisible);
-    }else{
+    } else {
       window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`
     }
   }
@@ -157,14 +157,14 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
           <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
             <h1 className="text-xl font-semibold text-gray-800 whitespace-nowrap">
               {location.pathname === "/" || location.pathname === "/importlist" ? "Orders" :
-               location.pathname === "/mycompany" ? "My Company" :
-               location.pathname === "/billingaddress" ? "Billing Address" :
-               location.pathname === "/shippingpreference" ? "Shipping Preferences" :
-               location.pathname === "/virtualinventory" ? "Virtual Inventory" :
-               location.pathname === "/checkout" ? "Checkout" :
-               location.pathname === "/importfilter" ? "Import Orders" :
-               location.pathname.includes("/editorder") ? "Edit Order" :
-               ""}
+                location.pathname === "/mycompany" ? "My Company" :
+                  location.pathname === "/billingaddress" ? "Billing Address" :
+                    location.pathname === "/shippingpreference" ? "Shipping Preferences" :
+                      location.pathname === "/virtualinventory" ? "Virtual Inventory" :
+                        location.pathname === "/checkout" ? "Checkout" :
+                          location.pathname === "/importfilter" ? "Import Orders" :
+                            location.pathname.includes("/editorder") ? "Edit Order" :
+                              ""}
             </h1>
             {location.pathname === "/importlist" && (
               <span className="px-3 py-1 bg-blue-50 text-blue-600 text-sm font-medium rounded-full whitespace-nowrap">
@@ -226,7 +226,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
             </button>
 
             {/* Help/Info */}
-            <button 
+            <button
               onClick={() => window.open("https://support.finerworks.com/how-to-use-the-order-fulfillment-app/", "_blank")}
               className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-all duration-200"
             >
@@ -272,258 +272,258 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
 
       <div className={`flex ${!openDash ? addtional : ""}`}>
         {/* Collapsible Sidebar */}
-        <div 
+        <div
           className="fixed left-0 top-0 z-50 h-full w-20 bg-white border-r border-gray-200 dark:bg-gray-700 dark:border-gray-600 flex flex-col"
         >
-        {/* Logo Section */}
-        <div className="flex items-center justify-center p-4 border-b border-gray-200 dark:border-gray-600">
-          {!logo ? (
-            <div
-              className="cursor-pointer"
+          {/* Logo Section */}
+          <div className="flex items-center justify-center p-4 border-b border-gray-200 dark:border-gray-600">
+            {!logo ? (
+              <div
+                className="cursor-pointer"
+                onClick={() => {
+                  window.location.href = "";
+                }}
+              >
+                <Skeleton.Avatar
+                  className="pt-4"
+                  active={active}
+                  size={size}
+                  shape={avatarShape}
+                />
+              </div>
+            ) : (
+              <img
+                src={finerWorks}
+                onClick={() => {
+                  window.location.href = "https://finerworks.com/";
+                }}
+                className="App-logo-icon cursor-pointer w-10 h-12"
+                alt="logo"
+              />
+            )}
+          </div>
+
+          {/* Navigation Menu */}
+          <div className="flex-1 flex flex-col py-2 space-y-1 overflow-y-auto">
+            {/* My Stores */}
+            <button
+              type="button"
+              className="flex flex-col items-center justify-center py-1 px-1 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200 text-xs group w-full rounded-lg hover:shadow-sm"
               onClick={() => {
-                window.location.href = "";
+                navigate("/");
               }}
             >
-              <Skeleton.Avatar
-                className="pt-4"
-                active={active}
-                size={size}
-                shape={avatarShape}
-              />
-            </div>
-          ) : (
-            <img
-              src={finerWorks}
+              <div className="p-1.5 rounded-lg transition-all duration-200">
+                <img
+                  src={store}
+                  width="24"
+                  height="24"
+                  className="group-hover:scale-110 transition-transform duration-200"
+                  style={{ filter: isActive("/") ? "invert(38%) sepia(98%) saturate(400%) hue-rotate(143deg) brightness(90%)" : undefined }}
+                />
+              </div>
+              <span className="text-center leading-tight mt-0.5 font-medium">Stores</span>
+            </button>
+
+            {/* Pending Orders */}
+            <button
+              type="button"
+              className="flex flex-col items-center justify-center py-1 px-1 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200 text-xs group w-full rounded-lg hover:shadow-sm"
               onClick={() => {
-                window.location.href = "https://finerworks.com/";
+                navigate("/importlist");
               }}
-              className="App-logo-icon cursor-pointer w-10 h-12"
-              alt="logo"
-            />
-          )}
-        </div>
+            >
+              <div className="p-1.5 rounded-lg transition-all duration-200">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke={isActive("/importlist") ? ACTIVE_CLR : "#6B7280"}
+                  className="group-hover:scale-110 transition-transform duration-200"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <span className="text-center leading-tight mt-0.5 font-medium" style={{ fontSize: 10 }}>Pending<br />Orders</span>
+            </button>
 
-        {/* Navigation Menu */}
-        <div className="flex-1 flex flex-col py-2 space-y-1 overflow-y-auto">
-          {/* My Stores */}
-          <button
-            type="button"
-            className="flex flex-col items-center justify-center py-1 px-1 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200 text-xs group w-full rounded-lg hover:shadow-sm"
-            onClick={() => {
-              navigate("/");
-            }}
-          >
-            <div className="p-1.5 rounded-lg transition-all duration-200">
-              <img
-                src={store}
-                width="24"
-                height="24"
-                className="group-hover:scale-110 transition-transform duration-200"
-                style={{ filter: isActive("/") ? "invert(38%) sepia(98%) saturate(400%) hue-rotate(143deg) brightness(90%)" : undefined }}
-              />
-            </div>
-            <span className="text-center leading-tight mt-0.5 font-medium">Stores</span>
-          </button>
-              
-          {/* Pending Orders */}
-          <button
-            type="button"
-            className="flex flex-col items-center justify-center py-1 px-1 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200 text-xs group w-full rounded-lg hover:shadow-sm"
-            onClick={() => {
-              navigate("/importlist");
-            }}
-          >
-            <div className="p-1.5 rounded-lg transition-all duration-200">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke={isActive("/importlist") ? ACTIVE_CLR : "#6B7280"}
-                className="group-hover:scale-110 transition-transform duration-200"
+            {/* My Company - hidden */}
+            <div style={{ display: 'none' }}>
+              <button
+                type="button"
+                className="flex flex-col items-center justify-center py-1 px-1 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200 text-xs group w-full rounded-lg hover:shadow-sm"
+                onClick={() => {
+                  navigate("/mycompany");
+                }}
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+                <div className="p-1.5 rounded-lg group-hover:bg-gray-200 transition-all duration-200">
+                  <img src={briefcase} width="24" height="24" className="group-hover:scale-110 transition-transform duration-200" />
+                </div>
+              </button>
             </div>
-            <span className="text-center leading-tight mt-0.5 font-medium" style={{ fontSize: 10 }}>Pending<br />Orders</span>
-          </button>
 
-          {/* My Company - hidden */}
-          <div style={{ display: 'none' }}>
-                <button
-                  type="button"
-            className="flex flex-col items-center justify-center py-1 px-1 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200 text-xs group w-full rounded-lg hover:shadow-sm"
-                  onClick={() => {
-                    navigate("/mycompany");
-                  }}
-                >
-            <div className="p-1.5 rounded-lg group-hover:bg-gray-200 transition-all duration-200">
-              <img src={briefcase} width="24" height="24" className="group-hover:scale-110 transition-transform duration-200" />
+
+            {/* Shipping - hidden */}
+            <div style={{ display: 'none' }}>
+              <button
+                type="button"
+                className="flex flex-col items-center justify-center py-1 px-1 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200 text-xs group w-full rounded-lg hover:shadow-sm"
+                onClick={() => {
+                  navigate("/shippingpreference");
+                }}
+              >
+                <div className="p-1.5 rounded-lg group-hover:bg-gray-200 transition-all duration-200">
+                  <img src={truck} width="24" height="24" className="group-hover:scale-110 transition-transform duration-200" />
+                </div>
+              </button>
             </div>
-                </button>
-          </div>
-              
+            <ShipmentModal visible={open} onClose={() => setOpen(false)} collapsed={collapsed} />
 
-          {/* Shipping - hidden */}
-          <div style={{ display: 'none' }}>
-                <button
-                  type="button"
-            className="flex flex-col items-center justify-center py-1 px-1 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200 text-xs group w-full rounded-lg hover:shadow-sm"
-                  onClick={() => {
-                    navigate("/shippingpreference");
-                  }}
-          >
-            <div className="p-1.5 rounded-lg group-hover:bg-gray-200 transition-all duration-200">
-              <img src={truck} width="24" height="24" className="group-hover:scale-110 transition-transform duration-200" />
+            {/* Billing - hidden */}
+            <div style={{ display: 'none' }}>
+              <button
+                type="button"
+                className="flex flex-col items-center justify-center py-1 px-1 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200 text-xs group w-full rounded-lg hover:shadow-sm"
+                onClick={() => {
+                  navigate("/billingaddress");
+                }}
+              >
+                <div className="p-1.5 rounded-lg group-hover:bg-gray-200 transition-all duration-200">
+                  <img src={creditcard} width="24" height="24" className="group-hover:scale-110 transition-transform duration-200" />
+                </div>
+              </button>
             </div>
-                </button>
-          </div>
-                <ShipmentModal visible={open} onClose={() => setOpen(false)} collapsed={collapsed} />
+            <div className="relative flex h-16 items-center justify-between md:hidden"></div>
+            <div className="relative flex h-16 items-center justify-self-center justify-between md:hidden">
+              <div className="absolute inset-y-0 left-0 flex items-center ">
+                <div className="relative flex h-16 items-center justify-between md:hidden">
+                  <div className="absolute inset-y-0 left-0 flex items-center ">
+                    <button
+                      onClick={() => setDash(!openDash)}
+                      type="button"
+                      className="relative inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:bg-gray-100 focus:text-gray-600"
+                      aria-controls="mobile-menu11"
+                      aria-expanded={false}
+                    >
+                      <span className="absolute -inset-0.5"></span>
+                      <span className="sr-only">Open main menu</span>
 
-          {/* Billing - hidden */}
-          <div style={{ display: 'none' }}>
-                <button
-                  type="button"
-            className="flex flex-col items-center justify-center py-1 px-1 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200 text-xs group w-full rounded-lg hover:shadow-sm"
-                  onClick={() => {
-                    navigate("/billingaddress");
-                  }}
-                >
-            <div className="p-1.5 rounded-lg group-hover:bg-gray-200 transition-all duration-200">
-              <img src={creditcard} width="24" height="24" className="group-hover:scale-110 transition-transform duration-200" />
-            </div>
-                </button>
-          </div>
-              <div className="relative flex h-16 items-center justify-between md:hidden"></div>
-              <div className="relative flex h-16 items-center justify-self-center justify-between md:hidden">
-                <div className="absolute inset-y-0 left-0 flex items-center ">
-                  <div className="relative flex h-16 items-center justify-between md:hidden">
-                    <div className="absolute inset-y-0 left-0 flex items-center ">
-                      <button
-                        onClick={() => setDash(!openDash)}  
-                        type="button"
-                        className="relative inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:bg-gray-100 focus:text-gray-600"
-                        aria-controls="mobile-menu11"
-                        aria-expanded={false} 
-                      >
-                        <span className="absolute -inset-0.5"></span>
-                        <span className="sr-only">Open main menu</span>
+                      {openDash && (
+                        <svg
+                          className="block h-6 w-6"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke-width="1.5"
+                          stroke="currentColor"
+                          aria-hidden="true"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
+                          />
+                        </svg>
+                      )}
 
-                        {openDash && (
-                          <svg
-                            className="block h-6 w-6"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke-width="1.5"
-                            stroke="currentColor"
-                            aria-hidden="true"
-                          >
-                            <path
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
-                            />
-                          </svg>
-                        )}
-
-                        {!openDash && (
-                          <svg
-                            className=" h-6 w-6"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke-width="1.5"
-                            stroke="currentColor"
-                            aria-hidden="true"
-                          >
-                            <path
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              d="M6 18L18 6M6 6l12 12"
-                            />
-                          </svg>
-                        )}
-                      </button>
-                    </div>
+                      {!openDash && (
+                        <svg
+                          className=" h-6 w-6"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke-width="1.5"
+                          stroke="currentColor"
+                          aria-hidden="true"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      )}
+                    </button>
                   </div>
                 </div>
               </div>
-                
-          {/* Virtual Inventory */}
-          <button
-            type="button"
-            className="flex flex-col items-center justify-center py-1 px-1 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200 text-xs group w-full rounded-lg hover:shadow-sm"
-            onClick={() => {
-              navigate("/virtualinventory");
-            }}
-          >
-            <div className="p-2 rounded-lg transition-all duration-200 flex items-center justify-center">
-              <ProfileOutlined
-                style={{ fontSize: 24, color: isActive("/virtualinventory") ? ACTIVE_CLR : "#6B7280" }}
-                className="group-hover:scale-110 transition-transform duration-200"
-              />
             </div>
-            <span className="text-center leading-tight mt-0.5 font-medium">Sync Products</span>
-          </button>
+
+            {/* Virtual Inventory */}
+            <button
+              type="button"
+              className="flex flex-col items-center justify-center py-1 px-1 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200 text-xs group w-full rounded-lg hover:shadow-sm"
+              onClick={() => {
+                navigate("/virtualinventory");
+              }}
+            >
+              <div className="p-2 rounded-lg transition-all duration-200 flex items-center justify-center">
+                <ProfileOutlined
+                  style={{ fontSize: 24, color: isActive("/virtualinventory") ? ACTIVE_CLR : "#6B7280" }}
+                  className="group-hover:scale-110 transition-transform duration-200"
+                />
+              </div>
+              <span className="text-center leading-tight mt-0.5 font-medium">Virtual Inventory</span>
+            </button>
 
 
-          {/* Disconnect Platform */}
-          <button
-            type="button"
-            className="flex flex-col items-center justify-center py-1 px-1 text-gray-600 hover:bg-red-50 hover:text-red-600 transition-all duration-200 text-xs group w-full rounded-lg hover:shadow-sm"
-            onClick={() => setDisconnectModalVisible(true)}
-            title="Disconnect Platform"
-          >
+            {/* Disconnect Platform */}
+            <button
+              type="button"
+              className="flex flex-col items-center justify-center py-1 px-1 text-gray-600 hover:bg-red-50 hover:text-red-600 transition-all duration-200 text-xs group w-full rounded-lg hover:shadow-sm"
+              onClick={() => setDisconnectModalVisible(true)}
+              title="Disconnect Platform"
+            >
 
-            <div className="p-1.5 rounded-lg group-hover:bg-red-100 transition-all duration-200">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                className="group-hover:scale-110 transition-transform duration-200 text-gray-600 group-hover:text-red-600"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-              </svg>
-            </div>
-            <span className="text-center leading-tight mt-0.5 font-medium">Disconnect</span>
-          </button>
+              <div className="p-1.5 rounded-lg group-hover:bg-red-100 transition-all duration-200">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  className="group-hover:scale-110 transition-transform duration-200 text-gray-600 group-hover:text-red-600"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+              </div>
+              <span className="text-center leading-tight mt-0.5 font-medium">Disconnect</span>
+            </button>
 
 
-          {/* User Profile */}
-          <a 
-            href="https://account.finerworks.com/dashboard"
-            className="flex flex-col items-center justify-center py-1 px-1 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200 text-xs group w-full rounded-lg hover:shadow-sm cursor-pointer"
-          >
-            <div className="p-1.5 rounded-lg group-hover:bg-gray-200 transition-all duration-200">
-              <UserAvatar />
-            </div>
-            <span className="text-center leading-tight mt-0.5 font-medium">Profile</span>
-          </a>
-        </div>
-      </div>
-
-      {/* Mobile Menu - Hidden for now since we have sidebar */}
-      {!openDash && (
-        <div className="md:hidden fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 z-40">
-          <div className="bg-white w-64 h-full shadow-lg">
-            <div className="p-4">
-              <h3 className="text-lg font-semibold mb-4">Navigation</h3>
-              {/* Mobile navigation items can go here */}
-            </div>
+            {/* User Profile */}
+            <a
+              href="https://account.finerworks.com/dashboard"
+              className="flex flex-col items-center justify-center py-1 px-1 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200 text-xs group w-full rounded-lg hover:shadow-sm cursor-pointer"
+            >
+              <div className="p-1.5 rounded-lg group-hover:bg-gray-200 transition-all duration-200">
+                <UserAvatar />
+              </div>
+              <span className="text-center leading-tight mt-0.5 font-medium">Profile</span>
+            </a>
           </div>
         </div>
-      )}
-      
+
+        {/* Mobile Menu - Hidden for now since we have sidebar */}
+        {!openDash && (
+          <div className="md:hidden fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 z-40">
+            <div className="bg-white w-64 h-full shadow-lg">
+              <div className="p-4">
+                <h3 className="text-lg font-semibold mb-4">Navigation</h3>
+                {/* Mobile navigation items can go here */}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Disconnect Platform Modal */}
         <DisconnectPlatformModal
           visible={disconnectModalVisible}
           onClose={() => setDisconnectModalVisible(false)}
         />
-        
+
         {/* <UploadFileModal    openModel={open} setOpen={setOpen}  /> */}
       </div>
     </>
