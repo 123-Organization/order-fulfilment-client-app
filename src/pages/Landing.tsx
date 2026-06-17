@@ -695,8 +695,9 @@ const Landing: React.FC = (): JSX.Element => {
         navigate("/importfilter?type=Squarespace");
       } else if (customerInfo?.data?.user_profile_complete === true) {
         const accountKey = customerInfo?.data?.account_key;
-        const returnUrl = `${window.location.origin}/auth/squarespace`;
-        window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/auth?account_key=${accountKey}&return_url=${encodeURIComponent(returnUrl)}&redirect_uri=${encodeURIComponent(returnUrl)}`;
+        // return_url tells the backend where to redirect the user after OAuth completes
+        const returnUrl = `${window.location.origin}/#/auth/squarespace`;
+        window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/auth?account_key=${accountKey}&return_url=${encodeURIComponent(returnUrl)}`;
       } else {
         notificationApi.warning({
           message: "Please complete your profile",
@@ -718,8 +719,8 @@ const Landing: React.FC = (): JSX.Element => {
         navigate("/importfilter?type=Wix");
       } else if (customerInfo?.data?.user_profile_complete === true) {
         const accountKey = customerInfo?.data?.account_key;
-        const returnUrl = `${window.location.origin}/auth/wix`;
-        window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/wix/oauth/start?account_key=${accountKey}&return_url=${encodeURIComponent(returnUrl)}&redirect_uri=${encodeURIComponent(returnUrl)}`;
+        const returnUrl = `${window.location.origin}/#/auth/wix`;
+        window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/wix/oauth/start?account_key=${accountKey}&return_url=${encodeURIComponent(returnUrl)}`;
       } else {
         notificationApi.warning({
           message: "Please complete your profile",
@@ -1188,6 +1189,7 @@ const Landing: React.FC = (): JSX.Element => {
 
   return (
     <div style={{ minHeight: "100%", background: isDark ? "#080c14" : "linear-gradient(135deg,#f0f4ff 0%,#fafbff 60%,#f4f8ff 100%)", padding: "40px 32px 60px" }}>
+
       <style>{`
         @keyframes lp-fade   { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:none} }
         @keyframes lp-pop    { 0%{transform:scale(.94)} 100%{transform:scale(1)} }

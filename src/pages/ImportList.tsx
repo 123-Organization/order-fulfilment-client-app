@@ -1364,9 +1364,9 @@ const ImportList: React.FC = () => {
                           <>
                             {order?.order_items?.map((orderItem) =>
                               product_details.length > 0 &&
-                                !validSKUs.includes(orderItem.product_sku.toString()) ? (
+                                !validSKUs.includes((orderItem.product_sku ?? '').toString()) ? (
                                 <div
-                                  key={orderItem.product_sku}
+                                  key={orderItem.product_sku ?? orderItem.product_guid}
                                   className="mb-4 p-4 border-2 border-red-300 rounded-lg bg-red-50 h-[220px]"
                                   style={{
                                     opacity: 1,
@@ -1453,7 +1453,7 @@ const ImportList: React.FC = () => {
                                 </div>
                               ) : (
                                 <div
-                                  key={orderItem.product_sku}
+                                  key={orderItem.product_sku ?? orderItem.product_guid}
                                   className={`mb-3 w-full rounded-lg shadow-sm transition-all duration-200 ${style.orderes_lable}`}
                                   style={{
                                     background: isDark ? "#0c1520" : "#ffffff",
