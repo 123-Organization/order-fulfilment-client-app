@@ -696,7 +696,7 @@ const Landing: React.FC = (): JSX.Element => {
       } else if (customerInfo?.data?.user_profile_complete === true) {
         const accountKey = customerInfo?.data?.account_key;
         // return_url tells the backend where to redirect the user after OAuth completes
-        const returnUrl = `${window.location.origin}/#/auth/squarespace`;
+        const returnUrl = `${window.location.origin}/`;
         window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/auth?account_key=${accountKey}&return_url=${encodeURIComponent(returnUrl)}`;
       } else {
         notificationApi.warning({
@@ -719,7 +719,7 @@ const Landing: React.FC = (): JSX.Element => {
         navigate("/importfilter?type=Wix");
       } else if (customerInfo?.data?.user_profile_complete === true) {
         const accountKey = customerInfo?.data?.account_key;
-        const returnUrl = `${window.location.origin}/#/auth/wix`;
+        const returnUrl = `${window.location.origin}/`;
         window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/wix/oauth/start?account_key=${accountKey}&return_url=${encodeURIComponent(returnUrl)}`;
       } else {
         notificationApi.warning({

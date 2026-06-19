@@ -172,6 +172,12 @@ const ImportList: React.FC = () => {
   const currentOption = useAppSelector(
     (state) => state.Shipping.currentOption
   );
+  const recipientErrors = useAppSelector(
+    (state) => state.Shipping.recipientErrors || {}
+  );
+  const itemErrors = useAppSelector(
+    (state) => state.Shipping.itemErrors || {}
+  );
   const navigate = useNavigate();
   console.log("productData", productData);
 
@@ -849,6 +855,8 @@ const ImportList: React.FC = () => {
               // Only include orders that:
               // 1. Have items
               // 2. Are not in the excluded orders list
+              // 3. Have valid SKUs
+              // 4. Have no recipient errors from the shipping API
               order.order_items &&
               order.order_items.length > 0 &&
               order.shipping_code != null &&
@@ -856,7 +864,8 @@ const ImportList: React.FC = () => {
               validSKUs.includes(
                 order.order_items[0]?.product_sku?.toString()
               ) &&
-              !excludedOrders.includes(order.order_po)
+              !excludedOrders.includes(order.order_po) &&
+              (!recipientErrors[order.order_po] || Object.keys(recipientErrors[order.order_po]).length === 0)
           )
           .map((order) => ({
             order_po: order.order_po,
@@ -871,7 +880,7 @@ const ImportList: React.FC = () => {
 
       dispatch(updateCheckedOrders(CheckedOrders));
     }
-  }, [orders?.data, excludedOrders, shipping_option, validSKUs]); // Removed productData to prevent excessive re-renders
+  }, [orders?.data, excludedOrders, shipping_option, validSKUs, recipientErrors]); // Added recipientErrors dependency
 
   const handleCheckboxChange = (e: any) => {
     const { value, checked } = e.target;
@@ -1127,6 +1136,10 @@ const ImportList: React.FC = () => {
           0%, 100% { box-shadow: 0 0 0 2px rgba(239,68,68,0.25), 0 4px 16px rgba(239,68,68,0.12); }
           50%       { box-shadow: 0 0 0 4px rgba(239,68,68,0.45), 0 4px 20px rgba(239,68,68,0.22); }
         }
+        @keyframes shimmer {
+          0%   { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
       `}</style>
       <div
         className={`h-auto pt-4 mt-10 w-full ${style.overAll_box}`}
@@ -1183,8 +1196,8 @@ const ImportList: React.FC = () => {
                     className="justify-between mb-6 rounded-lg p-6 shadow-md sm:flex-row sm:justify-start space-y-2 relative overflow-hidden"
                     style={{
                       background: isDark
-                        ? (isExcluded ? "#0a1020" : "#0f1724")
-                        : (isExcluded ? "#f9fafb" : "#ffffff"),
+                        ? "#0f1724"
+                        : "#ffffff",
                       borderLeft: isExcluded
                         ? (isDark ? "4px solid #253347" : "4px solid #d1d5db")
                         : "4px solid transparent",
@@ -1193,13 +1206,27 @@ const ImportList: React.FC = () => {
                   >
                     <ul className="grid w-100  md:grid-cols-2 md:grid-rows-1 items-start ">
                       <li className="flex-1">
-                        {shipping_option.length > 0 &&
+                        {(() => {
+                          const apisNotReady = product_status !== "succeeded" || shipping_option.length === 0;
+                          const hasInvalidSku = order?.order_items?.some(
+                            (item: any) => !product_details?.some((p: any) => p.sku === item.product_sku || p.product_code === item.product_sku)
+                          );
+                          const hasAddressIssues = !!recipientErrors[order?.order_po];
+                          const hasItemIssues = !!itemErrors[order?.order_po];
+                          
+                          // Block toggling if the order has validation issues or APIs failed/loading
+                          const isToggleDisabled = apisNotReady || hasInvalidSku || hasAddressIssues || hasItemIssues;
+
+                          return (shipping_option.length > 0 || orderPostData.length > 0 || Object.keys(recipientErrors).length > 0) &&
                           order?.order_items.length > 0 ? (
-                          <div className="flex items-center">
+                          <div className="flex items-center gap-3">
                             <button
                               type="button"
+                              disabled={isToggleDisabled}
                               onClick={(e) => {
                                 e.preventDefault();
+                                if (isToggleDisabled) return;
+
                                 const isCurrentlyIncluded = checkedOrders.some(
                                   (c: { order_po: string }) => c.order_po == order.order_po
                                 );
@@ -1218,29 +1245,52 @@ const ImportList: React.FC = () => {
                                   dispatch(updateExcludedOrders([...excludedOrders, order.order_po]));
                                 }
                               }}
-                              className="relative inline-flex h-9 w-[170px] items-center rounded-full bg-slate-100 p-1 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40 shadow-inner border border-slate-200/60"
+                              className={`relative inline-flex h-9 w-[170px] items-center rounded-full p-1 transition-all duration-300 focus:outline-none shadow-inner border border-slate-200/60 ${isToggleDisabled ? "bg-slate-200 cursor-not-allowed opacity-60" : "bg-slate-100 focus:ring-2 focus:ring-blue-500/40"}`}
                               role="switch"
                               aria-checked={checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po)}
+                              title={isToggleDisabled ? "Cannot activate order with missing or invalid data" : "Toggle Draft/Active"}
                             >
                               <div
-                                className={`absolute left-1 h-7 w-[79px] rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-black/5 transition-transform duration-300 ease-out ${checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po)
+                                className={`absolute left-1 h-7 w-[79px] rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-black/5 transition-transform duration-300 ease-out ${isToggleDisabled ? "bg-gray-100" : "bg-white"} ${checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po)
                                   ? 'translate-x-[81px]'
                                   : 'translate-x-0'
                                   }`}
                               />
                               <div className="relative z-10 flex w-full">
-                                <span className={`flex-1 text-center text-[11px] font-bold uppercase tracking-widest transition-colors duration-300 select-none ${!checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po) ? 'text-slate-700 drop-shadow-sm' : 'text-slate-400 hover:text-slate-500 cursor-pointer'
-                                  }`}>
-                                  Exclude
+                                <span className={`flex-1 text-center text-[11px] font-bold uppercase tracking-widest transition-colors duration-300 select-none ${!checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po) ? 'text-slate-700 drop-shadow-sm' : 'text-slate-400'}`}>
+                                  Draft
                                 </span>
-                                <span className={`flex-1 text-center text-[11px] font-bold uppercase tracking-widest transition-colors duration-300 select-none ${checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po) ? 'text-emerald-600 drop-shadow-sm' : 'text-slate-400 hover:text-slate-500 cursor-pointer'
-                                  }`}>
-                                  Include
+                                <span className={`flex-1 text-center text-[11px] font-bold uppercase tracking-widest transition-colors duration-300 select-none ${checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po) ? 'text-emerald-600 drop-shadow-sm' : 'text-slate-400'}`}>
+                                  Active
                                 </span>
                               </div>
                             </button>
+                            {/* Badge shown when order is excluded */}
+                            {isExcluded && (
+                              <span
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  fontSize: 11,
+                                  fontWeight: 600,
+                                  color: "#6b7280",
+                                  background: isDark ? "#1e2d42" : "#f3f4f6",
+                                  border: isDark ? "1px solid #253347" : "1px solid #d1d5db",
+                                  borderRadius: 6,
+                                  padding: "2px 8px",
+                                  userSelect: "none",
+                                }}
+                              >
+                                <svg style={{ width: 11, height: 11 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                </svg>
+                                Not included
+                              </span>
+                            )}
                           </div>
-                        ) : null}
+                        ) : null;
+                        })()}
                       </li>
 
                       <div className="w-100%   text-end">
@@ -1277,16 +1327,56 @@ const ImportList: React.FC = () => {
                       className="grid w-full gap-4 md:grid-cols-[minmax(180px,1fr)_minmax(300px,2fr)_minmax(200px,1fr)]"
                       key={index}
                     >
-                      <li style={{ opacity: isExcluded ? 0.4 : 1, filter: isExcluded ? "grayscale(0.5)" : "none", transition: "opacity 0.3s ease, filter 0.3s ease" }}>
+                      <li>
                         <label
                           className="h-[220px] inline-flex items-center justify-between w-full p-3 rounded-lg cursor-pointer border-2"
                           style={{
                             position: "relative",
                             background: isDark ? "#0c1520" : "#ffffff",
-                            borderColor: isDark ? "#1e2d42" : "#e5e7eb",
+                            borderColor: (() => {
+                              const orderRecipErrors = recipientErrors[order?.order_po];
+                              if (orderRecipErrors && Object.keys(orderRecipErrors).length > 0) {
+                                return "#ef4444";
+                              }
+                              return isDark ? "#1e2d42" : "#e5e7eb";
+                            })(),
+                            boxShadow: (() => {
+                              const orderRecipErrors = recipientErrors[order?.order_po];
+                              if (orderRecipErrors && Object.keys(orderRecipErrors).length > 0) {
+                                return "0 0 0 2px rgba(239,68,68,0.18), 0 4px 16px rgba(239,68,68,0.08)";
+                              }
+                              return undefined;
+                            })(),
                             color: isDark ? "#8892a4" : undefined,
                           }}
                         >
+                          {/* Recipient error badge — top-left corner */}
+                          {recipientErrors[order?.order_po] && Object.keys(recipientErrors[order?.order_po]).length > 0 && (
+                            <div
+                              style={{
+                                position: "absolute",
+                                top: 8,
+                                left: 8,
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 4,
+                                backgroundColor: "#fef2f2",
+                                color: "#dc2626",
+                                border: "1px solid #fca5a5",
+                                borderRadius: 6,
+                                padding: "2px 8px",
+                                fontSize: 11,
+                                fontWeight: 600,
+                                zIndex: 2,
+                                userSelect: "none",
+                              }}
+                            >
+                              <svg style={{ width: 12, height: 12, flexShrink: 0 }} fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                              </svg>
+                              Address Issue
+                            </div>
+                          )}
                           {/* Platform source icon badge — top-right corner */}
                           {order?.source && (() => {
                             const palette = getPlatformColor(order.source);
@@ -1313,39 +1403,87 @@ const ImportList: React.FC = () => {
                               </div>
                             );
                           })()}
-                          <div className="block">
+                          <div className="block" style={{ marginTop: recipientErrors[order?.order_po] ? 18 : 0 }}>
                             <div className="w-full text-[12px] text-gray-700 leading-tight">
                               <span className="text-blue-600 font-medium">Order:</span> {order?.order_po}
                             </div>
                             <div className="w-full text-[12px] font-semibold text-gray-700 pt-2 pb-1">
                               Ship To
                             </div>
+                            {/* Recipient name */}
                             <div className="w-full text-[12px] text-gray-700 leading-tight">
                               {order?.recipient?.first_name}{" "}
                               {order?.recipient?.last_name}
                             </div>
-                            <div className="w-full text-[12px] text-gray-700 leading-tight">
+                            {/* address_1 */}
+                            <div
+                              className="w-full text-[12px] leading-tight"
+                              style={{
+                                color: recipientErrors[order?.order_po]?.address_1 ? "#dc2626" : (isDark ? "#8892a4" : "#374151"),
+                                border: recipientErrors[order?.order_po]?.address_1 ? "1px solid #fca5a5" : "1px solid transparent",
+                                borderRadius: 4,
+                                padding: "1px 4px",
+                                background: recipientErrors[order?.order_po]?.address_1 ? "#fef2f2" : "transparent",
+                              }}
+                              title={recipientErrors[order?.order_po]?.address_1?.[0]}
+                            >
                               {order?.recipient?.address_1}
                             </div>
-                            <div className="w-full text-[12px] text-gray-700 leading-tight">
+                            {/* city / state / zip */}
+                            <div
+                              className="w-full text-[12px] leading-tight"
+                              style={{
+                                color: (recipientErrors[order?.order_po]?.state_code || recipientErrors[order?.order_po]?.city || recipientErrors[order?.order_po]?.zip_postal_code) ? "#dc2626" : (isDark ? "#8892a4" : "#374151"),
+                                border: (recipientErrors[order?.order_po]?.state_code || recipientErrors[order?.order_po]?.city || recipientErrors[order?.order_po]?.zip_postal_code) ? "1px solid #fca5a5" : "1px solid transparent",
+                                borderRadius: 4,
+                                padding: "1px 4px",
+                                background: (recipientErrors[order?.order_po]?.state_code || recipientErrors[order?.order_po]?.city || recipientErrors[order?.order_po]?.zip_postal_code) ? "#fef2f2" : "transparent",
+                              }}
+                              title={recipientErrors[order?.order_po]?.state_code?.[0] || recipientErrors[order?.order_po]?.city?.[0] || recipientErrors[order?.order_po]?.zip_postal_code?.[0]}
+                            >
                               {order?.recipient?.city},{" "}{order?.recipient?.state}
                               {order?.recipient?.province}{" "}
                               {order?.recipient?.zip_postal_code}
                             </div>
-                            <div className="w-full text-[12px] text-gray-700 leading-tight">
+                            {/* country_code */}
+                            <div
+                              className="w-full text-[12px] leading-tight"
+                              style={{
+                                color: recipientErrors[order?.order_po]?.country_code ? "#dc2626" : (isDark ? "#8892a4" : "#374151"),
+                                border: recipientErrors[order?.order_po]?.country_code ? "1px solid #fca5a5" : "1px solid transparent",
+                                borderRadius: 4,
+                                padding: "1px 4px",
+                                background: recipientErrors[order?.order_po]?.country_code ? "#fef2f2" : "transparent",
+                              }}
+                              title={recipientErrors[order?.order_po]?.country_code?.[0]}
+                            >
                               {order?.recipient?.country_code}
                             </div>
-                            <div className="w-full pt-3">
+                            {/* Show all error messages below the address */}
+                            {recipientErrors[order?.order_po] && Object.keys(recipientErrors[order?.order_po]).length > 0 && (
+                              <div style={{ marginTop: 6 }}>
+                                {Object.entries(recipientErrors[order?.order_po]).map(([field, msgs]) => (
+                                  <div key={field} style={{ display: "flex", alignItems: "flex-start", gap: 4, marginBottom: 2 }}>
+                                    <svg style={{ width: 11, height: 11, flexShrink: 0, marginTop: 1, color: "#dc2626" }} fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                    </svg>
+                                    <span style={{ fontSize: 10, color: "#dc2626", lineHeight: 1.3 }}>{msgs[0]}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <div className="pt-3" style={{ width: recipientErrors[order?.order_po] && Object.keys(recipientErrors[order?.order_po]).length > 0 ? "auto" : "100%" }}>
                               <Button
                                 key="submit"
-                                className="   w-full text-gray-500"
+                                className="text-gray-500"
+                                style={{ width: recipientErrors[order?.order_po] && Object.keys(recipientErrors[order?.order_po]).length > 0 ? "auto" : "100%" }}
                                 size={"small"}
                                 type="default"
                               >
                                 <Link
                                   to={"/editorder/" + order?.orderFullFillmentId}
                                 >
-                                  Edit order
+                                  Edit address
                                 </Link>
                               </Button>
                             </div>
@@ -1483,21 +1621,58 @@ const ImportList: React.FC = () => {
                                             });
                                           }
 
+                                          // No URL or confirmed load error — show placeholder
+                                          if (!originalImageUrl || hasError) {
+                                            return (
+                                              <div
+                                                className="w-24 h-24 rounded border flex flex-col items-center justify-center"
+                                                style={{
+                                                  background: isDark ? "linear-gradient(135deg,#1a2535,#141e2e)" : "linear-gradient(135deg,#f3f4f6,#e9eaec)",
+                                                  borderColor: isDark ? "#1e2d42" : "#e5e7eb",
+                                                }}
+                                              >
+                                                <svg className="w-8 h-8 mb-1" style={{ color: isDark ? "#2d3f58" : "#d1d5db" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                </svg>
+                                                <span style={{ fontSize: 9, color: isDark ? "#3d5270" : "#9ca3af", fontWeight: 500 }}>No image</span>
+                                              </div>
+                                            );
+                                          }
+
                                           return (
-                                            <img
-                                              key={`${imageKey}-${imageUrlIndex[imageKey] || 0}`}
-                                              src={originalImageUrl}
-                                              alt="product"
-                                              className="w-24 h-24 object-contain rounded border border-gray-100"
-                                              onError={() => handleImageError(imageKey, originalImageUrl)}
-                                              onLoad={() => {
-                                                setImageErrors(prev => {
-                                                  const newState = { ...prev };
-                                                  delete newState[imageKey];
-                                                  return newState;
-                                                });
-                                              }}
-                                            />
+                                            <div className="relative w-24 h-24">
+                                              {/* Shimmer skeleton shown behind the image while it loads */}
+                                              <div
+                                                className="absolute inset-0 rounded border overflow-hidden"
+                                                style={{
+                                                  borderColor: isDark ? "#1e2d42" : "#e5e7eb",
+                                                  background: isDark
+                                                    ? "linear-gradient(90deg,#1a2535 25%,#243347 50%,#1a2535 75%)"
+                                                    : "linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%)",
+                                                  backgroundSize: "200% 100%",
+                                                  animation: "shimmer 1.5s infinite",
+                                                }}
+                                              />
+                                              <img
+                                                key={`${imageKey}-${imageUrlIndex[imageKey] || 0}`}
+                                                src={originalImageUrl}
+                                                alt="product"
+                                                className="absolute inset-0 w-full h-full object-contain rounded border border-gray-100 transition-opacity duration-300"
+                                                style={{ opacity: 0 }}
+                                                onError={(e) => {
+                                                  (e.target as HTMLImageElement).style.opacity = "0";
+                                                  handleImageError(imageKey, originalImageUrl);
+                                                }}
+                                                onLoad={(e) => {
+                                                  (e.target as HTMLImageElement).style.opacity = "1";
+                                                  setImageErrors(prev => {
+                                                    const newState = { ...prev };
+                                                    delete newState[imageKey];
+                                                    return newState;
+                                                  });
+                                                }}
+                                              />
+                                            </div>
                                           );
                                         })()}
                                       </div>
@@ -1550,7 +1725,12 @@ const ImportList: React.FC = () => {
                                               })()
                                             ) : (
                                               <div className={`w-full text-xs text-gray-600 ${style.order_description}`}>
-                                                {parse(truncateText(productData[orderItem?.product_sku]?.description_long || "", descriptionCharLimit))}
+                                                {(() => {
+                                                  const desc = productData[orderItem?.product_sku]?.description_long || "";
+                                                  // Hide API error messages returned as description (e.g. "Invalid product_sku...")
+                                                  if (desc.trimStart().toLowerCase().startsWith("invalid")) return null;
+                                                  return parse(truncateText(desc, descriptionCharLimit));
+                                                })()}
                                               </div>
                                             )}
                                           </div>
@@ -1586,9 +1766,36 @@ const ImportList: React.FC = () => {
                                       </svg>
                                       Remove
                                     </button>
-                                    <div className="text-sm text-gray-600">
-                                      {orderItem?.product_qty || 1}@ ${(productData[orderItem?.product_guid]?.total_price)?.toFixed(2)} ea
-                                      {console.log(orderItem?.product_guid, "productData[orderItem?.product_guid]?.total_price")}
+                                    <div className="text-sm">
+                                      {/* Item errors (e.g. product_qty must be at least 1) */}
+                                      {itemErrors[order?.order_po]?.length > 0 ? (
+                                        <div
+                                          style={{
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: 4,
+                                            fontSize: 10,
+                                            fontWeight: 600,
+                                            color: "#92400e",
+                                            background: "#fffbeb",
+                                            border: "1px solid #fcd34d",
+                                            borderRadius: 4,
+                                            padding: "2px 6px",
+                                          }}
+                                        >
+                                          <svg style={{ width: 10, height: 10, flexShrink: 0 }} fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                          </svg>
+                                          {itemErrors[order?.order_po][0]}
+                                        </div>
+                                      ) : (
+                                        /* Only show price when product is valid and has no errors */
+                                        validSKUs.includes((orderItem?.product_sku ?? '').toString()) &&
+                                        (!recipientErrors[order?.order_po] || Object.keys(recipientErrors[order?.order_po]).length === 0) &&
+                                        productData[orderItem?.product_guid]?.total_price != null ? (
+                                          <span className="text-gray-600">{orderItem?.product_qty || 1}@ ${(productData[orderItem?.product_guid]?.total_price)?.toFixed(2)} ea</span>
+                                        ) : null
+                                      )}
                                     </div>
                                   </div>
                                 </div>
@@ -1657,7 +1864,7 @@ const ImportList: React.FC = () => {
                           <AddProductsTemplate orderFullFillmentId={order?.orderFullFillmentId} />
                         )}
                       </li>
-                      <li style={{ opacity: isExcluded ? 0.4 : 1, filter: isExcluded ? "grayscale(0.5)" : "none", transition: "opacity 0.3s ease, filter 0.3s ease" }}>
+                      <li>
                         <label
                           className={`h-[220px] inline-flex justify-between w-full p-5 rounded-lg cursor-pointer border-2 ${hasInvalidSKUs(order?.order_items) ? 'opacity-50 pointer-events-none' : ''}`}
                           style={{
@@ -1691,10 +1898,40 @@ const ImportList: React.FC = () => {
                                     </div>
                                   </div>
                                   <p className="text-gray-500 text-center text-sm font-medium">
-                                    Shipping Locked
+                                    Shipping Unavailable
                                   </p>
                                   <p className="text-gray-400 text-center text-xs mt-1">
-                                    Fix invalid SKUs to unlock
+                                    Order incomplete, missing data
+                                  </p>
+                                </div>
+                              ) : recipientErrors[order?.order_po] && Object.keys(recipientErrors[order?.order_po]).length > 0 ? (
+                                <div className="flex flex-col items-center justify-center h-full">
+                                  <div className="relative mb-3">
+                                    <svg
+                                      className="w-16 h-16 text-red-200"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth="1.5"
+                                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                                      />
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                    <div className="absolute -top-1 -right-1 bg-red-100 rounded-full p-1">
+                                      <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                      </svg>
+                                    </div>
+                                  </div>
+                                  <p className="text-red-500 text-center text-sm font-medium">
+                                    Address Issue
+                                  </p>
+                                  <p className="text-gray-400 text-center text-xs mt-1 px-3">
+                                    Fix the recipient address to unlock shipping
                                   </p>
                                 </div>
                               ) : (

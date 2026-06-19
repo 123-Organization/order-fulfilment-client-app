@@ -22,6 +22,7 @@ import ShippingPreference from "../pages/ShippingPreference";
 import UpdatePopup from "./UpdatePopup";
 import { updateCompanyInfo } from "../store/features/companySlice";
 import { resetRecipientStatus } from "../store/features/orderSlice";
+import { clearOrderErrors } from "../store/features/shippingSlice";
 import style from "./Components.module.css";
 import { fetchWporder, fetchShopifyOrders, fetchShopifyOrderByName, fetchSquarespaceOrders, fetchSquarespaceOrderByNumber, resetSquarespaceImportStatus, updateWporder, fetchWixOrders, fetchWixOrderByNumber, resetWixImportStatus } from "../store/features/orderSlice";
 type NotificationType = "success" | "info" | "warning" | "error";
@@ -924,9 +925,9 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
               const payload = result.payload as any;
               const rawOrders: any[] =
                 Array.isArray(payload?.orders) ? payload.orders
-                : Array.isArray(payload) ? payload
-                : payload?.order ? [payload.order]
-                : [];
+                  : Array.isArray(payload) ? payload
+                    : payload?.order ? [payload.order]
+                      : [];
 
               if (rawOrders.length > 0) {
                 const transformedOrders = rawOrders.map((wixOrder: any, orderIndex: number) => {
@@ -1027,8 +1028,8 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
               const payload = result.payload as any;
               const rawOrders: any[] =
                 Array.isArray(payload?.orders) ? payload.orders
-                : Array.isArray(payload) ? payload
-                : [];
+                  : Array.isArray(payload) ? payload
+                    : [];
 
               if (rawOrders.length > 0) {
                 const transformedOrders = rawOrders.map((wixOrder: any, orderIndex: number) => {
@@ -1172,6 +1173,9 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
           // Check if successful
           if (result.meta.requestStatus === "fulfilled") {
             dispatch(updateOrderStatus({ status: true, clicked: true }));
+            if (updatedValues?.order_po) {
+              dispatch(clearOrderErrors(updatedValues.order_po));
+            }
           } else {
             console.error("Failed to update order:", result.payload);
             openNotificationWithIcon({
@@ -1215,6 +1219,11 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const onDeleteHandler = () => { };
 
   const onBackHandler = () => {
+    if (location.pathname.startsWith("/editorder/")) {
+      navigate("/importlist");
+      return;
+    }
+
     switch (location.pathname) {
       case "/billingaddress":
         navigate("/mycompany");
@@ -1222,15 +1231,11 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
       case "/paymentaddress":
         navigate("/billingaddress");
         break;
-      case `/editorder/${currentorderFullFillment}`:
-        navigate("/importlist");
-
-        break;
       case "/shippingpreference":
         navigate("/billingaddress");
         break;
       case "/importlist":
-        navigate("/shippingpreference");
+        navigate("/");
         break;
       case "/checkout":
         navigate("/importlist");
