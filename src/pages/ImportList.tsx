@@ -1222,14 +1222,74 @@ const ImportList: React.FC = () => {
                           <div className="flex items-center gap-3">
                             <button
                               type="button"
-                              disabled={isToggleDisabled}
                               onClick={(e) => {
                                 e.preventDefault();
-                                if (isToggleDisabled) return;
 
                                 const isCurrentlyIncluded = checkedOrders.some(
                                   (c: { order_po: string }) => c.order_po == order.order_po
                                 );
+
+                                // If trying to go Draft → Active but order is invalid, show detailed notification
+                                if (!isCurrentlyIncluded && isToggleDisabled) {
+                                  const issues: string[] = [];
+
+                                  // Invalid SKUs
+                                  const invalidSkuItems = order?.order_items?.filter(
+                                    (item: any) => !product_details?.some(
+                                      (p: any) => p.sku === item.product_sku || p.product_code === item.product_sku
+                                    )
+                                  );
+                                  if (invalidSkuItems?.length > 0) {
+                                    invalidSkuItems.forEach((item: any) => {
+                                      issues.push(`Invalid product SKU: "${item.product_sku}"`);
+                                    });
+                                  }
+
+                                  // Address / recipient errors
+                                  const addrErrors = recipientErrors[order?.order_po];
+                                  if (addrErrors && Object.keys(addrErrors).length > 0) {
+                                    const fieldLabels: Record<string, string> = {
+                                      first_name: "First name",
+                                      last_name: "Last name",
+                                      address_1: "Address line 1",
+                                      city: "City",
+                                      state_code: "State / Province",
+                                      zip_postal_code: "Zip / Postal code",
+                                      country_code: "Country",
+                                      phone: "Phone",
+                                    };
+                                    Object.entries(addrErrors).forEach(([field, msgs]: [string, any]) => {
+                                      const label = fieldLabels[field] || field;
+                                      issues.push(`${label}: ${Array.isArray(msgs) ? msgs[0] : msgs}`);
+                                    });
+                                  }
+
+                                  // Item / product errors
+                                  const orderItemErrors = itemErrors[order?.order_po];
+                                  if (orderItemErrors && Object.keys(orderItemErrors).length > 0) {
+                                    Object.entries(orderItemErrors).forEach(([field, msgs]: [string, any]) => {
+                                      issues.push(`Product ${field}: ${Array.isArray(msgs) ? msgs[0] : msgs}`);
+                                    });
+                                  }
+
+                                  notificationApi.warning({
+                                    message: "Order Incomplete",
+                                    description: (
+                                      <div>
+                                        <p style={{ marginBottom: 8, fontWeight: 500, color: "#374151" }}>
+                                          This order cannot be activated. The following is still required:
+                                        </p>
+                                        <ul style={{ margin: 0, paddingLeft: 16, fontSize: 13, lineHeight: 1.8, color: "#b45309" }}>
+                                          {issues.length > 0
+                                            ? issues.map((issue, i) => <li key={i}>{issue}</li>)
+                                            : <li>Some required information is missing or invalid.</li>}
+                                        </ul>
+                                      </div>
+                                    ),
+                                    duration: 7,
+                                  });
+                                  return;
+                                }
 
                                 if (!isCurrentlyIncluded) {
                                   const parsedValue = {
@@ -1248,7 +1308,7 @@ const ImportList: React.FC = () => {
                               className={`relative inline-flex h-9 w-[170px] items-center rounded-full p-1 transition-all duration-300 focus:outline-none shadow-inner border border-slate-200/60 ${isToggleDisabled ? "bg-slate-200 cursor-not-allowed opacity-60" : "bg-slate-100 focus:ring-2 focus:ring-blue-500/40"}`}
                               role="switch"
                               aria-checked={checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po)}
-                              title={isToggleDisabled ? "Cannot activate order with missing or invalid data" : "Toggle Draft/Active"}
+                              title={isToggleDisabled ? "Click to see what is required to activate this order" : "Toggle Draft/Active"}
                             >
                               <div
                                 className={`absolute left-1 h-7 w-[79px] rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-black/5 transition-transform duration-300 ease-out ${isToggleDisabled ? "bg-gray-100" : "bg-white"} ${checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po)
@@ -1329,7 +1389,7 @@ const ImportList: React.FC = () => {
                     >
                       <li>
                         <label
-                          className="h-[220px] inline-flex items-center justify-between w-full p-3 rounded-lg cursor-pointer border-2"
+                          className="h-[220px] inline-flex items-center justify-between w-full p-3 rounded-lg cursor-default border-2"
                           style={{
                             position: "relative",
                             background: isDark ? "#0c1520" : "#ffffff",
@@ -1546,7 +1606,7 @@ const ImportList: React.FC = () => {
                                       </div>
                                     </div>
                                   </div>
-                                  <div className="mt-4 ml-7">
+                                  <div className="mt-4 ml-7 flex items-center gap-3">
                                     <button
                                       className="h-9 inline-flex items-center px-4 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 hover:border-red-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
                                       onClick={() => {
@@ -1576,6 +1636,33 @@ const ImportList: React.FC = () => {
                                       </svg>
                                       Replace SKU
                                     </button>
+                                    <button
+                                      className="h-9 inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-600 bg-white hover:bg-red-50 hover:border-red-400 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-400 transition-colors duration-200"
+                                      onClick={() => {
+                                        setProductToDelete({
+                                          product_guid: orderItem?.product_guid,
+                                          orderFullFillmentId: order?.orderFullFillmentId,
+                                          order_po: order?.order_po,
+                                        });
+                                        setProductDeleteModalVisible(true);
+                                      }}
+                                    >
+                                      <svg
+                                        className="w-4 h-4 mr-2"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth="2"
+                                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                        />
+                                      </svg>
+                                      Remove
+                                    </button>
                                   </div>
                                   {replacingModal && (
 
@@ -1596,8 +1683,8 @@ const ImportList: React.FC = () => {
                                   style={{
                                     background: isDark ? "#0c1520" : "#ffffff",
                                     border: isDark ? "1px solid #1e2d42" : "1px solid #e5e7eb",
-                                    opacity: isExcluded ? 0.4 : 1,
-                                    filter: isExcluded ? "grayscale(0.5)" : "none",
+                                    opacity: (isExcluded && !hasInvalidSKUs(order?.order_items)) ? 0.4 : 1,
+                                    filter: (isExcluded && !hasInvalidSKUs(order?.order_items)) ? "grayscale(0.5)" : "none",
                                     transition: "opacity 0.3s ease, filter 0.3s ease",
                                   }}
                                 >

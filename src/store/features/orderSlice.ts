@@ -181,6 +181,22 @@ export const updateOrdersInfo = createAsyncThunk(
       }
     }
 
+    // Ensure state_code is always a string — the backend schema rejects null
+    if (Data?.orders && Array.isArray(Data.orders)) {
+      Data.orders = Data.orders.map((o: any) => {
+        if (o?.recipient) {
+          return {
+            ...o,
+            recipient: {
+              ...o.recipient,
+              state_code: o.recipient.state_code ?? "",
+            },
+          };
+        }
+        return o;
+      });
+    }
+
     console.log('Sending to API:', Data);
 
     try {

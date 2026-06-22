@@ -39,13 +39,23 @@ const EditOrder: React.FC = () => {
   const [changedValues, setChangedValues] = useState<any>({});
   const [stateData, setStateData] = useState<{ label: string; value: string }[]>([]);
   const [stateCodeShort, setStateCodeShort] = useState(recipient?.state_code);
+  const [selectedCountry, setSelectedCountry] = useState<string>(
+    order?.country_code || recipient?.country_code || "US"
+  );
 
   const hasRecipientPhone = Boolean(recipient?.phone && String(recipient.phone).trim());
   const phoneValue = hasRecipientPhone ? recipient.phone : phone || "";
   const isPhoneEditable = hasRecipientPhone;
 
-  const initialValues = React.useMemo(
-    () => ({
+  const initialValues = React.useMemo(() => {
+    const countryCode = (order?.country_code || recipient?.country_code || "US").toUpperCase();
+    const isUS = countryCode === "US";
+    // For non-US orders the province is stored in recipient.province, not state_code.
+    // Since the Province input is bound to the state_code field, pre-populate it with province.
+    const stateOrProvince = isUS
+      ? (recipient?.state_code || stateCodeShort || "")
+      : (recipient?.province || "");
+    return {
       country_code: order?.country_code || recipient?.country_code || "US",
       company_name: recipient?.company_name || "",
       first_name: recipient?.first_name || "",
@@ -53,18 +63,23 @@ const EditOrder: React.FC = () => {
       address_1: recipient?.address_1 || "",
       address_2: recipient?.address_2 || "",
       city: recipient?.city || "",
-      state_code: recipient?.state_code || stateCodeShort,
+      state_code: stateOrProvince,
       zip_postal_code: recipient?.zip_postal_code?.toString() || "",
       phone: phoneValue,
-    }),
-    [order, recipient, phone, phoneValue]
-  );
+    };
+  }, [order, recipient, phone, phoneValue]);
 
   useEffect(() => {
     dispatch(fetchSingleOrderDetails({ accountId: customerInfo?.data?.account_id, orderFullFillmentId: id }));
   }, [dispatch]);
 
   useEffect(() => { form.setFieldsValue(initialValues); }, [form, initialValues]);
+
+  // Sync selectedCountry when order data loads asynchronously
+  useEffect(() => {
+    const country = order?.country_code || recipient?.country_code;
+    if (country) setSelectedCountry(country);
+  }, [order?.country_code, recipient?.country_code]);
 
   useEffect(() => {
     if (recipient?.state_code || recipient?.state) {
@@ -84,6 +99,7 @@ const EditOrder: React.FC = () => {
     (option?.label ?? "").toLowerCase().includes(input.toLowerCase());
 
   const handleCountryChange = (value: string) => {
+    setSelectedCountry(value || "US");
     setStates(value?.toLowerCase());
     form.setFieldValue("state_code", undefined);
   };
@@ -108,20 +124,28 @@ const EditOrder: React.FC = () => {
   }, [recipient]);
 
   const handleValuesChange = (changed: any, allValues: any) => {
-    if (changed?.state_code !== undefined) {
+    const isUS = (allValues.country_code || selectedCountry)?.toUpperCase() === "US";
+
+    // For US: keep state abbreviation conversion; for non-US: the field holds province text, skip conversion
+    if (isUS && changed?.state_code !== undefined) {
       changed.state_code = changed.state_code
         ? convertUsStateAbbrAndName(changed.state_code)
         : "";
     }
+
     // Show the update button as soon as ANY value differs from the snapshot
     const snap = initialSnapshot.current || {};
     const hasChanged = Object.keys(allValues).some(
       (k) => String(allValues[k] ?? "") !== String(snap[k] ?? "")
     );
     dispatch(updateOrderStatus({ status: hasChanged, clicked: false }));
+
     const updatedRecipient = { ...allValues, ...changed };
-    if (!updatedRecipient.state_code && updatedRecipient.country_code?.toLowerCase() !== "us") {
-      updatedRecipient.province = updatedRecipient.city;
+
+    if (!isUS) {
+      // Province input is bound to state_code field — move it to province and clear state_code
+      updatedRecipient.province = updatedRecipient.state_code || "";
+      updatedRecipient.state_code = "";
     }
 
     dispatch(setUpdatedValues({ ...order, recipient: updatedRecipient }));
@@ -264,12 +288,17 @@ const EditOrder: React.FC = () => {
                 <Input placeholder="City" />
               </Form.Item>
               <Form.Item
-                name="state_code" label={fieldLabel("State")}
+                name="state_code"
+                label={fieldLabel(selectedCountry?.toUpperCase() === "US" ? "State" : "Province")}
                 validateStatus={orderErrors["state_code"] ? "error" : undefined}
                 help={orderErrors["state_code"]?.[0]}
                 style={{ marginBottom: 8 }}
               >
-                <Select showSearch allowClear placeholder="State" filterOption={filterOption} options={stateData} />
+                {selectedCountry?.toUpperCase() === "US" ? (
+                  <Select showSearch allowClear placeholder="State" filterOption={filterOption} options={stateData} />
+                ) : (
+                  <Input placeholder="Province / Region" />
+                )}
               </Form.Item>
               <Form.Item
                 name="zip_postal_code" label={fieldLabel("Zip / Postal")}
