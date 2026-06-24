@@ -33,10 +33,10 @@ export default function UserAvatar() {
   const wordpressConnectionId = useAppSelector((state) => state.company.wordpress_connection_id);
 
 
-  const onLogout = ()=>{
-    
+  const onLogout = () => {
+
     localStorage.removeItem('hasVisitedCompanyPage');
-   dispatch(clearPaymentMethods());
+    dispatch(clearPaymentMethods());
     dispatch(resetValidSKU());
     dispatch(clearCustomerInfo())
     dispatch(removeCurrentOption())
@@ -44,7 +44,7 @@ export default function UserAvatar() {
   }
 
 
-  
+
   const items: MenuProps["items"] = [
     {
       key: "1",
@@ -61,7 +61,7 @@ export default function UserAvatar() {
         <a
           target="_blank"
           rel="noopener noreferrer"
-          href="https://www.aliyun.com"
+          href=""
           className="flex gap-1"
         >
           <img src={email} alt="user" width={17} />
@@ -91,12 +91,12 @@ export default function UserAvatar() {
       key: "4",
       label: (
         <a
-        
+
           rel="noopener noreferrer"
           href="https://finerworks.com/login.aspx?mode=logout"
           className="flex gap-1 text-sm "
           onClick={onLogout}
-           
+
         >
           <img className="text-black" src={log_out} width={18} alt="credit" />
           Log out
@@ -130,11 +130,11 @@ export default function UserAvatar() {
       setColor(ColorList[Math.floor(Math.random() * 3)]);
     }
   }, [cookies.AccountGUID, dispatch, customer_info?.data?.account_username]);
-  useEffect(()=>{
-    if(!cookies.AccountGUID){
+  useEffect(() => {
+    if (!cookies.AccountGUID) {
       dispatch(clearCustomerInfo())
     }
-  },[cookies.AccountGUID, dispatch])
+  }, [cookies.AccountGUID, dispatch])
 
   return (
     <>
@@ -149,7 +149,7 @@ export default function UserAvatar() {
               {user}
             </Avatar>
           </Dropdown>
-          
+
 
         </>
       ) : (
