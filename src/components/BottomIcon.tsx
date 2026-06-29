@@ -24,7 +24,7 @@ import { updateCompanyInfo } from "../store/features/companySlice";
 import { resetRecipientStatus } from "../store/features/orderSlice";
 import { clearOrderErrors } from "../store/features/shippingSlice";
 import style from "./Components.module.css";
-import { fetchWporder, fetchShopifyOrders, fetchShopifyOrderByName, fetchSquarespaceOrders, fetchSquarespaceOrderByNumber, resetSquarespaceImportStatus, updateWporder, fetchWixOrders, fetchWixOrderByNumber, resetWixImportStatus } from "../store/features/orderSlice";
+import { fetchWporder, fetchShopifyOrders, fetchShopifyOrderByName, fetchSquarespaceOrders, fetchSquarespaceOrderByNumber, resetSquarespaceImportStatus, updateWporder, fetchWixOrders, fetchWixOrderByNumber, resetWixImportStatus, fetchShippoOrders, resetShippoImportStatus } from "../store/features/orderSlice";
 type NotificationType = "success" | "info" | "warning" | "error";
 interface NotificationAlertProps {
   type: NotificationType;
@@ -62,6 +62,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const wordpressConnectionId = useAppSelector((state) => state.company.wordpress_connection_id);
   const shopifyShop = useAppSelector((state) => state.company.shopify_shop);
   const shopifyAccessToken = useAppSelector((state) => state.company.shopify_access_token);
+  const shippoAccountKey = useAppSelector((state) => state.company.shippo_account_key);
 
   const recipientStatus = useAppSelector(
     (state) => state.order.recipientStatus
@@ -254,7 +255,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                     order_items: orderItems,
                     order_status: shopifyOrder.displayFulfillmentStatus === "UNFULFILLED" ? "Processing" : "Completed",
                     shipping_code: "GD",
-                    test_mode: true,
+                    test_mode: false,
                   };
                 });
 
@@ -363,7 +364,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                         order_items: orderItems,
                         order_status: shopifyOrder.displayFulfillmentStatus === "UNFULFILLED" ? "Processing" : "Completed",
                         shipping_code: "GD", // Default shipping code, you may want to map this from Shopify shipping lines
-                        test_mode: true, // Set based on your environment
+                        test_mode: false, // Set based on your environment
                       };
                     });
 
@@ -628,7 +629,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                     })),
                     order_status: 'Processing',
                     shipping_code: 'GD',
-                    test_mode: true,
+                    test_mode: false,
                   };
                 });
 
@@ -753,7 +754,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                       })),
                       order_status: 'Processing',
                       shipping_code: 'GD',
-                      test_mode: true,
+                      test_mode: false,
                     };
                   }
                 );
@@ -966,7 +967,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                     })),
                     order_status: 'Processing',
                     shipping_code: 'GD',
-                    test_mode: true,
+                    test_mode: false,
                   };
                 });
 
@@ -1068,7 +1069,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                     })),
                     order_status: 'Processing',
                     shipping_code: 'GD',
-                    test_mode: true,
+                    test_mode: false,
                   };
                 });
 
@@ -1106,6 +1107,152 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
             } finally {
               setNextSpinning(false);
             }
+          }
+        }
+
+        // ── Handle Etsy / Shippo orders ─────────────────────────────────────────
+        else if (platformType === 'Etsy') {
+          // The Shippo orders API needs the FinerWorks account_key — the backend
+          // uses it to look up the Shippo credentials stored for this account.
+          // Priority: Redux (set from companyInfo.connections) → companyInfo fallback → customerInfo
+
+          // 1. Try Redux (set by Landing.tsx when it detects isConnected: true)
+          let resolvedShippoKey: string = shippoAccountKey || '';
+
+          // 2. Fallback: parse companyInfo.connections directly
+          //    Connection is stored as name: "Shippo" (id: null, keys in data field)
+          if (!resolvedShippoKey && companyInfo?.data?.connections) {
+            const etsyConn = companyInfo.data.connections.find(
+              (c: any) => c.name === 'Shippo' || c.name === 'Etsy'
+            );
+            if (etsyConn?.data) {
+              try {
+                const parsed = JSON.parse(etsyConn.data);
+                // The data field stores live_key/test_key but NOT the FW account_key
+                // — use the connection id if non-null, otherwise fall through
+                resolvedShippoKey = parsed.account_key || etsyConn.id || '';
+              } catch {
+                resolvedShippoKey = etsyConn.id || '';
+              }
+            } else if (etsyConn?.id) {
+              resolvedShippoKey = etsyConn.id;
+            }
+          }
+
+          // 3. Final fallback: the FinerWorks account_key from customerInfo
+          //    This is the correct value for the /api/shippo/orders endpoint
+          if (!resolvedShippoKey) {
+            resolvedShippoKey = customerInfo?.data?.account_key || '';
+          }
+
+          if (!resolvedShippoKey) {
+            notification.error({
+              message: 'Not Connected',
+              description: 'No Shippo credentials found. Please reconnect your Etsy store.',
+            });
+            setTimeout(() => navigate('/'), 1500);
+            return;
+          }
+
+          // Determine status filter — default to PAID
+          const shippoStatus = myImport?.status || 'PAID';
+
+          setNextSpinning(true);
+
+          try {
+            const result = await dispatch(
+              fetchShippoOrders({
+                account_key: resolvedShippoKey,
+                status: shippoStatus,
+                page: 1,
+                results: 25,
+              })
+            );
+
+            const payload = result.payload as any;
+
+            // Handle various response shapes from the Shippo API
+            const rawOrders: any[] =
+              Array.isArray(payload?.orders) ? payload.orders
+                : Array.isArray(payload?.results) ? payload.results
+                  : Array.isArray(payload) ? payload
+                    : [];
+
+            if (rawOrders.length > 0) {
+              const transformedOrders = rawOrders.map((shippoOrder: any, orderIndex: number) => {
+                // Shippo order structure: order.to_address for shipping, order.line_items for items
+                const addr = shippoOrder.to_address || {};
+                const lineItems: any[] = shippoOrder.line_items || [];
+
+                return {
+                  order_po: `ETSY_${shippoOrder.order_number || shippoOrder.object_id || orderIndex}`,
+                  order_key: shippoOrder.object_id || '',
+                  source: 'etsy',
+                  recipient: {
+                    first_name: addr.name?.split(' ')[0] || addr.first_name || '',
+                    last_name: addr.name?.split(' ').slice(1).join(' ') || addr.last_name || '',
+                    company_name: addr.company || addr.company_name || '',
+                    address_1: addr.street1 || addr.address1 || addr.address_1 || '',
+                    address_2: addr.street2 || addr.address2 || addr.address_2 || '',
+                    address_3: '',
+                    city: addr.city || '',
+                    state_code: addr.state || addr.state_code || '',
+                    province: addr.state || '',
+                    zip_postal_code: addr.zip || addr.postal_code || '',
+                    country_code: addr.country || addr.country_code || 'US',
+                    phone: addr.phone || '',
+                    email: shippoOrder.to_email || shippoOrder.buyer_email || '',
+                    address_order_po: '',
+                  },
+                  order_items: lineItems.map((item: any, itemIndex: number) => ({
+                    product_order_po: `ETSY_P_${orderIndex}_${itemIndex}`,
+                    product_qty: item.quantity || 1,
+                    product_sku: item.sku || '',
+                    product_title: item.title || item.description || '',
+                    product_guid: item.object_id || crypto.randomUUID(),
+                  })),
+                  order_status: 'Processing',
+                  shipping_code: 'GD',
+                  test_mode: true,
+                };
+              });
+
+              const sendData = {
+                accountId: customerInfo?.data?.account_id,
+                payment_token: customerInfo?.data?.account_key,
+                orders: transformedOrders,
+              };
+
+              dispatch(saveShopifyOrder(sendData));
+
+              notification.success({
+                message: 'Success',
+                description: `${transformedOrders.length} Etsy order(s) imported successfully`,
+              });
+
+              setTimeout(() => {
+                dispatch(resetSaveOrderInfo());
+                dispatch(resetImport());
+                dispatch(updateWporder('' as any));
+                navigate('/importlist');
+              }, 2000);
+            } else {
+              notification.warning({
+                message: 'No Orders Found',
+                description:
+                  (payload as any)?.message ||
+                  `No Etsy (Shippo) orders found with status "${shippoStatus}".`,
+              });
+            }
+          } catch (error) {
+            console.error('Error fetching Etsy/Shippo orders:', error);
+            notification.error({
+              message: 'Error',
+              description: 'An error occurred while fetching Etsy orders.',
+            });
+          } finally {
+            dispatch(resetShippoImportStatus());
+            setNextSpinning(false);
           }
         }
       }

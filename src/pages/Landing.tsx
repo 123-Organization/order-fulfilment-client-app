@@ -13,12 +13,13 @@ import wix from "../assets/images/store-wix.svg";
 import woocommerce from "../assets/images/store-woocommerce.svg";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ecommerceConnector } from "../store/features/ecommerceSlice";
-import { 
+import {
   updateCompanyInfo,
   updateWordpressConnectionId,
   setConnectionVerificationStatus,
   resetVerificationStatus,
-  updateShopifyCredentials
+  updateShopifyCredentials,
+  updateShippoAccountKey,
 } from "../store/features/companySlice";
 import { useAppDispatch, useAppSelector } from "../store";
 import { useNotificationContext } from "../context/NotificationContext";
@@ -80,6 +81,15 @@ const Landing: React.FC = (): JSX.Element => {
   const [wixOrderSyncDisconnecting, setWixOrderSyncDisconnecting] = useState<boolean>(false);
   const [squarespaceOrderSyncDisconnecting, setSquarespaceOrderSyncDisconnecting] = useState<boolean>(false);
   const [shopifyOrderSyncDisconnecting, setShopifyOrderSyncDisconnecting] = useState<boolean>(false);
+
+  // ── Etsy / Shippo ──────────────────────────────────────────────────────────
+  const [etsyConnectionStatus, setEtsyConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('idle');
+  const [lastEtsyConnectionData, setLastEtsyConnectionData] = useState<string | null>(null);
+  const [showShippoConnectModal, setShowShippoConnectModal] = useState<boolean>(false);
+  const [shippoLiveKey, setShippoLiveKey] = useState('');
+  const [shippoTestKey, setShippoTestKey] = useState('');
+  const [shippoConnecting, setShippoConnecting] = useState(false);
+
   const [cookies] = useCookies(["Session", "AccountGUID"]);
   const order = useAppSelector((state) => state.order.orders);
   const opensheet = useAppSelector((state) => state.order.openSheet);
@@ -122,7 +132,7 @@ const Landing: React.FC = (): JSX.Element => {
     //  data.validData
     const postData = {
       accountId: customerInfo?.data?.account_id,
-      payment_token: customerInfo?.data?.payment_profile_id ,
+      payment_token: customerInfo?.data?.payment_profile_id,
       orders: [
         {
           order_po: data?.all[0].order_po,
@@ -147,7 +157,7 @@ const Landing: React.FC = (): JSX.Element => {
               product_qty: 1,
               product_sku: data?.all[0].product_sku,
               product_image_file_url:
-               data?.all[0].product_image_file_url,
+                data?.all[0].product_image_file_url,
               product_thumb_url:
                 data?.all[0].product_image_file_url,
               product_cropping: data?.all[0].product_cropping,
@@ -155,11 +165,11 @@ const Landing: React.FC = (): JSX.Element => {
           ],
           order_status: "Processing",
           shipping_code: data?.all[0].shipping_code,
-          test_mode: true,
+          test_mode: false,
         },
       ],
     };
-    dispatch(UploadOrdersExcel({...postData}))
+    dispatch(UploadOrdersExcel({ ...postData }))
   }
 
   // Disconnect notifications are now handled in DisconnectPlatformModal component
@@ -602,11 +612,11 @@ const Landing: React.FC = (): JSX.Element => {
   ] as const;
   const importData = (imgname: string) => {
     // Check for platforms that are not yet available (including Shopify when disabled)
-    const availablePlatforms = ["WooCommerce", "Excel", "Squarespace", "Wix"];
+    const availablePlatforms = ["WooCommerce", "Excel", "Squarespace", "Wix", "Etsy"];
     if (SHOPIFY_ENABLED) {
       availablePlatforms.push("Shopify");
     }
-    
+
     if (imgname && !availablePlatforms.includes(imgname)) {
       notificationApi.warning({
         message: "Coming Soon",
@@ -632,7 +642,7 @@ const Landing: React.FC = (): JSX.Element => {
       // Otherwise connect to ecommerce
       if (connectionVerificationStatus === 'connected') {
         navigate("/importfilter?type=WooCommerce");
-      } else if(customerInfo?.data?.user_profile_complete === true){
+      } else if (customerInfo?.data?.user_profile_complete === true) {
         // Log the parameters to verify they're correct
         console.log(
           "Connecting to WooCommerce with key:",
@@ -651,7 +661,7 @@ const Landing: React.FC = (): JSX.Element => {
         });
       }
     }
-    
+
     // Shopify integration
     if (imgname === "Shopify") {
       // Check if Shopify is enabled
@@ -725,6 +735,26 @@ const Landing: React.FC = (): JSX.Element => {
         notificationApi.warning({
           message: "Please complete your profile",
           description: "Please complete your profile to connect to Wix",
+        });
+      }
+    }
+
+    // Etsy / Shippo integration
+    if (imgname === "Etsy") {
+      if (!customerInfo?.data?.account_key && !cookies.AccountGUID) {
+        window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`;
+        return;
+      }
+      if (etsyConnectionStatus === 'connected') {
+        navigate("/importfilter?type=Etsy");
+      } else if (customerInfo?.data?.user_profile_complete === true) {
+        setShippoLiveKey('');
+        setShippoTestKey('');
+        setShowShippoConnectModal(true);
+      } else {
+        notificationApi.warning({
+          message: "Please complete your profile",
+          description: "Please complete your profile to connect to Etsy",
         });
       }
     }
@@ -824,7 +854,7 @@ const Landing: React.FC = (): JSX.Element => {
   useEffect(() => {
     if (companyInfo?.connections?.length) {
       console.log("All connections:", companyInfo.connections);
-      
+
       // Handle WooCommerce connection
       const wooConnection = companyInfo.connections.find((conn: any) => conn.name === "WooCommerce");
       if (wooConnection) {
@@ -832,35 +862,35 @@ const Landing: React.FC = (): JSX.Element => {
         connectionId = connectionId.split("?")[0];
         console.log("WooCommerce connectionId", connectionId);
         dispatch(updateWordpressConnectionId(connectionId));
-        
+
         if (wooConnection?.data) {
           try {
             // Parse the JSON string from the data field
             const parsedData = JSON.parse(wooConnection.data);
             console.log("WooCommerce parsedData", parsedData);
-            
+
             // Check if the connection data has actually changed
             const currentDataString = JSON.stringify(parsedData);
             if (currentDataString !== lastConnectionData) {
               console.log("WooCommerce connection data changed, updating status...");
               setLastConnectionData(currentDataString);
-              
+
               // Set verifying status first
               dispatch(setConnectionVerificationStatus('verifying'));
-              
+
               // Add a delay to show verification state
               setTimeout(() => {
                 // Check the isConnected property and set the button state accordingly
                 const isConnected = parsedData.isConnected === true || parsedData.isConnected === "true";
                 console.log("WooCommerce Final isConnected decision:", isConnected);
-                
+
                 // Update Redux state
                 dispatch(setConnectionVerificationStatus(isConnected ? 'connected' : 'disconnected'));
               }, 1000); // 1 second delay to show "Verifying..." state
             } else {
               console.log("WooCommerce connection data unchanged, skipping verification");
             }
-            
+
           } catch (error) {
             console.error("Error parsing WooCommerce connection data:", error);
             dispatch(setConnectionVerificationStatus('disconnected'));
@@ -880,36 +910,36 @@ const Landing: React.FC = (): JSX.Element => {
       const shopifyConnection = companyInfo.connections.find((conn: any) => conn.name === "Shopify");
       console.log("=== SHOPIFY CONNECTION CHECK ===");
       console.log("Shopify connection found?:", !!shopifyConnection);
-      
+
       if (shopifyConnection) {
         console.log("Full Shopify connection object:", shopifyConnection);
         console.log("Shopify connection.id:", shopifyConnection.id);
         console.log("Shopify connection.data:", shopifyConnection.data);
-        
+
         // Create a unique identifier for this connection state
         const connectionIdentifier = `${shopifyConnection.id}_${shopifyConnection.data || 'empty'}`;
-        
+
         // Only process if this is a new/changed connection
         if (connectionIdentifier !== lastShopifyConnectionData) {
           console.log("Shopify connection changed or first load, processing...");
           setLastShopifyConnectionData(connectionIdentifier);
-          
+
           // If connection exists with an ID (access token), it's connected
           if (shopifyConnection.id) {
             console.log("Setting Shopify to verifying...");
             setShopifyConnectionStatus('verifying');
-            
+
             // Process the connection
             let isConnected = false;
             let shop = "";
             let access_token = shopifyConnection.id; // Use ID as access token by default
-            
+
             // Try to parse data field if it exists
             if (shopifyConnection.data && shopifyConnection.data.trim() !== "") {
               try {
                 const parsedData = JSON.parse(shopifyConnection.data);
                 console.log("Shopify parsedData:", parsedData);
-                
+
                 // Check if explicitly disconnected, otherwise assume connected if data exists
                 if (parsedData.isConnected === false || parsedData.isConnected === "false") {
                   isConnected = false;
@@ -917,7 +947,7 @@ const Landing: React.FC = (): JSX.Element => {
                   // If we have shop and access_token, or if isConnected is true, mark as connected
                   isConnected = true;
                 }
-                
+
                 shop = parsedData.shop || "";
                 access_token = parsedData.access_token || shopifyConnection.id;
               } catch (error) {
@@ -930,17 +960,17 @@ const Landing: React.FC = (): JSX.Element => {
               console.log("No Shopify data field, but connection exists with ID - marking as connected");
               isConnected = true;
             }
-            
+
             console.log("Shopify Final isConnected decision:", isConnected);
             console.log("Shopify access_token to use:", access_token);
             console.log("Shopify shop to use:", shop);
-            
+
             // Update state after a short delay
             setTimeout(() => {
               if (isConnected) {
                 console.log("Setting Shopify status to CONNECTED");
                 setShopifyConnectionStatus('connected');
-                
+
                 // Store Shopify credentials
                 dispatch(updateShopifyCredentials({
                   shop: shop || "finerworks-dev-store.myshopify.com",
@@ -954,7 +984,7 @@ const Landing: React.FC = (): JSX.Element => {
                     if (pd.order_sync !== undefined) {
                       setShopifyOrderSync(pd.order_sync === true || pd.order_sync === "true");
                     }
-                  } catch (_) {}
+                  } catch (_) { }
                 }
               } else {
                 console.log("Setting Shopify status to DISCONNECTED (not connected)");
@@ -1075,6 +1105,60 @@ const Landing: React.FC = (): JSX.Element => {
         }
       }
       console.log("=== END WIX CONNECTION CHECK ===");
+
+      // Handle Etsy / Shippo connection
+      // The backend stores this connection under name "Shippo" (with id: null and keys in data)
+      const etsyConnection = companyInfo.connections.find(
+        (conn: any) => conn.name === 'Shippo' || conn.name === 'Etsy'
+      );
+      console.log('=== ETSY/SHIPPO CONNECTION CHECK ===');
+      console.log('Shippo/Etsy connection found?:', !!etsyConnection, etsyConnection);
+
+      if (etsyConnection) {
+        // Use data field for identifier since id may be null
+        const etsyIdentifier = `${etsyConnection.id || 'noid'}_${etsyConnection.data || 'nodata'}`;
+
+        if (etsyIdentifier !== lastEtsyConnectionData) {
+          console.log('Shippo/Etsy connection changed or first load, processing...');
+          setLastEtsyConnectionData(etsyIdentifier);
+
+          let isConnected = false;
+
+          // Check the data field for isConnected flag (id may be null — that's normal for Shippo)
+          if (etsyConnection.data && etsyConnection.data.trim() !== '') {
+            try {
+              const parsed = JSON.parse(etsyConnection.data);
+              console.log('Shippo parsed data:', parsed);
+              // Consider connected if isConnected is explicitly true
+              isConnected = parsed.isConnected === true || parsed.isConnected === 'true';
+            } catch (e) {
+              console.error('Error parsing Shippo/Etsy data:', e);
+            }
+          }
+
+          if (isConnected) {
+            // The Shippo orders API needs the FinerWorks account_key, not the Shippo key.
+            // The backend uses it to look up the stored Shippo credentials.
+            const fwAccountKey = customerInfo?.data?.account_key;
+            if (fwAccountKey) {
+              console.log('Dispatching Shippo account key (FW key):', fwAccountKey);
+              dispatch(updateShippoAccountKey(fwAccountKey));
+            }
+          }
+
+          console.log('Shippo/Etsy isConnected:', isConnected);
+          setEtsyConnectionStatus(isConnected ? 'connected' : 'disconnected');
+        } else {
+          console.log('Shippo/Etsy connection unchanged, skipping processing');
+        }
+      } else {
+        console.log('No Shippo/Etsy connection in connections array — disconnected');
+        if (lastEtsyConnectionData !== null) {
+          setLastEtsyConnectionData(null);
+          setEtsyConnectionStatus('disconnected');
+        }
+      }
+      console.log('=== END ETSY/SHIPPO CONNECTION CHECK ===');
     } else {
       // No connections available
       console.log("No connections available");
@@ -1082,19 +1166,21 @@ const Landing: React.FC = (): JSX.Element => {
       setShopifyConnectionStatus('disconnected');
       setSquarespaceConnectionStatus('disconnected');
       setWixConnectionStatus('disconnected');
+      setEtsyConnectionStatus('disconnected');
     }
-  }, [companyInfo, lastConnectionData, lastShopifyConnectionData, lastSquarespaceConnectionData, lastWixConnectionData, dispatch]);
+  }, [companyInfo, lastConnectionData, lastShopifyConnectionData, lastSquarespaceConnectionData, lastWixConnectionData, lastEtsyConnectionData, dispatch]);
 
   // ── Per-platform connection status helpers ──────────────────────────────────
   const getStatus = (name: string) => {
     if (name === "WooCommerce") return connectionVerificationStatus;
-    if (name === "Shopify")     return shopifyConnectionStatus;
+    if (name === "Shopify") return shopifyConnectionStatus;
     if (name === "Squarespace") return squarespaceConnectionStatus;
-    if (name === "Wix")         return wixConnectionStatus;
+    if (name === "Wix") return wixConnectionStatus;
+    if (name === "Etsy") return etsyConnectionStatus;
     return "idle";
   };
 
-  const ENABLED = ["WooCommerce", "Excel", "Squarespace", "Wix"];
+  const ENABLED = ["WooCommerce", "Excel", "Squarespace", "Wix", "Etsy"];
 
   // ── Order-sync toggle API call ───────────────────────────────────────────
   const ORDER_SYNC_PLATFORMS: Record<string, boolean> = { Wix: true, Squarespace: true, Shopify: true };
@@ -1108,20 +1194,20 @@ const Landing: React.FC = (): JSX.Element => {
     const setLoading = platform === "Wix"
       ? setWixOrderSyncLoading
       : platform === "Squarespace"
-      ? setSquarespaceOrderSyncLoading
-      : setShopifyOrderSyncLoading;
+        ? setSquarespaceOrderSyncLoading
+        : setShopifyOrderSyncLoading;
 
     const setSync = platform === "Wix"
       ? setWixOrderSync
       : platform === "Squarespace"
-      ? setSquarespaceOrderSync
-      : setShopifyOrderSync;
+        ? setSquarespaceOrderSync
+        : setShopifyOrderSync;
 
     const setDisconnecting = platform === "Wix"
       ? setWixOrderSyncDisconnecting
       : platform === "Squarespace"
-      ? setSquarespaceOrderSyncDisconnecting
-      : setShopifyOrderSyncDisconnecting;
+        ? setSquarespaceOrderSyncDisconnecting
+        : setShopifyOrderSyncDisconnecting;
 
     // When turning OFF, play the disconnect burst animation first
     if (!newValue) {
@@ -1147,11 +1233,11 @@ const Landing: React.FC = (): JSX.Element => {
         if (shopifyConn?.data) {
           try {
             const pd = JSON.parse(shopifyConn.data);
-            storeName    = pd.shop         || pd.storeName    || "";
-            access_token = pd.access_token || shopifyConn.id  || "";
-          } catch (_) {}
+            storeName = pd.shop || pd.storeName || "";
+            access_token = pd.access_token || shopifyConn.id || "";
+          } catch (_) { }
         }
-        body.storeName    = storeName;
+        body.storeName = storeName;
         body.access_token = access_token;
       }
 
@@ -1185,6 +1271,7 @@ const Landing: React.FC = (): JSX.Element => {
     if (platformName === "Squarespace") setSquarespaceConnectionStatus("disconnected");
     if (platformName === "Shopify") setShopifyConnectionStatus("disconnected");
     if (platformName === "WooCommerce") dispatch(setConnectionVerificationStatus("disconnected"));
+    if (platformName === "Etsy") setEtsyConnectionStatus("disconnected");
   };
 
   return (
@@ -1233,13 +1320,13 @@ const Landing: React.FC = (): JSX.Element => {
         padding: "16px 16px 16px",
       }}>
         {images.map((image, i) => {
-          const status   = getStatus(image.name);
-          const enabled  = ENABLED.includes(image.name);
-          const isConnected    = status === "connected";
-          const hasOrderSync   = ORDER_SYNC_PLATFORMS[image.name] === true;
-          const orderSyncOn    = image.name === "Wix" ? wixOrderSync    : image.name === "Shopify" ? shopifyOrderSync    : squarespaceOrderSync;
-          const orderSyncLoad  = image.name === "Wix" ? wixOrderSyncLoading : image.name === "Shopify" ? shopifyOrderSyncLoading : squarespaceOrderSyncLoading;
-          const isVerifying    = status === "verifying";
+          const status = getStatus(image.name);
+          const enabled = ENABLED.includes(image.name);
+          const isConnected = status === "connected";
+          const hasOrderSync = ORDER_SYNC_PLATFORMS[image.name] === true;
+          const orderSyncOn = image.name === "Wix" ? wixOrderSync : image.name === "Shopify" ? shopifyOrderSync : squarespaceOrderSync;
+          const orderSyncLoad = image.name === "Wix" ? wixOrderSyncLoading : image.name === "Shopify" ? shopifyOrderSyncLoading : squarespaceOrderSyncLoading;
+          const isVerifying = status === "verifying";
           const isDisconnected = status === "disconnected";
 
           return (
@@ -1330,10 +1417,10 @@ const Landing: React.FC = (): JSX.Element => {
                 {!enabled
                   ? "Coming soon"
                   : image.name === "Excel"
-                  ? "Upload spreadsheet"
-                  : isConnected
-                  ? "Import orders →"
-                  : "Click to connect"}
+                    ? "Upload spreadsheet"
+                    : isConnected
+                      ? "Import orders →"
+                      : "Click to connect"}
               </p>
             </div>
           );
@@ -1366,6 +1453,118 @@ const Landing: React.FC = (): JSX.Element => {
       >
         <p>You need to link your Shopify account to FinerWorks to import orders.</p>
         <p>Would you like to authorize this app by opening the Shopify Admin connection panel?</p>
+      </Modal>
+      {/* ── Shippo / Etsy connect modal ── */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <img src={etsy} alt="Etsy" style={{ width: 28, height: 28, objectFit: 'contain' }} />
+            <span style={{ fontWeight: 700, fontSize: 16 }}>Connect Etsy via Shippo</span>
+          </div>
+        }
+        open={showShippoConnectModal}
+        onCancel={() => { if (!shippoConnecting) setShowShippoConnectModal(false); }}
+        footer={null}
+        width={460}
+        centered
+      >
+        <div style={{ padding: '8px 0 4px' }}>
+          <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 20, lineHeight: 1.6 }}>
+            Enter your <strong>Shippo API keys</strong> to enable Etsy order import.
+            You can find these in your{' '}
+            <a href="https://support.finerworks.com/how-to-use-the-order-fulfillment-app/etsy-documentation/" target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb' }}>GoShippo documentation</a>.
+          </p>
+
+          {/* Live key */}
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: isDark ? '#8892a4' : '#374151', marginBottom: 6, textTransform: 'uppercase', letterSpacing: .4 }}>
+              Live Key
+            </label>
+            <input
+              id="shippo-live-key"
+              type="text"
+              placeholder="shippo_live_…"
+              value={shippoLiveKey}
+              onChange={e => setShippoLiveKey(e.target.value)}
+              disabled={shippoConnecting}
+              style={{
+                width: '100%', padding: '9px 12px', borderRadius: 8, border: '1.5px solid #d1d5db',
+                fontSize: 13, fontFamily: 'monospace', outline: 'none', boxSizing: 'border-box',
+                background: isDark ? '#0f1724' : '#fff', color: isDark ? '#e8edf5' : '#111827',
+              }}
+            />
+          </div>
+
+          {/* Test key */}
+          <div style={{ marginBottom: 24 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: isDark ? '#8892a4' : '#374151', marginBottom: 6, textTransform: 'uppercase', letterSpacing: .4 }}>
+              Test Key
+            </label>
+            <input
+              id="shippo-test-key"
+              type="text"
+              placeholder="shippo_test_…"
+              value={shippoTestKey}
+              onChange={e => setShippoTestKey(e.target.value)}
+              disabled={shippoConnecting}
+              style={{
+                width: '100%', padding: '9px 12px', borderRadius: 8, border: '1.5px solid #d1d5db',
+                fontSize: 13, fontFamily: 'monospace', outline: 'none', boxSizing: 'border-box',
+                background: isDark ? '#0f1724' : '#fff', color: isDark ? '#e8edf5' : '#111827',
+              }}
+            />
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <Button
+              onClick={() => setShowShippoConnectModal(false)}
+              disabled={shippoConnecting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="primary"
+              loading={shippoConnecting}
+              disabled={!shippoLiveKey.trim() || !shippoTestKey.trim()}
+              onClick={async () => {
+                const accountKey = customerInfo?.data?.account_key;
+                if (!accountKey) return;
+                setShippoConnecting(true);
+                try {
+                  const res = await fetch(
+                    'https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/shippo/connect',
+                    {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        account_key: accountKey,
+                        live_key: shippoLiveKey.trim(),
+                        test_key: shippoTestKey.trim(),
+                      }),
+                    }
+                  );
+                  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                  setEtsyConnectionStatus('connected');
+                  setShowShippoConnectModal(false);
+                  notificationApi.success({
+                    message: 'Etsy Connected',
+                    description: 'Your Shippo keys have been saved. You can now import Etsy orders.',
+                  });
+                } catch (err: any) {
+                  notificationApi.error({
+                    message: 'Connection Failed',
+                    description: 'Could not connect to Shippo. Please check your keys and try again.',
+                  });
+                } finally {
+                  setShippoConnecting(false);
+                }
+              }}
+            >
+              Connect
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
