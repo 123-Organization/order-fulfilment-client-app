@@ -26,7 +26,7 @@ import DeleteMessage from "../components/DeleteMessage";
 import Loading from "../components/Loading";
 import { useNotificationContext } from "../context/NotificationContext";
 import styles from "../components/ToggleButtons.module.css";
-import { resetDeleteOrderStatus } from "../store/features/orderSlice";
+import { resetDeleteOrderStatus, resetRecipientStatus } from "../store/features/orderSlice";
 import { resetSubmitedOrders } from "../store/features/orderSlice";
 import SkeletonOrderCard from "../components/SkeletonOrderCard";
 import {
@@ -146,6 +146,8 @@ const ImportList: React.FC = () => {
 
   const orders = useAppSelector((state) => state.order.orders || []);
   const ordersStatus = useAppSelector((state) => state.order.status);
+  const recipientStatus = useAppSelector((state) => state.order.recipientStatus);
+  const replaceCodeStatus = useAppSelector((state) => state.order.replaceCodeStatus);
   const deleteOrderStatus = useAppSelector(
     (state) => state.order.deleteOrderStatus
   );
@@ -671,6 +673,29 @@ const ImportList: React.FC = () => {
   useEffect(() => {
     dispatch(resetSubmitedOrders());
   }, []);
+
+  /**
+   * When updateOrdersInfo resolves (recipientStatus = 'succeeded') OR a SKU replacement
+   * resolves (replaceCodeStatus = 'succeeded'), reset orderPostData immediately so the
+   * shipping useEffect re-fires and the total price updates without a manual Refresh.
+   * For SKU replacements we also wipe the shipping cache so the stale fingerprint
+   * (built from the old SKU) is discarded and a fresh fetch runs with the new SKU.
+   */
+  useEffect(() => {
+    if (recipientStatus === 'succeeded') {
+      setOrderPostData([]);
+      dispatch(resetRecipientStatus());
+    }
+  }, [recipientStatus, dispatch]);
+
+  useEffect(() => {
+    if (replaceCodeStatus === 'succeeded') {
+      // Wipe the entire shipping cache — the SKU changed so all fingerprints are stale
+      dispatch(clearAllShippingCache());
+      setOrderPostData([]);
+      dispatch(resetReplaceCodeStatus());
+    }
+  }, [replaceCodeStatus, dispatch]);
   // console.log("wporder", wporder);
 
   // useEffect(() => {

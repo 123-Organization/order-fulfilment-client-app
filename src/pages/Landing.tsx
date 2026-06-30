@@ -30,6 +30,8 @@ import SpreadSheet from "../components/SpreadSheet";
 import PlatformSettingsModal from "../components/PlatformSettingsModal";
 // Set to true when Shopify integration is fully ready
 const SHOPIFY_ENABLED = false;
+// Set to true when Etsy integration is fully ready
+const ETSY_ENABLED = false;
 
 const images = [
   { name: "Squarespace", img: squarespace },
@@ -611,10 +613,13 @@ const Landing: React.FC = (): JSX.Element => {
     },
   ] as const;
   const importData = (imgname: string) => {
-    // Check for platforms that are not yet available (including Shopify when disabled)
-    const availablePlatforms = ["WooCommerce", "Excel", "Squarespace", "Wix", "Etsy"];
+    // Check for platforms that are not yet available (including Shopify/Etsy when disabled)
+    const availablePlatforms = ["WooCommerce", "Excel", "Squarespace", "Wix"];
     if (SHOPIFY_ENABLED) {
       availablePlatforms.push("Shopify");
+    }
+    if (ETSY_ENABLED) {
+      availablePlatforms.push("Etsy");
     }
 
     if (imgname && !availablePlatforms.includes(imgname)) {
@@ -1180,7 +1185,7 @@ const Landing: React.FC = (): JSX.Element => {
     return "idle";
   };
 
-  const ENABLED = ["WooCommerce", "Excel", "Squarespace", "Wix", "Etsy"];
+  const ENABLED = ["WooCommerce", "Excel", "Squarespace", "Wix"];
 
   // ── Order-sync toggle API call ───────────────────────────────────────────
   const ORDER_SYNC_PLATFORMS: Record<string, boolean> = { Wix: true, Squarespace: true, Shopify: true };
@@ -1337,10 +1342,10 @@ const Landing: React.FC = (): JSX.Element => {
               style={{
                 background: isDark ? "#0f1724" : "#fff",
                 borderRadius: 18,
-                border: isConnected
+                border: isConnected && enabled
                   ? "2px solid " + (isDark ? "#14b8a6" : "#52c41a")
                   : isDark ? "2px solid #1e2d42" : "2px solid #e8edf5",
-                boxShadow: isConnected
+                boxShadow: isConnected && enabled
                   ? "0 4px 20px rgba(82,196,26,.15)"
                   : "0 2px 12px rgba(0,0,0,.06)",
                 padding: "28px 20px 22px",
