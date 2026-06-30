@@ -14,8 +14,8 @@ import {
   AddProductToOrder,
 } from "../store/features/orderSlice";
 import { fetchOrder } from "../store/features/orderSlice";
-import { fetchShippingOption } from "../store/features/shippingSlice";
-import { clearProductData, clearSelectedImage, fetchProductDetails } from "../store/features/productSlice";
+import { setBatchShippingResults, updateShippingCacheEntries, invalidateShippingCacheEntries, clearAllShippingCache } from "../store/features/shippingSlice";
+import { clearProductData, clearSelectedImage, fetchProductDetails, clearProductDetails } from "../store/features/productSlice";
 import { Link } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store";
 import { useNavigate } from "react-router-dom";
@@ -42,6 +42,7 @@ import { setProductData } from "../store/features/productSlice";
 import { convertGoogleDriveUrl, isGoogleDriveUrl, getGoogleDriveImageUrls } from "../helpers/fileHelper";
 import { useSearch } from "../context/SearchContext";
 import { useCookies } from "react-cookie";
+import config from "../config/configs";
 
 const { Option } = Select;
 type SizeType = Parameters<typeof Form>[0]["size"];
@@ -179,6 +180,171 @@ const ImportList: React.FC = () => {
     (state) => state.Shipping.itemErrors || {}
   );
   const navigate = useNavigate();
+  /** In-memory cache of per-order shipping results. Used by dispatchShippingSelectively. */
+  const shippingCache = useAppSelector((state) => state.Shipping.shippingCache);
+  /** Ref so dispatchShippingSelectively reads latest cache without being in deps array. */
+  const shippingCacheRef = useRef(shippingCache);
+  // Keep ref current on every render
+  shippingCacheRef.current = shippingCache;
+  // ---------------------------------------------------------------------------
+  // Shipping helpers — fingerprints + selective batch fetching
+  // ---------------------------------------------------------------------------
+  const SHIPPING_BATCH_SIZE = 5;
+  const BASE_URL = config.SERVER_BASE_URL;
+
+  /**
+   * Build a stable fingerprint for an order from the fields the shipping API
+   * actually uses: recipient, order_items (sku + qty), and shipping_code.
+   * If none of these change, the cached result is still valid.
+   */
+  const buildOrderFingerprint = (order: any): string => {
+    const r = order.recipient || {};
+    const items = (order.order_items || [])
+      .map((i: any) => `${i.product_sku}:${i.product_qty}`)
+      .sort()
+      .join(',');
+    return [
+      order.order_po,
+      order.shipping_code || '',
+      r.first_name || '',
+      r.last_name || '',
+      r.address_1 || '',
+      r.address_2 || '',
+      r.city || '',
+      r.state_code || '',
+      r.zip_postal_code || '',
+      r.country_code || '',
+      items,
+    ].join('|');
+  };
+
+  /** Split an array into chunks of at most `size` elements */
+  const chunkArray = <T,>(arr: T[], size: number): T[][] => {
+    const chunks: T[][] = [];
+    for (let i = 0; i < arr.length; i += size) {
+      chunks.push(arr.slice(i, i + size));
+    }
+    return chunks;
+  };
+
+  /**
+   * Fetch shipping options for one order. Returns aggregated data/errors.
+   * Does NOT dispatch to Redux — caller collects all results first.
+   */
+  const fetchSingleOrderShipping = async (
+    order: any,
+    account_key: string
+  ): Promise<{
+    data: any[];
+    recipientErrors: Record<string, Record<string, string[]>>;
+    itemErrors: Record<string, string[]>;
+  }> => {
+    const orderPo: string = order.order_po;
+    const body = {
+      account_key,
+      orders: [{ order_po: order.order_po, order_key: null, recipient: order.recipient, order_items: order.order_items, shipping_code: order.shipping_code }],
+    };
+    try {
+      const response = await fetch(`${BASE_URL}shipping-options`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        const modelState: Record<string, string[]> = errData?.error?.ModelState || {};
+        const recipientErrors: Record<string, Record<string, string[]>> = {};
+        const itemErrors: Record<string, string[]> = {};
+        Object.entries(modelState).forEach(([key, msgs]) => {
+          const recipientMatch = key.match(/request\.orders\[0\]\.recipient\.(\w+)/);
+          if (recipientMatch) {
+            if (!recipientErrors[orderPo]) recipientErrors[orderPo] = {};
+            recipientErrors[orderPo][recipientMatch[1]] = msgs as string[];
+            return;
+          }
+          const itemMatch = key.match(/request\.orders\[0\]\.order_items\[\d+\]\.\w+/);
+          if (itemMatch) {
+            if (!itemErrors[orderPo]) itemErrors[orderPo] = [];
+            (msgs as string[]).forEach(m => { if (!itemErrors[orderPo].includes(m)) itemErrors[orderPo].push(m); });
+          }
+        });
+        console.log(`[shipping/single] errors for ${orderPo}:`, { recipientErrors, itemErrors });
+        return { data: [], recipientErrors, itemErrors };
+      }
+      const json = await response.json();
+      return { data: json.data || [], recipientErrors: {}, itemErrors: {} };
+    } catch (err) {
+      console.error(`[shipping/single] network error for ${orderPo}:`, err);
+      return { data: [], recipientErrors: {}, itemErrors: {} };
+    }
+  };
+
+  /**
+   * Selective shipping fetch — only fires API requests for orders whose
+   * fingerprint does NOT match the cached value.  For unchanged orders the
+   * cached result is reused without any network round-trip.
+   *
+   * After collecting results, dispatches a single updateShippingCacheEntries
+   * action which merges the new entries into the cache and rebuilds the
+   * derived shippingOptions / recipientErrors / itemErrors in one Redux update.
+   */
+  const dispatchShippingSelectively = useCallback(
+    async (orderList: any[]) => {
+      if (!orderList?.length) return;
+      const accountKey = customerInfo?.data?.account_key;
+
+      // Filter to orders that are actual cache misses
+      const ordersToFetch = orderList.filter(order => {
+        const fp = buildOrderFingerprint(order);
+        const cached = shippingCacheRef.current[order.order_po];
+        return !cached || cached.fingerprint !== fp;
+      });
+
+      if (!ordersToFetch.length) {
+        console.log('[shipping/cache] All orders cached — skipping API calls');
+        return;
+      }
+
+      console.log(
+        `[shipping/cache] Fetching ${ordersToFetch.length}/${orderList.length} orders (cache misses)`
+      );
+
+      const chunks = chunkArray(ordersToFetch, SHIPPING_BATCH_SIZE);
+      const allEntries: Array<{
+        order_po: string;
+        fingerprint: string;
+        data: any[];
+        recipientErrors: Record<string, Record<string, string[]>>;
+        itemErrors: Record<string, string[]>;
+      }> = [];
+
+      for (const chunk of chunks) {
+        const results = await Promise.allSettled(
+          chunk.map(order => fetchSingleOrderShipping(order, accountKey))
+        );
+        results.forEach((result, idx) => {
+          if (result.status === 'fulfilled') {
+            allEntries.push({
+              order_po: chunk[idx].order_po,
+              fingerprint: buildOrderFingerprint(chunk[idx]),
+              data: result.value.data,
+              recipientErrors: result.value.recipientErrors,
+              itemErrors: result.value.itemErrors,
+            });
+          }
+        });
+      }
+
+      if (allEntries.length) {
+        // Single Redux dispatch — merges into cache and rebuilds derived state
+        dispatch(updateShippingCacheEntries(allEntries));
+      }
+    },
+    [dispatch, customerInfo?.data?.account_key]
+    // NOTE: shippingCacheRef is intentionally NOT in deps — it's a ref so reads
+    // are always current without causing the callback to be recreated.
+  );
+
   console.log("productData", productData);
 
   // Search functionality
@@ -236,6 +402,13 @@ const ImportList: React.FC = () => {
                 description: "Product has been successfully added to the order.",
               });
               dispatch(updateValidSKU([...validSKUs, postData.productCode]));
+              // Invalidate shipping cache for this order so it re-fetches after reload
+              const affectedOrderPo = orders?.data?.find(
+                (o: any) => o.orderFullFillmentId === postData.orderFullFillmentId
+              )?.order_po;
+              if (affectedOrderPo) {
+                dispatch(invalidateShippingCacheEntries([affectedOrderPo]));
+              }
               // Refresh orders list
               setTimeout(() => {
                 dispatch(fetchOrder(customerInfo?.data?.account_id));
@@ -343,15 +516,13 @@ const ImportList: React.FC = () => {
   const handleAddProductCodeUpdate = async () => {
     // Set refreshing state to prevent "No Orders Found" flash
     setIsRefreshing(true);
-    // Wait for the fetch to complete before clearing orderPostData
-
-    // Add a small delay to ensure state is updated
+    // Clear entire shipping cache so everything re-fetches fresh
+    dispatch(clearAllShippingCache());
     setTimeout(() => {
       dispatch(fetchOrder(customerInfo?.data?.account_id));
       setOrderPostData([]);
       setIsRefreshing(false);
     }, 500);
-
   };
 
   const AddProductsTemplate = ({ orderFullFillmentId }: { orderFullFillmentId: string }) => {
@@ -509,11 +680,38 @@ const ImportList: React.FC = () => {
   // }, [orders]);
 
   useEffect(() => {
+    // Skip the expensive initial fetch if we already have orders in Redux
+    // AND the shipping cache is populated (i.e. the user navigated back, nothing changed).
+    // The refresh button handles explicit re-fetching in that case.
+    const hasOrders = Array.isArray(orders?.data) && orders.data.length > 0;
+    const hasCachedShipping = Object.keys(shippingCacheRef.current).length > 0;
+
+    if (hasOrders && hasCachedShipping) {
+      console.log('[ImportList] Orders & shipping cache already populated — skipping mount fetch');
+      return;
+    }
+
     setTimeout(() => {
       dispatch(fetchOrder(customerInfo?.data?.account_id));
     }, 1000);
   }, []);
   // console.log("oo", customerInfo?.data?.account_id);
+
+  /** Explicit full refresh — clears shipping cache + product detail cache, then reloads orders. */
+  const [isRefreshingOrders, setIsRefreshingOrders] = useState(false);
+  const handleRefreshOrders = async () => {
+    setIsRefreshingOrders(true);
+    // 1. Wipe shipping cache so every order re-fetches shipping
+    dispatch(clearAllShippingCache());
+    // 2. Wipe the product SKU tracker and details so every SKU re-fetches
+    fetchedSkusRef.current.clear();
+    dispatch(clearProductDetails());
+    // 3. Reset orderPostData so the main shipping/product effect re-runs
+    setOrderPostData([]);
+    // 4. Re-fetch orders from the server
+    await dispatch(fetchOrder(customerInfo?.data?.account_id));
+    setIsRefreshingOrders(false);
+  };
 
   // Add responsive character limit based on screen size
   useEffect(() => {
@@ -563,6 +761,8 @@ const ImportList: React.FC = () => {
     orderFullFillmentId: string,
     order_po: string
   ) => {
+    // Proactively remove from shipping cache before the delete completes
+    dispatch(invalidateShippingCacheEntries([order_po]));
     await dispatch(
       deleteOrder({
         orderFullFillmentId: [orderFullFillmentId],
@@ -603,8 +803,9 @@ const ImportList: React.FC = () => {
     );
 
     setBulkDeleteModalVisible(false);
-    // Clear checked orders
+    // Clear checked orders and the entire shipping cache
     dispatch(updateCheckedOrders([]));
+    dispatch(clearAllShippingCache());
     dispatch(fetchOrder(customerInfo?.data?.account_id));
   };
 
@@ -658,6 +859,10 @@ const ImportList: React.FC = () => {
             message: "Product Deleted",
             description: "Product has been successfully deleted from the order.",
           });
+          // Invalidate shipping cache for this specific order
+          if (productToDelete?.order_po) {
+            dispatch(invalidateShippingCacheEntries([productToDelete.order_po]));
+          }
           // Refresh orders
           dispatch(fetchOrder(customerInfo?.data?.account_id));
           setOrderPostData([]);
@@ -749,7 +954,7 @@ const ImportList: React.FC = () => {
           })),
         }))
         ?.flat();
-      const ProductDetails = orders?.data?.flatMap((order) =>
+      let ProductDetails = orders?.data?.flatMap((order) =>
         order.order_items?.map((item) => ({
           order_po: order.order_po,
           product_sku: item.product_sku || "AP1234567891011",
@@ -762,6 +967,20 @@ const ImportList: React.FC = () => {
         }))
       );
 
+      // Filter out SKUs that are already in the persisted Redux store
+      const existingSkus = new Set<string>();
+      if (product_details && Array.isArray(product_details)) {
+        product_details.forEach((p: any) => {
+          if (p?.sku) existingSkus.add(p.sku.toString());
+          if (p?.product_code) existingSkus.add(p.product_code.toString());
+        });
+      }
+      
+      ProductDetails = ProductDetails?.filter((item) => {
+        if (!item?.product_sku) return true; // keep if no SKU, let backend handle it
+        return !existingSkus.has(item.product_sku.toString());
+      });
+
       // Track the SKUs we're fetching
       ProductDetails?.forEach((item) => {
         if (item?.product_sku) {
@@ -769,9 +988,12 @@ const ImportList: React.FC = () => {
         }
       });
 
-      dispatch(fetchShippingOption({ orders: orderPostDataList, account_key: customerInfo?.data?.account_key, }));
+      dispatchShippingSelectively(orderPostDataList);
       setOrderPostData(orderPostDataList);
-      dispatch(fetchProductDetails(ProductDetails));
+      
+      if (ProductDetails && ProductDetails.length > 0) {
+        dispatch(fetchProductDetails(ProductDetails));
+      }
 
     }
   }, [orders, product_details, orderPostData, dispatch]);
@@ -790,8 +1012,19 @@ const ImportList: React.FC = () => {
       });
     });
 
-    // Find SKUs that haven't been fetched yet
-    const newSkus = allCurrentSkus.filter(sku => !fetchedSkusRef.current.has(sku));
+    // Build a map of SKUs currently in the persisted Redux store
+    const existingSkusInRedux = new Set<string>();
+    if (product_details && Array.isArray(product_details)) {
+      product_details.forEach((p: any) => {
+        if (p?.sku) existingSkusInRedux.add(p.sku.toString());
+        if (p?.product_code) existingSkusInRedux.add(p.product_code.toString());
+      });
+    }
+
+    // Find SKUs that haven't been fetched yet in this session OR aren't in Redux
+    const newSkus = allCurrentSkus.filter(
+      sku => !fetchedSkusRef.current.has(sku) && !existingSkusInRedux.has(sku)
+    );
 
     if (newSkus.length > 0) {
       console.log("Fetching details for new SKUs:", newSkus);
@@ -837,7 +1070,7 @@ const ImportList: React.FC = () => {
         }))?.flat();
 
         if (orderPostDataList?.length) {
-          dispatch(fetchShippingOption({ orders: orderPostDataList, account_key: customerInfo?.data?.account_key }));
+        dispatchShippingSelectively(orderPostDataList);
           setOrderPostData(orderPostDataList);
         }
       }
@@ -1140,6 +1373,9 @@ const ImportList: React.FC = () => {
           0%   { background-position: 200% 0; }
           100% { background-position: -200% 0; }
         }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
       `}</style>
       <div
         className={`h-auto pt-4 mt-10 w-full ${style.overAll_box}`}
@@ -1147,37 +1383,74 @@ const ImportList: React.FC = () => {
       >
         <div className="flex justify-between items-center mb-10 px-9">
           <h1 className="text-left text-2xl font-bold mt-2">Orders</h1>
-          {filteredOrders && filteredOrders.length > 0 && (
-            <Button
-              type="default"
-              size="middle"
-              loading={deleteOrderStatus === "loading"}
-              onClick={() => setBulkDeleteModalVisible(true)}
-              className="bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200 border border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-800 shadow-sm hover:shadow-md transition-all duration-300 ease-in-out font-medium px-5 py-2 rounded-lg"
-              icon={
-                !deleteOrderStatus || deleteOrderStatus !== "loading" ? (
-                  <svg
-                    className="w-4 h-4 mr-1"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
-                  </svg>
-                ) : null
-              }
+          <div className="flex items-center gap-3">
+            {/* ── Refresh All button ── */}
+            <button
+              id="refresh-orders-btn"
+              onClick={handleRefreshOrders}
+              disabled={isRefreshingOrders || ordersStatus === 'loading'}
+              title="Refresh all orders, shipping options and product details"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                background: isDark ? '#0f1724' : '#f9fafb',
+                borderColor: isDark ? '#1e3048' : '#d1d5db',
+                color: isDark ? '#93c5fd' : '#374151',
+              }}
             >
-              <span>
-                {deleteOrderStatus === "loading" ? "Deleting..." : "Delete All"}
-              </span>
-            </Button>
-          )}
+              <svg
+                className={`w-4 h-4 transition-transform duration-700 ${isRefreshingOrders || ordersStatus === 'loading' ? 'animate-spin' : 'group-hover:rotate-180'}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                style={{
+                  animation: isRefreshingOrders || ordersStatus === 'loading'
+                    ? 'spin 0.8s linear infinite'
+                    : undefined,
+                }}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+              <span>{isRefreshingOrders || ordersStatus === 'loading' ? 'Refreshing...' : 'Refresh'}</span>
+            </button>
+
+            {/* ── Delete All button ── */}
+            {filteredOrders && filteredOrders.length > 0 && (
+              <Button
+                type="default"
+                size="middle"
+                loading={deleteOrderStatus === "loading"}
+                onClick={() => setBulkDeleteModalVisible(true)}
+                className="bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200 border border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-800 shadow-sm hover:shadow-md transition-all duration-300 ease-in-out font-medium px-5 py-2 rounded-lg"
+                icon={
+                  !deleteOrderStatus || deleteOrderStatus !== "loading" ? (
+                    <svg
+                      className="w-4 h-4 mr-1"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                  ) : null
+                }
+              >
+                <span>
+                  {deleteOrderStatus === "loading" ? "Deleting..." : "Delete All"}
+                </span>
+              </Button>
+            )}
+          </div>
         </div>
         <div
           className={`mx-auto max-w-7xl justify-center px-6 md:flex md:space-x-6 xl:px-0 ${style.orderes_box}`}

@@ -4,7 +4,8 @@ import { useAppSelector } from "../store";
 import Spinner from "./Spinner";
 import { updateCurrentOption } from "../store/features/shippingSlice";
 import { useAppDispatch } from "../store";
-import { fetchShippingOption } from "../store/features/shippingSlice";
+import { setBatchShippingResults } from "../store/features/shippingSlice";
+import config from "../config/configs";
 import { updateOrdersInfo } from "../store/features/orderSlice";
 
 interface ShippingOption {
@@ -58,6 +59,7 @@ const SelectShippingOption: React.FC<{
   productchange,
   clicking,
 }) => {
+  const BASE_URL = config.SERVER_BASE_URL;
  
   const dispatch = useAppDispatch();
 
@@ -386,7 +388,36 @@ const SelectShippingOption: React.FC<{
         })),
       };
       // console.log("Product changed, refetching shipping options");
-      dispatch(fetchShippingOption({orders: orderPostDataList,account_key: customerinfo?.data?.account_key,}));
+      // Fire one request for this order, then commit in a single Redux dispatch
+      const orderPo: string = orderPostDataList.order_po;
+      const body = {
+        account_key: customerinfo?.data?.account_key,
+        orders: [{ order_po: orderPo, order_key: null, recipient: localOrder.recipient, order_items: orderPostDataList.order_items, shipping_code: localOrder.shipping_code }],
+      };
+      fetch(`${BASE_URL}shipping-options`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+        .then(async (response) => {
+          if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            const modelState: Record<string, string[]> = errData?.error?.ModelState || {};
+            const recipientErrors: Record<string, Record<string, string[]>> = {};
+            const itemErrors: Record<string, string[]> = {};
+            Object.entries(modelState).forEach(([key, msgs]) => {
+              const rm = key.match(/request\.orders\[0\]\.recipient\.(\w+)/);
+              if (rm) { if (!recipientErrors[orderPo]) recipientErrors[orderPo] = {}; recipientErrors[orderPo][rm[1]] = msgs as string[]; return; }
+              const im = key.match(/request\.orders\[0\]\.order_items\[\d+\]\.\w+/);
+              if (im) { if (!itemErrors[orderPo]) itemErrors[orderPo] = []; (msgs as string[]).forEach(m => { if (!itemErrors[orderPo].includes(m)) itemErrors[orderPo].push(m); }); }
+            });
+            dispatch(setBatchShippingResults({ data: [], recipientErrors, itemErrors }));
+          } else {
+            const json = await response.json();
+            dispatch(setBatchShippingResults({ data: json.data || [], recipientErrors: {}, itemErrors: {} }));
+          }
+        })
+        .catch((err) => console.error(`[SelectShippingOption] fetch error for ${orderPo}:`, err));
     }
   }, [localOrder, productchange, ]);
 

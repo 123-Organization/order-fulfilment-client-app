@@ -29,6 +29,14 @@ const WIX_STATUSES = [
   { value: 'CANCELED',          label: 'Canceled'           },
 ];
 
+// Shippo / Etsy order status options
+const SHIPPO_STATUSES = [
+  { value: 'PAID',      label: 'Paid'      },
+  { value: 'PENDING',   label: 'Pending'   },
+  { value: 'FULFILLED', label: 'Fulfilled' },
+  { value: 'CANCELLED', label: 'Cancelled' },
+];
+
 const countryList = require("../json/order_status_same_label.json");
 const { RangePicker } = DatePicker; 
 const { Option } = Select;
@@ -211,7 +219,7 @@ const ImportFilter: React.FC = () => {
             }}
             onSearch={onSearch}
             filterOption={filterOption}
-            options={typeValue === 'Squarespace' ? SQUARESPACE_STATUSES : typeValue === 'Wix' ? WIX_STATUSES : countryList}
+            options={typeValue === 'Squarespace' ? SQUARESPACE_STATUSES : typeValue === 'Wix' ? WIX_STATUSES : typeValue === 'Etsy' ? SHIPPO_STATUSES : countryList}
             // value={
             //   convertUsStateAbbrAndName(countryCode.toUpperCase())
             // }

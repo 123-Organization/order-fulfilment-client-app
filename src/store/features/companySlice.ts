@@ -12,6 +12,7 @@ interface CompanyState {
         connectionVerificationStatus: 'idle' | 'verifying' | 'connected' | 'disconnected';
         shopify_shop: string | null;
         shopify_access_token: string | null;
+        shippo_account_key: string | null;
 }
 
 const initialState: CompanyState = {
@@ -24,6 +25,7 @@ const initialState: CompanyState = {
         connectionVerificationStatus: 'idle',
         shopify_shop: null,
         shopify_access_token: null,
+        shippo_account_key: null,
 };
 
 const getCookie = (name: string) => {
@@ -101,7 +103,13 @@ export const Company = createSlice({
                 clearShopifyCredentials: (state) => {
                         state.shopify_shop = null;
                         state.shopify_access_token = null;
-                }
+                },
+                updateShippoAccountKey: (state, action: PayloadAction<string>) => {
+                        state.shippo_account_key = action.payload;
+                },
+                clearShippoAccountKey: (state) => {
+                        state.shippo_account_key = null;
+                },
         },
         extraReducers: (builder) => {
                 builder.addCase(updateCompanyInfo.fulfilled, (state, action) => {
@@ -126,6 +134,8 @@ export const {
         setConnectionVerificationStatus,
         resetVerificationStatus,
         updateShopifyCredentials,
-        clearShopifyCredentials
+        clearShopifyCredentials,
+        updateShippoAccountKey,
+        clearShippoAccountKey,
 } = Company.actions;
 

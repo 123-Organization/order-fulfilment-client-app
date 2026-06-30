@@ -33,6 +33,8 @@ interface OrderState {
   squarespaceImportStatus: "idle" | "loading" | "succeeded" | "failed" | "token_expired";
   wixOrdersResponse: any;
   wixImportStatus: "idle" | "loading" | "succeeded" | "failed";
+  shippoOrdersResponse: any;
+  shippoImportStatus: "idle" | "loading" | "succeeded" | "failed";
   Wporder: any;
   appLunched: boolean;
   iframeOpened: boolean;
@@ -78,6 +80,8 @@ const initialState: OrderState = {
   squarespaceImportStatus: "idle",
   wixOrdersResponse: null,
   wixImportStatus: "idle",
+  shippoOrdersResponse: null,
+  shippoImportStatus: "idle",
   validSKU: [],
   validatedOrders: {},
   error: null,
@@ -595,6 +599,49 @@ export const fetchWixOrderByNumber = createAsyncThunk(
   }
 );
 
+// ── Shippo / Etsy orders ──────────────────────────────────────────────────────
+export const fetchShippoOrders = createAsyncThunk(
+  "order/fetch/shippo",
+  async (
+    postData: {
+      account_key: string;
+      status?: string;
+      page?: number;
+      results?: number;
+    },
+    thunkAPI
+  ) => {
+    console.log('Fetching Shippo orders with:', postData);
+    try {
+      const response = await fetch(
+        'https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/shippo/orders',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            account_key: postData.account_key,
+            status: postData.status || 'PAID',
+            page: postData.page || 1,
+            results: postData.results || 25,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error('API error in fetchShippoOrders:', data);
+        return thunkAPI.rejectWithValue(data);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('API call failed in fetchShippoOrders:', error);
+      return thunkAPI.rejectWithValue('Failed to fetch Shippo orders');
+    }
+  }
+);
+
 export const DeleteAllOrders = createAsyncThunk(
   "order/delete/all",
   async (postData: any, thunkAPI) => {
@@ -896,6 +943,12 @@ export const OrderSlice = createSlice({
     resetWixImportStatus: (state) => {
       state.wixImportStatus = 'idle';
     },
+    resetShippoOrdersResponse: (state) => {
+      state.shippoOrdersResponse = null;
+    },
+    resetShippoImportStatus: (state) => {
+      state.shippoImportStatus = 'idle';
+    },
     resetSaveOrderInfo: (state) => {
       state.saveOrderInfo = {}
     },
@@ -1096,6 +1149,18 @@ export const OrderSlice = createSlice({
       state.wixImportStatus = 'failed';
       state.error = (action.payload as any)?.message || (action.payload as string);
     });
+    // ── Shippo / Etsy orders ────────────────────────────────────────────────
+    builder.addCase(fetchShippoOrders.pending, (state) => {
+      state.shippoImportStatus = 'loading';
+    });
+    builder.addCase(fetchShippoOrders.fulfilled, (state, action) => {
+      state.shippoOrdersResponse = action.payload;
+      state.shippoImportStatus = 'succeeded';
+    });
+    builder.addCase(fetchShippoOrders.rejected, (state, action) => {
+      state.shippoImportStatus = 'failed';
+      state.error = (action.payload as any)?.message || (action.payload as string);
+    });
 
     builder.addCase(sendOrderInformation.fulfilled, (state, action) => {
       state.sendOrderInfoStatus = 'succeeded';
@@ -1130,4 +1195,4 @@ export const OrderSlice = createSlice({
 });
 
 export default OrderSlice.reducer;
-export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, updateIframe, updateApp, updateOpenSheet, updateExcludedOrders, resetExcludedOrders, updateValidSKU, resetValidSKU, updateReplacingCode, resetReplacingCode, resetReplaceCodeResult, resetReplaceCodeStatus, resetSubmitStatus, resetSendOrderInfoStatus, resetSubmitOrdersResponse, resetShopifyOrdersResponse, resetSaveOrderInfo, resetUpdateImageStatus, resetSquarespaceOrdersResponse, resetSquarespaceImportStatus, resetWixOrdersResponse, resetWixImportStatus } = OrderSlice.actions;
+export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, updateIframe, updateApp, updateOpenSheet, updateExcludedOrders, resetExcludedOrders, updateValidSKU, resetValidSKU, updateReplacingCode, resetReplacingCode, resetReplaceCodeResult, resetReplaceCodeStatus, resetSubmitStatus, resetSendOrderInfoStatus, resetSubmitOrdersResponse, resetShopifyOrdersResponse, resetSaveOrderInfo, resetUpdateImageStatus, resetSquarespaceOrdersResponse, resetSquarespaceImportStatus, resetWixOrdersResponse, resetWixImportStatus, resetShippoOrdersResponse, resetShippoImportStatus } = OrderSlice.actions;

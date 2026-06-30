@@ -15,8 +15,18 @@ interface ProductState {
         imagesStatus: "idle" | "loading" | "succeeded" | "failed";
 }
 
+const STORAGE_KEY_PRODUCTS = "fw_product_details_cache";
+
+const loadPersistedProducts = () => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_PRODUCTS);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return [];
+};
+
 const initialState: ProductState = {
-        product_details: [],
+        product_details: loadPersistedProducts(),
         status: "idle",
         error: null,
         quantityUpdated: false,
@@ -146,6 +156,12 @@ export const ProductSlice = createSlice({
                 clearProductData: (state) => {
                         state.productData = null;
                 },
+                clearProductDetails: (state) => {
+                        state.product_details = [];
+                        try {
+                                localStorage.removeItem(STORAGE_KEY_PRODUCTS);
+                        } catch {}
+                },
                 resetProductStatus: (state) => {
                         state.status = "idle";
                 }
@@ -192,6 +208,11 @@ export const ProductSlice = createSlice({
                                 state.product_details = action.payload;
                         }
                         state.status = "succeeded";
+                        
+                        // Persist to localStorage
+                        try {
+                                localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(state.product_details));
+                        } catch {}
                 });
                 builder.addCase(fetchProductDetails.pending, (state, action) => {
                         state.status = "loading";
@@ -227,5 +248,5 @@ export const ProductSlice = createSlice({
         },
 });
 
-export const { setQuantityUpdated, setSelectedImage, setProductData, clearProductData, clearSelectedImage, resetProductStatus } = ProductSlice.actions;
+export const { setQuantityUpdated, setSelectedImage, setProductData, clearProductData, clearProductDetails, clearSelectedImage, resetProductStatus } = ProductSlice.actions;
 export default ProductSlice;

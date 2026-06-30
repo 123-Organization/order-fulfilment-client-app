@@ -264,7 +264,6 @@ export default function VaultedCardPayment({
         ...(isFullyCoveredByCredits ? {} : { payment_token: token?.token }),
       }
 
-    
       setHasAttemptedSubmit(true);
       dispatch(submitOrders(payload));
       dispatch(updateSubmitedOrders(checkedOrders));
