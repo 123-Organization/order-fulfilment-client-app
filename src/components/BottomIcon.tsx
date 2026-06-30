@@ -1213,7 +1213,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   })),
                   order_status: 'Processing',
                   shipping_code: 'GD',
-                  test_mode: true,
+                  test_mode: false,
                 };
               });
 
