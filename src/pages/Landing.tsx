@@ -31,7 +31,7 @@ import PlatformSettingsModal from "../components/PlatformSettingsModal";
 // Set to true when Shopify integration is fully ready
 const SHOPIFY_ENABLED = false;
 // Set to true when Etsy integration is fully ready
-const ETSY_ENABLED = false;
+const ETSY_ENABLED = true;
 
 const images = [
   { name: "Squarespace", img: squarespace },
@@ -1185,7 +1185,7 @@ const Landing: React.FC = (): JSX.Element => {
     return "idle";
   };
 
-  const ENABLED = ["WooCommerce", "Excel", "Squarespace", "Wix"];
+  const ENABLED = ["WooCommerce", "Excel", "Squarespace", "Wix", "Etsy"];
 
   // ── Order-sync toggle API call ───────────────────────────────────────────
   const ORDER_SYNC_PLATFORMS: Record<string, boolean> = { Wix: true, Squarespace: true, Shopify: true };
@@ -1500,25 +1500,7 @@ const Landing: React.FC = (): JSX.Element => {
             />
           </div>
 
-          {/* Test key */}
-          <div style={{ marginBottom: 24 }}>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: isDark ? '#8892a4' : '#374151', marginBottom: 6, textTransform: 'uppercase', letterSpacing: .4 }}>
-              Test Key
-            </label>
-            <input
-              id="shippo-test-key"
-              type="text"
-              placeholder="shippo_test_…"
-              value={shippoTestKey}
-              onChange={e => setShippoTestKey(e.target.value)}
-              disabled={shippoConnecting}
-              style={{
-                width: '100%', padding: '9px 12px', borderRadius: 8, border: '1.5px solid #d1d5db',
-                fontSize: 13, fontFamily: 'monospace', outline: 'none', boxSizing: 'border-box',
-                background: isDark ? '#0f1724' : '#fff', color: isDark ? '#e8edf5' : '#111827',
-              }}
-            />
-          </div>
+
 
           {/* Actions */}
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
@@ -1531,7 +1513,7 @@ const Landing: React.FC = (): JSX.Element => {
             <Button
               type="primary"
               loading={shippoConnecting}
-              disabled={!shippoLiveKey.trim() || !shippoTestKey.trim()}
+              disabled={!shippoLiveKey.trim()}
               onClick={async () => {
                 const accountKey = customerInfo?.data?.account_key;
                 if (!accountKey) return;
@@ -1545,7 +1527,7 @@ const Landing: React.FC = (): JSX.Element => {
                       body: JSON.stringify({
                         account_key: accountKey,
                         live_key: shippoLiveKey.trim(),
-                        test_key: shippoTestKey.trim(),
+
                       }),
                     }
                   );
