@@ -1283,10 +1283,14 @@ const Landing: React.FC = (): JSX.Element => {
     <div style={{ minHeight: "100%", background: isDark ? "#080c14" : "linear-gradient(135deg,#f0f4ff 0%,#fafbff 60%,#f4f8ff 100%)", padding: "40px 32px 60px" }}>
 
       <style>{`
-        @keyframes lp-fade   { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:none} }
-        @keyframes lp-pop    { 0%{transform:scale(.94)} 100%{transform:scale(1)} }
-        @keyframes lp-badge  { from{opacity:0;transform:scale(.7)} to{opacity:1;transform:scale(1)} }
-        @keyframes gear-float { 0%,100%{transform:translateY(0px) rotate(0deg)} 50%{transform:translateY(-3px) rotate(8deg)} }
+        @keyframes lp-fade     { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:none} }
+        @keyframes lp-pop      { 0%{transform:scale(.94)} 100%{transform:scale(1)} }
+        @keyframes lp-badge    { from{opacity:0;transform:scale(.7)} to{opacity:1;transform:scale(1)} }
+        @keyframes gear-float  { 0%,100%{transform:translateY(0px) rotate(0deg)} 50%{transform:translateY(-3px) rotate(8deg)} }
+        @keyframes plug-glow   { 0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.45)} 50%{box-shadow:0 0 0 5px rgba(34,197,94,0)} }
+        @keyframes plug-in     { 0%{opacity:0;transform:translateY(-4px) scale(.8)} 100%{opacity:1;transform:none scale(1)} }
+        @keyframes plug-spin   { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+        @keyframes unplug-pop  { 0%{opacity:0;transform:scale(.6)} 60%{transform:scale(1.15)} 100%{opacity:1;transform:scale(1)} }
         .lp-card {
           transition: box-shadow .22s ease, transform .22s ease, border-color .22s ease;
           animation: lp-fade .3s ease both;
@@ -1359,22 +1363,54 @@ const Landing: React.FC = (): JSX.Element => {
                 animationDelay: `${i * 0.04}s`,
               }}
             >
-              {/* ── Status badge — top LEFT ── */}
+              {/* ── Status icon — top LEFT corner ── */}
+
+              {/* Verifying: spinning ring */}
               {isVerifying && enabled && (
-                <span style={{ position: "absolute", top: 12, left: 12, background: "#dbeafe", color: "#1d4ed8", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 999, letterSpacing: .3, animation: "lp-pop .6s ease infinite alternate" }}>
-                  VERIFYING
-                </span>
+                <span title="Verifying connection…" style={{
+                  position: "absolute", top: 10, left: 10,
+                  width: 26, height: 26, borderRadius: "50%",
+                  border: "2.5px solid #3b82f6", borderTopColor: "transparent",
+                  animation: "plug-spin .7s linear infinite",
+                  display: "inline-block",
+                }} />
               )}
+
+              {/* Connected: glowing plug icon */}
               {isConnected && enabled && (
-                <span style={{ position: "absolute", top: 12, left: 12, background: "#dcfce7", color: "#15803d", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 999, letterSpacing: .3, animation: "lp-badge .3s ease both" }}>
-                  ✓ CONNECTED
+                <span title="Connected" style={{
+                  position: "absolute", top: 8, left: 8,
+                  width: 28, height: 28, borderRadius: "50%",
+                  background: isDark ? "rgba(34,197,94,.18)" : "rgba(34,197,94,.12)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  animation: "plug-glow 2s ease-in-out infinite, plug-in .3s ease both",
+                }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2v4M8 6h8M7 10v4a5 5 0 0 0 10 0v-4M12 19v3" />
+                    <line x1="9" y1="6" x2="9" y2="10" />
+                    <line x1="15" y1="6" x2="15" y2="10" />
+                  </svg>
                 </span>
               )}
+
+              {/* Disconnected: broken-link icon */}
               {isDisconnected && enabled && image.name !== "Excel" && (
-                <span style={{ position: "absolute", top: 12, left: 12, background: "#fee2e2", color: "#b91c1c", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 999, letterSpacing: .3 }}>
-                  DISCONNECTED
+                <span title="Not connected — click to connect" style={{
+                  position: "absolute", top: 8, left: 8,
+                  width: 28, height: 28, borderRadius: "50%",
+                  background: isDark ? "rgba(239,68,68,.14)" : "rgba(239,68,68,.08)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  animation: "unplug-pop .35s ease both",
+                }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={isDark ? "#f87171" : "#dc2626"} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                    <line x1="2" y1="2" x2="22" y2="22" stroke={isDark ? "#f87171" : "#dc2626"} strokeWidth="2" />
+                  </svg>
                 </span>
               )}
+
+              {/* Coming soon chip */}
               {!enabled && (
                 <span style={{ position: "absolute", top: 12, right: 12, background: isDark ? "#1a2a40" : "#f3f4f6", color: isDark ? "#3a5070" : "#9ca3af", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 999, letterSpacing: .3 }}>
                   SOON
