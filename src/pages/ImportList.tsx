@@ -113,6 +113,9 @@ const ImportList: React.FC = () => {
   const [addProductDropdownVisible, setAddProductDropdownVisible] = useState<string | null>(null);
   const [currentOrderForAddProduct, setCurrentOrderForAddProduct] = useState<string>("");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  // True while a SKU-replace or add-product API call is in-flight.
+  // Prevents the empty-state screen from flashing during those ~2 s waits.
+  const [isPendingUpdate, setIsPendingUpdate] = useState(false);
   // Tracks which order is waiting for a product to be added via post5 popup
   const pendingNewProductOrderId = useRef<string | null>(null);
   const cookiePollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -397,30 +400,36 @@ const ImportList: React.FC = () => {
           document.cookie = "ofa_product=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.finerworks.com";
           document.cookie = "ofa_product=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=finerworks.com";
 
-          dispatch(AddProductToOrder(postData)).then((result: any) => {
+          // Show skeleton instead of empty-state while waiting for API
+          setIsPendingUpdate(true);
+          dispatch(AddProductToOrder(postData)).then(async (result: any) => {
             if (AddProductToOrder.fulfilled.match(result)) {
               notificationApi.success({
                 message: "Product Added",
                 description: "Product has been successfully added to the order.",
               });
               dispatch(updateValidSKU([...validSKUs, postData.productCode]));
-              // Invalidate shipping cache for this order so it re-fetches after reload
-              const affectedOrderPo = orders?.data?.find(
-                (o: any) => o.orderFullFillmentId === postData.orderFullFillmentId
-              )?.order_po;
-              if (affectedOrderPo) {
-                dispatch(invalidateShippingCacheEntries([affectedOrderPo]));
-              }
-              // Refresh orders list
-              setTimeout(() => {
-                dispatch(fetchOrder(customerInfo?.data?.account_id));
-                setOrderPostData([]);
-              }, 500);
+
+              // 1. Wipe shipping cache — every order becomes a cache miss.
+              dispatch(clearAllShippingCache());
+
+              // 2. Await fetchOrder FIRST so orders.data already contains
+              //    the new product before we open the shipping useEffect gate.
+              //    Clearing orderPostData before this resolves causes the
+              //    shipping useEffect to fire with stale orders.data, re-lock
+              //    the gate, and block a re-run when fresh data arrives.
+              await dispatch(fetchOrder(customerInfo?.data?.account_id));
+
+              // 3. NOW clear orderPostData — the shipping useEffect fires with
+              //    fresh orders.data + empty cache → fetches real prices → total updates.
+              setOrderPostData([]);
+              setIsPendingUpdate(false);
             } else {
               notificationApi.error({
                 message: "Product Addition Failed",
                 description: "Could not add the product to the order.",
               });
+              setIsPendingUpdate(false);
             }
           });
         }
@@ -518,13 +527,14 @@ const ImportList: React.FC = () => {
   const handleAddProductCodeUpdate = async () => {
     // Set refreshing state to prevent "No Orders Found" flash
     setIsRefreshing(true);
-    // Clear entire shipping cache so everything re-fetches fresh
+    // 1. Wipe shipping cache — every order becomes a cache miss.
     dispatch(clearAllShippingCache());
-    setTimeout(() => {
-      dispatch(fetchOrder(customerInfo?.data?.account_id));
-      setOrderPostData([]);
-      setIsRefreshing(false);
-    }, 500);
+    // 2. Await fetchOrder so orders.data has the new product BEFORE we
+    //    trigger the shipping useEffect by clearing orderPostData.
+    await dispatch(fetchOrder(customerInfo?.data?.account_id));
+    // 3. NOW clear orderPostData — shipping useEffect fires with fresh data + empty cache.
+    setOrderPostData([]);
+    setIsRefreshing(false);
   };
 
   const AddProductsTemplate = ({ orderFullFillmentId }: { orderFullFillmentId: string }) => {
@@ -688,12 +698,19 @@ const ImportList: React.FC = () => {
     }
   }, [recipientStatus, dispatch]);
 
+  // Show skeleton while a SKU-replace is in-flight, hide when done/idle
   useEffect(() => {
-    if (replaceCodeStatus === 'succeeded') {
+    if (replaceCodeStatus === 'loading') {
+      setIsPendingUpdate(true);
+    } else if (replaceCodeStatus === 'succeeded') {
       // Wipe the entire shipping cache — the SKU changed so all fingerprints are stale
       dispatch(clearAllShippingCache());
       setOrderPostData([]);
       dispatch(resetReplaceCodeStatus());
+      // Keep skeleton a moment longer so the re-fetch has time to start
+      setTimeout(() => setIsPendingUpdate(false), 800);
+    } else if (replaceCodeStatus === 'failed') {
+      setIsPendingUpdate(false);
     }
   }, [replaceCodeStatus, dispatch]);
   // console.log("wporder", wporder);
@@ -2368,9 +2385,9 @@ const ImportList: React.FC = () => {
                   </div>
                 );
               })
-            ) : !orders?.data || isRefreshing ? (
+            ) : !orders?.data || isRefreshing || isPendingUpdate || ordersStatus === 'loading' ? (
               <SkeletonOrderCard count={3} />
-            ) : orders?.data && orders.data.length === 0 && !isRefreshing ? (
+            ) : orders?.data && orders.data.length === 0 && !isRefreshing && !isPendingUpdate && ordersStatus !== 'loading' ? (
               <div className="flex flex-col items-center justify-center h-64 rounded-lg shadow-md p-6 mb-20" style={{ background: isDark ? "#0f1724" : "#ffffff" }}>
                 <img
                   src={shoppingCart}

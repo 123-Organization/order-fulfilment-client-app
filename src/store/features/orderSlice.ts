@@ -989,9 +989,14 @@ export const OrderSlice = createSlice({
 
     builder.addCase(AddProductToOrder.fulfilled, (state, action) => {
       state.productDataStatus = 'succeeded';
-      state.orders = {
-        data: Array.isArray(action.payload?.data) ? action.payload.data : []
-      };
+      // Only update orders if the payload actually contains order data.
+      // If the response is empty we keep the existing orders in place so the
+      // list doesn't flash to the empty-state before the follow-up fetchOrder fires.
+      const payloadData = action.payload?.data;
+      if (Array.isArray(payloadData) && payloadData.length > 0) {
+        state.orders = { data: payloadData };
+      }
+      // Otherwise leave state.orders unchanged — fetchOrder will refresh it shortly.
     });
 
     builder.addCase(AddProductToOrder.rejected, (state, action) => {
