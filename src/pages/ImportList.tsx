@@ -63,6 +63,8 @@ const ImportList: React.FC = () => {
   const isFirstRender = useRef(true);
   // Track which SKUs we've already fetched details for
   const fetchedSkusRef = useRef<Set<string>>(new Set());
+  // Guard against the main shipping useEffect re-entering while a fetch batch is in-flight
+  const shippingFetchInProgressRef = useRef(false);
 
   // Utility function to truncate text with character count control
   const truncateText = (htmlString: string, maxLength: number): string => {
@@ -91,6 +93,13 @@ const ImportList: React.FC = () => {
   const [productCode, setProductCode] = useState(false);
 
   const [orderPostData, setOrderPostData] = useState([]);
+  /** Clear orderPostData AND reset the in-flight shipping guard so the next
+   *  render cycle can trigger a fresh fetch.  Always use this instead of
+   *  calling resetOrderPostData() directly. */
+  const resetOrderPostData = () => {
+    shippingFetchInProgressRef.current = false;
+    resetOrderPostData();
+  };
   const [DeleteMessageVisible, setDeleteMessageVisible] = useState(false);
   const [orderFullFillmentId, setOrderFullFillmentId] = useState("");
   const [order_po, setOrder_po] = useState("");
@@ -422,7 +431,7 @@ const ImportList: React.FC = () => {
 
               // 3. NOW clear orderPostData — the shipping useEffect fires with
               //    fresh orders.data + empty cache → fetches real prices → total updates.
-              setOrderPostData([]);
+              resetOrderPostData();
               setIsPendingUpdate(false);
             } else {
               notificationApi.error({
@@ -533,7 +542,7 @@ const ImportList: React.FC = () => {
     //    trigger the shipping useEffect by clearing orderPostData.
     await dispatch(fetchOrder(customerInfo?.data?.account_id));
     // 3. NOW clear orderPostData — shipping useEffect fires with fresh data + empty cache.
-    setOrderPostData([]);
+    resetOrderPostData();
     setIsRefreshing(false);
   };
 
@@ -594,7 +603,7 @@ const ImportList: React.FC = () => {
   const onProductCodeReplace = (productCode: string) => {
     dispatch(fetchOrder(customerInfo?.data?.account_id));
     setTimeout(() => {
-      setOrderPostData([]);
+      resetOrderPostData();
       dispatch(updateValidSKU([...validSKUs, productCode]));
       dispatch(resetReplaceCodeStatus());
       dispatch(resetReplaceCodeResult());
@@ -614,7 +623,7 @@ const ImportList: React.FC = () => {
           dispatch(resetReplaceCodeResult());
           dispatch(fetchOrder(customerInfo?.data?.account_id));
           dispatch(clearProductData());
-          setOrderPostData([]);
+          resetOrderPostData();
         }, 2000);
       } else if (replaceCodeResult === null && skuToReplace.length > 0) {
         notificationApi.error({
@@ -693,7 +702,7 @@ const ImportList: React.FC = () => {
    */
   useEffect(() => {
     if (recipientStatus === 'succeeded') {
-      setOrderPostData([]);
+      resetOrderPostData();
       dispatch(resetRecipientStatus());
     }
   }, [recipientStatus, dispatch]);
@@ -705,7 +714,7 @@ const ImportList: React.FC = () => {
     } else if (replaceCodeStatus === 'succeeded') {
       // Wipe the entire shipping cache — the SKU changed so all fingerprints are stale
       dispatch(clearAllShippingCache());
-      setOrderPostData([]);
+      resetOrderPostData();
       dispatch(resetReplaceCodeStatus());
       // Keep skeleton a moment longer so the re-fetch has time to start
       setTimeout(() => setIsPendingUpdate(false), 800);
@@ -748,8 +757,8 @@ const ImportList: React.FC = () => {
     // 2. Wipe the product SKU tracker and details so every SKU re-fetches
     fetchedSkusRef.current.clear();
     dispatch(clearProductDetails());
-    // 3. Reset orderPostData so the main shipping/product effect re-runs
-    setOrderPostData([]);
+    // 3. Reset orderPostData (also resets in-flight guard) so the main shipping effect re-runs
+    resetOrderPostData();
     // 4. Re-fetch orders from the server
     await dispatch(fetchOrder(customerInfo?.data?.account_id));
     setIsRefreshingOrders(false);
@@ -907,7 +916,7 @@ const ImportList: React.FC = () => {
           }
           // Refresh orders
           dispatch(fetchOrder(customerInfo?.data?.account_id));
-          setOrderPostData([]);
+          resetOrderPostData();
           // Clear the fetchedSkusRef to allow re-fetching product details
           fetchedSkusRef.current.clear();
         } else {
@@ -973,11 +982,27 @@ const ImportList: React.FC = () => {
 
   useEffect(() => {
     if (orders?.data?.length && !orderPostData.length) {
+      // Don't re-enter while a fetch batch is already in progress
+      if (shippingFetchInProgressRef.current) return;
+
       const validOrders = orders?.data?.filter(
         (order) => (order?.order_items && order?.order_items?.length > 0) && order?.shipping_code != null && order?.shipping_code !== ""
-
       );
       console.log("validOrders", validOrders);
+
+      // Short-circuit: if every valid order is already in the cache with a matching
+      // fingerprint we don't need to fetch anything — avoid setting orderPostData
+      // (which would cause a 2-second stale window when the ref is cleared later).
+      const allCached = validOrders?.length > 0 && validOrders.every((order: any) => {
+        const fp = buildOrderFingerprint(order);
+        const cached = shippingCacheRef.current[order.order_po];
+        return cached && cached.fingerprint === fp;
+      });
+      if (allCached) {
+        console.log('[shipping/effect] All valid orders cached — skipping fetch');
+        return;
+      }
+
       const orderPostDataList = validOrders
         ?.map((order) => ({
           order_po: order?.order_po,
@@ -1030,8 +1055,18 @@ const ImportList: React.FC = () => {
         }
       });
 
-      dispatchShippingSelectively(orderPostDataList);
+      // Mark in-progress BEFORE setting orderPostData so no concurrent run starts
+      shippingFetchInProgressRef.current = true;
       setOrderPostData(orderPostDataList);
+
+      // Run the async shipping fetch without blocking the render
+      (async () => {
+        try {
+          await dispatchShippingSelectively(orderPostDataList);
+        } finally {
+          shippingFetchInProgressRef.current = false;
+        }
+      })();
       
       if (ProductDetails && ProductDetails.length > 0) {
         dispatch(fetchProductDetails(ProductDetails));

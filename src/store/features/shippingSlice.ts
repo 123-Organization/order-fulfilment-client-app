@@ -1,4 +1,5 @@
 import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { REHYDRATE } from "redux-persist";
 import config from "../../config/configs";
 
 const BASE_URL = config.SERVER_BASE_URL;
@@ -48,8 +49,14 @@ const loadPersistedErrors = (): {
 
 const persisted = loadPersistedErrors();
 
+// Derive shippingOptions from the cache at startup so the initial state is
+// consistent even before redux-persist fires its REHYDRATE action.
+const initialShippingOptions = Object.values(persisted.shippingCache).flatMap(
+  (e: ShippingCacheEntry) => e.data
+);
+
 const initialState: ShippingState = {
-  shippingOptions: [],
+  shippingOptions: initialShippingOptions,
   shipping_preferences: [],
   currentOption: null,
   recipientErrors: persisted.recipientErrors,
@@ -392,6 +399,18 @@ export const shipping = createSlice({
 
     builder.addCase(fetchShippingOptionSingle.rejected, (state, action) => {
       console.error("[shipping/single] rejected:", action.error.message);
+    });
+
+    // When redux-persist rehydrates the store it restores shippingCache but
+    // leaves shippingOptions as [] (we no longer persist it directly).
+    // Rebuild shippingOptions immediately so the UI never sees an empty array
+    // while valid cache data exists.
+    builder.addCase(REHYDRATE, (state, action: any) => {
+      if (action.key === 'shipping' && action.payload?.shippingCache) {
+        const cache: Record<string, ShippingCacheEntry> = action.payload.shippingCache;
+        state.shippingCache = cache;
+        state.shippingOptions = Object.values(cache).flatMap(e => e.data);
+      }
     });
   },
 });

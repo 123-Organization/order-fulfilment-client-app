@@ -4,8 +4,6 @@ import { useAppSelector } from "../store";
 import Spinner from "./Spinner";
 import { updateCurrentOption } from "../store/features/shippingSlice";
 import { useAppDispatch } from "../store";
-import { setBatchShippingResults } from "../store/features/shippingSlice";
-import config from "../config/configs";
 import { updateOrdersInfo } from "../store/features/orderSlice";
 
 interface ShippingOption {
@@ -59,8 +57,6 @@ const SelectShippingOption: React.FC<{
   productchange,
   clicking,
 }) => {
-  const BASE_URL = config.SERVER_BASE_URL;
- 
   const dispatch = useAppDispatch();
 
   const orders = useAppSelector((state) => state.order.orders || []);
@@ -369,57 +365,11 @@ const SelectShippingOption: React.FC<{
   );
   // console.log("productchange", productchange);
 
-  useEffect(() => {
-    if (localOrder?.order_items?.length > 0 || productchange) {
-     
-      // console.log("firedddd", currentOption);
-      const orderPostDataList = {
-        order_po: localOrder.order_po,
-        order_items: localOrder.order_items.map((item: OrderItem) => ({
-          product_order_po: localOrder.order_po,
-          product_qty: item.product_qty,
-          product_sku: item.product_sku,
-          product_image: {
-            product_url_file:
-              "https://inventory.finerworks.com/81de5dba-0300-4988-a1cb-df97dfa4e372/s173618563107067060__shutterstock_2554522269/thumbnail/200x200_s173618563107067060__shutterstock_2554522269.jpg",
-            product_url_thumbnail:
-              "https://inventory.finerworks.com/81de5dba-0300-4988-a1cb-df97dfa4e372/s173618563107067060__shutterstock_2554522269/thumbnail/200x200_s173618563107067060__shutterstock_2554522269.jpg",
-          },
-        })),
-      };
-      // console.log("Product changed, refetching shipping options");
-      // Fire one request for this order, then commit in a single Redux dispatch
-      const orderPo: string = orderPostDataList.order_po;
-      const body = {
-        account_key: customerinfo?.data?.account_key,
-        orders: [{ order_po: orderPo, order_key: null, recipient: localOrder.recipient, order_items: orderPostDataList.order_items, shipping_code: localOrder.shipping_code }],
-      };
-      fetch(`${BASE_URL}shipping-options`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
-        .then(async (response) => {
-          if (!response.ok) {
-            const errData = await response.json().catch(() => ({}));
-            const modelState: Record<string, string[]> = errData?.error?.ModelState || {};
-            const recipientErrors: Record<string, Record<string, string[]>> = {};
-            const itemErrors: Record<string, string[]> = {};
-            Object.entries(modelState).forEach(([key, msgs]) => {
-              const rm = key.match(/request\.orders\[0\]\.recipient\.(\w+)/);
-              if (rm) { if (!recipientErrors[orderPo]) recipientErrors[orderPo] = {}; recipientErrors[orderPo][rm[1]] = msgs as string[]; return; }
-              const im = key.match(/request\.orders\[0\]\.order_items\[\d+\]\.\w+/);
-              if (im) { if (!itemErrors[orderPo]) itemErrors[orderPo] = []; (msgs as string[]).forEach(m => { if (!itemErrors[orderPo].includes(m)) itemErrors[orderPo].push(m); }); }
-            });
-            dispatch(setBatchShippingResults({ data: [], recipientErrors, itemErrors }));
-          } else {
-            const json = await response.json();
-            dispatch(setBatchShippingResults({ data: json.data || [], recipientErrors: {}, itemErrors: {} }));
-          }
-        })
-        .catch((err) => console.error(`[SelectShippingOption] fetch error for ${orderPo}:`, err));
-    }
-  }, [localOrder, productchange, ]);
+  // NOTE: Shipping fetching is handled centrally by ImportList via dispatchShippingSelectively.
+  // SelectShippingOption must NOT fetch shipping itself — having one fetch per mounted order
+  // instance causes each to call setBatchShippingResults (which REPLACES shippingOptions with
+  // only that order's data), destroying all other orders' options and leaving them stuck on the
+  // spinner. This component is display-only; it reads from the Redux shippingOptions array.
 
   // console.log("productchange", productchange);
 

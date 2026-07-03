@@ -24,7 +24,9 @@ const orderPersistConfig = {
 const shippingPersistConfig = {
   key: 'shipping',
   storage,
-  whitelist: ['shippingOptions', 'currentOption',],
+  // shippingOptions is always derived from shippingCache — persist the cache instead
+  // so the two never get out of sync across page reloads.
+  whitelist: ['shippingCache', 'currentOption'],
 };
 
 // Create a persist configuration for the company slice
