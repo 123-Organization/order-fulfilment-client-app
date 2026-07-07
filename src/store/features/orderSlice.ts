@@ -860,7 +860,9 @@ export const OrderSlice = createSlice({
       state.updatedValues = action.payload;
     },
     updateImport: (state, action: PayloadAction) => {
-      state.myImport = action.payload;
+      // Merge into the existing import filter so that selecting a status
+      // doesn't wipe a previously-chosen date range and vice-versa.
+      state.myImport = { ...state.myImport, ...action.payload };
     },
     resetImport: (state) => {
       state.myImport = {};

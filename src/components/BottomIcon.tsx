@@ -1171,12 +1171,15 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
 
             const payload = result.payload as any;
 
-            // Handle various response shapes from the Shippo API
+            // Handle various response shapes from the Shippo API.
+            // The backend may wrap the Shippo response differently, so we
+            // try every known key before giving up.
             const rawOrders: any[] =
-              Array.isArray(payload?.orders) ? payload.orders
-                : Array.isArray(payload?.results) ? payload.results
-                  : Array.isArray(payload) ? payload
-                    : [];
+              Array.isArray(payload?.orders)  ? payload.orders
+              : Array.isArray(payload?.results) ? payload.results
+              : Array.isArray(payload?.data)    ? payload.data
+              : Array.isArray(payload)          ? payload
+              : [];
 
             if (rawOrders.length > 0) {
               const transformedOrders = rawOrders.map((shippoOrder: any, orderIndex: number) => {
@@ -1223,7 +1226,16 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                 orders: transformedOrders,
               };
 
-              dispatch(saveShopifyOrder(sendData));
+              const saveResult = await dispatch(saveShopifyOrder(sendData));
+              console.log('[Etsy] saveShopifyOrder result:', saveResult);
+
+              if ((saveResult as any).meta?.requestStatus === 'rejected') {
+                notification.error({
+                  message: 'Upload Failed',
+                  description: 'Orders were fetched from Etsy but could not be uploaded to pending orders. Please try again.',
+                });
+                return;
+              }
 
               notification.success({
                 message: 'Success',
@@ -1237,6 +1249,8 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                 navigate('/importlist');
               }, 2000);
             } else {
+              // Log the full payload so we can diagnose unexpected response shapes
+              console.warn('[Etsy] No orders extracted from Shippo payload:', payload);
               notification.warning({
                 message: 'No Orders Found',
                 description:
