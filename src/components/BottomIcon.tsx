@@ -24,7 +24,7 @@ import { updateCompanyInfo } from "../store/features/companySlice";
 import { resetRecipientStatus } from "../store/features/orderSlice";
 import { clearOrderErrors } from "../store/features/shippingSlice";
 import style from "./Components.module.css";
-import { fetchWporder, fetchShopifyOrders, fetchShopifyOrderByName, fetchSquarespaceOrders, fetchSquarespaceOrderByNumber, resetSquarespaceImportStatus, updateWporder, fetchWixOrders, fetchWixOrderByNumber, resetWixImportStatus, fetchShippoOrders, resetShippoImportStatus } from "../store/features/orderSlice";
+import { fetchWporder, fetchShopifyOrders, fetchShopifyOrderByName, fetchSquarespaceOrders, fetchSquarespaceOrderByNumber, resetSquarespaceImportStatus, updateWporder, fetchWixOrders, fetchWixOrderByNumber, resetWixImportStatus, fetchShippoOrders, resetShippoImportStatus, fetchSquareOrders, resetSquareImportStatus } from "../store/features/orderSlice";
 type NotificationType = "success" | "info" | "warning" | "error";
 interface NotificationAlertProps {
   type: NotificationType;
@@ -108,6 +108,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   ];
   const pathNameAvoidUpdateProfile = ["/importfilter"];
   const wporder = useAppSelector((state) => state.order.Wporder);
+  const isShippingLoading = useAppSelector((state) => state.order.isShippingLoading);
   const myCompanyInfoFilled = useAppSelector(
     (state) => state.company.myCompanyInfoFilled
   );
@@ -1188,7 +1189,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                 const lineItems: any[] = shippoOrder.line_items || [];
 
                 return {
-                  order_po: `ETSY_${shippoOrder.order_number || shippoOrder.object_id || orderIndex}`,
+                  order_po: String(shippoOrder.order_number || shippoOrder.object_id || orderIndex).replace(/^ETSY[-_]?/i, ''),
                   order_key: shippoOrder.object_id || '',
                   source: 'etsy',
                   recipient: {
@@ -1266,6 +1267,133 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
             });
           } finally {
             dispatch(resetShippoImportStatus());
+            setNextSpinning(false);
+          }
+        }
+
+        // ── Handle Square orders ────────────────────────────────────────────────
+        else if (platformType === 'Square') {
+          const accountKey = customerInfo?.data?.account_key || '';
+
+          if (!accountKey) {
+            notification.error({
+              message: 'Not Connected',
+              description: 'No Square credentials found. Please reconnect your Square store.',
+            });
+            setTimeout(() => navigate('/'), 1500);
+            return;
+          }
+
+          setNextSpinning(true);
+
+          try {
+            const result = await dispatch(
+              fetchSquareOrders({
+                account_key: accountKey,
+                start_date: myImport?.start_date,
+                end_date: myImport?.end_date,
+                status: myImport?.status,
+              })
+            );
+
+            const payload = result.payload as any;
+
+            // Square API may return { orders: [...] } or { items: [...] } or a plain array
+            const rawOrders: any[] =
+              Array.isArray(payload?.orders) ? payload.orders
+              : Array.isArray(payload?.items)  ? payload.items
+              : Array.isArray(payload?.data)   ? payload.data
+              : Array.isArray(payload)         ? payload
+              : [];
+
+            if (rawOrders.length > 0) {
+              const transformedOrders = rawOrders.map((sqOrder: any, orderIndex: number) => {
+                // Square order structure uses fulfillments for shipping address
+                const fulfillment = sqOrder.fulfillments?.[0] || {};
+                const addr = fulfillment.shipment_details?.recipient?.address
+                  || sqOrder.shipping_address
+                  || {};
+                const recipient = fulfillment.shipment_details?.recipient || {};
+                const lineItems: any[] = sqOrder.line_items || sqOrder.lineItems || [];
+
+                return {
+                  order_po: `SQUARE_${sqOrder.id || orderIndex}`,
+                  order_key: sqOrder.id || '',
+                  source: 'square',
+                  recipient: {
+                    first_name: recipient.display_name?.split(' ')[0] || addr.first_name || '',
+                    last_name:  recipient.display_name?.split(' ').slice(1).join(' ') || addr.last_name || '',
+                    company_name: addr.company || '',
+                    address_1: addr.address_line_1 || addr.street1 || '',
+                    address_2: addr.address_line_2 || addr.street2 || '',
+                    address_3: '',
+                    city: addr.locality || addr.city || '',
+                    state_code: addr.administrative_district_level_1 || addr.state || '',
+                    province: addr.administrative_district_level_1 || '',
+                    zip_postal_code: addr.postal_code || addr.zip || '',
+                    country_code: addr.country || 'US',
+                    phone: recipient.phone_number || sqOrder.customer?.phone_number || '',
+                    email: recipient.email_address || sqOrder.customer?.email_address || '',
+                    address_order_po: '',
+                  },
+                  order_items: lineItems.map((item: any, itemIndex: number) => ({
+                    product_order_po: `SQUARE_P_${orderIndex}_${itemIndex}`,
+                    product_qty: item.quantity ? parseInt(item.quantity, 10) : 1,
+                    product_sku: item.catalog_object_id || item.sku || '',
+                    product_title: item.name || item.title || '',
+                    product_guid: item.uid || item.id || crypto.randomUUID(),
+                  })),
+                  order_status: 'Processing',
+                  shipping_code: 'GD',
+                  test_mode: false,
+                };
+              });
+
+              const sendData = {
+                accountId: customerInfo?.data?.account_id,
+                payment_token: customerInfo?.data?.account_key,
+                orders: transformedOrders,
+              };
+
+              const saveResult = await dispatch(saveShopifyOrder(sendData));
+              console.log('[Square] saveShopifyOrder result:', saveResult);
+
+              if ((saveResult as any).meta?.requestStatus === 'rejected') {
+                notification.error({
+                  message: 'Upload Failed',
+                  description: 'Orders were fetched from Square but could not be uploaded to pending orders. Please try again.',
+                });
+                return;
+              }
+
+              notification.success({
+                message: 'Success',
+                description: `${transformedOrders.length} Square order(s) imported successfully`,
+              });
+
+              setTimeout(() => {
+                dispatch(resetSaveOrderInfo());
+                dispatch(resetImport());
+                dispatch(updateWporder('' as any));
+                navigate('/importlist');
+              }, 2000);
+            } else {
+              console.warn('[Square] No orders extracted from Square payload:', payload);
+              notification.warning({
+                message: 'No Orders Found',
+                description:
+                  (payload as any)?.message ||
+                  'No Square orders matched the selected criteria.',
+              });
+            }
+          } catch (error) {
+            console.error('Error fetching Square orders:', error);
+            notification.error({
+              message: 'Error',
+              description: 'An error occurred while fetching Square orders.',
+            });
+          } finally {
+            dispatch(resetSquareImportStatus());
             setNextSpinning(false);
           }
         }
@@ -1616,9 +1744,8 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
         );
 
         if (product) {
-          newTotalPrice += order.Product_price?.grand_total
-            ? order.Product_price?.grand_total
-            : order.Product_price?.credit_charge;
+          const price = order.Product_price?.grand_total ?? order.Product_price?.credit_charge ?? 0;
+          newTotalPrice += Number(price) || 0;
         }
       });
       setGrandtotal(newTotalPrice);
@@ -1734,7 +1861,11 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   <div className="h-8 w-px bg-white/40"></div>
                   <span className="flex items-center gap-3 bg-white/90 backdrop-blur-sm px-5 py-2 rounded-xl shadow-lg">
                     <span className="text-gray-700 font-semibold">Total:</span>
-                    <span className="font-bold text-blue-600 text-xl">${grandTotal.toFixed(2)}</span>
+                    {isShippingLoading ? (
+                      <Spin size="small" className="ml-2" />
+                    ) : (
+                      <span className="font-bold text-blue-600 text-xl">${(Number(grandTotal) || 0).toFixed(2)}</span>
+                    )}
                   </span>
                 </>
               )}

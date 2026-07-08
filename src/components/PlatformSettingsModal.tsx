@@ -114,6 +114,23 @@ const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
         }
         dispatch(resetStatus());
         dispatch(updateCompanyInfo({}));
+      } else if (platform === "Square") {
+        // Square has its own dedicated disconnect endpoint
+        const res = await fetch(
+          'https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/square/disconnect',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ account_key: accountKey }),
+          }
+        );
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.message || 'Failed to disconnect Square');
+        }
+        dispatch(resetStatus());
+        dispatch(updateCompanyInfo({}));
+
       } else if (platform === "Shopify") {
         await dispatch(disconnectShopify({ account_key: accountKey }));
         dispatch(clearShopifyCredentials());

@@ -35,6 +35,8 @@ interface OrderState {
   wixImportStatus: "idle" | "loading" | "succeeded" | "failed";
   shippoOrdersResponse: any;
   shippoImportStatus: "idle" | "loading" | "succeeded" | "failed";
+  squareOrdersResponse: any;
+  squareImportStatus: "idle" | "loading" | "succeeded" | "failed";
   Wporder: any;
   appLunched: boolean;
   iframeOpened: boolean;
@@ -56,6 +58,7 @@ interface OrderState {
   submitStatus: "idle" | "loading" | "succeeded" | "failed";
   sendOrderInfoStatus: "idle" | "loading" | "succeeded" | "failed";
   updateImageStatus: "idle" | "loading" | "succeeded" | "failed";
+  isShippingLoading: boolean;
 
 }
 
@@ -82,6 +85,8 @@ const initialState: OrderState = {
   wixImportStatus: "idle",
   shippoOrdersResponse: null,
   shippoImportStatus: "idle",
+  squareOrdersResponse: null,
+  squareImportStatus: "idle",
   validSKU: [],
   validatedOrders: {},
   error: null,
@@ -99,6 +104,7 @@ const initialState: OrderState = {
   submitStatus: "idle",
   sendOrderInfoStatus: "idle",
   updateImageStatus: "idle",
+  isShippingLoading: false,
 };
 
 export const fetchOrder = createAsyncThunk(
@@ -642,6 +648,46 @@ export const fetchShippoOrders = createAsyncThunk(
   }
 );
 
+// ── Square orders ─────────────────────────────────────────────────────────────
+export const fetchSquareOrders = createAsyncThunk(
+  "order/fetch/square",
+  async (
+    postData: {
+      account_key: string;
+      start_date?: string;
+      end_date?: string;
+      status?: string;
+      limit?: number;
+    },
+    thunkAPI
+  ) => {
+    console.log('Fetching Square orders with:', postData);
+    try {
+      const response = await fetch(
+        'https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/square/orders',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(postData),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error('API error in fetchSquareOrders:', data);
+        return thunkAPI.rejectWithValue(data);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('API call failed in fetchSquareOrders:', error);
+      return thunkAPI.rejectWithValue('Failed to fetch Square orders');
+    }
+  }
+);
+
+
 export const DeleteAllOrders = createAsyncThunk(
   "order/delete/all",
   async (postData: any, thunkAPI) => {
@@ -850,6 +896,9 @@ export const OrderSlice = createSlice({
     resetOrderStatus: (state) => {
       state.status = "idle";
     },
+    setShippingLoading: (state, action: PayloadAction<boolean>) => {
+      state.isShippingLoading = action.payload;
+    },
     resetProductDataStatus: (state) => {
       state.productDataStatus = "idle";
     },
@@ -950,6 +999,12 @@ export const OrderSlice = createSlice({
     },
     resetShippoImportStatus: (state) => {
       state.shippoImportStatus = 'idle';
+    },
+    resetSquareOrdersResponse: (state) => {
+      state.squareOrdersResponse = null;
+    },
+    resetSquareImportStatus: (state) => {
+      state.squareImportStatus = 'idle';
     },
     resetSaveOrderInfo: (state) => {
       state.saveOrderInfo = {}
@@ -1168,6 +1223,18 @@ export const OrderSlice = createSlice({
       state.shippoImportStatus = 'failed';
       state.error = (action.payload as any)?.message || (action.payload as string);
     });
+    // ── Square orders ────────────────────────────────────────────────────────
+    builder.addCase(fetchSquareOrders.pending, (state) => {
+      state.squareImportStatus = 'loading';
+    });
+    builder.addCase(fetchSquareOrders.fulfilled, (state, action) => {
+      state.squareOrdersResponse = action.payload;
+      state.squareImportStatus = 'succeeded';
+    });
+    builder.addCase(fetchSquareOrders.rejected, (state, action) => {
+      state.squareImportStatus = 'failed';
+      state.error = (action.payload as any)?.message || (action.payload as string);
+    });
 
     builder.addCase(sendOrderInformation.fulfilled, (state, action) => {
       state.sendOrderInfoStatus = 'succeeded';
@@ -1202,4 +1269,4 @@ export const OrderSlice = createSlice({
 });
 
 export default OrderSlice.reducer;
-export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, updateIframe, updateApp, updateOpenSheet, updateExcludedOrders, resetExcludedOrders, updateValidSKU, resetValidSKU, updateReplacingCode, resetReplacingCode, resetReplaceCodeResult, resetReplaceCodeStatus, resetSubmitStatus, resetSendOrderInfoStatus, resetSubmitOrdersResponse, resetShopifyOrdersResponse, resetSaveOrderInfo, resetUpdateImageStatus, resetSquarespaceOrdersResponse, resetSquarespaceImportStatus, resetWixOrdersResponse, resetWixImportStatus, resetShippoOrdersResponse, resetShippoImportStatus } = OrderSlice.actions;
+export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setShippingLoading, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, updateIframe, updateApp, updateOpenSheet, updateExcludedOrders, resetExcludedOrders, updateValidSKU, resetValidSKU, updateReplacingCode, resetReplacingCode, resetReplaceCodeResult, resetReplaceCodeStatus, resetSubmitStatus, resetSendOrderInfoStatus, resetSubmitOrdersResponse, resetShopifyOrdersResponse, resetSaveOrderInfo, resetUpdateImageStatus, resetSquarespaceOrdersResponse, resetSquarespaceImportStatus, resetWixOrdersResponse, resetWixImportStatus, resetShippoOrdersResponse, resetShippoImportStatus, resetSquareOrdersResponse, resetSquareImportStatus } = OrderSlice.actions;

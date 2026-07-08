@@ -16,6 +16,7 @@ import {
 import { fetchOrder } from "../store/features/orderSlice";
 import { setBatchShippingResults, updateShippingCacheEntries, invalidateShippingCacheEntries, clearAllShippingCache } from "../store/features/shippingSlice";
 import { clearProductData, clearSelectedImage, fetchProductDetails, clearProductDetails } from "../store/features/productSlice";
+import ImageGalleryModal from "../components/ImageGalleryModal";
 import { Link } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store";
 import { useNavigate } from "react-router-dom";
@@ -34,7 +35,7 @@ import {
   updateExcludedOrders,
   updateOrdersInfo,
 } from "../store/features/orderSlice";
-import { updateValidSKU, resetValidSKU } from "../store/features/orderSlice";
+import { updateValidSKU, resetValidSKU, setShippingLoading } from "../store/features/orderSlice";
 import PopupModal from "../components/PopupModal";
 import VirtualInvModal from "../components/VirtualInvModal";
 import ReplacingCode from "../components/ReplacingCode";
@@ -98,7 +99,7 @@ const ImportList: React.FC = () => {
    *  calling resetOrderPostData() directly. */
   const resetOrderPostData = () => {
     shippingFetchInProgressRef.current = false;
-    resetOrderPostData();
+    setOrderPostData([]);
   };
   const [DeleteMessageVisible, setDeleteMessageVisible] = useState(false);
   const [orderFullFillmentId, setOrderFullFillmentId] = useState("");
@@ -133,6 +134,11 @@ const ImportList: React.FC = () => {
   const [productToDelete, setProductToDelete] = useState<{ product_guid: string; orderFullFillmentId: string; order_po: string } | null>(null);
   // State for expanded labels
   const [expandedLabels, setExpandedLabels] = useState<Set<string>>(new Set());
+  // State for the image-gallery "change image" flow
+  const [imageGalleryTarget, setImageGalleryTarget] = useState<{
+    orderItem: any;
+    order: any;
+  } | null>(null);
 
   const toggleLabels = (productSku: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -643,17 +649,25 @@ const ImportList: React.FC = () => {
       return;
     }
 
-    // Only update if product_details has changed and is valid
+    // Only update if product_details has changed and is valid.
+    // A product is considered valid when the API responded with isActiveSKU === true.
+    // We key validSKUs on the product_guid so that placeholder-image products (which
+    // have sku:null but a real product_code and isActiveSKU:true) are still treated
+    // as valid, while truly invalid SKUs (isActiveSKU:false) are excluded.
     if (
       product_details &&
       Array.isArray(product_details) &&
       product_details.length > 0
     ) {
       const validCodes = product_details
-        .filter((product: any) => product?.sku || product.product_code)
-        .map((product: any) =>
-          (product?.sku || product.product_code).toString()
-        );
+        .filter((product: any) => product?.isActiveSKU !== false)
+        .flatMap((product: any) => {
+          const codes: string[] = [];
+          if (product?.sku) codes.push(product.sku.toString());
+          if (product?.product_code) codes.push(product.product_code.toString());
+          if (product?.product_guid) codes.push(product.product_guid.toString());
+          return codes;
+        });
 
       // Only dispatch if validCodes is different from current validSKUs
       if (JSON.stringify(validCodes) !== JSON.stringify(validSKUs)) {
@@ -793,17 +807,34 @@ const ImportList: React.FC = () => {
     };
   }, []);
 
-  let products: any = {};
   useEffect(() => {
     if (product_details && product_details?.length) {
-      product_details?.map((product, index) => {
-        products[product.sku] = product;
-        products[product?.product_code] = product;
-        products[product?.product_guid] = product;
-      });
+      // Merge with existing productData — do NOT replace it wholesale.
+      // product_details may be fetched in multiple batches (one per order),
+      // so each batch must ADD to the accumulated map rather than reset it.
+      setProductData((prev: any) => {
+        const next = { ...prev };
+        product_details.forEach((product: any) => {
+          // SKU (may be null for products keyed only by product_code)
+          if (product.sku != null) next[product.sku] = product;
 
-      console.log("productdadsadata", productData);
-      setProductData(products);
+          // product_code — store both original case and lowercase so mixed-case
+          // order SKUs (e.g. "18M163M93S12x15" vs "18M163M93S12X15") both resolve
+          if (product.product_code != null) {
+            next[product.product_code] = product;
+            next[product.product_code.toLowerCase()] = product;
+          }
+
+          // product_guid — the API returns it WITH dashes ("9ddd63d2-eae5-...")
+          // but order items often store it WITHOUT dashes ("9ddd63d2eae5...").
+          // Store both so the lookup works regardless of format.
+          if (product.product_guid != null) {
+            next[product.product_guid] = product;
+            next[product.product_guid.replace(/-/g, '')] = product;
+          }
+        });
+        return next;
+      });
     }
   }, [product_details]);
 
@@ -1061,10 +1092,12 @@ const ImportList: React.FC = () => {
 
       // Run the async shipping fetch without blocking the render
       (async () => {
+        dispatch(setShippingLoading(true));
         try {
           await dispatchShippingSelectively(orderPostDataList);
         } finally {
           shippingFetchInProgressRef.current = false;
+          dispatch(setShippingLoading(false));
         }
       })();
       
@@ -1147,7 +1180,14 @@ const ImportList: React.FC = () => {
         }))?.flat();
 
         if (orderPostDataList?.length) {
-        dispatchShippingSelectively(orderPostDataList);
+          (async () => {
+            dispatch(setShippingLoading(true));
+            try {
+              await dispatchShippingSelectively(orderPostDataList);
+            } finally {
+              dispatch(setShippingLoading(false));
+            }
+          })();
           setOrderPostData(orderPostDataList);
         }
       }
@@ -1171,9 +1211,17 @@ const ImportList: React.FC = () => {
               order.order_items.length > 0 &&
               order.shipping_code != null &&
               order.shipping_code !== "" &&
-              validSKUs.includes(
-                order.order_items[0]?.product_sku?.toString()
-              ) &&
+              // All items must be valid — a product is invalid only if the API
+              // explicitly responded with isActiveSKU:false for that product_guid.
+              !order.order_items.some((item: any) => {
+                const detail =
+                  product_details?.find((p: any) => p.product_guid?.replace(/-/g, '') === item.product_guid?.replace(/-/g, '')) ??
+                  product_details?.find((p: any) =>
+                    (p.sku && p.sku.toString().toLowerCase() === item.product_sku?.toString().toLowerCase()) ||
+                    (p.product_code && p.product_code.toString().toLowerCase() === item.product_sku?.toString().toLowerCase())
+                  );
+                return detail ? detail.isActiveSKU === false : false;
+              }) &&
               !excludedOrders.includes(order.order_po) &&
               (!recipientErrors[order.order_po] || Object.keys(recipientErrors[order.order_po]).length === 0)
           )
@@ -1184,7 +1232,10 @@ const ImportList: React.FC = () => {
             productData: order.order_items,
             source: order.source,
             productImage:
-              productData[order.order_items[0]?.product_sku]?.image_url_1,
+              productData[order.order_items[0]?.product_guid]?.image_url_1
+              ?? productData[order.order_items[0]?.product_guid?.replace(/-/g, '')]?.image_url_1
+              ?? productData[order.order_items[0]?.product_sku]?.image_url_1
+              ?? productData[order.order_items[0]?.product_sku?.toLowerCase()]?.image_url_1,
           }))
         : [];
 
@@ -1248,12 +1299,56 @@ const ImportList: React.FC = () => {
     dispatch(updateCheckedOrders(updatedOrders));
   };
 
+  /**
+   * Returns true if ANY item in the order has been confirmed invalid by the API.
+   * An item is invalid when product_details contains a matching entry (by product_guid
+   * or SKU) with isActiveSKU === false — i.e. the API responded and said so.
+   * Products whose details haven't been fetched yet are NOT considered invalid.
+   */
   const hasInvalidSKUs = (orderItems: any[]) => {
-    return orderItems?.some(item => !validSKUs.includes(item.product_sku?.toString()));
+    return orderItems?.some(item => {
+      // Look up the API response for this item — prefer product_guid match first
+      const detail =
+        // Normalize GUIDs before comparing — API returns with dashes, orders often store without
+        product_details?.find((p: any) => p.product_guid?.replace(/-/g, '') === item.product_guid?.replace(/-/g, '')) ??
+        product_details?.find((p: any) =>
+          (p.sku && p.sku.toString().toLowerCase() === item.product_sku?.toString().toLowerCase()) ||
+          (p.product_code && p.product_code.toString().toLowerCase() === item.product_sku?.toString().toLowerCase())
+        );
+      // Only flag invalid if the API has responded and explicitly said so
+      return detail ? detail.isActiveSKU === false : false;
+    });
   };
 
+  // Centralized robust lookup for product data that handles dash mismatches in GUIDs
+  // and case mismatches in SKUs.
+  const getProductDetail = useCallback((item?: { product_guid?: string; product_sku?: string } | any) => {
+    if (!item || !productData) return null;
+    const { product_guid, product_sku } = item;
+    
+    // 1. Try exact GUID
+    if (product_guid && productData[product_guid]) return productData[product_guid];
+    
+    // 2. Try stripped GUID (API returns with dashes, order items often without)
+    if (product_guid) {
+      const strippedGuid = String(product_guid).replace(/-/g, '');
+      if (productData[strippedGuid]) return productData[strippedGuid];
+    }
+    
+    // 3. Try exact SKU
+    if (product_sku && productData[product_sku]) return productData[product_sku];
+    
+    // 4. Try lowercase SKU (case mismatch fallback)
+    if (product_sku) {
+      const lowerSku = String(product_sku).toLowerCase();
+      if (productData[lowerSku]) return productData[lowerSku];
+    }
+    
+    return null;
+  }, [productData]);
+
   // Function to get the correct image URL, handling Google Drive links
-  const getImageUrl = useCallback((order: any, productSku: string): string => {
+  const getImageUrl = useCallback((order: any, productSku: string, productGuid?: string): string => {
     let imageUrl = "";
     console.log(order?.product_url_thumbnail, "order?.order_items?.product_image?.product_url_thumbnail")
     // Try thumbnail first, then fallback to product data
@@ -1261,9 +1356,9 @@ const ImportList: React.FC = () => {
       imageUrl = order.product_url_thumbnail;
     } else if (order?.product_image?.product_url_thumbnail) {
       imageUrl = order.product_image.product_url_thumbnail;
-    }
-    else if (productData[productSku]?.image_url_1) {
-      imageUrl = productData[productSku].image_url_1;
+    } else {
+      const entry = getProductDetail({ product_sku: productSku, product_guid: productGuid });
+      if (entry?.image_url_1) imageUrl = entry.image_url_1;
     }
 
     // Convert Google Drive URLs to direct image URLs
@@ -1558,9 +1653,17 @@ const ImportList: React.FC = () => {
                       <li className="flex-1">
                         {(() => {
                           const apisNotReady = product_status !== "succeeded" || shipping_option.length === 0;
-                          const hasInvalidSku = order?.order_items?.some(
-                            (item: any) => !product_details?.some((p: any) => p.sku === item.product_sku || p.product_code === item.product_sku)
-                          );
+                          // An item is invalid only if the API explicitly responded with isActiveSKU:false.
+                          // Items whose product_details haven't loaded yet are NOT treated as invalid.
+                          const hasInvalidSku = order?.order_items?.some((item: any) => {
+                            const detail =
+                              product_details?.find((p: any) => p.product_guid?.replace(/-/g, '') === item.product_guid?.replace(/-/g, '')) ??
+                              product_details?.find((p: any) =>
+                                (p.sku && p.sku.toString().toLowerCase() === item.product_sku?.toString().toLowerCase()) ||
+                                (p.product_code && p.product_code.toString().toLowerCase() === item.product_sku?.toString().toLowerCase())
+                              );
+                            return detail ? detail.isActiveSKU === false : false;
+                          });
                           const hasAddressIssues = !!recipientErrors[order?.order_po];
                           const hasItemIssues = !!itemErrors[order?.order_po];
                           
@@ -1646,7 +1749,11 @@ const ImportList: React.FC = () => {
                                     order_po: order?.order_po,
                                     Product_price: getShippingPrice(order?.order_po),
                                     productData: order?.order_items,
-                                    productImage: productData[order?.order_items[0]?.product_sku]?.image_url_1,
+                                    productImage: 
+                                      productData[order?.order_items[0]?.product_guid]?.image_url_1
+                                      ?? productData[order?.order_items[0]?.product_guid?.replace(/-/g, '')]?.image_url_1
+                                      ?? productData[order?.order_items[0]?.product_sku]?.image_url_1
+                                      ?? productData[order?.order_items[0]?.product_sku?.toLowerCase()]?.image_url_1,
                                   };
                                   dispatch(updateCheckedOrders([...checkedOrders, parsedValue]));
                                   dispatch(updateExcludedOrders(excludedOrders.filter((o) => o !== order.order_po)));
@@ -1910,9 +2017,21 @@ const ImportList: React.FC = () => {
                         />
                         {order?.order_items.length > 0 ? (
                           <>
-                            {order?.order_items?.map((orderItem) =>
-                              product_details.length > 0 &&
-                                !validSKUs.includes((orderItem.product_sku ?? '').toString()) ? (
+                            {order?.order_items?.map((orderItem) => {
+                              // Determine validity based on what the API returned for this item.
+                              // Match by product_guid first (most reliable), then fall back to
+                              // case-insensitive SKU / product_code comparison.
+                              const itemDetail =
+                                product_details?.find((p: any) => p.product_guid?.replace(/-/g, '') === orderItem.product_guid?.replace(/-/g, '')) ??
+                                product_details?.find((p: any) =>
+                                  (p.sku && p.sku.toString().toLowerCase() === orderItem.product_sku?.toString().toLowerCase()) ||
+                                  (p.product_code && p.product_code.toString().toLowerCase() === orderItem.product_sku?.toString().toLowerCase())
+                                );
+                              // Only show invalid UI when the API has responded AND explicitly
+                              // flagged this product as inactive (isActiveSKU === false).
+                              // If details haven't loaded yet, show the normal product card.
+                              const isItemInvalid = itemDetail ? itemDetail.isActiveSKU === false : false;
+                              return isItemInvalid ? (
                                 <div
                                   key={orderItem.product_sku ?? orderItem.product_guid}
                                   className="mb-4 p-4 border-2 border-red-300 rounded-lg bg-red-50 h-[220px]"
@@ -2026,6 +2145,48 @@ const ImportList: React.FC = () => {
                                     />
                                   )}
                                 </div>
+                              ) : itemDetail === undefined && product_details.length > 0 && !validSKUs.some(v => v.toLowerCase() === orderItem.product_sku?.toString().toLowerCase()) ? (
+                                // Fallback: product_details loaded but no match found for this item at all
+                                // (edge case: product_guid not in response). Treat as invalid.
+                                <div
+                                  key={orderItem.product_sku ?? orderItem.product_guid}
+                                  className="mb-4 p-4 border-2 border-red-300 rounded-lg bg-red-50 h-[220px]"
+                                  style={{
+                                    opacity: 1,
+                                    filter: "none",
+                                    boxShadow: "0 0 0 2px rgba(239,68,68,0.25), 0 4px 16px rgba(239,68,68,0.12)",
+                                    animation: "pulse-border 2s ease-in-out infinite",
+                                  }}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex-1">
+                                      <div className="flex items-center mb-2">
+                                        <svg className="w-5 h-5 text-red-500 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                        </svg>
+                                        <h2 className="text-lg font-semibold text-red-700">Invalid SKU Detected</h2>
+                                      </div>
+                                      <div className="ml-7">
+                                        <p className="text-red-600 mb-2">Current SKU: <span className="font-mono bg-red-100 px-2 py-1 rounded">{orderItem?.product_sku}</span></p>
+                                        <p className="text-sm text-red-600">This SKU is not recognized in the system. Please add a valid SKU to proceed.</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="mt-4 ml-7 flex items-center gap-3">
+                                    <button
+                                      className="h-9 inline-flex items-center px-4 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 hover:border-red-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
+                                      onClick={() => { setReplacingModal(true); setSkuToReplace(orderItem?.product_sku); setSkuOrderFullilment(invalidSKuOrderFullilment?.find((item: any) => orderItem?.product_sku === item.sku)?.orderFullFillmentId || ""); }}
+                                    >
+                                      Replace SKU
+                                    </button>
+                                    <button
+                                      className="h-9 inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-600 bg-white hover:bg-red-50 hover:border-red-400 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-400 transition-colors duration-200"
+                                      onClick={() => { setProductToDelete({ product_guid: orderItem?.product_guid, orderFullFillmentId: order?.orderFullFillmentId, order_po: order?.order_po }); setProductDeleteModalVisible(true); }}
+                                    >
+                                      Remove
+                                    </button>
+                                  </div>
+                                </div>
                               ) : (
                                 <div
                                   key={orderItem.product_sku ?? orderItem.product_guid}
@@ -2044,7 +2205,7 @@ const ImportList: React.FC = () => {
                                       {/* Image */}
                                       <div className={`flex-shrink-0 ${style.importlist_pic}`}>
                                         {(() => {
-                                          const originalImageUrl = getImageUrl(orderItem, orderItem?.product_sku);
+                                          const originalImageUrl = getImageUrl(orderItem, orderItem?.product_sku, orderItem?.product_guid);
                                           const imageKey = `${orderItem?.product_sku}-${orderItem?.product_order_po}`;
                                           const currentImageUrl = getCurrentImageUrl(imageKey, originalImageUrl);
                                           const hasError = imageErrors[imageKey];
@@ -2062,16 +2223,28 @@ const ImportList: React.FC = () => {
                                           if (!originalImageUrl || hasError) {
                                             return (
                                               <div
-                                                className="w-24 h-24 rounded border flex flex-col items-center justify-center"
+                                                className="w-24 h-24 rounded flex flex-col items-center justify-center cursor-pointer relative group transition-transform hover:scale-[1.02]"
                                                 style={{
                                                   background: isDark ? "linear-gradient(135deg,#1a2535,#141e2e)" : "linear-gradient(135deg,#f3f4f6,#e9eaec)",
-                                                  borderColor: isDark ? "#1e2d42" : "#e5e7eb",
                                                 }}
+                                                onClick={() => setImageGalleryTarget({ orderItem, order })}
+                                                title="Click to add image"
                                               >
-                                                <svg className="w-8 h-8 mb-1" style={{ color: isDark ? "#2d3f58" : "#d1d5db" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                {/* Smooth pulsing/glowing border element */}
+                                                <style>{`
+                                                  @keyframes smoothBreathingGlow {
+                                                    0%, 100% { opacity: 0.4; box-shadow: 0 0 4px rgba(96, 165, 250, 0.3); transform: scale(1); }
+                                                    50% { opacity: 0.85; box-shadow: 0 0 14px rgba(96, 165, 250, 0.8); transform: scale(1.03); }
+                                                  }
+                                                `}</style>
+                                                <div 
+                                                  className="absolute inset-0 rounded border-2 border-blue-400 pointer-events-none transition-all" 
+                                                  style={{ animation: 'smoothBreathingGlow 3s ease-in-out infinite' }} 
+                                                />
+                                                <svg className="w-8 h-8 mb-1 group-hover:text-blue-400 transition-colors duration-300" style={{ color: isDark ? "#2d3f58" : "#d1d5db" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                 </svg>
-                                                <span style={{ fontSize: 9, color: isDark ? "#3d5270" : "#9ca3af", fontWeight: 500 }}>No image</span>
+                                                <span style={{ fontSize: 9, color: isDark ? "#3d5270" : "#9ca3af", fontWeight: 500 }} className="text-center group-hover:text-blue-400 transition-colors duration-300">Click to add<br/>image</span>
                                               </div>
                                             );
                                           }
@@ -2118,9 +2291,9 @@ const ImportList: React.FC = () => {
                                       <div className="flex-1 min-w-0">
                                         {(Object.keys(productData)?.length && (
                                           <div className="w-full">
-                                            {productData[orderItem?.product_sku]?.labels?.length > 0 ? (
+                                            {getProductDetail(orderItem)?.labels?.length > 0 ? (
                                               (() => {
-                                                const labels = productData[orderItem?.product_sku]?.labels || [];
+                                                const labels = getProductDetail(orderItem)?.labels || [];
                                                 const typeLabel = labels.find((label: any) => label.key?.toLowerCase() === "type");
                                                 const otherLabels = labels.filter((label: any) => label.key?.toLowerCase() !== "type");
 
@@ -2163,7 +2336,7 @@ const ImportList: React.FC = () => {
                                             ) : (
                                               <div className={`w-full text-xs text-gray-600 ${style.order_description}`}>
                                                 {(() => {
-                                                  const desc = productData[orderItem?.product_sku]?.description_long || "";
+                                                  const desc = getProductDetail(orderItem)?.description_long || "";
                                                   // Hide API error messages returned as description (e.g. "Invalid product_sku...")
                                                   if (desc.trimStart().toLowerCase().startsWith("invalid")) return null;
                                                   return parse(truncateText(desc, descriptionCharLimit));
@@ -2184,25 +2357,43 @@ const ImportList: React.FC = () => {
                                       borderColor: isDark ? "#1e2d42" : "#f3f4f6",
                                     }}
                                   >
-                                    <button
-                                      type="button"
-                                      className="inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-red-500 transition-colors"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setProductToDelete({
-                                          product_guid: orderItem?.product_guid,
-                                          orderFullFillmentId: order?.orderFullFillmentId,
-                                          order_po: order?.order_po,
-                                        });
-                                        setProductDeleteModalVisible(true);
-                                      }}
-                                      title="Delete product"
-                                    >
-                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                      </svg>
-                                      Remove
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                      {/* Change Image button */}
+                                      <button
+                                        type="button"
+                                        className="inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-blue-600 transition-colors"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setImageGalleryTarget({ orderItem, order });
+                                        }}
+                                        title="Change product image"
+                                      >
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                        Image
+                                      </button>
+                                      {/* Remove product button */}
+                                      <button
+                                        type="button"
+                                        className="inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-red-500 transition-colors"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setProductToDelete({
+                                            product_guid: orderItem?.product_guid,
+                                            orderFullFillmentId: order?.orderFullFillmentId,
+                                            order_po: order?.order_po,
+                                          });
+                                          setProductDeleteModalVisible(true);
+                                        }}
+                                        title="Delete product"
+                                      >
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                        Remove
+                                      </button>
+                                    </div>
                                     <div className="text-sm">
                                       {/* Item errors (e.g. product_qty must be at least 1) */}
                                       {itemErrors[order?.order_po]?.length > 0 ? (
@@ -2227,17 +2418,17 @@ const ImportList: React.FC = () => {
                                         </div>
                                       ) : (
                                         /* Only show price when product is valid and has no errors */
-                                        validSKUs.includes((orderItem?.product_sku ?? '').toString()) &&
+                                        validSKUs.some(v => v.toLowerCase() === (orderItem?.product_sku ?? '').toString().toLowerCase() || v === orderItem?.product_guid) &&
                                         (!recipientErrors[order?.order_po] || Object.keys(recipientErrors[order?.order_po]).length === 0) &&
-                                        productData[orderItem?.product_guid]?.total_price != null ? (
-                                          <span className="text-gray-600">{orderItem?.product_qty || 1}@ ${(productData[orderItem?.product_guid]?.total_price)?.toFixed(2)} ea</span>
+                                        getProductDetail(orderItem)?.total_price != null ? (
+                                          <span className="text-gray-600">{orderItem?.product_qty || 1}@ ${(getProductDetail(orderItem)?.total_price)?.toFixed(2)} ea</span>
                                         ) : null
                                       )}
                                     </div>
                                   </div>
                                 </div>
-                              )
-                            )}
+                              );
+                            })}
                             {/* Add More Products Button */}
                             <div className="mt-4 flex justify-center">
                               <Dropdown
@@ -2638,6 +2829,69 @@ const ImportList: React.FC = () => {
         visible={addProductVirtualInvVisible}
         onClose={() => setAddProductVirtualInvVisible(false)}
         onProductAdded={handleAddProductCodeUpdate}
+      />
+
+      {/* ── Image Gallery Modal — "Change Image" for existing products ── */}
+      <ImageGalleryModal
+        visible={!!imageGalleryTarget}
+        onClose={() => setImageGalleryTarget(null)}
+        title={imageGalleryTarget ? `Choose Image for "${imageGalleryTarget.orderItem?.product_sku}"` : "Select an Image"}
+        onImageSelect={async (image: any) => {
+          if (!imageGalleryTarget) return;
+          const { orderItem, order: targetOrder } = imageGalleryTarget;
+
+          setImageGalleryTarget(null);
+
+          // Patch only the matching item's product_image — leave everything else intact.
+          // Use the full order object from Redux so we send all required fields.
+          const freshOrder = orders?.data?.find(
+            (o: any) => o.orderFullFillmentId === targetOrder?.orderFullFillmentId
+          ) ?? targetOrder;
+
+          const updatedOrder = {
+            ...freshOrder,
+            order_items: (freshOrder.order_items ?? []).map((item: any) => {
+              if (item.product_guid !== orderItem.product_guid) return item;
+              return {
+                ...item,
+                product_image: {
+                  product_url_file: image.private_hires_uri,
+                  product_url_thumbnail: image.public_thumbnail_uri,
+                },
+              };
+            }),
+          };
+
+          const result = await dispatch(
+            updateOrdersInfo({
+              updatedValues: [updatedOrder],
+              customerId: customerInfo?.data?.account_id,
+            })
+          );
+
+          if (updateOrdersInfo.fulfilled.match(result)) {
+            notificationApi.success({
+              message: "Image Updated",
+              description: `Image "${image.title}" has been applied to this product.`,
+            });
+            // Invalidate shipping cache for this order and re-fetch so the UI refreshes
+            dispatch(invalidateShippingCacheEntries([targetOrder?.order_po]));
+            fetchedSkusRef.current.clear();
+            dispatch(clearProductDetails());
+            
+            // Clear any local image error state so the new image is forced to render
+            setImageErrors({});
+            setImageUrlIndex({});
+            
+            resetOrderPostData();
+            await dispatch(fetchOrder(customerInfo?.data?.account_id));
+          } else {
+            notificationApi.error({
+              message: "Image Update Failed",
+              description: "Could not update the product image. Please try again.",
+            });
+          }
+        }}
       />
     </div>
   );

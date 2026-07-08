@@ -73,6 +73,10 @@ const Landing: React.FC = (): JSX.Element => {
   const [wixConnectionStatus, setWixConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('idle');
   const [lastWixConnectionData, setLastWixConnectionData] = useState<string | null>(null);
 
+  // ── Square ─────────────────────────────────────────────────────────────────
+  const [squareConnectionStatus, setSquareConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('idle');
+  const [lastSquareConnectionData, setLastSquareConnectionData] = useState<string | null>(null);
+
   // ── Order-sync toggle state ──────────────────────────────────────────────
   const [wixOrderSync, setWixOrderSync] = useState<boolean>(false);
   const [squarespaceOrderSync, setSquarespaceOrderSync] = useState<boolean>(false);
@@ -614,7 +618,7 @@ const Landing: React.FC = (): JSX.Element => {
   ] as const;
   const importData = (imgname: string) => {
     // Check for platforms that are not yet available (including Shopify/Etsy when disabled)
-    const availablePlatforms = ["WooCommerce", "Excel", "Squarespace", "Wix"];
+    const availablePlatforms = ["WooCommerce", "Excel", "Squarespace", "Wix", "Square"];
     if (SHOPIFY_ENABLED) {
       availablePlatforms.push("Shopify");
     }
@@ -763,6 +767,26 @@ const Landing: React.FC = (): JSX.Element => {
         });
       }
     }
+
+    // Square integration
+    if (imgname === "Square") {
+      if (!customerInfo?.data?.account_key && !cookies.AccountGUID) {
+        window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`;
+        return;
+      }
+      if (squareConnectionStatus === 'connected') {
+        navigate("/importfilter?type=Square");
+      } else if (customerInfo?.data?.user_profile_complete === true) {
+        const accountKey = customerInfo?.data?.account_key;
+        // Initiate Square OAuth — backend redirects the user through Square's OAuth flow
+        window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/square/auth?account_key=${accountKey}`;
+      } else {
+        notificationApi.warning({
+          message: "Please complete your profile",
+          description: "Please complete your profile to connect to Square",
+        });
+      }
+    }
   };
   // ── Squarespace: status is derived from companyInfo.connections (see useEffect below) ──
 
@@ -821,6 +845,22 @@ const Landing: React.FC = (): JSX.Element => {
         notificationApi.error({
           message: 'Wix Connection Failed',
           description: 'Failed to connect to your Wix store. Please try again.',
+        });
+      }
+    }
+
+    if (type === 'square') {
+      if (connected === 'true') {
+        setSquareConnectionStatus('connected');
+        notificationApi.success({
+          message: 'Square Connected',
+          description: 'Your Square store has been successfully connected!',
+        });
+      } else if (error) {
+        setSquareConnectionStatus('disconnected');
+        notificationApi.error({
+          message: 'Square Connection Failed',
+          description: 'Failed to connect to your Square store. Please try again.',
         });
       }
     }
@@ -1164,6 +1204,51 @@ const Landing: React.FC = (): JSX.Element => {
         }
       }
       console.log('=== END ETSY/SHIPPO CONNECTION CHECK ===');
+
+      // ── Handle Square connection ───────────────────────────────────────────
+      const squareConnection = companyInfo.connections.find((conn: any) => conn.name === 'Square');
+      console.log('=== SQUARE CONNECTION CHECK ===');
+      console.log('Square connection found?:', !!squareConnection);
+
+      if (squareConnection) {
+        const sqIdentifier = `${squareConnection.id || 'noid'}_${squareConnection.data || 'nodata'}`;
+
+        if (sqIdentifier !== lastSquareConnectionData) {
+          console.log('Square connection changed or first load, processing...');
+          setLastSquareConnectionData(sqIdentifier);
+
+          if (squareConnection.id) {
+            // Has an access token — check data for explicit disconnect flag
+            let isConnected = true;
+            if (squareConnection.data && squareConnection.data.trim() !== '') {
+              try {
+                const parsed = JSON.parse(squareConnection.data);
+                console.log('Square parsed data:', parsed);
+                if (parsed.isConnected === false || parsed.isConnected === 'false') {
+                  isConnected = false;
+                }
+              } catch (e) {
+                console.error('Error parsing Square data:', e);
+              }
+            }
+            console.log('Square isConnected:', isConnected);
+            setSquareConnectionStatus(isConnected ? 'connected' : 'disconnected');
+          } else {
+            console.log('Square entry found but no id — disconnected');
+            setSquareConnectionStatus('disconnected');
+          }
+        } else {
+          console.log('Square connection unchanged, skipping processing');
+        }
+      } else {
+        console.log('No Square connection in connections array — disconnected');
+        if (lastSquareConnectionData !== null) {
+          setLastSquareConnectionData(null);
+          setSquareConnectionStatus('disconnected');
+        }
+      }
+      console.log('=== END SQUARE CONNECTION CHECK ===');
+
     } else {
       // No connections available
       console.log("No connections available");
@@ -1172,8 +1257,9 @@ const Landing: React.FC = (): JSX.Element => {
       setSquarespaceConnectionStatus('disconnected');
       setWixConnectionStatus('disconnected');
       setEtsyConnectionStatus('disconnected');
+      setSquareConnectionStatus('disconnected');
     }
-  }, [companyInfo, lastConnectionData, lastShopifyConnectionData, lastSquarespaceConnectionData, lastWixConnectionData, lastEtsyConnectionData, dispatch]);
+  }, [companyInfo, lastConnectionData, lastShopifyConnectionData, lastSquarespaceConnectionData, lastWixConnectionData, lastEtsyConnectionData, lastSquareConnectionData, dispatch]);
 
   // ── Per-platform connection status helpers ──────────────────────────────────
   const getStatus = (name: string) => {
@@ -1182,10 +1268,11 @@ const Landing: React.FC = (): JSX.Element => {
     if (name === "Squarespace") return squarespaceConnectionStatus;
     if (name === "Wix") return wixConnectionStatus;
     if (name === "Etsy") return etsyConnectionStatus;
+    if (name === "Square") return squareConnectionStatus;
     return "idle";
   };
 
-  const ENABLED = ["WooCommerce", "Excel", "Squarespace", "Wix", "Etsy"];
+  const ENABLED = ["WooCommerce", "Excel", "Squarespace", "Wix", "Etsy", "Square"];
 
   // ── Order-sync toggle API call ───────────────────────────────────────────
   const ORDER_SYNC_PLATFORMS: Record<string, boolean> = { Wix: true, Squarespace: true, Shopify: true };
@@ -1277,6 +1364,7 @@ const Landing: React.FC = (): JSX.Element => {
     if (platformName === "Shopify") setShopifyConnectionStatus("disconnected");
     if (platformName === "WooCommerce") dispatch(setConnectionVerificationStatus("disconnected"));
     if (platformName === "Etsy") setEtsyConnectionStatus("disconnected");
+    if (platformName === "Square") setSquareConnectionStatus("disconnected");
   };
 
   return (
