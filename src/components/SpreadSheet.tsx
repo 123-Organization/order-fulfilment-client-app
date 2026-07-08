@@ -11,7 +11,7 @@ import {
   ArrowRightOutlined,
 } from "@ant-design/icons";
 import cssModule from "./SpreadSheet.module.css";
-import { UploadOrdersExcel, validateOrders } from "../store/features/orderSlice";
+import { UploadOrdersExcel, validateOrders, fetchOrder } from "../store/features/orderSlice";
 import { useAppDispatch, useAppSelector } from "../store";
 import { useNavigate } from "react-router-dom";
 import { getConstantValue } from "typescript";
@@ -471,7 +471,7 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
     try {
     const postOrders = await handleReturnData();
       
-     await dispatch(
+      await dispatch(
         UploadOrdersExcel({
           account_key: customerInfo?.data?.account_key,
           accountId: customerInfo?.data?.account_id,
@@ -480,6 +480,10 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
         })
       );
       
+      // Immediately fetch all orders so Finerworks state isn't just the uploaded ones
+      if (customerInfo?.data?.account_id) {
+        await dispatch(fetchOrder(customerInfo?.data?.account_id));
+      }
 
       setStep(3);
       setStepStatus("finish");

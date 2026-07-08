@@ -23,7 +23,7 @@ import {
 } from "../store/features/companySlice";
 import { useAppDispatch, useAppSelector } from "../store";
 import { useNotificationContext } from "../context/NotificationContext";
-import { updateApp, UploadOrdersExcel } from "../store/features/orderSlice";
+import { updateApp, UploadOrdersExcel, fetchOrder } from "../store/features/orderSlice";
 import { updateOpenSheet } from "../store/features/orderSlice";
 // import { connectAdvanced } from "react-redux";
 import SpreadSheet from "../components/SpreadSheet";
@@ -175,7 +175,11 @@ const Landing: React.FC = (): JSX.Element => {
         },
       ],
     };
-    dispatch(UploadOrdersExcel({ ...postData }))
+    dispatch(UploadOrdersExcel({ ...postData })).then(() => {
+      if (customerInfo?.data?.account_id) {
+        dispatch(fetchOrder(customerInfo?.data?.account_id));
+      }
+    });
   }
 
   // Disconnect notifications are now handled in DisconnectPlatformModal component

@@ -145,6 +145,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const navigate = useNavigate();
 
   const onNextHandler = async () => {
+    if (nextSpinning) return;
     try {
       if (location.pathname === "/mycompany") {
         if (
@@ -1661,17 +1662,9 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
     if (location.pathname === "/importfilter") {
       if (myImport?.start_date || myImport?.end_date || myImport?.status) {
         if (saveOrderInfo?.statusCode === 200) {
-          openNotificationWithIcon({
-            type: "success",
-            message: "Success",
-            description: "Import and Export have been done successfully",
-          });
-
-          // Reset all import-related states before navigating to prevent re-triggering on return
-          dispatch(resetSaveOrderInfo());
-          dispatch(resetEcommerceGetImportOrders());
-          dispatch(resetImport());
-          navigate("/importlist");
+          // Note: Platform-specific functions (Shopify, Etsy, Wix, etc.) 
+          // manually display success notifications and navigate after a timeout.
+          // We no longer trigger a duplicate notification or early navigation here.
         } else if (saveOrderInfo?.statusCode === 400) {
           openNotificationWithIcon({
             type: "error",

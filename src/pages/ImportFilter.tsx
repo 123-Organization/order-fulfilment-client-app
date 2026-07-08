@@ -32,9 +32,6 @@ const WIX_STATUSES = [
 // Shippo / Etsy order status options
 const SHIPPO_STATUSES = [
   { value: 'PAID',      label: 'Paid'      },
-  { value: 'PENDING',   label: 'Pending'   },
-  { value: 'FULFILLED', label: 'Fulfilled' },
-  { value: 'CANCELLED', label: 'Cancelled' },
 ];
 
 // Square order status options
