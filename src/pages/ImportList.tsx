@@ -330,21 +330,21 @@ const ImportList: React.FC = () => {
       );
 
       const chunks = chunkArray(ordersToFetch, SHIPPING_BATCH_SIZE);
-      const allEntries: Array<{
-        order_po: string;
-        fingerprint: string;
-        data: any[];
-        recipientErrors: Record<string, Record<string, string[]>>;
-        itemErrors: Record<string, string[]>;
-      }> = [];
 
       for (const chunk of chunks) {
         const results = await Promise.allSettled(
           chunk.map(order => fetchSingleOrderShipping(order, accountKey))
         );
+        const chunkEntries: Array<{
+          order_po: string;
+          fingerprint: string;
+          data: any[];
+          recipientErrors: Record<string, Record<string, string[]>>;
+          itemErrors: Record<string, string[]>;
+        }> = [];
         results.forEach((result, idx) => {
           if (result.status === 'fulfilled') {
-            allEntries.push({
+            chunkEntries.push({
               order_po: chunk[idx].order_po,
               fingerprint: buildOrderFingerprint(chunk[idx]),
               data: result.value.data,
@@ -353,11 +353,13 @@ const ImportList: React.FC = () => {
             });
           }
         });
-      }
-
-      if (allEntries.length) {
-        // Single Redux dispatch — merges into cache and rebuilds derived state
-        dispatch(updateShippingCacheEntries(allEntries));
+        // Dispatch after EACH chunk so shipping options appear progressively
+        // as batches resolve rather than waiting for all 20 to finish.
+        // isShippingLoading stays true until the finally block, keeping the
+        // bottom total spinner going until the last chunk lands.
+        if (chunkEntries.length) {
+          dispatch(updateShippingCacheEntries(chunkEntries));
+        }
       }
     },
     [dispatch, customerInfo?.data?.account_key]
@@ -1548,6 +1550,22 @@ const ImportList: React.FC = () => {
         @keyframes spin {
           to { transform: rotate(360deg); }
         }
+        @keyframes sku-skeleton-pulse {
+          0%, 100% { opacity: 0.55; }
+          50%       { opacity: 1; }
+        }
+        .sku-skeleton-bar {
+          border-radius: 6px;
+          background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.5s infinite linear;
+        }
+        .sku-skeleton-bar-dark {
+          border-radius: 6px;
+          background: linear-gradient(90deg, #1e2d42 25%, #253347 50%, #1e2d42 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.5s infinite linear;
+        }
       `}</style>
       <div
         className={`h-auto pt-4 mt-10 w-full ${style.overAll_box}`}
@@ -2145,9 +2163,72 @@ const ImportList: React.FC = () => {
                                     />
                                   )}
                                 </div>
-                              ) : itemDetail === undefined && product_details.length > 0 && !validSKUs.some(v => v.toLowerCase() === orderItem.product_sku?.toString().toLowerCase()) ? (
-                                // Fallback: product_details loaded but no match found for this item at all
-                                // (edge case: product_guid not in response). Treat as invalid.
+                              ) : itemDetail === undefined && product_status === 'loading' ? (
+                                // API is still in-flight — show a skeleton so the card doesn't
+                                // flash as "invalid" before the response arrives.
+                                <div
+                                  key={orderItem.product_sku ?? orderItem.product_guid}
+                                  className="mb-4 p-3 rounded-lg h-[220px] flex flex-col justify-between"
+                                  style={{
+                                    background: isDark ? "#0c1520" : "#ffffff",
+                                    border: isDark ? "1px solid #1e2d42" : "1px solid #e5e7eb",
+                                  }}
+                                >
+                                  {/* Top row: image placeholder + text bars */}
+                                  <div className="flex gap-3 items-start">
+                                    {/* Image placeholder */}
+                                    <div
+                                      className={isDark ? "sku-skeleton-bar-dark" : "sku-skeleton-bar"}
+                                      style={{ width: 72, height: 72, flexShrink: 0, borderRadius: 8 }}
+                                    />
+                                    <div className="flex-1 flex flex-col gap-2 pt-1">
+                                      {/* Title bar */}
+                                      <div
+                                        className={isDark ? "sku-skeleton-bar-dark" : "sku-skeleton-bar"}
+                                        style={{ height: 14, width: "70%" }}
+                                      />
+                                      {/* Subtitle bar */}
+                                      <div
+                                        className={isDark ? "sku-skeleton-bar-dark" : "sku-skeleton-bar"}
+                                        style={{ height: 12, width: "50%" }}
+                                      />
+                                      {/* Third bar */}
+                                      <div
+                                        className={isDark ? "sku-skeleton-bar-dark" : "sku-skeleton-bar"}
+                                        style={{ height: 12, width: "80%" }}
+                                      />
+                                      {/* Fourth bar */}
+                                      <div
+                                        className={isDark ? "sku-skeleton-bar-dark" : "sku-skeleton-bar"}
+                                        style={{ height: 12, width: "60%" }}
+                                      />
+                                    </div>
+                                  </div>
+                                  {/* Middle description bars */}
+                                  <div className="flex flex-col gap-2 mt-3">
+                                    <div
+                                      className={isDark ? "sku-skeleton-bar-dark" : "sku-skeleton-bar"}
+                                      style={{ height: 11, width: "95%" }}
+                                    />
+                                    <div
+                                      className={isDark ? "sku-skeleton-bar-dark" : "sku-skeleton-bar"}
+                                      style={{ height: 11, width: "75%" }}
+                                    />
+                                  </div>
+                                  {/* Bottom: loading label */}
+                                  <div className="flex items-center gap-2 mt-3">
+                                    <svg
+                                      style={{ width: 14, height: 14, flexShrink: 0, animation: "spin 0.9s linear infinite", color: isDark ? "#3b82f6" : "#6366f1" }}
+                                      fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                    >
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
+                                    <span style={{ fontSize: 12, color: isDark ? "#4b7fa8" : "#6b7280" }}>Validating product…</span>
+                                  </div>
+                                </div>
+                              ) : itemDetail === undefined && (product_status === 'succeeded' || product_status === 'failed') && product_details.length > 0 && !validSKUs.some(v => v.toLowerCase() === orderItem.product_sku?.toString().toLowerCase()) ? (
+                                // Fallback: API has fully responded but no match found for this item.
+                                // Only show invalid UI AFTER the API has definitively answered.
                                 <div
                                   key={orderItem.product_sku ?? orderItem.product_guid}
                                   className="mb-4 p-4 border-2 border-red-300 rounded-lg bg-red-50 h-[220px]"
