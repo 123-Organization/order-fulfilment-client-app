@@ -32,6 +32,8 @@ import PlatformSettingsModal from "../components/PlatformSettingsModal";
 const SHOPIFY_ENABLED = false;
 // Set to true when Etsy integration is fully ready
 const ETSY_ENABLED = true;
+// Set to true when Square integration is fully ready
+const SQUARE_ENABLED = false;
 
 const images = [
   { name: "Squarespace", img: squarespace },
@@ -621,13 +623,16 @@ const Landing: React.FC = (): JSX.Element => {
     },
   ] as const;
   const importData = (imgname: string) => {
-    // Check for platforms that are not yet available (including Shopify/Etsy when disabled)
-    const availablePlatforms = ["WooCommerce", "Excel", "Squarespace", "Wix", "Square"];
+    // Check for platforms that are not yet available (including Shopify/Etsy/Square when disabled)
+    const availablePlatforms = ["WooCommerce", "Excel", "Squarespace", "Wix"];
     if (SHOPIFY_ENABLED) {
       availablePlatforms.push("Shopify");
     }
     if (ETSY_ENABLED) {
       availablePlatforms.push("Etsy");
+    }
+    if (SQUARE_ENABLED) {
+      availablePlatforms.push("Square");
     }
 
     if (imgname && !availablePlatforms.includes(imgname)) {
@@ -1276,7 +1281,7 @@ const Landing: React.FC = (): JSX.Element => {
     return "idle";
   };
 
-  const ENABLED = ["WooCommerce", "Excel", "Squarespace", "Wix", "Etsy", "Square"];
+  const ENABLED = ["WooCommerce", "Excel", "Squarespace", "Wix", "Etsy"];
 
   // ── Order-sync toggle API call ───────────────────────────────────────────
   const ORDER_SYNC_PLATFORMS: Record<string, boolean> = { Wix: true, Squarespace: true, Shopify: true };
@@ -1383,6 +1388,8 @@ const Landing: React.FC = (): JSX.Element => {
         @keyframes plug-in     { 0%{opacity:0;transform:translateY(-4px) scale(.8)} 100%{opacity:1;transform:none scale(1)} }
         @keyframes plug-spin   { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
         @keyframes unplug-pop  { 0%{opacity:0;transform:scale(.6)} 60%{transform:scale(1.15)} 100%{opacity:1;transform:scale(1)} }
+        @keyframes soon-pulse  { 0%,100%{box-shadow:0 0 0 0 rgba(251,191,36,.35),0 2px 12px rgba(0,0,0,.06)} 50%{box-shadow:0 0 0 5px rgba(251,191,36,0),0 2px 12px rgba(0,0,0,.06)} }
+        @keyframes soon-pulse-dark { 0%,100%{box-shadow:0 0 0 0 rgba(251,191,36,.28),0 2px 12px rgba(0,0,0,.06)} 50%{box-shadow:0 0 0 6px rgba(251,191,36,0),0 2px 12px rgba(0,0,0,.06)} }
         .lp-card {
           transition: box-shadow .22s ease, transform .22s ease, border-color .22s ease;
           animation: lp-fade .3s ease both;
@@ -1398,6 +1405,14 @@ const Landing: React.FC = (): JSX.Element => {
         .lp-card:hover .lp-logo { transform: scale(1.08); }
         .lp-logo { transition: transform .25s ease; }
         .lp-card:active { transform: translateY(-1px) scale(.98) !important; z-index: 10; }
+        .lp-card-disabled-soon {
+          pointer-events: none;
+          cursor: not-allowed !important;
+        }
+        .lp-card-disabled-soon:hover {
+          transform: none !important;
+          box-shadow: inherit !important;
+        }
       `}</style>
 
       {/* ── Page header ── */}
@@ -1423,6 +1438,7 @@ const Landing: React.FC = (): JSX.Element => {
         {images.map((image, i) => {
           const status = getStatus(image.name);
           const enabled = ENABLED.includes(image.name);
+          const isSquareDisabled = image.name === "Square" && !SQUARE_ENABLED;
           const isConnected = status === "connected";
           const hasOrderSync = ORDER_SYNC_PLATFORMS[image.name] === true;
           const orderSyncOn = image.name === "Wix" ? wixOrderSync : image.name === "Shopify" ? shopifyOrderSync : squarespaceOrderSync;
@@ -1433,26 +1449,32 @@ const Landing: React.FC = (): JSX.Element => {
           return (
             <div
               key={image.name}
-              className="lp-card"
+              className={`lp-card${isSquareDisabled ? " lp-card-disabled-soon" : ""}`}
               onClick={() => importData(image.name)}
               style={{
                 background: isDark ? "#0f1724" : "#fff",
                 borderRadius: 18,
-                border: isConnected && enabled
-                  ? "2px solid " + (isDark ? "#14b8a6" : "#52c41a")
-                  : isDark ? "2px solid #1e2d42" : "2px solid #e8edf5",
+                border: isSquareDisabled
+                  ? `2px solid ${isDark ? "rgba(251,191,36,.35)" : "rgba(251,191,36,.5)"}`
+                  : isConnected && enabled
+                    ? "2px solid " + (isDark ? "#14b8a6" : "#52c41a")
+                    : isDark ? "2px solid #1e2d42" : "2px solid #e8edf5",
                 boxShadow: isConnected && enabled
                   ? "0 4px 20px rgba(82,196,26,.15)"
                   : "0 2px 12px rgba(0,0,0,.06)",
+                animation: isSquareDisabled
+                  ? `lp-fade .3s ease both, ${isDark ? "soon-pulse-dark" : "soon-pulse"} 2.4s ease-in-out infinite`
+                  : `lp-fade .3s ease both`,
                 padding: "28px 20px 22px",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
                 gap: 12,
-                cursor: "pointer",
+                cursor: isSquareDisabled ? "not-allowed" : "pointer",
                 position: "relative",
-                opacity: enabled ? 1 : 0.55,
+                opacity: enabled ? 1 : 0.5,
                 animationDelay: `${i * 0.04}s`,
+                filter: isSquareDisabled ? "grayscale(0.6)" : "none",
               }}
             >
               {/* ── Status icon — top LEFT corner ── */}
