@@ -232,7 +232,8 @@ export const ProductSlice = createSlice({
                         state.error = action.payload as string;
                 });
                 builder.addCase(getAllImages.fulfilled, (state, action) => {
-                        state.images = action.payload?.data?.images || [];
+                        const imgs = action.payload?.data?.images;
+                        state.images = Array.isArray(imgs) ? imgs : [];
                         state.imagesCount = action.payload?.data?.count || 0;
                         state.imagesStatus = "succeeded";
                 });

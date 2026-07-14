@@ -467,7 +467,7 @@ export const fetchSquarespaceOrders = createAsyncThunk(
     console.log('Fetching Squarespace orders with:', postData);
     try {
       const response = await fetch(
-        'https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/orders',
+        BASE_URL + `squarespace/orders`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -507,7 +507,7 @@ export const fetchSquarespaceOrderByNumber = createAsyncThunk(
   async (postData: { access_token: string; orderNumber: string }, thunkAPI) => {
     console.log('Fetching Squarespace order by number:', postData);
     try {
-      const response = await fetch('https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/order-by-number', {
+      const response = await fetch(BASE_URL + 'squarespace/order-by-number', {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -555,7 +555,7 @@ export const fetchWixOrders = createAsyncThunk(
   ) => {
     console.log('Fetching Wix orders with:', postData);
     try {
-      let url = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/wix/orders?account_key=${postData.account_key}&access_token=${postData.access_token}&start_date=${postData.start_date}&end_date=${postData.end_date}`;
+      let url = BASE_URL + `wix/orders?account_key=${postData.account_key}&access_token=${postData.access_token}&start_date=${postData.start_date}&end_date=${postData.end_date}`;
       if (postData.fulfillmentStatus) {
         url += `&fulfillment_status=${postData.fulfillmentStatus}`;
       }
@@ -588,7 +588,7 @@ export const fetchWixOrderByNumber = createAsyncThunk(
     console.log('Fetching Wix order by number:', postData);
     try {
       const orderNumbersEncoded = encodeURIComponent(JSON.stringify(postData.order_numbers));
-      const url = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/wix/order-by-number?account_key=${postData.account_key}&access_token=${postData.access_token}&order_number=${orderNumbersEncoded}`;
+      const url = BASE_URL + `wix/order-by-number?account_key=${postData.account_key}&access_token=${postData.access_token}&order_number=${orderNumbersEncoded}`;
       const response = await fetch(url, { method: 'POST' });
       const data = await response.json();
 
@@ -620,7 +620,7 @@ export const fetchShippoOrders = createAsyncThunk(
     console.log('Fetching Shippo orders with:', postData);
     try {
       const response = await fetch(
-        'https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/shippo/orders',
+        BASE_URL + `shippo/orders`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -664,7 +664,7 @@ export const fetchSquareOrders = createAsyncThunk(
     console.log('Fetching Square orders with:', postData);
     try {
       const response = await fetch(
-        'https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/square/orders',
+        BASE_URL + `square/orders`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

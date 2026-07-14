@@ -1209,6 +1209,7 @@ const ImportList: React.FC = () => {
               // 2. Are not in the excluded orders list
               // 3. Have valid SKUs
               // 4. Have no recipient errors from the shipping API
+              // 5. ALL products have an image (product_url_file must be non-empty)
               order.order_items &&
               order.order_items.length > 0 &&
               order.shipping_code != null &&
@@ -1224,6 +1225,8 @@ const ImportList: React.FC = () => {
                   );
                 return detail ? detail.isActiveSKU === false : false;
               }) &&
+              // Auto-exclude orders where any product is missing an image
+              !orderHasMissingImage(order.order_items) &&
               !excludedOrders.includes(order.order_po) &&
               (!recipientErrors[order.order_po] || Object.keys(recipientErrors[order.order_po]).length === 0)
           )
@@ -1319,6 +1322,19 @@ const ImportList: React.FC = () => {
         );
       // Only flag invalid if the API has responded and explicitly said so
       return detail ? detail.isActiveSKU === false : false;
+    });
+  };
+
+  /**
+   * Returns true if ANY item in the order is missing a product image.
+   * We check product_image.product_url_file from the fetch-orders API response.
+   * An item is considered image-less when product_url_file is null/undefined/empty.
+   */
+  const orderHasMissingImage = (orderItems: any[]): boolean => {
+    if (!orderItems || orderItems.length === 0) return false;
+    return orderItems.some((item: any) => {
+      const fileUrl = item?.product_image?.product_url_file;
+      return !fileUrl || fileUrl.trim() === '';
     });
   };
 
@@ -1684,9 +1700,10 @@ const ImportList: React.FC = () => {
                           });
                           const hasAddressIssues = !!recipientErrors[order?.order_po];
                           const hasItemIssues = !!itemErrors[order?.order_po];
-                          
+                          const hasMissingImage = orderHasMissingImage(order?.order_items);
+
                           // Block toggling if the order has validation issues or APIs failed/loading
-                          const isToggleDisabled = apisNotReady || hasInvalidSku || hasAddressIssues || hasItemIssues;
+                          const isToggleDisabled = apisNotReady || hasInvalidSku || hasAddressIssues || hasItemIssues || hasMissingImage;
 
                           return (shipping_option.length > 0 || orderPostData.length > 0 || Object.keys(recipientErrors).length > 0) &&
                           order?.order_items.length > 0 ? (
@@ -1783,7 +1800,7 @@ const ImportList: React.FC = () => {
                               className={`relative inline-flex h-9 w-[170px] items-center rounded-full p-1 transition-all duration-300 focus:outline-none shadow-inner border border-slate-200/60 ${isToggleDisabled ? "bg-slate-200 cursor-not-allowed opacity-60" : "bg-slate-100 focus:ring-2 focus:ring-blue-500/40"}`}
                               role="switch"
                               aria-checked={checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po)}
-                              title={isToggleDisabled ? "Click to see what is required to activate this order" : "Toggle Draft/Active"}
+                              title={hasMissingImage ? "Add an image to all products to activate this order" : isToggleDisabled ? "Click to see what is required to activate this order" : "Toggle Draft/Active"}
                             >
                               <div
                                 className={`absolute left-1 h-7 w-[79px] rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-black/5 transition-transform duration-300 ease-out ${isToggleDisabled ? "bg-gray-100" : "bg-white"} ${checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po)
@@ -1802,26 +1819,49 @@ const ImportList: React.FC = () => {
                             </button>
                             {/* Badge shown when order is excluded */}
                             {isExcluded && (
-                              <span
-                                style={{
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  gap: 4,
-                                  fontSize: 11,
-                                  fontWeight: 600,
-                                  color: "#6b7280",
-                                  background: isDark ? "#1e2d42" : "#f3f4f6",
-                                  border: isDark ? "1px solid #253347" : "1px solid #d1d5db",
-                                  borderRadius: 6,
-                                  padding: "2px 8px",
-                                  userSelect: "none",
-                                }}
-                              >
-                                <svg style={{ width: 11, height: 11 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                                </svg>
-                                Not included
-                              </span>
+                              hasMissingImage ? (
+                                <span
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    color: "#92400e",
+                                    background: isDark ? "#2d1f0a" : "#fffbeb",
+                                    border: isDark ? "1px solid #78350f" : "1px solid #fcd34d",
+                                    borderRadius: 6,
+                                    padding: "2px 8px",
+                                    userSelect: "none",
+                                  }}
+                                >
+                                  <svg style={{ width: 11, height: 11, flexShrink: 0 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                  </svg>
+                                  Image required
+                                </span>
+                              ) : (
+                                <span
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    color: "#6b7280",
+                                    background: isDark ? "#1e2d42" : "#f3f4f6",
+                                    border: isDark ? "1px solid #253347" : "1px solid #d1d5db",
+                                    borderRadius: 6,
+                                    padding: "2px 8px",
+                                    userSelect: "none",
+                                  }}
+                                >
+                                  <svg style={{ width: 11, height: 11 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                  </svg>
+                                  Not included
+                                </span>
+                              )
                             )}
                           </div>
                         ) : null;
@@ -2275,8 +2315,8 @@ const ImportList: React.FC = () => {
                                   style={{
                                     background: isDark ? "#0c1520" : "#ffffff",
                                     border: isDark ? "1px solid #1e2d42" : "1px solid #e5e7eb",
-                                    opacity: (isExcluded && !hasInvalidSKUs(order?.order_items)) ? 0.4 : 1,
-                                    filter: (isExcluded && !hasInvalidSKUs(order?.order_items)) ? "grayscale(0.5)" : "none",
+                                    opacity: (isExcluded && !hasInvalidSKUs(order?.order_items) && !orderHasMissingImage(order?.order_items)) ? 0.4 : 1,
+                                    filter: (isExcluded && !hasInvalidSKUs(order?.order_items) && !orderHasMissingImage(order?.order_items)) ? "grayscale(0.5)" : "none",
                                     transition: "opacity 0.3s ease, filter 0.3s ease",
                                   }}
                                 >

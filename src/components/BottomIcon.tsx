@@ -15,6 +15,7 @@ import {
   resetSaveOrderInfo,
   resetImport,
 } from "../store/features/orderSlice";
+import config from '../config/configs';
 import { listVirtualInventory } from "../store/features/InventorySlice";
 import { getImportOrders, resetEcommerceGetImportOrders } from "../store/features/ecommerceSlice";
 import NotificationAlert from "./notification";
@@ -40,6 +41,8 @@ type bottomIconProps = {
   | undefined
   | null;
 };
+
+const BASE_URL = config.SERVER_BASE_URL;
 
 // Helper function to validate phone numbers (allows formatted input like "(585) 729-4716")
 const isValidPhone = (phone: string | number | undefined): boolean => {
@@ -459,7 +462,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
           let isTokenValid = true;
           try {
             // Validate token before fetching orders
-            const validateRes = await fetch('https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/validate-token', {
+            const validateRes = await fetch(`${BASE_URL}squarespace/validate-token`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ access_token: squarespaceToken })
@@ -477,7 +480,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
           if (!isTokenValid) {
             if (squarespaceRefreshToken && accountKey) {
               try {
-                const refreshRes = await fetch('https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/refresh-token', {
+                const refreshRes = await fetch(`${BASE_URL}squarespace/refresh-token`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ account_key: accountKey, refresh_token: squarespaceRefreshToken })
@@ -515,7 +518,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                 });
                 dispatch(resetSquarespaceImportStatus());
                 setTimeout(() => {
-                  window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/auth?account_key=${accountKey}`;
+                  window.location.href = `${BASE_URL}squarespace/auth?account_key=${accountKey}`;
                 }, 2000);
                 setNextSpinning(false);
                 return;
@@ -530,7 +533,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
               });
               dispatch(resetSquarespaceImportStatus());
               setTimeout(() => {
-                window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/auth?account_key=${accountKey}`;
+                window.location.href = `${BASE_URL}squarespace/auth?account_key=${accountKey}`;
               }, 2000);
               setNextSpinning(false);
               return;
@@ -590,7 +593,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   dispatch(resetSquarespaceImportStatus());
                   setTimeout(() => {
                     const redirectKey = customerInfo?.data?.account_key || localStorage.getItem('squarespace_account_key') || '';
-                    window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/auth?account_key=${redirectKey}`;
+                    window.location.href = `${BASE_URL}squarespace/auth?account_key=${redirectKey}`;
                   }, 2000);
                 }
                 return;
@@ -711,7 +714,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                       customerInfo?.data?.account_key ||
                       localStorage.getItem('squarespace_account_key') ||
                       '';
-                    window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/auth?account_key=${redirectKey}`;
+                    window.location.href = `${BASE_URL}squarespace/auth?account_key=${redirectKey}`;
                   }, 2000);
                 }
                 return;
@@ -1177,11 +1180,11 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
             // The backend may wrap the Shippo response differently, so we
             // try every known key before giving up.
             const rawOrders: any[] =
-              Array.isArray(payload?.orders)  ? payload.orders
-              : Array.isArray(payload?.results) ? payload.results
-              : Array.isArray(payload?.data)    ? payload.data
-              : Array.isArray(payload)          ? payload
-              : [];
+              Array.isArray(payload?.orders) ? payload.orders
+                : Array.isArray(payload?.results) ? payload.results
+                  : Array.isArray(payload?.data) ? payload.data
+                    : Array.isArray(payload) ? payload
+                      : [];
 
             if (rawOrders.length > 0) {
               const transformedOrders = rawOrders.map((shippoOrder: any, orderIndex: number) => {
@@ -1302,10 +1305,10 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
             // Square API may return { orders: [...] } or { items: [...] } or a plain array
             const rawOrders: any[] =
               Array.isArray(payload?.orders) ? payload.orders
-              : Array.isArray(payload?.items)  ? payload.items
-              : Array.isArray(payload?.data)   ? payload.data
-              : Array.isArray(payload)         ? payload
-              : [];
+                : Array.isArray(payload?.items) ? payload.items
+                  : Array.isArray(payload?.data) ? payload.data
+                    : Array.isArray(payload) ? payload
+                      : [];
 
             if (rawOrders.length > 0) {
               const transformedOrders = rawOrders.map((sqOrder: any, orderIndex: number) => {
@@ -1323,7 +1326,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   source: 'square',
                   recipient: {
                     first_name: recipient.display_name?.split(' ')[0] || addr.first_name || '',
-                    last_name:  recipient.display_name?.split(' ').slice(1).join(' ') || addr.last_name || '',
+                    last_name: recipient.display_name?.split(' ').slice(1).join(' ') || addr.last_name || '',
                     company_name: addr.company || '',
                     address_1: addr.address_line_1 || addr.street1 || '',
                     address_2: addr.address_line_2 || addr.street2 || '',

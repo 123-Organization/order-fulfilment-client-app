@@ -11,6 +11,9 @@ import {
   updateCompanyInfo,
 } from "../store/features/companySlice";
 import { useNotificationContext } from "../context/NotificationContext";
+import BASE_URL from "../config/configs";
+
+const BASE_API_URL = BASE_URL.SERVER_BASE_URL;
 
 interface PlatformSettingsModalProps {
   platform: string;
@@ -57,7 +60,7 @@ const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
     const onDown = (e: MouseEvent) => {
       if (
         modalRef.current && !modalRef.current.contains(e.target as Node) &&
-        btnRef.current  && !btnRef.current.contains(e.target as Node)
+        btnRef.current && !btnRef.current.contains(e.target as Node)
       ) closeModal();
     };
     document.addEventListener("mousedown", onDown);
@@ -100,7 +103,7 @@ const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
 
       if (platform === "Squarespace" || platform === "Wix") {
         const res = await fetch(
-          `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/stores/disconnect?slug=${slug}&account_key=${accountKey}`,
+          `${BASE_API_URL}stores/disconnect?slug=${slug}&account_key=${accountKey}`,
           { method: "POST" }
         );
         if (!res.ok) {
@@ -114,10 +117,22 @@ const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
         }
         dispatch(resetStatus());
         dispatch(updateCompanyInfo({}));
+      } else if (platform === "Etsy") {
+        // Etsy is backed by Shippo — the backend stores it under the "shippo" slug
+        const res = await fetch(
+          `${BASE_API_URL}stores/disconnect?slug=shippo&account_key=${accountKey}`,
+          { method: "POST" }
+        );
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.message || "Failed to disconnect Etsy");
+        }
+        dispatch(resetStatus());
+        dispatch(updateCompanyInfo({}));
       } else if (platform === "Square") {
         // Square has its own dedicated disconnect endpoint
         const res = await fetch(
-          'https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/square/disconnect',
+          `${BASE_API_URL}/api/square/disconnect`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -161,34 +176,34 @@ const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
     }
   };
 
-  const bg     = isDark ? "#0d1625" : "#ffffff";
+  const bg = isDark ? "#0d1625" : "#ffffff";
   const border = isDark ? "#1e2d42" : "#e8edf5";
-  const text   = isDark ? "#c8d0dc" : "#374151";
-  const sub    = isDark ? "#4e6280" : "#9ca3af";
+  const text = isDark ? "#c8d0dc" : "#374151";
+  const sub = isDark ? "#4e6280" : "#9ca3af";
 
   // The floating modal rendered into document.body via portal
   const floatingModal = open && modalCoords
     ? ReactDOM.createPortal(
-        <div
-          ref={modalRef}
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            position: "fixed",
-            top: modalCoords.top,
-            right: modalCoords.right,
-            width: 240,
-            background: bg,
-            border: `1.5px solid ${border}`,
-            borderRadius: 16,
-            boxShadow: isDark
-              ? "0 20px 60px rgba(0,0,0,.7), 0 4px 16px rgba(0,0,0,.5)"
-              : "0 20px 60px rgba(0,0,0,.16), 0 4px 16px rgba(0,0,0,.1)",
-            padding: "14px 16px 12px",
-            zIndex: 99999,
-            animation: "psm-pop .2s cubic-bezier(.34,1.56,.64,1) both",
-          }}
-        >
-          <style>{`
+      <div
+        ref={modalRef}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: "fixed",
+          top: modalCoords.top,
+          right: modalCoords.right,
+          width: 240,
+          background: bg,
+          border: `1.5px solid ${border}`,
+          borderRadius: 16,
+          boxShadow: isDark
+            ? "0 20px 60px rgba(0,0,0,.7), 0 4px 16px rgba(0,0,0,.5)"
+            : "0 20px 60px rgba(0,0,0,.16), 0 4px 16px rgba(0,0,0,.1)",
+          padding: "14px 16px 12px",
+          zIndex: 99999,
+          animation: "psm-pop .2s cubic-bezier(.34,1.56,.64,1) both",
+        }}
+      >
+        <style>{`
             @keyframes psm-pop {
               0%   { opacity:0; transform:scale(.82) translateY(-8px); }
               70%  { opacity:1; transform:scale(1.02) translateY(2px); }
@@ -198,60 +213,60 @@ const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
             .psm-row + .psm-row { border-top: 1px solid ${border}; }
           `}</style>
 
-          {/* Header */}
-          <p style={{ margin: "0 0 8px", fontSize: 10.5, fontWeight: 700, color: sub, textTransform: "uppercase", letterSpacing: 0.8 }}>
-            {platform} Settings
-          </p>
+        {/* Header */}
+        <p style={{ margin: "0 0 8px", fontSize: 10.5, fontWeight: 700, color: sub, textTransform: "uppercase", letterSpacing: 0.8 }}>
+          {platform} Settings
+        </p>
 
-          {/* Auto-fulfill */}
-          {hasOrderSync && (
-            <div className="psm-row">
-              <div>
-                <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: text }}>Auto-fulfill</p>
-                <p style={{ margin: 0, fontSize: 11, color: sub }}>Auto-import new orders</p>
-              </div>
-              <Switch
-                size="small"
-                checked={orderSyncOn}
-                loading={orderSyncLoading || orderSyncDisconnecting}
-                onChange={(val, e) => onOrderSyncToggle(val, e as unknown as React.MouseEvent)}
-                style={{ background: orderSyncOn ? "#14b8a6" : undefined }}
-              />
-            </div>
-          )}
-
-          {/* Disconnect */}
+        {/* Auto-fulfill */}
+        {hasOrderSync && (
           <div className="psm-row">
             <div>
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: text }}>Connected</p>
-              <p style={{ margin: 0, fontSize: 11, color: sub }}>Toggle off to disconnect</p>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: text }}>Auto-fulfill</p>
+              <p style={{ margin: 0, fontSize: 11, color: sub }}>Auto-import new orders</p>
             </div>
             <Switch
               size="small"
-              checked={true}
-              loading={disconnecting}
-              onChange={handleDisconnect}
-              checkedChildren="ON"
-              unCheckedChildren="OFF"
+              checked={orderSyncOn}
+              loading={orderSyncLoading || orderSyncDisconnecting}
+              onChange={(val, e) => onOrderSyncToggle(val, e as unknown as React.MouseEvent)}
+              style={{ background: orderSyncOn ? "#14b8a6" : undefined }}
             />
           </div>
+        )}
 
-          {/* Warning */}
-          <p style={{
-            margin: "10px 0 0",
-            fontSize: 10.5,
-            lineHeight: 1.5,
-            color: isDark ? "#f97316" : "#b45309",
-            background: isDark ? "rgba(249,115,22,.1)" : "#fff7ed",
-            border: `1px solid ${isDark ? "rgba(249,115,22,.25)" : "#fed7aa"}`,
-            borderRadius: 8,
-            padding: "6px 8px",
-          }}>
-            ⚠ Disconnecting removes all data and cannot be undone.
-          </p>
-        </div>,
-        document.body
-      )
+        {/* Disconnect */}
+        <div className="psm-row">
+          <div>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: text }}>Connected</p>
+            <p style={{ margin: 0, fontSize: 11, color: sub }}>Toggle off to disconnect</p>
+          </div>
+          <Switch
+            size="small"
+            checked={true}
+            loading={disconnecting}
+            onChange={handleDisconnect}
+            checkedChildren="ON"
+            unCheckedChildren="OFF"
+          />
+        </div>
+
+        {/* Warning */}
+        <p style={{
+          margin: "10px 0 0",
+          fontSize: 10.5,
+          lineHeight: 1.5,
+          color: isDark ? "#f97316" : "#b45309",
+          background: isDark ? "rgba(249,115,22,.1)" : "#fff7ed",
+          border: `1px solid ${isDark ? "rgba(249,115,22,.25)" : "#fed7aa"}`,
+          borderRadius: 8,
+          padding: "6px 8px",
+        }}>
+          ⚠ Disconnecting removes all data and cannot be undone.
+        </p>
+      </div>,
+      document.body
+    )
     : null;
 
   return (

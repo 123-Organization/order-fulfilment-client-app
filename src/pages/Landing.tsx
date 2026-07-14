@@ -13,6 +13,7 @@ import wix from "../assets/images/store-wix.svg";
 import woocommerce from "../assets/images/store-woocommerce.svg";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ecommerceConnector } from "../store/features/ecommerceSlice";
+import configs from "../config/configs";
 import {
   updateCompanyInfo,
   updateWordpressConnectionId,
@@ -34,6 +35,8 @@ const SHOPIFY_ENABLED = false;
 const ETSY_ENABLED = true;
 // Set to true when Square integration is fully ready
 const SQUARE_ENABLED = false;
+const BASE_URL = configs.SERVER_BASE_URL;
+
 
 const images = [
   { name: "Squarespace", img: squarespace },
@@ -725,7 +728,7 @@ const Landing: React.FC = (): JSX.Element => {
         const accountKey = customerInfo?.data?.account_key;
         // return_url tells the backend where to redirect the user after OAuth completes
         const returnUrl = `${window.location.origin}/`;
-        window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/auth?account_key=${accountKey}&return_url=${encodeURIComponent(returnUrl)}`;
+        window.location.href = `${BASE_URL}squarespace/auth?account_key=${accountKey}&return_url=${encodeURIComponent(returnUrl)}`;
       } else {
         notificationApi.warning({
           message: "Please complete your profile",
@@ -748,7 +751,7 @@ const Landing: React.FC = (): JSX.Element => {
       } else if (customerInfo?.data?.user_profile_complete === true) {
         const accountKey = customerInfo?.data?.account_key;
         const returnUrl = `${window.location.origin}/`;
-        window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/wix/oauth/start?account_key=${accountKey}&return_url=${encodeURIComponent(returnUrl)}`;
+        window.location.href = `${BASE_URL}wix/oauth/start?account_key=${accountKey}&return_url=${encodeURIComponent(returnUrl)}`;
       } else {
         notificationApi.warning({
           message: "Please complete your profile",
@@ -788,7 +791,7 @@ const Landing: React.FC = (): JSX.Element => {
       } else if (customerInfo?.data?.user_profile_complete === true) {
         const accountKey = customerInfo?.data?.account_key;
         // Initiate Square OAuth — backend redirects the user through Square's OAuth flow
-        window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/square/auth?account_key=${accountKey}`;
+        window.location.href = `${BASE_URL}square/auth?account_key=${accountKey}`;
       } else {
         notificationApi.warning({
           message: "Please complete your profile",
@@ -1281,7 +1284,7 @@ const Landing: React.FC = (): JSX.Element => {
     return "idle";
   };
 
-  const ENABLED = ["WooCommerce", "Excel", "Squarespace", "Wix", "Etsy"];
+  const ENABLED = ["WooCommerce", "Excel", "Squarespace", "Wix", "Etsy", "Square", "Shopify"];
 
   // ── Order-sync toggle API call ───────────────────────────────────────────
   const ORDER_SYNC_PLATFORMS: Record<string, boolean> = { Wix: true, Squarespace: true, Shopify: true };
@@ -1343,7 +1346,7 @@ const Landing: React.FC = (): JSX.Element => {
       }
 
       const res = await fetch(
-        "https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/stores/order-sync",
+        `${BASE_URL}stores/order-sync`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1407,11 +1410,11 @@ const Landing: React.FC = (): JSX.Element => {
         .lp-card:active { transform: translateY(-1px) scale(.98) !important; z-index: 10; }
         .lp-card-disabled-soon {
           pointer-events: none;
-          cursor: not-allowed !important;
+          cursor: default !important;
         }
         .lp-card-disabled-soon:hover {
-          transform: none !important;
-          box-shadow: inherit !important;
+          transform: translateY(-3px) !important;
+          box-shadow: 0 10px 32px rgba(251,191,36,.18) !important;
         }
       `}</style>
 
@@ -1438,7 +1441,8 @@ const Landing: React.FC = (): JSX.Element => {
         {images.map((image, i) => {
           const status = getStatus(image.name);
           const enabled = ENABLED.includes(image.name);
-          const isSquareDisabled = image.name === "Square" && !SQUARE_ENABLED;
+          // "Coming Soon" applies to Shopify and Square while their integrations are being finalized
+          const isComingSoon = (image.name === "Square" && !SQUARE_ENABLED) || (image.name === "Shopify" && !SHOPIFY_ENABLED);
           const isConnected = status === "connected";
           const hasOrderSync = ORDER_SYNC_PLATFORMS[image.name] === true;
           const orderSyncOn = image.name === "Wix" ? wixOrderSync : image.name === "Shopify" ? shopifyOrderSync : squarespaceOrderSync;
@@ -1449,38 +1453,36 @@ const Landing: React.FC = (): JSX.Element => {
           return (
             <div
               key={image.name}
-              className={`lp-card${isSquareDisabled ? " lp-card-disabled-soon" : ""}`}
+              className={`lp-card${isComingSoon ? " lp-card-disabled-soon" : ""}`}
               onClick={() => importData(image.name)}
               style={{
                 background: isDark ? "#0f1724" : "#fff",
                 borderRadius: 18,
-                border: isSquareDisabled
-                  ? `2px solid ${isDark ? "rgba(251,191,36,.35)" : "rgba(251,191,36,.5)"}`
+                border: isComingSoon
+                  ? (isDark ? "2px solid #1e2d42" : "2px solid #e8edf5")
                   : isConnected && enabled
                     ? "2px solid " + (isDark ? "#14b8a6" : "#52c41a")
                     : isDark ? "2px solid #1e2d42" : "2px solid #e8edf5",
-                boxShadow: isConnected && enabled
+                boxShadow: !isComingSoon && isConnected && enabled
                   ? "0 4px 20px rgba(82,196,26,.15)"
                   : "0 2px 12px rgba(0,0,0,.06)",
-                animation: isSquareDisabled
-                  ? `lp-fade .3s ease both, ${isDark ? "soon-pulse-dark" : "soon-pulse"} 2.4s ease-in-out infinite`
-                  : `lp-fade .3s ease both`,
+                animation: "lp-fade .3s ease both",
                 padding: "28px 20px 22px",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
                 gap: 12,
-                cursor: isSquareDisabled ? "not-allowed" : "pointer",
+                cursor: isComingSoon ? "default" : "pointer",
                 position: "relative",
-                opacity: enabled ? 1 : 0.5,
+                opacity: (isComingSoon || !enabled) ? 0.5 : 1,
                 animationDelay: `${i * 0.04}s`,
-                filter: isSquareDisabled ? "grayscale(0.6)" : "none",
+                filter: isComingSoon ? "grayscale(0.8)" : "none",
               }}
             >
               {/* ── Status icon — top LEFT corner ── */}
 
-              {/* Verifying: spinning ring */}
-              {isVerifying && enabled && (
+              {/* Verifying: spinning ring — hidden for Coming Soon */}
+              {isVerifying && enabled && !isComingSoon && (
                 <span title="Verifying connection…" style={{
                   position: "absolute", top: 10, left: 10,
                   width: 26, height: 26, borderRadius: "50%",
@@ -1490,8 +1492,8 @@ const Landing: React.FC = (): JSX.Element => {
                 }} />
               )}
 
-              {/* Connected: glowing plug icon */}
-              {isConnected && enabled && (
+              {/* Connected: glowing plug icon — hidden for Coming Soon */}
+              {isConnected && enabled && !isComingSoon && (
                 <span title="Connected" style={{
                   position: "absolute", top: 8, left: 8,
                   width: 28, height: 28, borderRadius: "50%",
@@ -1507,8 +1509,8 @@ const Landing: React.FC = (): JSX.Element => {
                 </span>
               )}
 
-              {/* Disconnected: broken-link icon */}
-              {isDisconnected && enabled && image.name !== "Excel" && (
+              {/* Disconnected: broken-link icon — hidden for Coming Soon */}
+              {isDisconnected && enabled && image.name !== "Excel" && !isComingSoon && (
                 <span title="Not connected — click to connect" style={{
                   position: "absolute", top: 8, left: 8,
                   width: 28, height: 28, borderRadius: "50%",
@@ -1524,9 +1526,14 @@ const Landing: React.FC = (): JSX.Element => {
                 </span>
               )}
 
-              {/* Coming soon chip */}
-              {!enabled && (
-                <span style={{ position: "absolute", top: 12, right: 12, background: isDark ? "#1a2a40" : "#f3f4f6", color: isDark ? "#3a5070" : "#9ca3af", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 999, letterSpacing: .3 }}>
+              {/* Coming soon chip — neutral grey badge */}
+              {(isComingSoon || !enabled) && (
+                <span style={{
+                  position: "absolute", top: 12, right: 12,
+                  background: isDark ? "#1a2a40" : "#f3f4f6",
+                  color: isDark ? "#3a5070" : "#9ca3af",
+                  fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 999, letterSpacing: .3,
+                }}>
                   SOON
                 </span>
               )}
@@ -1558,7 +1565,7 @@ const Landing: React.FC = (): JSX.Element => {
                 <img
                   src={image.img}
                   alt={image.name}
-                  style={{ width: "100%", height: "100%", objectFit: "contain", filter: enabled ? "none" : "grayscale(1) opacity(.5)" }}
+                  style={{ width: "100%", height: "100%", objectFit: "contain", filter: (enabled && !isComingSoon) ? "none" : "grayscale(1) opacity(.5)" }}
                 />
               </div>
 
@@ -1569,7 +1576,7 @@ const Landing: React.FC = (): JSX.Element => {
 
               {/* Action label */}
               <p style={{ margin: 0, fontSize: 11, color: isConnected ? (isDark ? "#14b8a6" : "#15803d") : enabled ? (isDark ? "#8892a4" : "#6b7280") : (isDark ? "#253347" : "#c4c9d4"), fontWeight: 500 }}>
-                {!enabled
+                {(isComingSoon || !enabled)
                   ? "Coming soon"
                   : image.name === "Excel"
                     ? "Upload spreadsheet"
@@ -1670,7 +1677,7 @@ const Landing: React.FC = (): JSX.Element => {
                 setShippoConnecting(true);
                 try {
                   const res = await fetch(
-                    'https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/shippo/connect',
+                    `${BASE_URL}shippo/connect`,
                     {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },

@@ -11,6 +11,8 @@ import woocommerceSvg from "../assets/images/store-woocommerce.svg";
 import shopifySvg from "../assets/images/store-shopify.svg";
 import squarespaceSvg from "../assets/images/store-squarespace.svg";
 import wixSvg from "../assets/images/store-wix.svg";
+import config from "../config/configs";
+const BASE_URL = config.SERVER_BASE_URL;
 
 interface Platform {
   id: string;
@@ -33,7 +35,7 @@ const DisconnectPlatformModal: React.FC<DisconnectPlatformModalProps> = ({
   const dispatch = useAppDispatch();
   const [cookies] = useCookies(["Session", "AccountGUID"]);
   const notificationApi = useNotificationContext();
-  
+
   const companyInfo = useAppSelector((state) => state.company.company_info);
   const connectionVerificationStatus = useAppSelector(
     (state) => state.company.connectionVerificationStatus
@@ -44,7 +46,7 @@ const DisconnectPlatformModal: React.FC<DisconnectPlatformModalProps> = ({
   const shopifyShop = useAppSelector(
     (state) => state.company.shopify_shop
   );
-  
+
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
 
@@ -66,12 +68,12 @@ const DisconnectPlatformModal: React.FC<DisconnectPlatformModalProps> = ({
         let isWooConnected = false;
         try {
           if (wooConnection.data) {
-             const parsed = JSON.parse(wooConnection.data);
-             if (parsed.isConnected === true || parsed.isConnected === "true") {
-                isWooConnected = true;
-             }
+            const parsed = JSON.parse(wooConnection.data);
+            if (parsed.isConnected === true || parsed.isConnected === "true") {
+              isWooConnected = true;
+            }
           }
-        } catch (e) {}
+        } catch (e) { }
         if (isWooConnected || connectionVerificationStatus === "connected") {
           const p = platformList.find(p => p.id === "woocommerce");
           if (p) {
@@ -86,15 +88,15 @@ const DisconnectPlatformModal: React.FC<DisconnectPlatformModalProps> = ({
       if (shopifyConnection) {
         let isShopifyConnected = false;
         if (shopifyConnection.id) {
-           isShopifyConnected = true;
-           if (shopifyConnection.data) {
-             try {
-               const parsed = JSON.parse(shopifyConnection.data);
-               if (parsed.isConnected === false || parsed.isConnected === "false") {
-                 isShopifyConnected = false;
-               }
-             } catch (e) {}
-           }
+          isShopifyConnected = true;
+          if (shopifyConnection.data) {
+            try {
+              const parsed = JSON.parse(shopifyConnection.data);
+              if (parsed.isConnected === false || parsed.isConnected === "false") {
+                isShopifyConnected = false;
+              }
+            } catch (e) { }
+          }
         }
         if (isShopifyConnected || shopifyShop) {
           const p = platformList.find(p => p.id === "shopify");
@@ -115,7 +117,7 @@ const DisconnectPlatformModal: React.FC<DisconnectPlatformModalProps> = ({
             if (parsed.isConnected === false || parsed.isConnected === "false") {
               isSqConnected = false;
             }
-          } catch (e) {}
+          } catch (e) { }
         }
         if (isSqConnected) {
           const p = platformList.find(p => p.id === "squarespace");
@@ -136,7 +138,7 @@ const DisconnectPlatformModal: React.FC<DisconnectPlatformModalProps> = ({
             if (parsed.isConnected === false || parsed.isConnected === "false") {
               isWixConnected = false;
             }
-          } catch (e) {}
+          } catch (e) { }
         }
         if (isWixConnected) {
           const p = platformList.find(p => p.id === "wix");
@@ -156,7 +158,7 @@ const DisconnectPlatformModal: React.FC<DisconnectPlatformModalProps> = ({
         p.connectionId = shopifyShop;
       }
     }
-    
+
     // Always check wordpressConnectionId if no connections in array
     if (connectionVerificationStatus === "connected" && wordpressConnectionId) {
       const p = platformList.find(p => p.id === "woocommerce");
@@ -188,7 +190,7 @@ const DisconnectPlatformModal: React.FC<DisconnectPlatformModalProps> = ({
           const accountKey = cookies.AccountGUID;
 
           const response = await fetch(
-            `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/stores/disconnect?slug=${platform.id}&account_key=${accountKey}`,
+            `${BASE_URL}stores/disconnect?slug=${platform.id}&account_key=${accountKey}`,
             { method: "POST" }
           );
 
@@ -297,73 +299,72 @@ const DisconnectPlatformModal: React.FC<DisconnectPlatformModalProps> = ({
         <p className="mb-4 text-gray-600">
           Manage your platforms. Toggle off to disconnect. To connect a platform, visit the Stores page.
         </p>
-          <List
-            dataSource={platforms}
-            renderItem={(platform) => (
-              <List.Item
-                className={`border rounded-lg mb-3 p-4 hover:bg-gray-50 ${!platform.isConnected ? 'opacity-70' : ''}`}
-                actions={[
-                  <Switch
-                    key="switch"
-                    checked={platform.isConnected}
-                    loading={disconnecting === platform.id}
-                    onChange={(checked) => handleDisconnect(platform, checked)}
-                    checkedChildren="Connected"
-                    unCheckedChildren="Disconnected"
-                  />,
-                ]}
-              >
-                  <List.Item.Meta
-                    avatar={
-                      <div style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 10,
-                        background: "#f8faff",
-                        border: "1px solid #e8edf5",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        padding: 6,
-                        flexShrink: 0,
-                      }}>
-                        <img
-                          src={platform.imgSrc}
-                          alt={platform.name}
-                          style={{ width: "100%", height: "100%", objectFit: "contain" }}
-                        />
-                      </div>
-                    }
-                    title={
-                      <span className="font-semibold text-gray-800">{platform.name}</span>
-                    }
-                    description={
-                      <span
-                        className={`text-xs font-medium ${
-                          platform.isConnected ? "text-green-600" : "text-gray-400"
-                        }`}
-                      >
-                        {platform.isConnected ? "● Connected" : "○ Not connected"}
-                      </span>
-                    }
-                  />
-                </List.Item>
-              )}
-            />
-            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <div className="flex items-start gap-2">
-                <ExclamationCircleFilled className="text-yellow-500 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-yellow-800">
-                    Warning
-                  </p>
-                  <p className="text-sm text-yellow-700">
-                    Disconnecting a platform will remove all associated media and data.
-                    This action cannot be undone.
-                  </p>
-                </div>
-              </div>
+        <List
+          dataSource={platforms}
+          renderItem={(platform) => (
+            <List.Item
+              className={`border rounded-lg mb-3 p-4 hover:bg-gray-50 ${!platform.isConnected ? 'opacity-70' : ''}`}
+              actions={[
+                <Switch
+                  key="switch"
+                  checked={platform.isConnected}
+                  loading={disconnecting === platform.id}
+                  onChange={(checked) => handleDisconnect(platform, checked)}
+                  checkedChildren="Connected"
+                  unCheckedChildren="Disconnected"
+                />,
+              ]}
+            >
+              <List.Item.Meta
+                avatar={
+                  <div style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 10,
+                    background: "#f8faff",
+                    border: "1px solid #e8edf5",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 6,
+                    flexShrink: 0,
+                  }}>
+                    <img
+                      src={platform.imgSrc}
+                      alt={platform.name}
+                      style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                    />
+                  </div>
+                }
+                title={
+                  <span className="font-semibold text-gray-800">{platform.name}</span>
+                }
+                description={
+                  <span
+                    className={`text-xs font-medium ${platform.isConnected ? "text-green-600" : "text-gray-400"
+                      }`}
+                  >
+                    {platform.isConnected ? "● Connected" : "○ Not connected"}
+                  </span>
+                }
+              />
+            </List.Item>
+          )}
+        />
+        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="flex items-start gap-2">
+            <ExclamationCircleFilled className="text-yellow-500 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-yellow-800">
+                Warning
+              </p>
+              <p className="text-sm text-yellow-700">
+                Disconnecting a platform will remove all associated media and data.
+                This action cannot be undone.
+              </p>
             </div>
+          </div>
+        </div>
       </div>
     </Modal>
   );
