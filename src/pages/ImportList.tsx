@@ -2949,6 +2949,7 @@ const ImportList: React.FC = () => {
       <VirtualInvModal
         visible={addProductVirtualInvVisible}
         onClose={() => setAddProductVirtualInvVisible(false)}
+        orderFullFillmentId={currentOrderForAddProduct}
         onProductAdded={handleAddProductCodeUpdate}
       />
 

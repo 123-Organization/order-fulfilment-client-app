@@ -41,9 +41,10 @@ interface NotificationAlertProps {
 interface VirtualInventoryProps {
   onClose: () => void;
   onProductAdded?: () => void;
+  orderFullFillmentId?: string;
 }
 
-const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductAdded }): JSX.Element => { 
+const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductAdded, orderFullFillmentId: orderFullFillmentIdProp }): JSX.Element => { 
   const location = useLocation();
   console.log("location", location.pathname);
   const [spinLoader, setSpinLoader] = useState(false);
@@ -157,7 +158,7 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
           setProductData({
             skuCode: skuObj.sku,
             productCode: "",
-            orderFullFillmentId: currentOrderFullFillmentId,
+            orderFullFillmentId: orderFullFillmentIdProp || currentOrderFullFillmentId,
           });
 
           return { ...data, isSelected: !data.isSelected };

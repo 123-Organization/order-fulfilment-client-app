@@ -4,9 +4,11 @@ import VirtualInventory from "../pages/VirtualInventory";
 interface VirtualInvProps {
   visible: boolean;
   onClose: () => void;
+  orderFullFillmentId?: string;
+  onProductAdded?: () => void;
 }
 
-const VirtualInvModal: React.FC<VirtualInvProps> = ({ visible, onClose }) => {
+const VirtualInvModal: React.FC<VirtualInvProps> = ({ visible, onClose, orderFullFillmentId, onProductAdded }) => {
   return (
     <Modal
       title="Enter Product Code"
@@ -15,7 +17,7 @@ const VirtualInvModal: React.FC<VirtualInvProps> = ({ visible, onClose }) => {
       onCancel={onClose}
       footer={[]}
     >
-      <VirtualInventory onClose={onClose} />
+      <VirtualInventory onClose={onClose} orderFullFillmentId={orderFullFillmentId} onProductAdded={onProductAdded} />
     </Modal>
   );
 };

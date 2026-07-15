@@ -233,6 +233,7 @@ export default function ProductOptions({ id, recipient, onProductCodeUpdate, set
           <VirtualInvModal
             visible={virtualINv}
             onClose={() => setVirtualInv(false)}
+            orderFullFillmentId={id}
           />
         </div>
 
