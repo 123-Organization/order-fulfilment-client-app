@@ -232,7 +232,6 @@ const EditOrder: React.FC = () => {
             layout="vertical"
             initialValues={initialValues}
             onValuesChange={handleValuesChange}
-            size="small"
           >
             {/* Country */}
             <Form.Item
@@ -242,22 +241,22 @@ const EditOrder: React.FC = () => {
               help={orderErrors["country_code"]?.[0]}
               style={{ marginBottom: 8 }}
             >
-              <Select showSearch allowClear placeholder="Select country" onChange={handleCountryChange} filterOption={filterOption} options={countryList} />
+              <Select showSearch allowClear placeholder="Select country" onChange={handleCountryChange} filterOption={filterOption} options={countryList} style={{ height: 32 }} />
             </Form.Item>
 
             {/* First / Last */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <Form.Item name="first_name" label={fieldLabel("First Name")} rules={[{ required: true, message: "Required" }]} style={{ marginBottom: 8 }}>
-                <Input placeholder="First name" />
+                <Input placeholder="First name" style={{ height: 32 }} />
               </Form.Item>
               <Form.Item name="last_name" label={fieldLabel("Last Name")} rules={[{ required: true, message: "Required" }]} style={{ marginBottom: 8 }}>
-                <Input placeholder="Last name" />
+                <Input placeholder="Last name" style={{ height: 32 }} />
               </Form.Item>
             </div>
 
             {/* Company */}
             <Form.Item name="company_name" label={fieldLabel("Company", true)} style={{ marginBottom: 8 }}>
-              <Input placeholder="Company name" />
+              <Input placeholder="Company name" style={{ height: 32 }} />
             </Form.Item>
 
             {/* Address 1 */}
@@ -268,12 +267,12 @@ const EditOrder: React.FC = () => {
               help={orderErrors["address_1"]?.[0]}
               style={{ marginBottom: 8 }}
             >
-              <Input placeholder="Street address" />
+              <Input placeholder="Street address" style={{ height: 32 }} />
             </Form.Item>
 
             {/* Address 2 */}
             <Form.Item name="address_2" label={fieldLabel("Address Line 2", true)} style={{ marginBottom: 8 }}>
-              <Input placeholder="Apt, suite, floor…" />
+              <Input placeholder="Apt, suite, floor…" style={{ height: 32 }} />
             </Form.Item>
 
             {/* City / State / Zip */}
@@ -285,7 +284,7 @@ const EditOrder: React.FC = () => {
                 help={orderErrors["city"]?.[0]}
                 style={{ marginBottom: 8 }}
               >
-                <Input placeholder="City" />
+                <Input placeholder="City" style={{ height: 32 }} />
               </Form.Item>
               <Form.Item
                 name="state_code"
@@ -295,9 +294,9 @@ const EditOrder: React.FC = () => {
                 style={{ marginBottom: 8 }}
               >
                 {selectedCountry?.toUpperCase() === "US" ? (
-                  <Select showSearch allowClear placeholder="State" filterOption={filterOption} options={stateData} />
+                  <Select showSearch allowClear placeholder="State" filterOption={filterOption} options={stateData} style={{ height: 32 }} />
                 ) : (
-                  <Input placeholder="Province / Region" />
+                  <Input placeholder="Province / Region" style={{ height: 32 }} />
                 )}
               </Form.Item>
               <Form.Item
@@ -307,7 +306,7 @@ const EditOrder: React.FC = () => {
                 help={orderErrors["zip_postal_code"]?.[0]}
                 style={{ marginBottom: 8 }}
               >
-                <Input placeholder="Postal code" />
+                <Input placeholder="Postal code" style={{ height: 32 }} />
               </Form.Item>
             </div>
 
@@ -320,12 +319,13 @@ const EditOrder: React.FC = () => {
               <Input
                 placeholder="Phone number"
                 disabled={!isPhoneEditable}
-                style={!isPhoneEditable ? { backgroundColor: "#f9fafb", cursor: "not-allowed", color: "#9ca3af" } : {}}
+                style={{ height: 32, ...(!isPhoneEditable ? { backgroundColor: "#f9fafb", cursor: "not-allowed", color: "#9ca3af" } : {}) }}
               />
             </Form.Item>
           </Form>
         </div>
       </div>
+
 
       {/* Save popup — triggered by BottomIcon */}
       <UpdatePopup
