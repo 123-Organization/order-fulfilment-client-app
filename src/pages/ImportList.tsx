@@ -2288,7 +2288,7 @@ const ImportList: React.FC = () => {
                                     <span style={{ fontSize: 12, color: isDark ? "#4b7fa8" : "#6b7280" }}>Validating product…</span>
                                   </div>
                                 </div>
-                              ) : itemDetail === undefined && (product_status === 'succeeded' || product_status === 'failed') && product_details.length > 0 && !validSKUs.some(v => v.toLowerCase() === orderItem.product_sku?.toString().toLowerCase()) ? (
+                              ) : itemDetail === undefined && (product_status === 'succeeded' || product_status === 'failed') && product_details.length > 0 && !validSKUs.some(v => String(v).toLowerCase() === orderItem.product_sku?.toString().toLowerCase()) ? (
                                 // Fallback: API has fully responded but no match found for this item.
                                 // Only show invalid UI AFTER the API has definitively answered.
                                 <div
@@ -2580,7 +2580,7 @@ const ImportList: React.FC = () => {
                                         </div>
                                       ) : (
                                         /* Only show price when product is valid and has no errors */
-                                        validSKUs.some(v => v.toLowerCase() === (orderItem?.product_sku ?? '').toString().toLowerCase() || v === orderItem?.product_guid) &&
+                                        validSKUs.some(v => String(v).toLowerCase() === (orderItem?.product_sku ?? '').toString().toLowerCase() || String(v) === orderItem?.product_guid) &&
                                         (!recipientErrors[order?.order_po] || Object.keys(recipientErrors[order?.order_po]).length === 0) &&
                                         getProductDetail(orderItem)?.total_price != null ? (
                                           <span className="text-gray-600">{orderItem?.product_qty || 1}@ ${(getProductDetail(orderItem)?.total_price)?.toFixed(2)} ea</span>

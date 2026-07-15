@@ -227,11 +227,26 @@ const EditOrder: React.FC = () => {
 
         {/* Form body */}
         <div style={{ padding: "16px 24px 20px" }}>
+          {/* Force Select selectors to match Input height (32px) */}
+          <style>{`
+            .edit-order-form .ant-select-selector {
+              height: 32px !important;
+              line-height: 30px !important;
+            }
+            .edit-order-form .ant-select-selection-search-input {
+              height: 30px !important;
+            }
+            .edit-order-form .ant-select-selection-item,
+            .edit-order-form .ant-select-selection-placeholder {
+              line-height: 30px !important;
+            }
+          `}</style>
           <Form
             form={form}
             layout="vertical"
             initialValues={initialValues}
             onValuesChange={handleValuesChange}
+            className="edit-order-form"
           >
             {/* Country */}
             <Form.Item
@@ -241,7 +256,7 @@ const EditOrder: React.FC = () => {
               help={orderErrors["country_code"]?.[0]}
               style={{ marginBottom: 8 }}
             >
-              <Select showSearch allowClear placeholder="Select country" onChange={handleCountryChange} filterOption={filterOption} options={countryList} style={{ height: 32 }} />
+              <Select showSearch allowClear placeholder="Select country" onChange={handleCountryChange} filterOption={filterOption} options={countryList} />
             </Form.Item>
 
             {/* First / Last */}
@@ -294,7 +309,7 @@ const EditOrder: React.FC = () => {
                 style={{ marginBottom: 8 }}
               >
                 {selectedCountry?.toUpperCase() === "US" ? (
-                  <Select showSearch allowClear placeholder="State" filterOption={filterOption} options={stateData} style={{ height: 32 }} />
+                  <Select showSearch allowClear placeholder="State" filterOption={filterOption} options={stateData} />
                 ) : (
                   <Input placeholder="Province / Region" style={{ height: 32 }} />
                 )}
