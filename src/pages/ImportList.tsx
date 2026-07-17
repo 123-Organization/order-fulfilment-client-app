@@ -1354,7 +1354,13 @@ const ImportList: React.FC = () => {
       const sku: string = item?.product_sku ?? "";
       if (sku.toUpperCase().startsWith("AP")) return false;
 
-      const fileUrl = item?.product_image?.product_url_file;
+      // Image URL may be in two places depending on the order source:
+      // 1. Nested inside product_image object (standard FW API response)
+      // 2. Flat on the item itself (some platform integrations, e.g. Etsy/Square)
+      const fileUrl =
+        item?.product_image?.product_url_file ||
+        item?.product_url_file;
+
       return !fileUrl || fileUrl.trim() === '';
     });
   };
