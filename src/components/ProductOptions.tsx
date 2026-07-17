@@ -55,7 +55,7 @@ export default function ProductOptions({ id, recipient, onProductCodeUpdate, set
       "terms_of_service_url": "/terms.aspx",
       "button_text": "Add Selected",
       "account_id": customerInfo?.data?.account_id,
-      "ReturnUrl": "https://local.finerworks.com:3000/#/" + window.location.hash,
+      "ReturnUrl": "https://fa.finerworks.com" + window.location.hash,
     }
   }
   const encodedURI =

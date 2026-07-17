@@ -70,16 +70,16 @@ const Landing: React.FC = (): JSX.Element => {
   const connectionVerificationStatus = useAppSelector(
     (state) => state.company?.connectionVerificationStatus
   );
-  const [shopifyConnectionStatus, setShopifyConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('idle');
+  const [shopifyConnectionStatus, setShopifyConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('verifying');
   const [lastShopifyConnectionData, setLastShopifyConnectionData] = useState<string | null>(null);
   const [showShopifyConnectModal, setShowShopifyConnectModal] = useState<boolean>(false);
-  const [squarespaceConnectionStatus, setSquarespaceConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('idle');
+  const [squarespaceConnectionStatus, setSquarespaceConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('verifying');
   const [lastSquarespaceConnectionData, setLastSquarespaceConnectionData] = useState<string | null>(null);
-  const [wixConnectionStatus, setWixConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('idle');
+  const [wixConnectionStatus, setWixConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('verifying');
   const [lastWixConnectionData, setLastWixConnectionData] = useState<string | null>(null);
 
   // ── Square ─────────────────────────────────────────────────────────────────
-  const [squareConnectionStatus, setSquareConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('idle');
+  const [squareConnectionStatus, setSquareConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('verifying');
   const [lastSquareConnectionData, setLastSquareConnectionData] = useState<string | null>(null);
 
   // ── Order-sync toggle state ──────────────────────────────────────────────
@@ -94,7 +94,7 @@ const Landing: React.FC = (): JSX.Element => {
   const [shopifyOrderSyncDisconnecting, setShopifyOrderSyncDisconnecting] = useState<boolean>(false);
 
   // ── Etsy / Shippo ──────────────────────────────────────────────────────────
-  const [etsyConnectionStatus, setEtsyConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('idle');
+  const [etsyConnectionStatus, setEtsyConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('verifying');
   const [lastEtsyConnectionData, setLastEtsyConnectionData] = useState<string | null>(null);
   const [showShippoConnectModal, setShowShippoConnectModal] = useState<boolean>(false);
   const [shippoLiveKey, setShippoLiveKey] = useState('');
@@ -1261,8 +1261,8 @@ const Landing: React.FC = (): JSX.Element => {
       }
       console.log('=== END SQUARE CONNECTION CHECK ===');
 
-    } else {
-      // No connections available
+    } else if (companyInfo !== null && companyInfo !== undefined) {
+      // companyInfo has loaded but contains no connections — genuinely disconnected
       console.log("No connections available");
       dispatch(setConnectionVerificationStatus('disconnected'));
       setShopifyConnectionStatus('disconnected');
@@ -1271,6 +1271,7 @@ const Landing: React.FC = (): JSX.Element => {
       setEtsyConnectionStatus('disconnected');
       setSquareConnectionStatus('disconnected');
     }
+    // If companyInfo is null/undefined the fetch hasn't completed yet — keep 'verifying'
   }, [companyInfo, lastConnectionData, lastShopifyConnectionData, lastSquarespaceConnectionData, lastWixConnectionData, lastEtsyConnectionData, lastSquareConnectionData, dispatch]);
 
   // ── Per-platform connection status helpers ──────────────────────────────────
@@ -1539,7 +1540,7 @@ const Landing: React.FC = (): JSX.Element => {
               )}
 
               {/* ── Gear settings modal — top RIGHT corner, only when connected ── */}
-              {isConnected && enabled && image.name !== "Excel" && (
+              {isConnected && enabled && image.name !== "Excel" && !isComingSoon && (
                 <PlatformSettingsModal
                   platform={image.name}
                   hasOrderSync={hasOrderSync}

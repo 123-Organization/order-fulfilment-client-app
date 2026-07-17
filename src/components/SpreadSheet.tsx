@@ -101,7 +101,7 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
       const file = files[0];
       if (
         file.type ===
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
         file.type === "application/vnd.ms-excel"
       ) {
         processFile(file);
@@ -109,32 +109,46 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
     }
   };
 
+  /**
+   * Removes rows where every cell is an empty string (or undefined).
+   * These are phantom rows that XLSX includes when a spreadsheet has
+   * previously had data but is now blank – they bloat the payload.
+   */
+  const stripEmptyRows = (jsonData: SpreadsheetData): SpreadsheetData => {
+    if (jsonData.length <= 1) return jsonData;
+    const [header, ...dataRows] = jsonData;
+    const nonEmptyRows = dataRows.filter((row) =>
+      (row as any[]).some((cell) => cell !== "" && cell !== null && cell !== undefined)
+    );
+    return [header, ...nonEmptyRows] as SpreadsheetData;
+  };
+
   const cleanupSpreadsheetData = (jsonData: SpreadsheetData): SpreadsheetData => {
     if (jsonData.length <= 1) return jsonData; // No data rows to clean
-    
+
     const headers = jsonData[0] as string[];
     const countryCodeIndex = headers.indexOf("ship_country_code");
     const stateCodeIndex = headers.indexOf("ship_state_code");
     const provinceIndex = headers.indexOf("ship_province");
-    
+
     // If we don't have the necessary columns, return as is
     if (countryCodeIndex === -1 || (stateCodeIndex === -1 && provinceIndex === -1)) {
       return jsonData;
     }
-    
+
     const cleanedData = [...jsonData];
-    
+
 
     for (let i = 1; i < cleanedData.length; i++) {
       const row = [...(cleanedData[i] as any[])];
       const countryCode = row[countryCodeIndex];
-      
+
       if (countryCode) {
-        const isUSCountry = countryCode && 
-          (countryCode.toString().toLowerCase() === "us" || 
-           countryCode.toString().toLowerCase() === "usa" ||
-           countryCode.toString().toLowerCase() === "united states");
-           
+        const isUSCountry = countryCode &&
+          (countryCode.toString().toLowerCase() === "us" ||
+            countryCode.toString().toLowerCase() === "usa" ||
+            countryCode.toString().toLowerCase() === "united states");
+
         if (isUSCountry) {
           // For US addresses, clear province field
           if (provinceIndex >= 0) {
@@ -146,11 +160,11 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
             row[stateCodeIndex] = "";
           }
         }
-        
+
         cleanedData[i] = row;
       }
     }
-    
+
     return cleanedData;
   };
 
@@ -169,9 +183,10 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
         raw: false,
         defval: "",
       }) as SpreadsheetData;
-      
-      // Clean up the data after loading
-      const cleanedData = cleanupSpreadsheetData(jsonData);
+
+      // Strip empty rows first, then clean up state/province fields
+      const strippedData = stripEmptyRows(jsonData);
+      const cleanedData = cleanupSpreadsheetData(strippedData);
       setData(cleanedData);
       setStep(1);
       setConfirmation({
@@ -206,9 +221,10 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
         raw: false,
         defval: "",
       }) as SpreadsheetData;
-      
-      // Clean up the data after loading
-      const cleanedData = cleanupSpreadsheetData(jsonData);
+
+      // Strip empty rows first, then clean up state/province fields
+      const strippedData = stripEmptyRows(jsonData);
+      const cleanedData = cleanupSpreadsheetData(strippedData);
       setData(cleanedData);
       setStep(1);
       setConfirmation({
@@ -226,42 +242,47 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
     try {
       // Convert data to orders
       const headers = data[0] as string[];
-      const orders = data.slice(1).map((row) => {
-        const order: Record<string, any> = {};
-        headers.forEach((header, index) => {
-          order[header] = row[index];
-        });
+      const orders = data.slice(1)
+        // Guard: skip rows where every cell is empty (should already be stripped, but belt-and-suspenders)
+        .filter((row) =>
+          (row as any[]).some((cell) => cell !== "" && cell !== null && cell !== undefined)
+        )
+        .map((row) => {
+          const order: Record<string, any> = {};
+          headers.forEach((header, index) => {
+            order[header] = row[index];
+          });
 
-        // Clean up state/province based on country code
-        if (order.ship_country_code) {
-          const isUSCountry = order.ship_country_code && 
-            (order.ship_country_code.toString().toLowerCase() === "us" || 
-             order.ship_country_code.toString().toLowerCase() === "usa" ||
-             order.ship_country_code.toString().toLowerCase() === "united states");
+          // Clean up state/province based on country code
+          if (order.ship_country_code) {
+            const isUSCountry = order.ship_country_code &&
+              (order.ship_country_code.toString().toLowerCase() === "us" ||
+                order.ship_country_code.toString().toLowerCase() === "usa" ||
+                order.ship_country_code.toString().toLowerCase() === "united states");
 
-          if (isUSCountry) {
-            // For US addresses, clear province field
-            order.ship_province = "";
-          } else {
-            // For non-US addresses, clear state code field
-            order.ship_state_code = "";
+            if (isUSCountry) {
+              // For US addresses, clear province field
+              order.ship_province = "";
+            } else {
+              // For non-US addresses, clear state code field
+              order.ship_state_code = "";
+            }
           }
-        }
 
-        return order;
-      });
+          return order;
+        });
 
       // Here you would typically send the orders to your API
       // await api.createOrders(orders);
       const postOrders = orders.map((order) => {
         // Determine if the country is US to decide between state and province
-        const isUSCountry = order.ship_country_code && 
-          (order.ship_country_code.toString().toLowerCase() === "us" || 
-           order.ship_country_code.toString().toLowerCase() === "usa" ||
-           order.ship_country_code.toString().toLowerCase() === "united states");
-       
+        const isUSCountry = order.ship_country_code &&
+          (order.ship_country_code.toString().toLowerCase() === "us" ||
+            order.ship_country_code.toString().toLowerCase() === "usa" ||
+            order.ship_country_code.toString().toLowerCase() === "united states");
 
-       
+
+
 
         const mappedState = isUSCountry ? order.ship_state_code : "";
         const mappedProvince = !isUSCountry ? order.ship_province : "";
@@ -293,13 +314,15 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
                 pixel_width: 600,
                 pixel_height: 600,
                 product_url_file: order.product_image_file_url,
-                product_url_thumbnail: order.product_thumb_url ,
+                product_url_thumbnail: order.product_thumb_url,
               },
               product_cropping: order.product_cropping,
             },
           ],
           order_status: "Processing",
           shipping_code: order.shipping_code,
+
+
           test_mode: false,
         };
 
@@ -311,25 +334,25 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
         return orderData;
       });
       return postOrders;
-  } catch (error) {
-  }
+    } catch (error) {
+    }
   }
   const errors: ValidationError[] = [];
   useEffect(() => {
-    if(validatedOrders.status === false) {
+    if (validatedOrders.status === false) {
       errors.push({
         row: 0,
         column: "response",
         message: validatedOrders?.message,
       });
       setValidationErrors((prev) => [...prev, ...errors]);
-    }else if(validatedOrders.status === true){
+    } else if (validatedOrders.status === true) {
       const filteredErrors = validationErrors.filter((error) => error.column !== "response");
-      setValidationErrors([ ...filteredErrors]);
+      setValidationErrors([...filteredErrors]);
     }
   }, [validatedOrders]);
   useEffect(() => {
-    if(step === 1) {
+    if (step === 1) {
       validatePostOrders();
     }
   }, [step]);
@@ -341,6 +364,7 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
       orders: [...postOrders],
       account_key: customerInfo?.data?.account_key,
       accountId: customerInfo?.data?.account_id,
+      payment_token: "xxxx",
     }))
   }
 
@@ -366,25 +390,25 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
     },
     afterChange: (changes: any, source: string) => {
       if (source === "loadData") return;
-      if(changes?.length > 0) {
+      if (changes?.length > 0) {
         validatePostOrders();
         validateData();
       }
-      
-     
+
+
     },
   } as const;
-  const validateData =  () => {
-   
+  const validateData = () => {
+
     const headers = data[0] as string[];
-    
+
     validatePostOrders();
-  
+
     // Validate headers - check for basic required fields
     const missingFields = requiredFields.filter(
       (field) => !headers.includes(field)
     );
-    
+
     if (missingFields.length > 0) {
       errors.push({
         row: 0,
@@ -415,7 +439,7 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
     // Validate data rows
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
-      
+
       // Validate all basic required fields (excluding ship_state_code since it's conditional)
       headers.forEach((header, columnIndex) => {
         if (requiredFields.includes(header) && header !== "ship_state_code" && !row[columnIndex]) {
@@ -430,10 +454,10 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
       // Validate conditional state/province requirements
       if (hasCountryCode && countryCodeIndex >= 0) {
         const countryCode = row[countryCodeIndex];
-        const isUSCountry = countryCode && 
-          (countryCode.toString().toLowerCase() === "us" || 
-           countryCode.toString().toLowerCase() === "usa" ||
-           countryCode.toString().toLowerCase() === "united states");
+        const isUSCountry = countryCode &&
+          (countryCode.toString().toLowerCase() === "us" ||
+            countryCode.toString().toLowerCase() === "usa" ||
+            countryCode.toString().toLowerCase() === "united states");
 
         if (isUSCountry) {
           // US addresses require state code
@@ -448,7 +472,7 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
           // Non-US addresses require province (or state code if province not available)
           const hasProvinceValue = hasProvince && provinceIndex >= 0 && row[provinceIndex];
           const hasStateValue = hasStateCode && stateCodeIndex >= 0 && row[stateCodeIndex];
-          
+
           if (!hasProvinceValue && !hasStateValue) {
             const requiredField = hasProvince ? "ship_province" : "ship_state_code";
             errors.push({
@@ -464,13 +488,13 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
     setValidationErrors(errors);
     return errors.length === 0;
   };
-  
+
 
   const handleSubmitOrders = async () => {
     setIsLoading(true);
     try {
-    const postOrders = await handleReturnData();
-      
+      const postOrders = await handleReturnData();
+
       await dispatch(
         UploadOrdersExcel({
           account_key: customerInfo?.data?.account_key,
@@ -479,7 +503,7 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
           orders: [...postOrders],
         })
       );
-      
+
       // Immediately fetch all orders so Finerworks state isn't just the uploaded ones
       if (customerInfo?.data?.account_id) {
         await dispatch(fetchOrder(customerInfo?.data?.account_id));
@@ -557,9 +581,8 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
       case 0:
         return (
           <div
-            className={`${cssModule.uploadContainer} ${
-              isDragging ? cssModule.dragActive : ""
-            }`}
+            className={`${cssModule.uploadContainer} ${isDragging ? cssModule.dragActive : ""
+              }`}
             onDragEnter={handleDragEnter}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -627,9 +650,8 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
             <Result
               icon={<ExclamationCircleOutlined className="text-blue-500" />}
               title="Ready to Create Orders"
-              subTitle={`${
-                data.length - 1
-              } orders will be created. Please confirm to proceed.`}
+              subTitle={`${data.length - 1
+                } orders will be created. Please confirm to proceed.`}
             />
           </ConfigProvider>
         );
