@@ -475,7 +475,7 @@ const ImportList: React.FC = () => {
         "terms_of_service_url": "/terms.aspx",
         "button_text": "Add Selected",
         "account_id": customerInfo?.data?.account_id,
-        "ReturnUrl": "https://local.finerworks.com:3000" + window.location.hash,
+        "ReturnUrl": "https://fa.finerworks.com" + window.location.hash,
       }
     };
     const encodedURI =
@@ -903,7 +903,7 @@ const ImportList: React.FC = () => {
     // parameter because the DeleteMessage modal coerces null to "" before
     // passing it back, which breaks the filter for invalid items.
     const guidFromState = productToDelete.product_guid;
-    const skuFromState  = productToDelete.product_sku;
+    const skuFromState = productToDelete.product_sku;
 
     // Find the order containing this product
     const orderToUpdate = orders?.data?.find(
@@ -1088,7 +1088,7 @@ const ImportList: React.FC = () => {
           if (p?.product_code) existingSkus.add(p.product_code.toString());
         });
       }
-      
+
       ProductDetails = ProductDetails?.filter((item) => {
         if (!item?.product_sku) return true; // keep if no SKU, let backend handle it
         return !existingSkus.has(item.product_sku.toString());
@@ -1115,7 +1115,7 @@ const ImportList: React.FC = () => {
           dispatch(setShippingLoading(false));
         }
       })();
-      
+
       if (ProductDetails && ProductDetails.length > 0) {
         dispatch(fetchProductDetails(ProductDetails));
       }
@@ -1354,13 +1354,7 @@ const ImportList: React.FC = () => {
       const sku: string = item?.product_sku ?? "";
       if (sku.toUpperCase().startsWith("AP")) return false;
 
-      // Image URL may be in two places depending on the order source:
-      // 1. Nested inside product_image object (standard FW API response)
-      // 2. Flat on the item itself (some platform integrations, e.g. Etsy/Square)
-      const fileUrl =
-        item?.product_image?.product_url_file ||
-        item?.product_url_file;
-
+      const fileUrl = item?.product_image?.product_url_file;
       return !fileUrl || fileUrl.trim() === '';
     });
   };
@@ -1370,25 +1364,25 @@ const ImportList: React.FC = () => {
   const getProductDetail = useCallback((item?: { product_guid?: string; product_sku?: string } | any) => {
     if (!item || !productData) return null;
     const { product_guid, product_sku } = item;
-    
+
     // 1. Try exact GUID
     if (product_guid && productData[product_guid]) return productData[product_guid];
-    
+
     // 2. Try stripped GUID (API returns with dashes, order items often without)
     if (product_guid) {
       const strippedGuid = String(product_guid).replace(/-/g, '');
       if (productData[strippedGuid]) return productData[strippedGuid];
     }
-    
+
     // 3. Try exact SKU
     if (product_sku && productData[product_sku]) return productData[product_sku];
-    
+
     // 4. Try lowercase SKU (case mismatch fallback)
     if (product_sku) {
       const lowerSku = String(product_sku).toLowerCase();
       if (productData[lowerSku]) return productData[lowerSku];
     }
-    
+
     return null;
   }, [productData]);
 
@@ -1503,7 +1497,7 @@ const ImportList: React.FC = () => {
     if (s.includes("squarespace")) {
       return (
         <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18 }}>
-          <path d="M12.001 0C5.373 0 0 5.373 0 12s5.373 12 12.001 12C18.627 24 24 18.627 24 12S18.627 0 12.001 0zm5.908 7.387a1.377 1.377 0 01-.403.977L8.364 17.506a1.382 1.382 0 01-1.953-1.953l9.142-9.143a1.381 1.381 0 011.953 1.953l-.006.006.409-.409-.006.006zm-1.818 8.154l-1.378 1.378-6.208-6.208 1.378-1.378 6.208 6.208zm-7.588 2.068a1.381 1.381 0 010-1.953l1.033-1.033 1.953 1.953-1.033 1.033a1.381 1.381 0 01-1.953 0zm9.54-9.541a1.381 1.381 0 010-1.953l-.975.975a1.381 1.381 0 011.952 1.952l.975-.974a1.381 1.381 0 01-1.953 0z"/>
+          <path d="M12.001 0C5.373 0 0 5.373 0 12s5.373 12 12.001 12C18.627 24 24 18.627 24 12S18.627 0 12.001 0zm5.908 7.387a1.377 1.377 0 01-.403.977L8.364 17.506a1.382 1.382 0 01-1.953-1.953l9.142-9.143a1.381 1.381 0 011.953 1.953l-.006.006.409-.409-.006.006zm-1.818 8.154l-1.378 1.378-6.208-6.208 1.378-1.378 6.208 6.208zm-7.588 2.068a1.381 1.381 0 010-1.953l1.033-1.033 1.953 1.953-1.033 1.033a1.381 1.381 0 01-1.953 0zm9.54-9.541a1.381 1.381 0 010-1.953l-.975.975a1.381 1.381 0 011.952 1.952l.975-.974a1.381 1.381 0 01-1.953 0z" />
         </svg>
       );
     }
@@ -1511,7 +1505,7 @@ const ImportList: React.FC = () => {
     if (s.includes("shopify")) {
       return (
         <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18 }}>
-          <path d="M15.337.009c-.074-.003-.154.022-.22.073l-1.01.76c-.167-.498-.41-.956-.73-1.33C12.77-1.166 11.82-1.5 10.84-1.5c-.013 0-.027 0-.04.002-.09.004-.18.024-.266.058C10.48-1.567 9.43-2 8.31-2c-.864 0-1.67.264-2.353.763-.683.5-1.21 1.196-1.522 2.01a8.29 8.29 0 00-.26 1.004l-.06.382C2.34 2.46.87 3.58.42 5.14L.002 6.73a.34.34 0 00.229.41l1.064.306v11.96a.34.34 0 00.34.34h16.5a.34.34 0 00.34-.34V7.856l1.064-.306a.34.34 0 00.23-.41L19.36 5.56c-.41-1.453-1.71-2.526-3.27-2.78l-.05-.334a7.67 7.67 0 00-.703-2.437zm-4.497 1.96c.307.345.533.77.672 1.272l-3.24 2.437a8.47 8.47 0 01-.14-.946 6.15 6.15 0 01-.027-.692c0-.596.075-1.145.216-1.621.135-.462.323-.83.547-1.09.11-.126.226-.222.342-.286.116-.064.234-.097.355-.1.404-.01.842.21 1.275 1.026zm-2.86-.693c-.166.192-.314.432-.44.716-.215.484-.357 1.082-.413 1.753a9.17 9.17 0 00.01 1.15l-1.62 1.22c.043-.412.126-.8.244-1.153a4.6 4.6 0 011.012-1.69 3.57 3.57 0 011.207-.996zm6.77 3.09l-8.28 6.23a.34.34 0 01-.54-.275V9.42a.34.34 0 01.136-.274l8.684-6.534v1.754zm1.01 12.64H8.31v-6.81l5.96-4.485v11.295h2.49z"/>
+          <path d="M15.337.009c-.074-.003-.154.022-.22.073l-1.01.76c-.167-.498-.41-.956-.73-1.33C12.77-1.166 11.82-1.5 10.84-1.5c-.013 0-.027 0-.04.002-.09.004-.18.024-.266.058C10.48-1.567 9.43-2 8.31-2c-.864 0-1.67.264-2.353.763-.683.5-1.21 1.196-1.522 2.01a8.29 8.29 0 00-.26 1.004l-.06.382C2.34 2.46.87 3.58.42 5.14L.002 6.73a.34.34 0 00.229.41l1.064.306v11.96a.34.34 0 00.34.34h16.5a.34.34 0 00.34-.34V7.856l1.064-.306a.34.34 0 00.23-.41L19.36 5.56c-.41-1.453-1.71-2.526-3.27-2.78l-.05-.334a7.67 7.67 0 00-.703-2.437zm-4.497 1.96c.307.345.533.77.672 1.272l-3.24 2.437a8.47 8.47 0 01-.14-.946 6.15 6.15 0 01-.027-.692c0-.596.075-1.145.216-1.621.135-.462.323-.83.547-1.09.11-.126.226-.222.342-.286.116-.064.234-.097.355-.1.404-.01.842.21 1.275 1.026zm-2.86-.693c-.166.192-.314.432-.44.716-.215.484-.357 1.082-.413 1.753a9.17 9.17 0 00.01 1.15l-1.62 1.22c.043-.412.126-.8.244-1.153a4.6 4.6 0 011.012-1.69 3.57 3.57 0 011.207-.996zm6.77 3.09l-8.28 6.23a.34.34 0 01-.54-.275V9.42a.34.34 0 01.136-.274l8.684-6.534v1.754zm1.01 12.64H8.31v-6.81l5.96-4.485v11.295h2.49z" />
         </svg>
       );
     }
@@ -1519,7 +1513,7 @@ const ImportList: React.FC = () => {
     if (s.includes("wix")) {
       return (
         <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18 }}>
-          <path d="M12.648 7.662l-1.514 8.676-1.017-4.795c-.156-.75-.42-1.244-.79-1.484-.37-.24-.888-.361-1.553-.361l-1.37 6.64L4.89 7.662H3l2.254 8.676c.156.735.435 1.23.837 1.484.403.254.94.36 1.614.31.686-.05 1.185-.217 1.499-.5.314-.285.55-.763.706-1.434l.945-4.49.946 4.49c.156.671.392 1.15.706 1.434.314.283.813.45 1.499.5.673.05 1.21-.056 1.613-.31.403-.254.681-.749.837-1.484L18.65 7.662H16.76l-1.506 8.578-1.072-6.64c-.12-.567-.314-.966-.58-1.2-.266-.235-.648-.352-1.145-.352-.498 0-.88.117-1.146.352-.265.234-.46.633-.58 1.2l-1.073 6.64-1.01-8.578z"/>
+          <path d="M12.648 7.662l-1.514 8.676-1.017-4.795c-.156-.75-.42-1.244-.79-1.484-.37-.24-.888-.361-1.553-.361l-1.37 6.64L4.89 7.662H3l2.254 8.676c.156.735.435 1.23.837 1.484.403.254.94.36 1.614.31.686-.05 1.185-.217 1.499-.5.314-.285.55-.763.706-1.434l.945-4.49.946 4.49c.156.671.392 1.15.706 1.434.314.283.813.45 1.499.5.673.05 1.21-.056 1.613-.31.403-.254.681-.749.837-1.484L18.65 7.662H16.76l-1.506 8.578-1.072-6.64c-.12-.567-.314-.966-.58-1.2-.266-.235-.648-.352-1.145-.352-.498 0-.88.117-1.146.352-.265.234-.46.633-.58 1.2l-1.073 6.64-1.01-8.578z" />
         </svg>
       );
     }
@@ -1527,7 +1521,7 @@ const ImportList: React.FC = () => {
     if (s.includes("woocommerce") || s.includes("wordpress")) {
       return (
         <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18 }}>
-          <path d="M2.047 5.357C1.2 6.523.778 7.912.778 9.524c0 2.04.554 3.722 1.66 5.045L.013 20.03h3.838l1.23-3.494h7.03l1.23 3.494h3.838l-2.426-5.461c1.106-1.323 1.66-3.004 1.66-5.045 0-1.612-.422-3.001-1.27-4.167C14.158 4.19 13.085 3.5 11.8 3.5H4.52c-1.285 0-2.358.69-3.144 1.857zm1.836 1.37c.4-.567.94-.85 1.623-.85h7.225c.683 0 1.223.283 1.623.85.4.567.6 1.276.6 2.127 0 .851-.2 1.56-.6 2.127-.4.567-.94.85-1.623.85H5.506c-.683 0-1.223-.283-1.623-.85-.4-.567-.6-1.276-.6-2.127 0-.851.2-1.56.6-2.127zm1.047 4.754h6.131l-1.553 4.413H6.483l-1.553-4.413z"/>
+          <path d="M2.047 5.357C1.2 6.523.778 7.912.778 9.524c0 2.04.554 3.722 1.66 5.045L.013 20.03h3.838l1.23-3.494h7.03l1.23 3.494h3.838l-2.426-5.461c1.106-1.323 1.66-3.004 1.66-5.045 0-1.612-.422-3.001-1.27-4.167C14.158 4.19 13.085 3.5 11.8 3.5H4.52c-1.285 0-2.358.69-3.144 1.857zm1.836 1.37c.4-.567.94-.85 1.623-.85h7.225c.683 0 1.223.283 1.623.85.4.567.6 1.276.6 2.127 0 .851-.2 1.56-.6 2.127-.4.567-.94.85-1.623.85H5.506c-.683 0-1.223-.283-1.623-.85-.4-.567-.6-1.276-.6-2.127 0-.851.2-1.56.6-2.127zm1.047 4.754h6.131l-1.553 4.413H6.483l-1.553-4.413z" />
         </svg>
       );
     }
@@ -1535,7 +1529,7 @@ const ImportList: React.FC = () => {
     if (s.includes("etsy")) {
       return (
         <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18 }}>
-          <path d="M11.465 1C5.679 1 1 5.679 1 11.465c0 5.787 4.679 10.466 10.465 10.466 5.787 0 10.466-4.679 10.466-10.466C21.931 5.679 17.252 1 11.465 1zm3.302 5.411l-.193 1.896h-3.11v2.378h2.918v1.896h-2.918v2.958h3.303l-.192 1.895H8.856V6.411h5.91z"/>
+          <path d="M11.465 1C5.679 1 1 5.679 1 11.465c0 5.787 4.679 10.466 10.465 10.466 5.787 0 10.466-4.679 10.466-10.466C21.931 5.679 17.252 1 11.465 1zm3.302 5.411l-.193 1.896h-3.11v2.378h2.918v1.896h-2.918v2.958h3.303l-.192 1.895H8.856V6.411h5.91z" />
         </svg>
       );
     }
@@ -1543,7 +1537,7 @@ const ImportList: React.FC = () => {
     if (s.includes("amazon")) {
       return (
         <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18 }}>
-          <path d="M13.958 10.09c0 1.232.029 2.256-.591 3.351-.502.891-1.301 1.438-2.186 1.438-1.214 0-1.922-.924-1.922-2.292 0-2.692 2.415-3.182 4.7-3.182v.685zm3.186 7.705a.66.66 0 01-.77.075c-1.079-.897-1.269-1.313-1.86-2.169-1.78 1.814-3.037 2.357-5.345 2.357-2.729 0-4.854-1.686-4.854-5.054 0-2.633 1.426-4.42 3.461-5.298 1.762-.77 4.222-.908 6.109-1.122v-.418c0-.77.06-1.682-.393-2.348-.395-.6-1.152-.848-1.823-.848-1.236 0-2.338.634-2.609 1.948-.056.294-.271.584-.567.598l-3.165-.34c-.265-.059-.561-.274-.484-.682C5.694 1.998 8.703 1 11.394 1c1.375 0 3.172.366 4.254 1.407 1.375 1.288 1.243 3.007 1.243 4.877v4.42c0 1.329.552 1.913 1.071 2.632.183.256.223.563-.01.754-.579.484-1.609 1.381-2.176 1.883l-.632-.178zm3.768 1.639c-2.973 2.204-7.284 3.375-10.996 3.375-5.2 0-9.88-1.923-13.42-5.123-.278-.252-.03-.596.305-.4 3.82 2.221 8.543 3.554 13.428 3.554 3.293 0 6.913-.683 10.244-2.096.503-.215.925.33.439.69zm1.248-1.421c-.379-.487-2.504-.23-3.461-.116-.291.035-.336-.218-.074-.401 1.695-1.192 4.479-.848 4.804-.449.325.402-.086 3.184-1.676 4.512-.244.205-.477.096-.369-.174.358-.894 1.156-2.886.776-3.372z"/>
+          <path d="M13.958 10.09c0 1.232.029 2.256-.591 3.351-.502.891-1.301 1.438-2.186 1.438-1.214 0-1.922-.924-1.922-2.292 0-2.692 2.415-3.182 4.7-3.182v.685zm3.186 7.705a.66.66 0 01-.77.075c-1.079-.897-1.269-1.313-1.86-2.169-1.78 1.814-3.037 2.357-5.345 2.357-2.729 0-4.854-1.686-4.854-5.054 0-2.633 1.426-4.42 3.461-5.298 1.762-.77 4.222-.908 6.109-1.122v-.418c0-.77.06-1.682-.393-2.348-.395-.6-1.152-.848-1.823-.848-1.236 0-2.338.634-2.609 1.948-.056.294-.271.584-.567.598l-3.165-.34c-.265-.059-.561-.274-.484-.682C5.694 1.998 8.703 1 11.394 1c1.375 0 3.172.366 4.254 1.407 1.375 1.288 1.243 3.007 1.243 4.877v4.42c0 1.329.552 1.913 1.071 2.632.183.256.223.563-.01.754-.579.484-1.609 1.381-2.176 1.883l-.632-.178zm3.768 1.639c-2.973 2.204-7.284 3.375-10.996 3.375-5.2 0-9.88-1.923-13.42-5.123-.278-.252-.03-.596.305-.4 3.82 2.221 8.543 3.554 13.428 3.554 3.293 0 6.913-.683 10.244-2.096.503-.215.925.33.439.69zm1.248-1.421c-.379-.487-2.504-.23-3.461-.116-.291.035-.336-.218-.074-.401 1.695-1.192 4.479-.848 4.804-.449.325.402-.086 3.184-1.676 4.512-.244.205-.477.096-.369-.174.358-.894 1.156-2.886.776-3.372z" />
         </svg>
       );
     }
@@ -1551,7 +1545,7 @@ const ImportList: React.FC = () => {
     if (s.includes("ebay")) {
       return (
         <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18 }}>
-          <path d="M0 7.856l3.578 8.284h2.008L9.03 7.856H6.937l-2.254 5.567L2.43 7.856H0zm10.14 0v8.284h1.95V7.856h-1.95zm3.025 0l3.396 4.035-3.396 4.249h2.292l2.238-2.842 2.253 2.842H22l-3.41-4.22L22 7.856h-2.237L17.51 10.64l-2.108-2.784h-2.237z"/>
+          <path d="M0 7.856l3.578 8.284h2.008L9.03 7.856H6.937l-2.254 5.567L2.43 7.856H0zm10.14 0v8.284h1.95V7.856h-1.95zm3.025 0l3.396 4.035-3.396 4.249h2.292l2.238-2.842 2.253 2.842H22l-3.41-4.22L22 7.856h-2.237L17.51 10.64l-2.108-2.784h-2.237z" />
         </svg>
       );
     }
@@ -1559,8 +1553,8 @@ const ImportList: React.FC = () => {
     // Generic store icon for unknown sources
     return (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 18, height: 18 }}>
-        <path d="M3 9l1-5h16l1 5M3 9h18M3 9v11a1 1 0 001 1h16a1 1 0 001-1V9"/>
-        <path d="M9 9v12M15 9v12"/>
+        <path d="M3 9l1-5h16l1 5M3 9h18M3 9v11a1 1 0 001 1h16a1 1 0 001-1V9" />
+        <path d="M9 9v12M15 9v12" />
       </svg>
     );
   };
@@ -1733,165 +1727,165 @@ const ImportList: React.FC = () => {
                           const isToggleDisabled = apisNotReady || hasInvalidSku || hasAddressIssues || hasItemIssues || hasMissingImage;
 
                           return (shipping_option.length > 0 || orderPostData.length > 0 || Object.keys(recipientErrors).length > 0) &&
-                          order?.order_items.length > 0 ? (
-                          <div className="flex items-center gap-3">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
+                            order?.order_items.length > 0 ? (
+                            <div className="flex items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
 
-                                const isCurrentlyIncluded = checkedOrders.some(
-                                  (c: { order_po: string }) => c.order_po == order.order_po
-                                );
-
-                                // If trying to go Draft → Active but order is invalid, show detailed notification
-                                if (!isCurrentlyIncluded && isToggleDisabled) {
-                                  const issues: string[] = [];
-
-                                  // Invalid SKUs
-                                  const invalidSkuItems = order?.order_items?.filter(
-                                    (item: any) => !product_details?.some(
-                                      (p: any) => p.sku === item.product_sku || p.product_code === item.product_sku
-                                    )
+                                  const isCurrentlyIncluded = checkedOrders.some(
+                                    (c: { order_po: string }) => c.order_po == order.order_po
                                   );
-                                  if (invalidSkuItems?.length > 0) {
-                                    invalidSkuItems.forEach((item: any) => {
-                                      issues.push(`Invalid product SKU: "${item.product_sku}"`);
+
+                                  // If trying to go Draft → Active but order is invalid, show detailed notification
+                                  if (!isCurrentlyIncluded && isToggleDisabled) {
+                                    const issues: string[] = [];
+
+                                    // Invalid SKUs
+                                    const invalidSkuItems = order?.order_items?.filter(
+                                      (item: any) => !product_details?.some(
+                                        (p: any) => p.sku === item.product_sku || p.product_code === item.product_sku
+                                      )
+                                    );
+                                    if (invalidSkuItems?.length > 0) {
+                                      invalidSkuItems.forEach((item: any) => {
+                                        issues.push(`Invalid product SKU: "${item.product_sku}"`);
+                                      });
+                                    }
+
+                                    // Address / recipient errors
+                                    const addrErrors = recipientErrors[order?.order_po];
+                                    if (addrErrors && Object.keys(addrErrors).length > 0) {
+                                      const fieldLabels: Record<string, string> = {
+                                        first_name: "First name",
+                                        last_name: "Last name",
+                                        address_1: "Address line 1",
+                                        city: "City",
+                                        state_code: "State / Province",
+                                        zip_postal_code: "Zip / Postal code",
+                                        country_code: "Country",
+                                        phone: "Phone",
+                                      };
+                                      Object.entries(addrErrors).forEach(([field, msgs]: [string, any]) => {
+                                        const label = fieldLabels[field] || field;
+                                        issues.push(`${label}: ${Array.isArray(msgs) ? msgs[0] : msgs}`);
+                                      });
+                                    }
+
+                                    // Item / product errors
+                                    const orderItemErrors = itemErrors[order?.order_po];
+                                    if (orderItemErrors && Object.keys(orderItemErrors).length > 0) {
+                                      Object.entries(orderItemErrors).forEach(([field, msgs]: [string, any]) => {
+                                        issues.push(`Product ${field}: ${Array.isArray(msgs) ? msgs[0] : msgs}`);
+                                      });
+                                    }
+
+                                    notificationApi.warning({
+                                      message: "Order Incomplete",
+                                      description: (
+                                        <div>
+                                          <p style={{ marginBottom: 8, fontWeight: 500, color: "#374151" }}>
+                                            This order cannot be activated. The following is still required:
+                                          </p>
+                                          <ul style={{ margin: 0, paddingLeft: 16, fontSize: 13, lineHeight: 1.8, color: "#b45309" }}>
+                                            {issues.length > 0
+                                              ? issues.map((issue, i) => <li key={i}>{issue}</li>)
+                                              : <li>Some required information is missing or invalid.</li>}
+                                          </ul>
+                                        </div>
+                                      ),
+                                      duration: 7,
                                     });
+                                    return;
                                   }
 
-                                  // Address / recipient errors
-                                  const addrErrors = recipientErrors[order?.order_po];
-                                  if (addrErrors && Object.keys(addrErrors).length > 0) {
-                                    const fieldLabels: Record<string, string> = {
-                                      first_name: "First name",
-                                      last_name: "Last name",
-                                      address_1: "Address line 1",
-                                      city: "City",
-                                      state_code: "State / Province",
-                                      zip_postal_code: "Zip / Postal code",
-                                      country_code: "Country",
-                                      phone: "Phone",
+                                  if (!isCurrentlyIncluded) {
+                                    const parsedValue = {
+                                      order_po: order?.order_po,
+                                      Product_price: getShippingPrice(order?.order_po),
+                                      productData: order?.order_items,
+                                      productImage:
+                                        productData[order?.order_items[0]?.product_guid]?.image_url_1
+                                        ?? productData[order?.order_items[0]?.product_guid?.replace(/-/g, '')]?.image_url_1
+                                        ?? productData[order?.order_items[0]?.product_sku]?.image_url_1
+                                        ?? productData[order?.order_items[0]?.product_sku?.toLowerCase()]?.image_url_1,
                                     };
-                                    Object.entries(addrErrors).forEach(([field, msgs]: [string, any]) => {
-                                      const label = fieldLabels[field] || field;
-                                      issues.push(`${label}: ${Array.isArray(msgs) ? msgs[0] : msgs}`);
-                                    });
+                                    dispatch(updateCheckedOrders([...checkedOrders, parsedValue]));
+                                    dispatch(updateExcludedOrders(excludedOrders.filter((o) => o !== order.order_po)));
+                                  } else {
+                                    dispatch(updateCheckedOrders(checkedOrders.filter((c: any) => c.order_po !== order.order_po)));
+                                    dispatch(updateExcludedOrders([...excludedOrders, order.order_po]));
                                   }
-
-                                  // Item / product errors
-                                  const orderItemErrors = itemErrors[order?.order_po];
-                                  if (orderItemErrors && Object.keys(orderItemErrors).length > 0) {
-                                    Object.entries(orderItemErrors).forEach(([field, msgs]: [string, any]) => {
-                                      issues.push(`Product ${field}: ${Array.isArray(msgs) ? msgs[0] : msgs}`);
-                                    });
-                                  }
-
-                                  notificationApi.warning({
-                                    message: "Order Incomplete",
-                                    description: (
-                                      <div>
-                                        <p style={{ marginBottom: 8, fontWeight: 500, color: "#374151" }}>
-                                          This order cannot be activated. The following is still required:
-                                        </p>
-                                        <ul style={{ margin: 0, paddingLeft: 16, fontSize: 13, lineHeight: 1.8, color: "#b45309" }}>
-                                          {issues.length > 0
-                                            ? issues.map((issue, i) => <li key={i}>{issue}</li>)
-                                            : <li>Some required information is missing or invalid.</li>}
-                                        </ul>
-                                      </div>
-                                    ),
-                                    duration: 7,
-                                  });
-                                  return;
-                                }
-
-                                if (!isCurrentlyIncluded) {
-                                  const parsedValue = {
-                                    order_po: order?.order_po,
-                                    Product_price: getShippingPrice(order?.order_po),
-                                    productData: order?.order_items,
-                                    productImage: 
-                                      productData[order?.order_items[0]?.product_guid]?.image_url_1
-                                      ?? productData[order?.order_items[0]?.product_guid?.replace(/-/g, '')]?.image_url_1
-                                      ?? productData[order?.order_items[0]?.product_sku]?.image_url_1
-                                      ?? productData[order?.order_items[0]?.product_sku?.toLowerCase()]?.image_url_1,
-                                  };
-                                  dispatch(updateCheckedOrders([...checkedOrders, parsedValue]));
-                                  dispatch(updateExcludedOrders(excludedOrders.filter((o) => o !== order.order_po)));
-                                } else {
-                                  dispatch(updateCheckedOrders(checkedOrders.filter((c: any) => c.order_po !== order.order_po)));
-                                  dispatch(updateExcludedOrders([...excludedOrders, order.order_po]));
-                                }
-                              }}
-                              className={`relative inline-flex h-9 w-[170px] items-center rounded-full p-1 transition-all duration-300 focus:outline-none shadow-inner border border-slate-200/60 ${isToggleDisabled ? "bg-slate-200 cursor-not-allowed opacity-60" : "bg-slate-100 focus:ring-2 focus:ring-blue-500/40"}`}
-                              role="switch"
-                              aria-checked={checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po)}
-                              title={hasMissingImage ? "Add an image to all products to activate this order" : isToggleDisabled ? "Click to see what is required to activate this order" : "Toggle Draft/Active"}
-                            >
-                              <div
-                                className={`absolute left-1 h-7 w-[79px] rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-black/5 transition-transform duration-300 ease-out ${isToggleDisabled ? "bg-gray-100" : "bg-white"} ${checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po)
-                                  ? 'translate-x-[81px]'
-                                  : 'translate-x-0'
-                                  }`}
-                              />
-                              <div className="relative z-10 flex w-full">
-                                <span className={`flex-1 text-center text-[11px] font-bold uppercase tracking-widest transition-colors duration-300 select-none ${!checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po) ? 'text-slate-700 drop-shadow-sm' : 'text-slate-400'}`}>
-                                  Draft
-                                </span>
-                                <span className={`flex-1 text-center text-[11px] font-bold uppercase tracking-widest transition-colors duration-300 select-none ${checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po) ? 'text-emerald-600 drop-shadow-sm' : 'text-slate-400'}`}>
-                                  Active
-                                </span>
-                              </div>
-                            </button>
-                            {/* Badge shown when order is excluded */}
-                            {isExcluded && (
-                              hasMissingImage ? (
-                                <span
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: 4,
-                                    fontSize: 11,
-                                    fontWeight: 600,
-                                    color: "#92400e",
-                                    background: isDark ? "#2d1f0a" : "#fffbeb",
-                                    border: isDark ? "1px solid #78350f" : "1px solid #fcd34d",
-                                    borderRadius: 6,
-                                    padding: "2px 8px",
-                                    userSelect: "none",
-                                  }}
-                                >
-                                  <svg style={{ width: 11, height: 11, flexShrink: 0 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                  </svg>
-                                  Image required
-                                </span>
-                              ) : (
-                                <span
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: 4,
-                                    fontSize: 11,
-                                    fontWeight: 600,
-                                    color: "#6b7280",
-                                    background: isDark ? "#1e2d42" : "#f3f4f6",
-                                    border: isDark ? "1px solid #253347" : "1px solid #d1d5db",
-                                    borderRadius: 6,
-                                    padding: "2px 8px",
-                                    userSelect: "none",
-                                  }}
-                                >
-                                  <svg style={{ width: 11, height: 11 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                                  </svg>
-                                  Not included
-                                </span>
-                              )
-                            )}
-                          </div>
-                        ) : null;
+                                }}
+                                className={`relative inline-flex h-9 w-[170px] items-center rounded-full p-1 transition-all duration-300 focus:outline-none shadow-inner border border-slate-200/60 ${isToggleDisabled ? "bg-slate-200 cursor-not-allowed opacity-60" : "bg-slate-100 focus:ring-2 focus:ring-blue-500/40"}`}
+                                role="switch"
+                                aria-checked={checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po)}
+                                title={hasMissingImage ? "Add an image to all products to activate this order" : isToggleDisabled ? "Click to see what is required to activate this order" : "Toggle Draft/Active"}
+                              >
+                                <div
+                                  className={`absolute left-1 h-7 w-[79px] rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-black/5 transition-transform duration-300 ease-out ${isToggleDisabled ? "bg-gray-100" : "bg-white"} ${checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po)
+                                    ? 'translate-x-[81px]'
+                                    : 'translate-x-0'
+                                    }`}
+                                />
+                                <div className="relative z-10 flex w-full">
+                                  <span className={`flex-1 text-center text-[11px] font-bold uppercase tracking-widest transition-colors duration-300 select-none ${!checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po) ? 'text-slate-700 drop-shadow-sm' : 'text-slate-400'}`}>
+                                    Draft
+                                  </span>
+                                  <span className={`flex-1 text-center text-[11px] font-bold uppercase tracking-widest transition-colors duration-300 select-none ${checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po) ? 'text-emerald-600 drop-shadow-sm' : 'text-slate-400'}`}>
+                                    Active
+                                  </span>
+                                </div>
+                              </button>
+                              {/* Badge shown when order is excluded */}
+                              {isExcluded && (
+                                hasMissingImage ? (
+                                  <span
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 4,
+                                      fontSize: 11,
+                                      fontWeight: 600,
+                                      color: "#92400e",
+                                      background: isDark ? "#2d1f0a" : "#fffbeb",
+                                      border: isDark ? "1px solid #78350f" : "1px solid #fcd34d",
+                                      borderRadius: 6,
+                                      padding: "2px 8px",
+                                      userSelect: "none",
+                                    }}
+                                  >
+                                    <svg style={{ width: 11, height: 11, flexShrink: 0 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    Image required
+                                  </span>
+                                ) : (
+                                  <span
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 4,
+                                      fontSize: 11,
+                                      fontWeight: 600,
+                                      color: "#6b7280",
+                                      background: isDark ? "#1e2d42" : "#f3f4f6",
+                                      border: isDark ? "1px solid #253347" : "1px solid #d1d5db",
+                                      borderRadius: 6,
+                                      padding: "2px 8px",
+                                      userSelect: "none",
+                                    }}
+                                  >
+                                    <svg style={{ width: 11, height: 11 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                    </svg>
+                                    Not included
+                                  </span>
+                                )
+                              )}
+                            </div>
+                          ) : null;
                         })()}
                       </li>
 
@@ -2403,14 +2397,14 @@ const ImportList: React.FC = () => {
                                                     50% { opacity: 0.85; box-shadow: 0 0 14px rgba(96, 165, 250, 0.8); transform: scale(1.03); }
                                                   }
                                                 `}</style>
-                                                <div 
-                                                  className="absolute inset-0 rounded border-2 border-blue-400 pointer-events-none transition-all" 
-                                                  style={{ animation: 'smoothBreathingGlow 3s ease-in-out infinite' }} 
+                                                <div
+                                                  className="absolute inset-0 rounded border-2 border-blue-400 pointer-events-none transition-all"
+                                                  style={{ animation: 'smoothBreathingGlow 3s ease-in-out infinite' }}
                                                 />
                                                 <svg className="w-8 h-8 mb-1 group-hover:text-blue-400 transition-colors duration-300" style={{ color: isDark ? "#2d3f58" : "#d1d5db" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                 </svg>
-                                                <span style={{ fontSize: 9, color: isDark ? "#3d5270" : "#9ca3af", fontWeight: 500 }} className="text-center group-hover:text-blue-400 transition-colors duration-300">Click to add<br/>image</span>
+                                                <span style={{ fontSize: 9, color: isDark ? "#3d5270" : "#9ca3af", fontWeight: 500 }} className="text-center group-hover:text-blue-400 transition-colors duration-300">Click to add<br />image</span>
                                               </div>
                                             );
                                           }
@@ -2587,8 +2581,8 @@ const ImportList: React.FC = () => {
                                       ) : (
                                         /* Only show price when product is valid and has no errors */
                                         validSKUs.some(v => String(v).toLowerCase() === (orderItem?.product_sku ?? '').toString().toLowerCase() || String(v) === orderItem?.product_guid) &&
-                                        (!recipientErrors[order?.order_po] || Object.keys(recipientErrors[order?.order_po]).length === 0) &&
-                                        getProductDetail(orderItem)?.total_price != null ? (
+                                          (!recipientErrors[order?.order_po] || Object.keys(recipientErrors[order?.order_po]).length === 0) &&
+                                          getProductDetail(orderItem)?.total_price != null ? (
                                           <span className="text-gray-600">{orderItem?.product_qty || 1}@ ${(getProductDetail(orderItem)?.total_price)?.toFixed(2)} ea</span>
                                         ) : null
                                       )}
@@ -3047,11 +3041,11 @@ const ImportList: React.FC = () => {
             dispatch(invalidateShippingCacheEntries([targetOrder?.order_po]));
             fetchedSkusRef.current.clear();
             dispatch(clearProductDetails());
-            
+
             // Clear any local image error state so the new image is forced to render
             setImageErrors({});
             setImageUrlIndex({});
-            
+
             resetOrderPostData();
             await dispatch(fetchOrder(customerInfo?.data?.account_id));
           } else {
