@@ -1697,6 +1697,15 @@ const ImportList: React.FC = () => {
                 const isExcluded = shipping_option.length > 0
                   && order?.order_items?.length > 0
                   && !checkedOrders.some((c: any) => c.order_po === order.order_po);
+                // True while this specific order's shipping hasn't resolved yet.
+                // shippingCache is populated per-order as each fetch batch completes,
+                // so this gates interactivity precisely without blocking other orders.
+                const orderNeedsShipping =
+                  order?.order_items?.length > 0 &&
+                  order?.shipping_code != null &&
+                  order?.shipping_code !== '';
+                const thisOrderShippingPending =
+                  orderNeedsShipping && !shippingCache[order?.order_po];
                 return (
                   <div
                     key={index}
@@ -1714,7 +1723,12 @@ const ImportList: React.FC = () => {
                     <ul className="grid w-100  md:grid-cols-2 md:grid-rows-1 items-start ">
                       <li className="flex-1">
                         {(() => {
-                          const apisNotReady = product_status !== "succeeded" || shipping_option.length === 0;
+                          const apisNotReady =
+                            product_status !== "succeeded" ||
+                            // Block until at least one shipping result has come back globally
+                            (shipping_option.length === 0 && orderNeedsShipping) ||
+                            // Block until THIS order's shipping specifically has loaded
+                            thisOrderShippingPending;
                           // An item is invalid only if the API explicitly responded with isActiveSKU:false.
                           // Items whose product_details haven't loaded yet are NOT treated as invalid.
                           const hasInvalidSku = order?.order_items?.some((item: any) => {
