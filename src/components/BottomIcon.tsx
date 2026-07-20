@@ -23,7 +23,7 @@ import ShippingPreference from "../pages/ShippingPreference";
 import UpdatePopup from "./UpdatePopup";
 import { updateCompanyInfo } from "../store/features/companySlice";
 import { resetRecipientStatus } from "../store/features/orderSlice";
-import { clearOrderErrors } from "../store/features/shippingSlice";
+import { clearOrderErrors, clearAllShippingCache } from "../store/features/shippingSlice";
 import style from "./Components.module.css";
 import { fetchWporder, fetchShopifyOrders, fetchShopifyOrderByName, fetchSquarespaceOrders, fetchSquarespaceOrderByNumber, resetSquarespaceImportStatus, updateWporder, fetchWixOrders, fetchWixOrderByNumber, resetWixImportStatus, fetchShippoOrders, resetShippoImportStatus, fetchSquareOrders, resetSquareImportStatus } from "../store/features/orderSlice";
 type NotificationType = "success" | "info" | "warning" | "error";
@@ -54,6 +54,7 @@ const isValidPhone = (phone: string | number | undefined): boolean => {
 
 const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const orders = useAppSelector((state) => state.order.orders);
+  const ordersStatus = useAppSelector((state) => state.order.status);
   const product_details = useAppSelector(
     (state) => state.ProductSlice.product_details
   );
@@ -281,6 +282,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   dispatch(resetSaveOrderInfo());
                   dispatch(resetImport());
                   dispatch(updateWporder('' as any));
+                  dispatch(clearAllShippingCache());
                   navigate("/importlist");
                 }, 2000);
               } else {
@@ -391,6 +393,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                       dispatch(resetSaveOrderInfo());
                       dispatch(resetImport());
                       dispatch(updateWporder('' as any));
+                      dispatch(clearAllShippingCache());
                       navigate("/importlist");
                     }, 2000);
                   } else {
@@ -655,6 +658,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   dispatch(resetSaveOrderInfo());
                   dispatch(resetImport());
                   dispatch(updateWporder('' as any));
+                  dispatch(clearAllShippingCache());
                   navigate('/importlist');
                 }, 2000);
               } else {
@@ -781,6 +785,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   dispatch(resetSaveOrderInfo());
                   dispatch(resetImport());
                   dispatch(updateWporder('' as any));
+                  dispatch(clearAllShippingCache());
                   navigate('/importlist');
                 }, 2000);
               } else {
@@ -842,6 +847,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                     description: "Order imported successfully",
                   });
                   setTimeout(() => {
+                    dispatch(clearAllShippingCache());
                     navigate("/importlist");
                   }, 2000);
                 } else {
@@ -993,6 +999,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   dispatch(resetSaveOrderInfo());
                   dispatch(resetImport());
                   dispatch(updateWporder('' as any));
+                  dispatch(clearAllShippingCache());
                   navigate('/importlist');
                 }, 2000);
               } else {
@@ -1095,6 +1102,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   dispatch(resetSaveOrderInfo());
                   dispatch(resetImport());
                   dispatch(updateWporder('' as any));
+                  dispatch(clearAllShippingCache());
                   navigate('/importlist');
                 }, 2000);
               } else {
@@ -1171,6 +1179,8 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                 status: shippoStatus,
                 page: 1,
                 results: 25,
+                ...(myImport?.start_date && { startDate: myImport.start_date }),
+                ...(myImport?.end_date   && { endDate:   myImport.end_date   }),
               })
             );
 
@@ -1251,6 +1261,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                 dispatch(resetSaveOrderInfo());
                 dispatch(resetImport());
                 dispatch(updateWporder('' as any));
+                dispatch(clearAllShippingCache());
                 navigate('/importlist');
               }, 2000);
             } else {
@@ -1379,6 +1390,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                 dispatch(resetSaveOrderInfo());
                 dispatch(resetImport());
                 dispatch(updateWporder('' as any));
+                dispatch(clearAllShippingCache());
                 navigate('/importlist');
               }, 2000);
             } else {
@@ -1849,7 +1861,15 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-gray-900 text-lg">{checkedOrders.length}</span>
-                  <span className="text-gray-700 font-medium">of {orders?.data?.length} selected</span>
+                  <span className="text-gray-700 font-medium">
+                    of{" "}
+                    {ordersStatus === "loading" ? (
+                      <Spin size="small" className="mx-1" />
+                    ) : (
+                      <span className="font-bold">{orders?.data?.length ?? 0}</span>
+                    )}{" "}
+                    selected
+                  </span>
                 </div>
               </span>
               {(isShippingLoading || grandTotal > 0) && (

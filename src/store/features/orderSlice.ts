@@ -614,22 +614,28 @@ export const fetchShippoOrders = createAsyncThunk(
       status?: string;
       page?: number;
       results?: number;
+      startDate?: string;
+      endDate?: string;
     },
     thunkAPI
   ) => {
     console.log('Fetching Shippo orders with:', postData);
     try {
+      const body: Record<string, any> = {
+        account_key: postData.account_key,
+        status: postData.status || 'PAID',
+        page: postData.page || 1,
+        results: postData.results || 25,
+      };
+      if (postData.startDate) body.startDate = postData.startDate;
+      if (postData.endDate)   body.endDate   = postData.endDate;
+
       const response = await fetch(
         BASE_URL + `shippo/orders`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            account_key: postData.account_key,
-            status: postData.status || 'PAID',
-            page: postData.page || 1,
-            results: postData.results || 25,
-          }),
+          body: JSON.stringify(body),
         }
       );
 

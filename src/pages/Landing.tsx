@@ -885,6 +885,32 @@ const Landing: React.FC = (): JSX.Element => {
     }
   }, [connectionVerificationStatus, dispatch]);
 
+  /**
+   * Safety-timeout fallback — if any platform is still 'verifying' after 8 s
+   * (e.g. API error, slow network, or the identifier de-dupe guard blocked the
+   * second update), resolve it to 'disconnected' so the spinner never hangs.
+   */
+  const connectionVerificationStatusRef = useRef(connectionVerificationStatus);
+  useEffect(() => {
+    connectionVerificationStatusRef.current = connectionVerificationStatus;
+  }, [connectionVerificationStatus]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShopifyConnectionStatus(prev => prev === 'verifying' ? 'disconnected' : prev);
+      setSquarespaceConnectionStatus(prev => prev === 'verifying' ? 'disconnected' : prev);
+      setWixConnectionStatus(prev => prev === 'verifying' ? 'disconnected' : prev);
+      setEtsyConnectionStatus(prev => prev === 'verifying' ? 'disconnected' : prev);
+      setSquareConnectionStatus(prev => prev === 'verifying' ? 'disconnected' : prev);
+      // Only resolve WooCommerce if still stuck — don't override an already-connected status
+      if (connectionVerificationStatusRef.current === 'verifying') {
+        dispatch(setConnectionVerificationStatus('disconnected'));
+      }
+    }, 8000);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (ecommerceConnectorInfo.approval_url) {
       dispatch(
@@ -976,8 +1002,8 @@ const Landing: React.FC = (): JSX.Element => {
         // Create a unique identifier for this connection state
         const connectionIdentifier = `${shopifyConnection.id}_${shopifyConnection.data || 'empty'}`;
 
-        // Only process if this is a new/changed connection
-        if (connectionIdentifier !== lastShopifyConnectionData) {
+        // Only process if this is a new/changed connection OR if we're still stuck on 'verifying'
+        if (connectionIdentifier !== lastShopifyConnectionData || shopifyConnectionStatus === 'verifying') {
           console.log("Shopify connection changed or first load, processing...");
           setLastShopifyConnectionData(connectionIdentifier);
 
@@ -1057,12 +1083,10 @@ const Landing: React.FC = (): JSX.Element => {
           console.log("Current status:", shopifyConnectionStatus);
         }
       } else {
-        // No Shopify connection available
+        // No Shopify connection available — resolve immediately so the spinner doesn't linger
         console.log("No Shopify connection found in connections array");
-        if (lastShopifyConnectionData !== null) {
-          setLastShopifyConnectionData(null);
-          setShopifyConnectionStatus('disconnected');
-        }
+        setLastShopifyConnectionData(null);
+        setShopifyConnectionStatus('disconnected');
       }
       console.log("=== END SHOPIFY CONNECTION CHECK ===");
 
@@ -1074,7 +1098,7 @@ const Landing: React.FC = (): JSX.Element => {
       if (squarespaceConnection) {
         const sqIdentifier = `${squarespaceConnection.id || 'noid'}_${squarespaceConnection.data || 'nodata'}`;
 
-        if (sqIdentifier !== lastSquarespaceConnectionData) {
+        if (sqIdentifier !== lastSquarespaceConnectionData || squarespaceConnectionStatus === 'verifying') {
           console.log("Squarespace connection changed or first load, processing...");
           setLastSquarespaceConnectionData(sqIdentifier);
 
@@ -1106,11 +1130,10 @@ const Landing: React.FC = (): JSX.Element => {
           console.log("Squarespace connection unchanged, skipping processing");
         }
       } else {
+        // No Squarespace connection — resolve immediately
         console.log("No Squarespace connection in connections array — disconnected");
-        if (lastSquarespaceConnectionData !== null) {
-          setLastSquarespaceConnectionData(null);
-          setSquarespaceConnectionStatus('disconnected');
-        }
+        setLastSquarespaceConnectionData(null);
+        setSquarespaceConnectionStatus('disconnected');
       }
       console.log("=== END SQUARESPACE CONNECTION CHECK ===");
 
@@ -1122,7 +1145,7 @@ const Landing: React.FC = (): JSX.Element => {
       if (wixConnection) {
         const wixIdentifier = `${wixConnection.id || 'noid'}_${wixConnection.data || 'nodata'}`;
 
-        if (wixIdentifier !== lastWixConnectionData) {
+        if (wixIdentifier !== lastWixConnectionData || wixConnectionStatus === 'verifying') {
           console.log("Wix connection changed or first load, processing...");
           setLastWixConnectionData(wixIdentifier);
 
@@ -1155,11 +1178,10 @@ const Landing: React.FC = (): JSX.Element => {
           console.log("Wix connection unchanged, skipping processing");
         }
       } else {
+        // No Wix connection — resolve immediately
         console.log("No Wix connection in connections array — disconnected");
-        if (lastWixConnectionData !== null) {
-          setLastWixConnectionData(null);
-          setWixConnectionStatus('disconnected');
-        }
+        setLastWixConnectionData(null);
+        setWixConnectionStatus('disconnected');
       }
       console.log("=== END WIX CONNECTION CHECK ===");
 
@@ -1175,7 +1197,7 @@ const Landing: React.FC = (): JSX.Element => {
         // Use data field for identifier since id may be null
         const etsyIdentifier = `${etsyConnection.id || 'noid'}_${etsyConnection.data || 'nodata'}`;
 
-        if (etsyIdentifier !== lastEtsyConnectionData) {
+        if (etsyIdentifier !== lastEtsyConnectionData || etsyConnectionStatus === 'verifying') {
           console.log('Shippo/Etsy connection changed or first load, processing...');
           setLastEtsyConnectionData(etsyIdentifier);
 
@@ -1209,11 +1231,10 @@ const Landing: React.FC = (): JSX.Element => {
           console.log('Shippo/Etsy connection unchanged, skipping processing');
         }
       } else {
+        // No Etsy/Shippo connection — resolve immediately
         console.log('No Shippo/Etsy connection in connections array — disconnected');
-        if (lastEtsyConnectionData !== null) {
-          setLastEtsyConnectionData(null);
-          setEtsyConnectionStatus('disconnected');
-        }
+        setLastEtsyConnectionData(null);
+        setEtsyConnectionStatus('disconnected');
       }
       console.log('=== END ETSY/SHIPPO CONNECTION CHECK ===');
 
@@ -1225,7 +1246,7 @@ const Landing: React.FC = (): JSX.Element => {
       if (squareConnection) {
         const sqIdentifier = `${squareConnection.id || 'noid'}_${squareConnection.data || 'nodata'}`;
 
-        if (sqIdentifier !== lastSquareConnectionData) {
+        if (sqIdentifier !== lastSquareConnectionData || squareConnectionStatus === 'verifying') {
           console.log('Square connection changed or first load, processing...');
           setLastSquareConnectionData(sqIdentifier);
 
@@ -1253,11 +1274,10 @@ const Landing: React.FC = (): JSX.Element => {
           console.log('Square connection unchanged, skipping processing');
         }
       } else {
+        // No Square connection — resolve immediately
         console.log('No Square connection in connections array — disconnected');
-        if (lastSquareConnectionData !== null) {
-          setLastSquareConnectionData(null);
-          setSquareConnectionStatus('disconnected');
-        }
+        setLastSquareConnectionData(null);
+        setSquareConnectionStatus('disconnected');
       }
       console.log('=== END SQUARE CONNECTION CHECK ===');
 
