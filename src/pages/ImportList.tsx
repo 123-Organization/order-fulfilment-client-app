@@ -554,6 +554,16 @@ const ImportList: React.FC = () => {
     setIsRefreshing(false);
   };
 
+  /**
+   * Called by VirtualInvModal's onProductAdded — sets isPendingUpdate immediately
+   * so the skeleton loading UI appears right when the modal closes (no silent gap).
+   */
+  const handleVirtualInvProductAdded = async () => {
+    setIsPendingUpdate(true);
+    await handleAddProductCodeUpdate();
+    setIsPendingUpdate(false);
+  };
+
   const AddProductsTemplate = ({ orderFullFillmentId }: { orderFullFillmentId: string }) => {
     return (
       <div className="flex flex-col justify-center items-center w-full h-[220px] text-center bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border-2 border-dashed border-gray-300 hover:border-gray-400 transition-all duration-300">
@@ -3012,7 +3022,7 @@ const ImportList: React.FC = () => {
         visible={addProductVirtualInvVisible}
         onClose={() => setAddProductVirtualInvVisible(false)}
         orderFullFillmentId={currentOrderForAddProduct}
-        onProductAdded={handleAddProductCodeUpdate}
+        onProductAdded={handleVirtualInvProductAdded}
       />
 
       {/* ── Image Gallery Modal — "Change Image" for existing products ── */}

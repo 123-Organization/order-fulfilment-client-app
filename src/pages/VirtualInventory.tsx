@@ -202,16 +202,18 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
     );
   }, [dispatch, searchFilter, sortField, sortDirection]);
 
-  const AddProduct = () => {
-    dispatch(AddProductToOrder(productData));
+  const AddProduct = async () => {
+    // Await the API call so the product is committed on the server BEFORE
+    // the parent fires fetchOrder. Without this await, fetchOrder races against
+    // update-order-by-product and can return stale data (missing the new product).
+    await dispatch(AddProductToOrder(productData));
     dispatch(updateValidSKU([...validSKUs, productData.skuCode]));
     dispatch(inventorySelectionClean());
     onClose();
-    // Call the callback to refresh the parent's order list
+    // Call the callback immediately — the parent sets isPendingUpdate right away
+    // so the skeleton loading UI appears as soon as this modal closes.
     if (onProductAdded) {
-      setTimeout(() => {
-        onProductAdded();
-      }, 1000);
+      onProductAdded();
     }
   };
 
