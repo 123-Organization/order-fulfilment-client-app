@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import shopifyLogo from '../assets/images/store-shopify.svg';
 import { useAppSelector } from '../store';
+import config from '../config/configs';
 
 interface ShopifyAuthWaitingProps {
   onAuthComplete?: () => void;
@@ -9,6 +10,7 @@ interface ShopifyAuthWaitingProps {
   accessToken?: string;
   shop?: string;
 }
+const base_url = config.SERVER_BASE_URL;
 
 const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
   onAuthComplete,
@@ -64,7 +66,7 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
 
 
         // Make API call to backend
-        const response = await fetch('https://dwe8rzhebf.execute-api.us-east-1.amazonaws.com/Prod/api/shopify/callback', {
+        const response = await fetch(base_url + 'shopify/callback', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

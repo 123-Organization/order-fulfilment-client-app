@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { notification } from 'antd';
 import { useAppDispatch, useAppSelector } from "../store";
+import config from '../config/configs';
 interface EditInventoryModalProps {
   visible: boolean;
   onClose: () => void;
@@ -23,12 +24,13 @@ const EditInventoryModal: React.FC<EditInventoryModalProps> = ({
     description_long: '',
     quantity: '',
   });
-  
+  const base_url = config.SERVER_BASE_URL;
+
   const [isSaving, setIsSaving] = useState(false);
   const [plainTextDescription, setPlainTextDescription] = useState('');
-  const [originalLabels, setOriginalLabels] = useState<Array<{key: string, value: string, priority: number}>>([]);
+  const [originalLabels, setOriginalLabels] = useState<Array<{ key: string, value: string, priority: number }>>([]);
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
-  
+
   // Function to strip HTML tags
   const stripHtmlTags = (html: string) => {
     const tmp = document.createElement('DIV');
@@ -45,11 +47,11 @@ const EditInventoryModal: React.FC<EditInventoryModalProps> = ({
       } else {
         setOriginalLabels([]);
       }
-      
+
       // Convert HTML description to plain text
       const plainText = stripHtmlTags(productData.description_long || '');
       setPlainTextDescription(plainText);
-      
+
       setFormData({
         name: productData.name || '',
         sku: productData.sku || '',
@@ -106,11 +108,11 @@ const EditInventoryModal: React.FC<EditInventoryModalProps> = ({
           third_party_integrations: productData.third_party_integrations || {}
         }
       ],
-     account_key: customerInfo?.data?.account_key
+      account_key: customerInfo?.data?.account_key
     };
 
     try {
-      const response = await fetch('https://dwe8rzhebf.execute-api.us-east-1.amazonaws.com/Prod/api/update-virtual-inventory', {
+      const response = await fetch(base_url + 'update-virtual-inventory', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -209,17 +211,15 @@ const EditInventoryModal: React.FC<EditInventoryModalProps> = ({
 
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 bg-gradient-to-br from-black/60 to-black/40 transition-all duration-700 ease-in-out z-[60] ${
-          visible ? 'backdrop-blur-md opacity-100' : 'backdrop-blur-none opacity-0 pointer-events-none'
-        }`}
+        className={`fixed inset-0 bg-gradient-to-br from-black/60 to-black/40 transition-all duration-700 ease-in-out z-[60] ${visible ? 'backdrop-blur-md opacity-100' : 'backdrop-blur-none opacity-0 pointer-events-none'
+          }`}
         onClick={onClose}
       />
 
       {/* Modal */}
       <div
-        className={`fixed right-0 top-0 h-full w-full md:w-[600px] lg:w-[700px] bg-white shadow-[0_0_50px_rgba(0,0,0,0.3)] z-[70] ${
-          visible ? 'animate-[slideInRight_0.6s_cubic-bezier(0.34,1.56,0.64,1)_forwards]' : 'animate-[slideOutRight_0.4s_ease-in_forwards]'
-        }`}
+        className={`fixed right-0 top-0 h-full w-full md:w-[600px] lg:w-[700px] bg-white shadow-[0_0_50px_rgba(0,0,0,0.3)] z-[70] ${visible ? 'animate-[slideInRight_0.6s_cubic-bezier(0.34,1.56,0.64,1)_forwards]' : 'animate-[slideOutRight_0.4s_ease-in_forwards]'
+          }`}
         style={{
           boxShadow: visible ? '0 0 100px rgba(0, 0, 0, 0.3), -10px 0 30px rgba(0, 0, 0, 0.1)' : 'none',
         }}
@@ -435,7 +435,7 @@ const EditInventoryModal: React.FC<EditInventoryModalProps> = ({
                 className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none text-sm leading-relaxed transition-all duration-300 hover:border-gray-400"
                 placeholder="Enter product description"
               />
-              
+
               {/* Info about description */}
               <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded-lg">
                 <p className="text-xs text-gray-600">

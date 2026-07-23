@@ -1,16 +1,16 @@
 const prod = {
-  ENVIRONMENT : "PROD",
+  ENVIRONMENT: "PROD",
   // SERVER_BASE_URL : "https://ijbsrphg08.execute-api.us-east-1.amazonaws.com/Prod/api/",
-  SERVER_BASE_URL : "https://dwe8rzhebf.execute-api.us-east-1.amazonaws.com/Prod/api/",
-  COMPANION_BASE_URL : "https://prod-companion-app-filemanagement.finerworks.com",
+  SERVER_BASE_URL: "https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/",
+  COMPANION_BASE_URL: "https://prod-companion-app-filemanagement.finerworks.com",
   WEBSOCKET_URL: ""
 }
 
 const dev = {
-  ENVIRONMENT : "STAGE",
+  ENVIRONMENT: "STAGE",
   // SERVER_BASE_URL : "https://ijbsrphg08.execute-api.us-east-1.amazonaws.com/Prod/api/",
-  SERVER_BASE_URL : "https://dwe8rzhebf.execute-api.us-east-1.amazonaws.com/Prod/api/",
-  COMPANION_BASE_URL : "https://companion-app-filemanagement.finerworks.com",
+  SERVER_BASE_URL: "https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/",
+  COMPANION_BASE_URL: "https://companion-app-filemanagement.finerworks.com",
   WEBSOCKET_URL: ""
 }
 

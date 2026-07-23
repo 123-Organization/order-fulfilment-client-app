@@ -466,7 +466,7 @@ export const fetchShopifyOrders = createAsyncThunk(
   async (postData: { shop: string; access_token: string; startDate: string; endDate: string; status?: string }, thunkAPI) => {
     console.log('Fetching Shopify orders with:', postData);
     try {
-      const response = await fetch('https://dwe8rzhebf.execute-api.us-east-1.amazonaws.com/Prod/api/shopify/orders', {
+      const response = await fetch(BASE_URL + `shopify/orders`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -494,7 +494,7 @@ export const fetchShopifyOrderByName = createAsyncThunk(
   async (postData: { shop: string; access_token: string; orderName: string }, thunkAPI) => {
     console.log('Fetching Shopify order by name:', postData);
     try {
-      const response = await fetch('https://dwe8rzhebf.execute-api.us-east-1.amazonaws.com/Prod/api/shopify/order-by-name', {
+      const response = await fetch(BASE_URL + `shopify/order-by-name`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -953,7 +953,7 @@ export const submitOrders = createAsyncThunk("order/submit", async (postData: an
 
 export const submitShopifyOrders = createAsyncThunk("order/submit/shopify", async (postData: any, thunkAPI) => {
   try {
-    const response = await fetch("https://dwe8rzhebf.execute-api.us-east-1.amazonaws.com/Prod/api/fulfill-order", {
+    const response = await fetch(BASE_URL + `fulfill-order`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -988,8 +988,8 @@ export const sendOrderInformation = createAsyncThunk(
       datetime: string;
     }>
   }, thunkAPI) => {
-    try {
-      const response = await fetch("https://dwe8rzhebf.execute-api.us-east-1.amazonaws.com/Prod/api/send-order-information", {
+    try { 
+      const response = await fetch(BASE_URL + `send-order-information`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1027,7 +1027,7 @@ export const updateOrderItemImage = createAsyncThunk(
     accountId: number;
   }, thunkAPI) => {
     try {
-      const response = await fetch("https://dwe8rzhebf.execute-api.us-east-1.amazonaws.com/Prod/api/update-order-item-image", {
+      const response = await fetch(BASE_URL + `update-order-item-image`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
