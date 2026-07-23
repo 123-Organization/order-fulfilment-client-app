@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import squarespaceLogo from '../assets/images/store-squarespace.svg';
 import { useAppSelector } from '../store';
+import configs from '../config/configs';
+
+const BASE_URL = configs.SERVER_BASE_URL;
 
 interface SquarespaceAuthWaitingProps {
   token?: string;
@@ -38,7 +41,7 @@ const SquarespaceAuthWaiting: React.FC<SquarespaceAuthWaitingProps> = ({
         setMessage('Verifying your credentials...');
 
         const accountKey = customerInfo?.data?.account_key;
-        
+
 
         if (!accountKey) {
           throw new Error('Account key not found. Please log in again.');
@@ -48,11 +51,11 @@ const SquarespaceAuthWaiting: React.FC<SquarespaceAuthWaitingProps> = ({
           throw new Error('No authentication token received from Squarespace.');
         }
 
-        
+
 
         // POST the token back to the backend to persist the connection
         const response = await fetch(
-          'https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/callback',
+          `${BASE_URL}api/squarespace/callback`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -61,7 +64,7 @@ const SquarespaceAuthWaiting: React.FC<SquarespaceAuthWaitingProps> = ({
         );
 
         const data = await response.json().catch(() => ({}));
-    
+
 
         if (response.ok) {
           setProgress(100);
@@ -111,10 +114,9 @@ const SquarespaceAuthWaiting: React.FC<SquarespaceAuthWaitingProps> = ({
 
           {/* Logo */}
           <div className="flex justify-center mb-8">
-            <div className={`relative ${
-              status === 'authenticating' ? 'animate-pulse' :
+            <div className={`relative ${status === 'authenticating' ? 'animate-pulse' :
               status === 'success' ? 'animate-bounce' : 'animate-shake'
-            }`}>
+              }`}>
               <div className="absolute inset-0 bg-gradient-to-r from-indigo-400 to-slate-500 rounded-full blur-xl opacity-50" />
               <img
                 src={squarespaceLogo}
@@ -145,10 +147,9 @@ const SquarespaceAuthWaiting: React.FC<SquarespaceAuthWaitingProps> = ({
           </div>
 
           {/* Title */}
-          <h2 className={`text-2xl font-bold text-center mb-4 transition-colors duration-300 ${
-            status === 'authenticating' ? 'text-gray-800' :
+          <h2 className={`text-2xl font-bold text-center mb-4 transition-colors duration-300 ${status === 'authenticating' ? 'text-gray-800' :
             status === 'success' ? 'text-green-600' : 'text-red-600'
-          }`}>
+            }`}>
             {status === 'authenticating' && 'Authenticating...'}
             {status === 'success' && 'Connected!'}
             {status === 'error' && 'Connection Failed'}
@@ -159,11 +160,10 @@ const SquarespaceAuthWaiting: React.FC<SquarespaceAuthWaitingProps> = ({
           {/* Progress bar */}
           <div className="w-full bg-gray-200 rounded-full h-3 mb-6 overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all duration-500 ease-out ${
-                status === 'success' ? 'bg-gradient-to-r from-green-400 to-green-600' :
+              className={`h-full rounded-full transition-all duration-500 ease-out ${status === 'success' ? 'bg-gradient-to-r from-green-400 to-green-600' :
                 status === 'error' ? 'bg-gradient-to-r from-red-400 to-red-600' :
-                'bg-gradient-to-r from-indigo-400 to-slate-500'
-              }`}
+                  'bg-gradient-to-r from-indigo-400 to-slate-500'
+                }`}
               style={{ width: `${progress}%` }}
             />
           </div>

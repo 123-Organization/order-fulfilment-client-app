@@ -13,22 +13,30 @@ import wix from "../assets/images/store-wix.svg";
 import woocommerce from "../assets/images/store-woocommerce.svg";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ecommerceConnector } from "../store/features/ecommerceSlice";
-import { 
+import configs from "../config/configs";
+import {
   updateCompanyInfo,
   updateWordpressConnectionId,
   setConnectionVerificationStatus,
   resetVerificationStatus,
-  updateShopifyCredentials
+  updateShopifyCredentials,
+  updateShippoAccountKey,
 } from "../store/features/companySlice";
 import { useAppDispatch, useAppSelector } from "../store";
 import { useNotificationContext } from "../context/NotificationContext";
-import { updateApp, UploadOrdersExcel } from "../store/features/orderSlice";
+import { updateApp, UploadOrdersExcel, fetchOrder } from "../store/features/orderSlice";
 import { updateOpenSheet } from "../store/features/orderSlice";
 // import { connectAdvanced } from "react-redux";
 import SpreadSheet from "../components/SpreadSheet";
 import PlatformSettingsModal from "../components/PlatformSettingsModal";
 // Set to true when Shopify integration is fully ready
-const SHOPIFY_ENABLED = true;
+const SHOPIFY_ENABLED = false;
+// Set to true when Etsy integration is fully ready
+const ETSY_ENABLED = true;
+// Set to true when Square integration is fully ready
+const SQUARE_ENABLED = false;
+const BASE_URL = configs.SERVER_BASE_URL;
+
 
 const images = [
   { name: "Squarespace", img: squarespace },
@@ -62,13 +70,17 @@ const Landing: React.FC = (): JSX.Element => {
   const connectionVerificationStatus = useAppSelector(
     (state) => state.company?.connectionVerificationStatus
   );
-  const [shopifyConnectionStatus, setShopifyConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('idle');
+  const [shopifyConnectionStatus, setShopifyConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('verifying');
   const [lastShopifyConnectionData, setLastShopifyConnectionData] = useState<string | null>(null);
   const [showShopifyConnectModal, setShowShopifyConnectModal] = useState<boolean>(false);
-  const [squarespaceConnectionStatus, setSquarespaceConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('idle');
+  const [squarespaceConnectionStatus, setSquarespaceConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('verifying');
   const [lastSquarespaceConnectionData, setLastSquarespaceConnectionData] = useState<string | null>(null);
-  const [wixConnectionStatus, setWixConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('idle');
+  const [wixConnectionStatus, setWixConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('verifying');
   const [lastWixConnectionData, setLastWixConnectionData] = useState<string | null>(null);
+
+  // ── Square ─────────────────────────────────────────────────────────────────
+  const [squareConnectionStatus, setSquareConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('verifying');
+  const [lastSquareConnectionData, setLastSquareConnectionData] = useState<string | null>(null);
 
   // ── Order-sync toggle state ──────────────────────────────────────────────
   const [wixOrderSync, setWixOrderSync] = useState<boolean>(false);
@@ -80,6 +92,15 @@ const Landing: React.FC = (): JSX.Element => {
   const [wixOrderSyncDisconnecting, setWixOrderSyncDisconnecting] = useState<boolean>(false);
   const [squarespaceOrderSyncDisconnecting, setSquarespaceOrderSyncDisconnecting] = useState<boolean>(false);
   const [shopifyOrderSyncDisconnecting, setShopifyOrderSyncDisconnecting] = useState<boolean>(false);
+
+  // ── Etsy / Shippo ──────────────────────────────────────────────────────────
+  const [etsyConnectionStatus, setEtsyConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('verifying');
+  const [lastEtsyConnectionData, setLastEtsyConnectionData] = useState<string | null>(null);
+  const [showShippoConnectModal, setShowShippoConnectModal] = useState<boolean>(false);
+  const [shippoLiveKey, setShippoLiveKey] = useState('');
+  const [shippoTestKey, setShippoTestKey] = useState('');
+  const [shippoConnecting, setShippoConnecting] = useState(false);
+
   const [cookies] = useCookies(["Session", "AccountGUID"]);
   const order = useAppSelector((state) => state.order.orders);
   const opensheet = useAppSelector((state) => state.order.openSheet);
@@ -122,7 +143,7 @@ const Landing: React.FC = (): JSX.Element => {
     //  data.validData
     const postData = {
       accountId: customerInfo?.data?.account_id,
-      payment_token: customerInfo?.data?.payment_profile_id ,
+      payment_token: customerInfo?.data?.payment_profile_id,
       orders: [
         {
           order_po: data?.all[0].order_po,
@@ -147,7 +168,7 @@ const Landing: React.FC = (): JSX.Element => {
               product_qty: 1,
               product_sku: data?.all[0].product_sku,
               product_image_file_url:
-               data?.all[0].product_image_file_url,
+                data?.all[0].product_image_file_url,
               product_thumb_url:
                 data?.all[0].product_image_file_url,
               product_cropping: data?.all[0].product_cropping,
@@ -155,11 +176,15 @@ const Landing: React.FC = (): JSX.Element => {
           ],
           order_status: "Processing",
           shipping_code: data?.all[0].shipping_code,
-          test_mode: true,
+          test_mode: false,
         },
       ],
     };
-    dispatch(UploadOrdersExcel({...postData}))
+    dispatch(UploadOrdersExcel({ ...postData })).then(() => {
+      if (customerInfo?.data?.account_id) {
+        dispatch(fetchOrder(customerInfo?.data?.account_id));
+      }
+    });
   }
 
   // Disconnect notifications are now handled in DisconnectPlatformModal component
@@ -601,12 +626,18 @@ const Landing: React.FC = (): JSX.Element => {
     },
   ] as const;
   const importData = (imgname: string) => {
-    // Check for platforms that are not yet available (including Shopify when disabled)
+    // Check for platforms that are not yet available (including Shopify/Etsy/Square when disabled)
     const availablePlatforms = ["WooCommerce", "Excel", "Squarespace", "Wix"];
     if (SHOPIFY_ENABLED) {
       availablePlatforms.push("Shopify");
     }
-    
+    if (ETSY_ENABLED) {
+      availablePlatforms.push("Etsy");
+    }
+    if (SQUARE_ENABLED) {
+      availablePlatforms.push("Square");
+    }
+
     if (imgname && !availablePlatforms.includes(imgname)) {
       notificationApi.warning({
         message: "Coming Soon",
@@ -632,7 +663,7 @@ const Landing: React.FC = (): JSX.Element => {
       // Otherwise connect to ecommerce
       if (connectionVerificationStatus === 'connected') {
         navigate("/importfilter?type=WooCommerce");
-      } else if(customerInfo?.data?.user_profile_complete === true){
+      } else if (customerInfo?.data?.user_profile_complete === true) {
         // Log the parameters to verify they're correct
         console.log(
           "Connecting to WooCommerce with key:",
@@ -651,7 +682,7 @@ const Landing: React.FC = (): JSX.Element => {
         });
       }
     }
-    
+
     // Shopify integration
     if (imgname === "Shopify") {
       // Check if Shopify is enabled
@@ -695,8 +726,9 @@ const Landing: React.FC = (): JSX.Element => {
         navigate("/importfilter?type=Squarespace");
       } else if (customerInfo?.data?.user_profile_complete === true) {
         const accountKey = customerInfo?.data?.account_key;
-        const returnUrl = `${window.location.origin}/auth/squarespace`;
-        window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/auth?account_key=${accountKey}&return_url=${encodeURIComponent(returnUrl)}&redirect_uri=${encodeURIComponent(returnUrl)}`;
+        // return_url tells the backend where to redirect the user after OAuth completes
+        const returnUrl = `${window.location.origin}/`;
+        window.location.href = `${BASE_URL}squarespace/auth?account_key=${accountKey}&return_url=${encodeURIComponent(returnUrl)}`;
       } else {
         notificationApi.warning({
           message: "Please complete your profile",
@@ -718,12 +750,52 @@ const Landing: React.FC = (): JSX.Element => {
         navigate("/importfilter?type=Wix");
       } else if (customerInfo?.data?.user_profile_complete === true) {
         const accountKey = customerInfo?.data?.account_key;
-        const returnUrl = `${window.location.origin}/auth/wix`;
-        window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/wix/oauth/start?account_key=${accountKey}&return_url=${encodeURIComponent(returnUrl)}&redirect_uri=${encodeURIComponent(returnUrl)}`;
+        const returnUrl = `${window.location.origin}/`;
+        window.location.href = `${BASE_URL}wix/oauth/start?account_key=${accountKey}&return_url=${encodeURIComponent(returnUrl)}`;
       } else {
         notificationApi.warning({
           message: "Please complete your profile",
           description: "Please complete your profile to connect to Wix",
+        });
+      }
+    }
+
+    // Etsy / Shippo integration
+    if (imgname === "Etsy") {
+      if (!customerInfo?.data?.account_key && !cookies.AccountGUID) {
+        window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`;
+        return;
+      }
+      if (etsyConnectionStatus === 'connected') {
+        navigate("/importfilter?type=Etsy");
+      } else if (customerInfo?.data?.user_profile_complete === true) {
+        setShippoLiveKey('');
+        setShippoTestKey('');
+        setShowShippoConnectModal(true);
+      } else {
+        notificationApi.warning({
+          message: "Please complete your profile",
+          description: "Please complete your profile to connect to Etsy",
+        });
+      }
+    }
+
+    // Square integration
+    if (imgname === "Square") {
+      if (!customerInfo?.data?.account_key && !cookies.AccountGUID) {
+        window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`;
+        return;
+      }
+      if (squareConnectionStatus === 'connected') {
+        navigate("/importfilter?type=Square");
+      } else if (customerInfo?.data?.user_profile_complete === true) {
+        const accountKey = customerInfo?.data?.account_key;
+        // Initiate Square OAuth — backend redirects the user through Square's OAuth flow
+        window.location.href = `${BASE_URL}square/auth?account_key=${accountKey}`;
+      } else {
+        notificationApi.warning({
+          message: "Please complete your profile",
+          description: "Please complete your profile to connect to Square",
         });
       }
     }
@@ -788,6 +860,22 @@ const Landing: React.FC = (): JSX.Element => {
         });
       }
     }
+
+    if (type === 'square') {
+      if (connected === 'true') {
+        setSquareConnectionStatus('connected');
+        notificationApi.success({
+          message: 'Square Connected',
+          description: 'Your Square store has been successfully connected!',
+        });
+      } else if (error) {
+        setSquareConnectionStatus('disconnected');
+        notificationApi.error({
+          message: 'Square Connection Failed',
+          description: 'Failed to connect to your Square store. Please try again.',
+        });
+      }
+    }
   }, [location.search, notificationApi]);
 
   // Initialize verification status if idle
@@ -796,6 +884,32 @@ const Landing: React.FC = (): JSX.Element => {
       dispatch(setConnectionVerificationStatus('verifying'));
     }
   }, [connectionVerificationStatus, dispatch]);
+
+  /**
+   * Safety-timeout fallback — if any platform is still 'verifying' after 8 s
+   * (e.g. API error, slow network, or the identifier de-dupe guard blocked the
+   * second update), resolve it to 'disconnected' so the spinner never hangs.
+   */
+  const connectionVerificationStatusRef = useRef(connectionVerificationStatus);
+  useEffect(() => {
+    connectionVerificationStatusRef.current = connectionVerificationStatus;
+  }, [connectionVerificationStatus]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShopifyConnectionStatus(prev => prev === 'verifying' ? 'disconnected' : prev);
+      setSquarespaceConnectionStatus(prev => prev === 'verifying' ? 'disconnected' : prev);
+      setWixConnectionStatus(prev => prev === 'verifying' ? 'disconnected' : prev);
+      setEtsyConnectionStatus(prev => prev === 'verifying' ? 'disconnected' : prev);
+      setSquareConnectionStatus(prev => prev === 'verifying' ? 'disconnected' : prev);
+      // Only resolve WooCommerce if still stuck — don't override an already-connected status
+      if (connectionVerificationStatusRef.current === 'verifying') {
+        dispatch(setConnectionVerificationStatus('disconnected'));
+      }
+    }, 8000);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (ecommerceConnectorInfo.approval_url) {
@@ -823,7 +937,7 @@ const Landing: React.FC = (): JSX.Element => {
   useEffect(() => {
     if (companyInfo?.connections?.length) {
       console.log("All connections:", companyInfo.connections);
-      
+
       // Handle WooCommerce connection
       const wooConnection = companyInfo.connections.find((conn: any) => conn.name === "WooCommerce");
       if (wooConnection) {
@@ -831,35 +945,35 @@ const Landing: React.FC = (): JSX.Element => {
         connectionId = connectionId.split("?")[0];
         console.log("WooCommerce connectionId", connectionId);
         dispatch(updateWordpressConnectionId(connectionId));
-        
+
         if (wooConnection?.data) {
           try {
             // Parse the JSON string from the data field
             const parsedData = JSON.parse(wooConnection.data);
             console.log("WooCommerce parsedData", parsedData);
-            
+
             // Check if the connection data has actually changed
             const currentDataString = JSON.stringify(parsedData);
             if (currentDataString !== lastConnectionData) {
               console.log("WooCommerce connection data changed, updating status...");
               setLastConnectionData(currentDataString);
-              
+
               // Set verifying status first
               dispatch(setConnectionVerificationStatus('verifying'));
-              
+
               // Add a delay to show verification state
               setTimeout(() => {
                 // Check the isConnected property and set the button state accordingly
                 const isConnected = parsedData.isConnected === true || parsedData.isConnected === "true";
                 console.log("WooCommerce Final isConnected decision:", isConnected);
-                
+
                 // Update Redux state
                 dispatch(setConnectionVerificationStatus(isConnected ? 'connected' : 'disconnected'));
               }, 1000); // 1 second delay to show "Verifying..." state
             } else {
               console.log("WooCommerce connection data unchanged, skipping verification");
             }
-            
+
           } catch (error) {
             console.error("Error parsing WooCommerce connection data:", error);
             dispatch(setConnectionVerificationStatus('disconnected'));
@@ -879,36 +993,36 @@ const Landing: React.FC = (): JSX.Element => {
       const shopifyConnection = companyInfo.connections.find((conn: any) => conn.name === "Shopify");
       console.log("=== SHOPIFY CONNECTION CHECK ===");
       console.log("Shopify connection found?:", !!shopifyConnection);
-      
+
       if (shopifyConnection) {
         console.log("Full Shopify connection object:", shopifyConnection);
         console.log("Shopify connection.id:", shopifyConnection.id);
         console.log("Shopify connection.data:", shopifyConnection.data);
-        
+
         // Create a unique identifier for this connection state
         const connectionIdentifier = `${shopifyConnection.id}_${shopifyConnection.data || 'empty'}`;
-        
-        // Only process if this is a new/changed connection
-        if (connectionIdentifier !== lastShopifyConnectionData) {
+
+        // Only process if this is a new/changed connection OR if we're still stuck on 'verifying'
+        if (connectionIdentifier !== lastShopifyConnectionData || shopifyConnectionStatus === 'verifying') {
           console.log("Shopify connection changed or first load, processing...");
           setLastShopifyConnectionData(connectionIdentifier);
-          
+
           // If connection exists with an ID (access token), it's connected
           if (shopifyConnection.id) {
             console.log("Setting Shopify to verifying...");
             setShopifyConnectionStatus('verifying');
-            
+
             // Process the connection
             let isConnected = false;
             let shop = "";
             let access_token = shopifyConnection.id; // Use ID as access token by default
-            
+
             // Try to parse data field if it exists
             if (shopifyConnection.data && shopifyConnection.data.trim() !== "") {
               try {
                 const parsedData = JSON.parse(shopifyConnection.data);
                 console.log("Shopify parsedData:", parsedData);
-                
+
                 // Check if explicitly disconnected, otherwise assume connected if data exists
                 if (parsedData.isConnected === false || parsedData.isConnected === "false") {
                   isConnected = false;
@@ -916,7 +1030,7 @@ const Landing: React.FC = (): JSX.Element => {
                   // If we have shop and access_token, or if isConnected is true, mark as connected
                   isConnected = true;
                 }
-                
+
                 shop = parsedData.shop || "";
                 access_token = parsedData.access_token || shopifyConnection.id;
               } catch (error) {
@@ -929,17 +1043,17 @@ const Landing: React.FC = (): JSX.Element => {
               console.log("No Shopify data field, but connection exists with ID - marking as connected");
               isConnected = true;
             }
-            
+
             console.log("Shopify Final isConnected decision:", isConnected);
             console.log("Shopify access_token to use:", access_token);
             console.log("Shopify shop to use:", shop);
-            
+
             // Update state after a short delay
             setTimeout(() => {
               if (isConnected) {
                 console.log("Setting Shopify status to CONNECTED");
                 setShopifyConnectionStatus('connected');
-                
+
                 // Store Shopify credentials
                 dispatch(updateShopifyCredentials({
                   shop: shop || "finerworks-dev-store.myshopify.com",
@@ -953,7 +1067,7 @@ const Landing: React.FC = (): JSX.Element => {
                     if (pd.order_sync !== undefined) {
                       setShopifyOrderSync(pd.order_sync === true || pd.order_sync === "true");
                     }
-                  } catch (_) {}
+                  } catch (_) { }
                 }
               } else {
                 console.log("Setting Shopify status to DISCONNECTED (not connected)");
@@ -969,12 +1083,10 @@ const Landing: React.FC = (): JSX.Element => {
           console.log("Current status:", shopifyConnectionStatus);
         }
       } else {
-        // No Shopify connection available
+        // No Shopify connection available — resolve immediately so the spinner doesn't linger
         console.log("No Shopify connection found in connections array");
-        if (lastShopifyConnectionData !== null) {
-          setLastShopifyConnectionData(null);
-          setShopifyConnectionStatus('disconnected');
-        }
+        setLastShopifyConnectionData(null);
+        setShopifyConnectionStatus('disconnected');
       }
       console.log("=== END SHOPIFY CONNECTION CHECK ===");
 
@@ -986,7 +1098,7 @@ const Landing: React.FC = (): JSX.Element => {
       if (squarespaceConnection) {
         const sqIdentifier = `${squarespaceConnection.id || 'noid'}_${squarespaceConnection.data || 'nodata'}`;
 
-        if (sqIdentifier !== lastSquarespaceConnectionData) {
+        if (sqIdentifier !== lastSquarespaceConnectionData || squarespaceConnectionStatus === 'verifying') {
           console.log("Squarespace connection changed or first load, processing...");
           setLastSquarespaceConnectionData(sqIdentifier);
 
@@ -1018,11 +1130,10 @@ const Landing: React.FC = (): JSX.Element => {
           console.log("Squarespace connection unchanged, skipping processing");
         }
       } else {
+        // No Squarespace connection — resolve immediately
         console.log("No Squarespace connection in connections array — disconnected");
-        if (lastSquarespaceConnectionData !== null) {
-          setLastSquarespaceConnectionData(null);
-          setSquarespaceConnectionStatus('disconnected');
-        }
+        setLastSquarespaceConnectionData(null);
+        setSquarespaceConnectionStatus('disconnected');
       }
       console.log("=== END SQUARESPACE CONNECTION CHECK ===");
 
@@ -1034,7 +1145,7 @@ const Landing: React.FC = (): JSX.Element => {
       if (wixConnection) {
         const wixIdentifier = `${wixConnection.id || 'noid'}_${wixConnection.data || 'nodata'}`;
 
-        if (wixIdentifier !== lastWixConnectionData) {
+        if (wixIdentifier !== lastWixConnectionData || wixConnectionStatus === 'verifying') {
           console.log("Wix connection changed or first load, processing...");
           setLastWixConnectionData(wixIdentifier);
 
@@ -1067,33 +1178,134 @@ const Landing: React.FC = (): JSX.Element => {
           console.log("Wix connection unchanged, skipping processing");
         }
       } else {
+        // No Wix connection — resolve immediately
         console.log("No Wix connection in connections array — disconnected");
-        if (lastWixConnectionData !== null) {
-          setLastWixConnectionData(null);
-          setWixConnectionStatus('disconnected');
-        }
+        setLastWixConnectionData(null);
+        setWixConnectionStatus('disconnected');
       }
       console.log("=== END WIX CONNECTION CHECK ===");
-    } else {
-      // No connections available
+
+      // Handle Etsy / Shippo connection
+      // The backend stores this connection under name "Shippo" (with id: null and keys in data)
+      const etsyConnection = companyInfo.connections.find(
+        (conn: any) => conn.name === 'Shippo' || conn.name === 'Etsy'
+      );
+      console.log('=== ETSY/SHIPPO CONNECTION CHECK ===');
+      console.log('Shippo/Etsy connection found?:', !!etsyConnection, etsyConnection);
+
+      if (etsyConnection) {
+        // Use data field for identifier since id may be null
+        const etsyIdentifier = `${etsyConnection.id || 'noid'}_${etsyConnection.data || 'nodata'}`;
+
+        if (etsyIdentifier !== lastEtsyConnectionData || etsyConnectionStatus === 'verifying') {
+          console.log('Shippo/Etsy connection changed or first load, processing...');
+          setLastEtsyConnectionData(etsyIdentifier);
+
+          let isConnected = false;
+
+          // Check the data field for isConnected flag (id may be null — that's normal for Shippo)
+          if (etsyConnection.data && etsyConnection.data.trim() !== '') {
+            try {
+              const parsed = JSON.parse(etsyConnection.data);
+              console.log('Shippo parsed data:', parsed);
+              // Consider connected if isConnected is explicitly true
+              isConnected = parsed.isConnected === true || parsed.isConnected === 'true';
+            } catch (e) {
+              console.error('Error parsing Shippo/Etsy data:', e);
+            }
+          }
+
+          if (isConnected) {
+            // The Shippo orders API needs the FinerWorks account_key, not the Shippo key.
+            // The backend uses it to look up the stored Shippo credentials.
+            const fwAccountKey = customerInfo?.data?.account_key;
+            if (fwAccountKey) {
+              console.log('Dispatching Shippo account key (FW key):', fwAccountKey);
+              dispatch(updateShippoAccountKey(fwAccountKey));
+            }
+          }
+
+          console.log('Shippo/Etsy isConnected:', isConnected);
+          setEtsyConnectionStatus(isConnected ? 'connected' : 'disconnected');
+        } else {
+          console.log('Shippo/Etsy connection unchanged, skipping processing');
+        }
+      } else {
+        // No Etsy/Shippo connection — resolve immediately
+        console.log('No Shippo/Etsy connection in connections array — disconnected');
+        setLastEtsyConnectionData(null);
+        setEtsyConnectionStatus('disconnected');
+      }
+      console.log('=== END ETSY/SHIPPO CONNECTION CHECK ===');
+
+      // ── Handle Square connection ───────────────────────────────────────────
+      const squareConnection = companyInfo.connections.find((conn: any) => conn.name === 'Square');
+      console.log('=== SQUARE CONNECTION CHECK ===');
+      console.log('Square connection found?:', !!squareConnection);
+
+      if (squareConnection) {
+        const sqIdentifier = `${squareConnection.id || 'noid'}_${squareConnection.data || 'nodata'}`;
+
+        if (sqIdentifier !== lastSquareConnectionData || squareConnectionStatus === 'verifying') {
+          console.log('Square connection changed or first load, processing...');
+          setLastSquareConnectionData(sqIdentifier);
+
+          if (squareConnection.id) {
+            // Has an access token — check data for explicit disconnect flag
+            let isConnected = true;
+            if (squareConnection.data && squareConnection.data.trim() !== '') {
+              try {
+                const parsed = JSON.parse(squareConnection.data);
+                console.log('Square parsed data:', parsed);
+                if (parsed.isConnected === false || parsed.isConnected === 'false') {
+                  isConnected = false;
+                }
+              } catch (e) {
+                console.error('Error parsing Square data:', e);
+              }
+            }
+            console.log('Square isConnected:', isConnected);
+            setSquareConnectionStatus(isConnected ? 'connected' : 'disconnected');
+          } else {
+            console.log('Square entry found but no id — disconnected');
+            setSquareConnectionStatus('disconnected');
+          }
+        } else {
+          console.log('Square connection unchanged, skipping processing');
+        }
+      } else {
+        // No Square connection — resolve immediately
+        console.log('No Square connection in connections array — disconnected');
+        setLastSquareConnectionData(null);
+        setSquareConnectionStatus('disconnected');
+      }
+      console.log('=== END SQUARE CONNECTION CHECK ===');
+
+    } else if (companyInfo !== null && companyInfo !== undefined) {
+      // companyInfo has loaded but contains no connections — genuinely disconnected
       console.log("No connections available");
       dispatch(setConnectionVerificationStatus('disconnected'));
       setShopifyConnectionStatus('disconnected');
       setSquarespaceConnectionStatus('disconnected');
       setWixConnectionStatus('disconnected');
+      setEtsyConnectionStatus('disconnected');
+      setSquareConnectionStatus('disconnected');
     }
-  }, [companyInfo, lastConnectionData, lastShopifyConnectionData, lastSquarespaceConnectionData, lastWixConnectionData, dispatch]);
+    // If companyInfo is null/undefined the fetch hasn't completed yet — keep 'verifying'
+  }, [companyInfo, lastConnectionData, lastShopifyConnectionData, lastSquarespaceConnectionData, lastWixConnectionData, lastEtsyConnectionData, lastSquareConnectionData, dispatch]);
 
   // ── Per-platform connection status helpers ──────────────────────────────────
   const getStatus = (name: string) => {
     if (name === "WooCommerce") return connectionVerificationStatus;
-    if (name === "Shopify")     return shopifyConnectionStatus;
+    if (name === "Shopify") return shopifyConnectionStatus;
     if (name === "Squarespace") return squarespaceConnectionStatus;
-    if (name === "Wix")         return wixConnectionStatus;
+    if (name === "Wix") return wixConnectionStatus;
+    if (name === "Etsy") return etsyConnectionStatus;
+    if (name === "Square") return squareConnectionStatus;
     return "idle";
   };
 
-  const ENABLED = ["WooCommerce", "Excel", "Shopify", "Squarespace", "Wix"];
+  const ENABLED = ["WooCommerce", "Excel", "Squarespace", "Wix", "Etsy", "Square", "Shopify"];
 
   // ── Order-sync toggle API call ───────────────────────────────────────────
   const ORDER_SYNC_PLATFORMS: Record<string, boolean> = { Wix: true, Squarespace: true, Shopify: true };
@@ -1107,20 +1319,20 @@ const Landing: React.FC = (): JSX.Element => {
     const setLoading = platform === "Wix"
       ? setWixOrderSyncLoading
       : platform === "Squarespace"
-      ? setSquarespaceOrderSyncLoading
-      : setShopifyOrderSyncLoading;
+        ? setSquarespaceOrderSyncLoading
+        : setShopifyOrderSyncLoading;
 
     const setSync = platform === "Wix"
       ? setWixOrderSync
       : platform === "Squarespace"
-      ? setSquarespaceOrderSync
-      : setShopifyOrderSync;
+        ? setSquarespaceOrderSync
+        : setShopifyOrderSync;
 
     const setDisconnecting = platform === "Wix"
       ? setWixOrderSyncDisconnecting
       : platform === "Squarespace"
-      ? setSquarespaceOrderSyncDisconnecting
-      : setShopifyOrderSyncDisconnecting;
+        ? setSquarespaceOrderSyncDisconnecting
+        : setShopifyOrderSyncDisconnecting;
 
     // When turning OFF, play the disconnect burst animation first
     if (!newValue) {
@@ -1146,16 +1358,16 @@ const Landing: React.FC = (): JSX.Element => {
         if (shopifyConn?.data) {
           try {
             const pd = JSON.parse(shopifyConn.data);
-            storeName    = pd.shop         || pd.storeName    || "";
-            access_token = pd.access_token || shopifyConn.id  || "";
-          } catch (_) {}
+            storeName = pd.shop || pd.storeName || "";
+            access_token = pd.access_token || shopifyConn.id || "";
+          } catch (_) { }
         }
-        body.storeName    = storeName;
+        body.storeName = storeName;
         body.access_token = access_token;
       }
 
       const res = await fetch(
-        "https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/stores/order-sync",
+        `${BASE_URL}stores/order-sync`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1184,15 +1396,24 @@ const Landing: React.FC = (): JSX.Element => {
     if (platformName === "Squarespace") setSquarespaceConnectionStatus("disconnected");
     if (platformName === "Shopify") setShopifyConnectionStatus("disconnected");
     if (platformName === "WooCommerce") dispatch(setConnectionVerificationStatus("disconnected"));
+    if (platformName === "Etsy") setEtsyConnectionStatus("disconnected");
+    if (platformName === "Square") setSquareConnectionStatus("disconnected");
   };
 
   return (
     <div style={{ minHeight: "100%", background: isDark ? "#080c14" : "linear-gradient(135deg,#f0f4ff 0%,#fafbff 60%,#f4f8ff 100%)", padding: "40px 32px 60px" }}>
+
       <style>{`
-        @keyframes lp-fade   { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:none} }
-        @keyframes lp-pop    { 0%{transform:scale(.94)} 100%{transform:scale(1)} }
-        @keyframes lp-badge  { from{opacity:0;transform:scale(.7)} to{opacity:1;transform:scale(1)} }
-        @keyframes gear-float { 0%,100%{transform:translateY(0px) rotate(0deg)} 50%{transform:translateY(-3px) rotate(8deg)} }
+        @keyframes lp-fade     { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:none} }
+        @keyframes lp-pop      { 0%{transform:scale(.94)} 100%{transform:scale(1)} }
+        @keyframes lp-badge    { from{opacity:0;transform:scale(.7)} to{opacity:1;transform:scale(1)} }
+        @keyframes gear-float  { 0%,100%{transform:translateY(0px) rotate(0deg)} 50%{transform:translateY(-3px) rotate(8deg)} }
+        @keyframes plug-glow   { 0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.45)} 50%{box-shadow:0 0 0 5px rgba(34,197,94,0)} }
+        @keyframes plug-in     { 0%{opacity:0;transform:translateY(-4px) scale(.8)} 100%{opacity:1;transform:none scale(1)} }
+        @keyframes plug-spin   { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+        @keyframes unplug-pop  { 0%{opacity:0;transform:scale(.6)} 60%{transform:scale(1.15)} 100%{opacity:1;transform:scale(1)} }
+        @keyframes soon-pulse  { 0%,100%{box-shadow:0 0 0 0 rgba(251,191,36,.35),0 2px 12px rgba(0,0,0,.06)} 50%{box-shadow:0 0 0 5px rgba(251,191,36,0),0 2px 12px rgba(0,0,0,.06)} }
+        @keyframes soon-pulse-dark { 0%,100%{box-shadow:0 0 0 0 rgba(251,191,36,.28),0 2px 12px rgba(0,0,0,.06)} 50%{box-shadow:0 0 0 6px rgba(251,191,36,0),0 2px 12px rgba(0,0,0,.06)} }
         .lp-card {
           transition: box-shadow .22s ease, transform .22s ease, border-color .22s ease;
           animation: lp-fade .3s ease both;
@@ -1208,6 +1429,14 @@ const Landing: React.FC = (): JSX.Element => {
         .lp-card:hover .lp-logo { transform: scale(1.08); }
         .lp-logo { transition: transform .25s ease; }
         .lp-card:active { transform: translateY(-1px) scale(.98) !important; z-index: 10; }
+        .lp-card-disabled-soon {
+          pointer-events: none;
+          cursor: default !important;
+        }
+        .lp-card-disabled-soon:hover {
+          transform: translateY(-3px) !important;
+          box-shadow: 0 10px 32px rgba(251,191,36,.18) !important;
+        }
       `}</style>
 
       {/* ── Page header ── */}
@@ -1231,64 +1460,107 @@ const Landing: React.FC = (): JSX.Element => {
         padding: "16px 16px 16px",
       }}>
         {images.map((image, i) => {
-          const status   = getStatus(image.name);
-          const enabled  = ENABLED.includes(image.name);
-          const isConnected    = status === "connected";
-          const hasOrderSync   = ORDER_SYNC_PLATFORMS[image.name] === true;
-          const orderSyncOn    = image.name === "Wix" ? wixOrderSync    : image.name === "Shopify" ? shopifyOrderSync    : squarespaceOrderSync;
-          const orderSyncLoad  = image.name === "Wix" ? wixOrderSyncLoading : image.name === "Shopify" ? shopifyOrderSyncLoading : squarespaceOrderSyncLoading;
-          const isVerifying    = status === "verifying";
+          const status = getStatus(image.name);
+          const enabled = ENABLED.includes(image.name);
+          // "Coming Soon" applies to Shopify and Square while their integrations are being finalized
+          const isComingSoon = (image.name === "Square" && !SQUARE_ENABLED) || (image.name === "Shopify" && !SHOPIFY_ENABLED);
+          const isConnected = status === "connected";
+          const hasOrderSync = ORDER_SYNC_PLATFORMS[image.name] === true;
+          const orderSyncOn = image.name === "Wix" ? wixOrderSync : image.name === "Shopify" ? shopifyOrderSync : squarespaceOrderSync;
+          const orderSyncLoad = image.name === "Wix" ? wixOrderSyncLoading : image.name === "Shopify" ? shopifyOrderSyncLoading : squarespaceOrderSyncLoading;
+          const isVerifying = status === "verifying";
           const isDisconnected = status === "disconnected";
 
           return (
             <div
               key={image.name}
-              className="lp-card"
+              className={`lp-card${isComingSoon ? " lp-card-disabled-soon" : ""}`}
               onClick={() => importData(image.name)}
               style={{
                 background: isDark ? "#0f1724" : "#fff",
                 borderRadius: 18,
-                border: isConnected
-                  ? "2px solid " + (isDark ? "#14b8a6" : "#52c41a")
-                  : isDark ? "2px solid #1e2d42" : "2px solid #e8edf5",
-                boxShadow: isConnected
+                border: isComingSoon
+                  ? (isDark ? "2px solid #1e2d42" : "2px solid #e8edf5")
+                  : isConnected && enabled
+                    ? "2px solid " + (isDark ? "#14b8a6" : "#52c41a")
+                    : isDark ? "2px solid #1e2d42" : "2px solid #e8edf5",
+                boxShadow: !isComingSoon && isConnected && enabled
                   ? "0 4px 20px rgba(82,196,26,.15)"
                   : "0 2px 12px rgba(0,0,0,.06)",
+                animation: "lp-fade .3s ease both",
                 padding: "28px 20px 22px",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
                 gap: 12,
-                cursor: "pointer",
+                cursor: isComingSoon ? "default" : "pointer",
                 position: "relative",
-                opacity: enabled ? 1 : 0.55,
+                opacity: (isComingSoon || !enabled) ? 0.5 : 1,
                 animationDelay: `${i * 0.04}s`,
+                filter: isComingSoon ? "grayscale(0.8)" : "none",
               }}
             >
-              {/* ── Status badge — top LEFT ── */}
-              {isVerifying && (
-                <span style={{ position: "absolute", top: 12, left: 12, background: "#dbeafe", color: "#1d4ed8", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 999, letterSpacing: .3, animation: "lp-pop .6s ease infinite alternate" }}>
-                  VERIFYING
+              {/* ── Status icon — top LEFT corner ── */}
+
+              {/* Verifying: spinning ring — hidden for Coming Soon */}
+              {isVerifying && enabled && !isComingSoon && (
+                <span title="Verifying connection…" style={{
+                  position: "absolute", top: 10, left: 10,
+                  width: 26, height: 26, borderRadius: "50%",
+                  border: "2.5px solid #3b82f6", borderTopColor: "transparent",
+                  animation: "plug-spin .7s linear infinite",
+                  display: "inline-block",
+                }} />
+              )}
+
+              {/* Connected: glowing plug icon — hidden for Coming Soon */}
+              {isConnected && enabled && !isComingSoon && (
+                <span title="Connected" style={{
+                  position: "absolute", top: 8, left: 8,
+                  width: 28, height: 28, borderRadius: "50%",
+                  background: isDark ? "rgba(34,197,94,.18)" : "rgba(34,197,94,.12)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  animation: "plug-glow 2s ease-in-out infinite, plug-in .3s ease both",
+                }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2v4M8 6h8M7 10v4a5 5 0 0 0 10 0v-4M12 19v3" />
+                    <line x1="9" y1="6" x2="9" y2="10" />
+                    <line x1="15" y1="6" x2="15" y2="10" />
+                  </svg>
                 </span>
               )}
-              {isConnected && (
-                <span style={{ position: "absolute", top: 12, left: 12, background: "#dcfce7", color: "#15803d", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 999, letterSpacing: .3, animation: "lp-badge .3s ease both" }}>
-                  ✓ CONNECTED
+
+              {/* Disconnected: broken-link icon — hidden for Coming Soon */}
+              {isDisconnected && enabled && image.name !== "Excel" && !isComingSoon && (
+                <span title="Not connected — click to connect" style={{
+                  position: "absolute", top: 8, left: 8,
+                  width: 28, height: 28, borderRadius: "50%",
+                  background: isDark ? "rgba(239,68,68,.14)" : "rgba(239,68,68,.08)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  animation: "unplug-pop .35s ease both",
+                }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={isDark ? "#f87171" : "#dc2626"} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                    <line x1="2" y1="2" x2="22" y2="22" stroke={isDark ? "#f87171" : "#dc2626"} strokeWidth="2" />
+                  </svg>
                 </span>
               )}
-              {isDisconnected && enabled && image.name !== "Excel" && (
-                <span style={{ position: "absolute", top: 12, left: 12, background: "#fee2e2", color: "#b91c1c", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 999, letterSpacing: .3 }}>
-                  DISCONNECTED
-                </span>
-              )}
-              {!enabled && (
-                <span style={{ position: "absolute", top: 12, right: 12, background: isDark ? "#1a2a40" : "#f3f4f6", color: isDark ? "#3a5070" : "#9ca3af", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 999, letterSpacing: .3 }}>
+
+              {/* Coming soon chip — neutral grey badge */}
+              {(isComingSoon || !enabled) && (
+                <span style={{
+                  position: "absolute", top: 12, right: 12,
+                  background: isDark ? "#1a2a40" : "#f3f4f6",
+                  color: isDark ? "#3a5070" : "#9ca3af",
+                  fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 999, letterSpacing: .3,
+                }}>
                   SOON
                 </span>
               )}
 
               {/* ── Gear settings modal — top RIGHT corner, only when connected ── */}
-              {isConnected && image.name !== "Excel" && (
+              {isConnected && enabled && image.name !== "Excel" && !isComingSoon && (
                 <PlatformSettingsModal
                   platform={image.name}
                   hasOrderSync={hasOrderSync}
@@ -1314,7 +1586,7 @@ const Landing: React.FC = (): JSX.Element => {
                 <img
                   src={image.img}
                   alt={image.name}
-                  style={{ width: "100%", height: "100%", objectFit: "contain", filter: enabled ? "none" : "grayscale(1) opacity(.5)" }}
+                  style={{ width: "100%", height: "100%", objectFit: "contain", filter: (enabled && !isComingSoon) ? "none" : "grayscale(1) opacity(.5)" }}
                 />
               </div>
 
@@ -1325,13 +1597,13 @@ const Landing: React.FC = (): JSX.Element => {
 
               {/* Action label */}
               <p style={{ margin: 0, fontSize: 11, color: isConnected ? (isDark ? "#14b8a6" : "#15803d") : enabled ? (isDark ? "#8892a4" : "#6b7280") : (isDark ? "#253347" : "#c4c9d4"), fontWeight: 500 }}>
-                {!enabled
+                {(isComingSoon || !enabled)
                   ? "Coming soon"
                   : image.name === "Excel"
-                  ? "Upload spreadsheet"
-                  : isConnected
-                  ? "Import orders →"
-                  : "Click to connect"}
+                    ? "Upload spreadsheet"
+                    : isConnected
+                      ? "Import orders →"
+                      : "Click to connect"}
               </p>
             </div>
           );
@@ -1364,6 +1636,100 @@ const Landing: React.FC = (): JSX.Element => {
       >
         <p>You need to link your Shopify account to FinerWorks to import orders.</p>
         <p>Would you like to authorize this app by opening the Shopify Admin connection panel?</p>
+      </Modal>
+      {/* ── Shippo / Etsy connect modal ── */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <img src={etsy} alt="Etsy" style={{ width: 28, height: 28, objectFit: 'contain' }} />
+            <span style={{ fontWeight: 700, fontSize: 16 }}>Connect Etsy via Shippo</span>
+          </div>
+        }
+        open={showShippoConnectModal}
+        onCancel={() => { if (!shippoConnecting) setShowShippoConnectModal(false); }}
+        footer={null}
+        width={460}
+        centered
+      >
+        <div style={{ padding: '8px 0 4px' }}>
+          <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 20, lineHeight: 1.6 }}>
+            Enter your <strong>Shippo API keys</strong> to enable Etsy order import.
+            You can find these in your{' '}
+            <a href="https://support.finerworks.com/how-to-use-the-order-fulfillment-app/etsy-documentation/" target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb' }}>GoShippo documentation</a>.
+          </p>
+
+          {/* Live key */}
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: isDark ? '#8892a4' : '#374151', marginBottom: 6, textTransform: 'uppercase', letterSpacing: .4 }}>
+              Live Key
+            </label>
+            <input
+              id="shippo-live-key"
+              type="text"
+              placeholder="shippo_live_…"
+              value={shippoLiveKey}
+              onChange={e => setShippoLiveKey(e.target.value)}
+              disabled={shippoConnecting}
+              style={{
+                width: '100%', padding: '9px 12px', borderRadius: 8, border: '1.5px solid #d1d5db',
+                fontSize: 13, fontFamily: 'monospace', outline: 'none', boxSizing: 'border-box',
+                background: isDark ? '#0f1724' : '#fff', color: isDark ? '#e8edf5' : '#111827',
+              }}
+            />
+          </div>
+
+
+
+          {/* Actions */}
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <Button
+              onClick={() => setShowShippoConnectModal(false)}
+              disabled={shippoConnecting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="primary"
+              loading={shippoConnecting}
+              disabled={!shippoLiveKey.trim()}
+              onClick={async () => {
+                const accountKey = customerInfo?.data?.account_key;
+                if (!accountKey) return;
+                setShippoConnecting(true);
+                try {
+                  const res = await fetch(
+                    `${BASE_URL}shippo/connect`,
+                    {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        account_key: accountKey,
+                        live_key: shippoLiveKey.trim(),
+
+                      }),
+                    }
+                  );
+                  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                  setEtsyConnectionStatus('connected');
+                  setShowShippoConnectModal(false);
+                  notificationApi.success({
+                    message: 'Etsy Connected',
+                    description: 'Your Shippo keys have been saved. You can now import Etsy orders.',
+                  });
+                } catch (err: any) {
+                  notificationApi.error({
+                    message: 'Connection Failed',
+                    description: 'Could not connect to Shippo. Please check your keys and try again.',
+                  });
+                } finally {
+                  setShippoConnecting(false);
+                }
+              }}
+            >
+              Connect
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

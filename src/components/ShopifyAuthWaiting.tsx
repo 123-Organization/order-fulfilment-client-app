@@ -96,6 +96,9 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
 
 
 
+
+            console.log(' Redirecting to Shopify store:', shopifyRedirectUrl);
+
             // Redirect to Shopify store
             window.location.href = ""
             window.location.href = shopifyRedirectUrl;

@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppSelector } from '../store';
 import wixLogo from '../assets/images/store-wix.svg';
+import config from '../config/configs';
+
+const BASE_URL = config.SERVER_BASE_URL;
 
 const WixAuth: React.FC = () => {
   const location = useLocation();
@@ -46,7 +49,7 @@ const WixAuth: React.FC = () => {
         if (!accountKey) throw new Error('Account key not found. Please log in again.');
 
         const response = await fetch(
-          'https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/wix/oauth/callback',
+          `${BASE_URL}wix/oauth/callback`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

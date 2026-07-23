@@ -14,6 +14,8 @@ import { useNavigate } from "react-router-dom";
 import { submitOrders, resetSubmitStatus } from "../store/features/orderSlice";
 import LoadingOverlay from "./LoadingOverlay";
 import { updateSubmitedOrders } from "../store/features/orderSlice";
+import config from "../config/configs";
+const BASE_URL = config.SERVER_BASE_URL;
 
 export default function VaultedCardPayment({
   Amount,
@@ -235,7 +237,7 @@ export default function VaultedCardPayment({
           order.order_po?.startsWith("SQ_");
 
         if (isSquarespace && sqAccessToken && accountKey) {
-          const webhookUrl = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/fulfill-order?access_token=${encodeURIComponent(sqAccessToken)}&orderNumber=${encodeURIComponent(order.order_po)}&account_key=${encodeURIComponent(accountKey)}&orderId=${encodeURIComponent(order.order_key)}`;
+          const webhookUrl = `${BASE_URL}api/squarespace/fulfill-order?access_token=${encodeURIComponent(sqAccessToken)}&orderNumber=${encodeURIComponent(order.order_po)}&account_key=${encodeURIComponent(accountKey)}&orderId=${encodeURIComponent(order.order_key)}`;
           console.log("Injecting Squarespace webhook_url for order:", order.order_po);
           return { ...order, webhook_url: webhookUrl };
         }
@@ -247,7 +249,7 @@ export default function VaultedCardPayment({
           order.order_po?.startsWith("WIX_");
 
         if (isWix && wixAccessToken && accountKey) {
-          const webhookUrl = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/wix/fulfill-order?access_token=${encodeURIComponent(wixAccessToken)}&orderNumber=${encodeURIComponent(order.order_po)}&account_key=${encodeURIComponent(accountKey)}&orderId=${encodeURIComponent(order.order_key)}`;
+          const webhookUrl = `${BASE_URL}api/wix/fulfill-order?access_token=${encodeURIComponent(wixAccessToken)}&orderNumber=${encodeURIComponent(order.order_po)}&account_key=${encodeURIComponent(accountKey)}&orderId=${encodeURIComponent(order.order_key)}`;
           console.log("Injecting Wix webhook_url for order:", order.order_po);
           return { ...order, webhook_url: webhookUrl };
         }
@@ -264,7 +266,6 @@ export default function VaultedCardPayment({
         ...(isFullyCoveredByCredits ? {} : { payment_token: token?.token }),
       }
 
-    
       setHasAttemptedSubmit(true);
       dispatch(submitOrders(payload));
       dispatch(updateSubmitedOrders(checkedOrders));

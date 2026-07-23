@@ -15,8 +15,18 @@ interface ProductState {
         imagesStatus: "idle" | "loading" | "succeeded" | "failed";
 }
 
+const STORAGE_KEY_PRODUCTS = "fw_product_details_cache";
+
+const loadPersistedProducts = () => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_PRODUCTS);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return [];
+};
+
 const initialState: ProductState = {
-        product_details: [],
+        product_details: loadPersistedProducts(),
         status: "idle",
         error: null,
         quantityUpdated: false,
@@ -146,6 +156,12 @@ export const ProductSlice = createSlice({
                 clearProductData: (state) => {
                         state.productData = null;
                 },
+                clearProductDetails: (state) => {
+                        state.product_details = [];
+                        try {
+                                localStorage.removeItem(STORAGE_KEY_PRODUCTS);
+                        } catch {}
+                },
                 resetProductStatus: (state) => {
                         state.status = "idle";
                 }
@@ -192,6 +208,11 @@ export const ProductSlice = createSlice({
                                 state.product_details = action.payload;
                         }
                         state.status = "succeeded";
+                        
+                        // Persist to localStorage
+                        try {
+                                localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(state.product_details));
+                        } catch {}
                 });
                 builder.addCase(fetchProductDetails.pending, (state, action) => {
                         state.status = "loading";
@@ -211,7 +232,8 @@ export const ProductSlice = createSlice({
                         state.error = action.payload as string;
                 });
                 builder.addCase(getAllImages.fulfilled, (state, action) => {
-                        state.images = action.payload?.data?.images || [];
+                        const imgs = action.payload?.data?.images;
+                        state.images = Array.isArray(imgs) ? imgs : [];
                         state.imagesCount = action.payload?.data?.count || 0;
                         state.imagesStatus = "succeeded";
                 });
@@ -227,5 +249,5 @@ export const ProductSlice = createSlice({
         },
 });
 
-export const { setQuantityUpdated, setSelectedImage, setProductData, clearProductData, clearSelectedImage, resetProductStatus } = ProductSlice.actions;
+export const { setQuantityUpdated, setSelectedImage, setProductData, clearProductData, clearProductDetails, clearSelectedImage, resetProductStatus } = ProductSlice.actions;
 export default ProductSlice;

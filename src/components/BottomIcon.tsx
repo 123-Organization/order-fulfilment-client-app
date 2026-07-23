@@ -15,6 +15,7 @@ import {
   resetSaveOrderInfo,
   resetImport,
 } from "../store/features/orderSlice";
+import config from '../config/configs';
 import { listVirtualInventory } from "../store/features/InventorySlice";
 import { getImportOrders, resetEcommerceGetImportOrders } from "../store/features/ecommerceSlice";
 import NotificationAlert from "./notification";
@@ -22,8 +23,9 @@ import ShippingPreference from "../pages/ShippingPreference";
 import UpdatePopup from "./UpdatePopup";
 import { updateCompanyInfo } from "../store/features/companySlice";
 import { resetRecipientStatus } from "../store/features/orderSlice";
+import { clearOrderErrors, clearAllShippingCache } from "../store/features/shippingSlice";
 import style from "./Components.module.css";
-import { fetchWporder, fetchShopifyOrders, fetchShopifyOrderByName, fetchSquarespaceOrders, fetchSquarespaceOrderByNumber, resetSquarespaceImportStatus, updateWporder, fetchWixOrders, fetchWixOrderByNumber, resetWixImportStatus } from "../store/features/orderSlice";
+import { fetchWporder, fetchShopifyOrders, fetchShopifyOrderByName, fetchSquarespaceOrders, fetchSquarespaceOrderByNumber, resetSquarespaceImportStatus, updateWporder, fetchWixOrders, fetchWixOrderByNumber, resetWixImportStatus, fetchShippoOrders, resetShippoImportStatus, fetchSquareOrders, resetSquareImportStatus } from "../store/features/orderSlice";
 type NotificationType = "success" | "info" | "warning" | "error";
 interface NotificationAlertProps {
   type: NotificationType;
@@ -40,6 +42,8 @@ type bottomIconProps = {
   | null;
 };
 
+const BASE_URL = config.SERVER_BASE_URL;
+
 // Helper function to validate phone numbers (allows formatted input like "(585) 729-4716")
 const isValidPhone = (phone: string | number | undefined): boolean => {
   if (!phone) return false;
@@ -50,6 +54,7 @@ const isValidPhone = (phone: string | number | undefined): boolean => {
 
 const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const orders = useAppSelector((state) => state.order.orders);
+  const ordersStatus = useAppSelector((state) => state.order.status);
   const product_details = useAppSelector(
     (state) => state.ProductSlice.product_details
   );
@@ -61,6 +66,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const wordpressConnectionId = useAppSelector((state) => state.company.wordpress_connection_id);
   const shopifyShop = useAppSelector((state) => state.company.shopify_shop);
   const shopifyAccessToken = useAppSelector((state) => state.company.shopify_access_token);
+  const shippoAccountKey = useAppSelector((state) => state.company.shippo_account_key);
 
   const recipientStatus = useAppSelector(
     (state) => state.order.recipientStatus
@@ -106,6 +112,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   ];
   const pathNameAvoidUpdateProfile = ["/importfilter"];
   const wporder = useAppSelector((state) => state.order.Wporder);
+  const isShippingLoading = useAppSelector((state) => state.order.isShippingLoading);
   const myCompanyInfoFilled = useAppSelector(
     (state) => state.company.myCompanyInfoFilled
   );
@@ -142,6 +149,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const navigate = useNavigate();
 
   const onNextHandler = async () => {
+    if (nextSpinning) return;
     try {
       if (location.pathname === "/mycompany") {
         if (
@@ -253,7 +261,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                     order_items: orderItems,
                     order_status: shopifyOrder.displayFulfillmentStatus === "UNFULFILLED" ? "Processing" : "Completed",
                     shipping_code: "GD",
-                    test_mode: true,
+                    test_mode: false,
                   };
                 });
 
@@ -274,6 +282,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   dispatch(resetSaveOrderInfo());
                   dispatch(resetImport());
                   dispatch(updateWporder('' as any));
+                  dispatch(clearAllShippingCache());
                   navigate("/importlist");
                 }, 2000);
               } else {
@@ -362,7 +371,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                         order_items: orderItems,
                         order_status: shopifyOrder.displayFulfillmentStatus === "UNFULFILLED" ? "Processing" : "Completed",
                         shipping_code: "GD", // Default shipping code, you may want to map this from Shopify shipping lines
-                        test_mode: true, // Set based on your environment
+                        test_mode: false, // Set based on your environment
                       };
                     });
 
@@ -384,6 +393,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                       dispatch(resetSaveOrderInfo());
                       dispatch(resetImport());
                       dispatch(updateWporder('' as any));
+                      dispatch(clearAllShippingCache());
                       navigate("/importlist");
                     }, 2000);
                   } else {
@@ -455,7 +465,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
           let isTokenValid = true;
           try {
             // Validate token before fetching orders
-            const validateRes = await fetch('https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/validate-token', {
+            const validateRes = await fetch(`${BASE_URL}squarespace/validate-token`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ access_token: squarespaceToken })
@@ -473,7 +483,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
           if (!isTokenValid) {
             if (squarespaceRefreshToken && accountKey) {
               try {
-                const refreshRes = await fetch('https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/refresh-token', {
+                const refreshRes = await fetch(`${BASE_URL}squarespace/refresh-token`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ account_key: accountKey, refresh_token: squarespaceRefreshToken })
@@ -511,7 +521,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                 });
                 dispatch(resetSquarespaceImportStatus());
                 setTimeout(() => {
-                  window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/auth?account_key=${accountKey}`;
+                  window.location.href = `${BASE_URL}squarespace/auth?account_key=${accountKey}`;
                 }, 2000);
                 setNextSpinning(false);
                 return;
@@ -526,7 +536,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
               });
               dispatch(resetSquarespaceImportStatus());
               setTimeout(() => {
-                window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/auth?account_key=${accountKey}`;
+                window.location.href = `${BASE_URL}squarespace/auth?account_key=${accountKey}`;
               }, 2000);
               setNextSpinning(false);
               return;
@@ -586,7 +596,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   dispatch(resetSquarespaceImportStatus());
                   setTimeout(() => {
                     const redirectKey = customerInfo?.data?.account_key || localStorage.getItem('squarespace_account_key') || '';
-                    window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/auth?account_key=${redirectKey}`;
+                    window.location.href = `${BASE_URL}squarespace/auth?account_key=${redirectKey}`;
                   }, 2000);
                 }
                 return;
@@ -627,7 +637,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                     })),
                     order_status: 'Processing',
                     shipping_code: 'GD',
-                    test_mode: true,
+                    test_mode: false,
                   };
                 });
 
@@ -648,6 +658,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   dispatch(resetSaveOrderInfo());
                   dispatch(resetImport());
                   dispatch(updateWporder('' as any));
+                  dispatch(clearAllShippingCache());
                   navigate('/importlist');
                 }, 2000);
               } else {
@@ -707,7 +718,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                       customerInfo?.data?.account_key ||
                       localStorage.getItem('squarespace_account_key') ||
                       '';
-                    window.location.href = `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/auth?account_key=${redirectKey}`;
+                    window.location.href = `${BASE_URL}squarespace/auth?account_key=${redirectKey}`;
                   }, 2000);
                 }
                 return;
@@ -752,7 +763,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                       })),
                       order_status: 'Processing',
                       shipping_code: 'GD',
-                      test_mode: true,
+                      test_mode: false,
                     };
                   }
                 );
@@ -774,6 +785,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   dispatch(resetSaveOrderInfo());
                   dispatch(resetImport());
                   dispatch(updateWporder('' as any));
+                  dispatch(clearAllShippingCache());
                   navigate('/importlist');
                 }, 2000);
               } else {
@@ -835,6 +847,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                     description: "Order imported successfully",
                   });
                   setTimeout(() => {
+                    dispatch(clearAllShippingCache());
                     navigate("/importlist");
                   }, 2000);
                 } else {
@@ -924,9 +937,9 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
               const payload = result.payload as any;
               const rawOrders: any[] =
                 Array.isArray(payload?.orders) ? payload.orders
-                : Array.isArray(payload) ? payload
-                : payload?.order ? [payload.order]
-                : [];
+                  : Array.isArray(payload) ? payload
+                    : payload?.order ? [payload.order]
+                      : [];
 
               if (rawOrders.length > 0) {
                 const transformedOrders = rawOrders.map((wixOrder: any, orderIndex: number) => {
@@ -965,7 +978,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                     })),
                     order_status: 'Processing',
                     shipping_code: 'GD',
-                    test_mode: true,
+                    test_mode: false,
                   };
                 });
 
@@ -986,6 +999,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   dispatch(resetSaveOrderInfo());
                   dispatch(resetImport());
                   dispatch(updateWporder('' as any));
+                  dispatch(clearAllShippingCache());
                   navigate('/importlist');
                 }, 2000);
               } else {
@@ -1027,8 +1041,8 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
               const payload = result.payload as any;
               const rawOrders: any[] =
                 Array.isArray(payload?.orders) ? payload.orders
-                : Array.isArray(payload) ? payload
-                : [];
+                  : Array.isArray(payload) ? payload
+                    : [];
 
               if (rawOrders.length > 0) {
                 const transformedOrders = rawOrders.map((wixOrder: any, orderIndex: number) => {
@@ -1067,7 +1081,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                     })),
                     order_status: 'Processing',
                     shipping_code: 'GD',
-                    test_mode: true,
+                    test_mode: false,
                   };
                 });
 
@@ -1088,6 +1102,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   dispatch(resetSaveOrderInfo());
                   dispatch(resetImport());
                   dispatch(updateWporder('' as any));
+                  dispatch(clearAllShippingCache());
                   navigate('/importlist');
                 }, 2000);
               } else {
@@ -1105,6 +1120,297 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
             } finally {
               setNextSpinning(false);
             }
+          }
+        }
+
+        // ── Handle Etsy / Shippo orders ─────────────────────────────────────────
+        else if (platformType === 'Etsy') {
+          // The Shippo orders API needs the FinerWorks account_key — the backend
+          // uses it to look up the Shippo credentials stored for this account.
+          // Priority: Redux (set from companyInfo.connections) → companyInfo fallback → customerInfo
+
+          // 1. Try Redux (set by Landing.tsx when it detects isConnected: true)
+          let resolvedShippoKey: string = shippoAccountKey || '';
+
+          // 2. Fallback: parse companyInfo.connections directly
+          //    Connection is stored as name: "Shippo" (id: null, keys in data field)
+          if (!resolvedShippoKey && companyInfo?.data?.connections) {
+            const etsyConn = companyInfo.data.connections.find(
+              (c: any) => c.name === 'Shippo' || c.name === 'Etsy'
+            );
+            if (etsyConn?.data) {
+              try {
+                const parsed = JSON.parse(etsyConn.data);
+                // The data field stores live_key/test_key but NOT the FW account_key
+                // — use the connection id if non-null, otherwise fall through
+                resolvedShippoKey = parsed.account_key || etsyConn.id || '';
+              } catch {
+                resolvedShippoKey = etsyConn.id || '';
+              }
+            } else if (etsyConn?.id) {
+              resolvedShippoKey = etsyConn.id;
+            }
+          }
+
+          // 3. Final fallback: the FinerWorks account_key from customerInfo
+          //    This is the correct value for the /api/shippo/orders endpoint
+          if (!resolvedShippoKey) {
+            resolvedShippoKey = customerInfo?.data?.account_key || '';
+          }
+
+          if (!resolvedShippoKey) {
+            notification.error({
+              message: 'Not Connected',
+              description: 'No Shippo credentials found. Please reconnect your Etsy store.',
+            });
+            setTimeout(() => navigate('/'), 1500);
+            return;
+          }
+
+          // Determine status filter — default to PAID
+          const shippoStatus = myImport?.status || 'PAID';
+
+          setNextSpinning(true);
+
+          try {
+            const result = await dispatch(
+              fetchShippoOrders({
+                account_key: resolvedShippoKey,
+                status: shippoStatus,
+                page: 1,
+                results: 25,
+                ...(myImport?.start_date && { startDate: myImport.start_date }),
+                ...(myImport?.end_date   && { endDate:   myImport.end_date   }),
+              })
+            );
+
+            const payload = result.payload as any;
+
+            // Handle various response shapes from the Shippo API.
+            // The backend may wrap the Shippo response differently, so we
+            // try every known key before giving up.
+            const rawOrders: any[] =
+              Array.isArray(payload?.orders) ? payload.orders
+                : Array.isArray(payload?.results) ? payload.results
+                  : Array.isArray(payload?.data) ? payload.data
+                    : Array.isArray(payload) ? payload
+                      : [];
+
+            if (rawOrders.length > 0) {
+              const transformedOrders = rawOrders.map((shippoOrder: any, orderIndex: number) => {
+                // Shippo order structure: order.to_address for shipping, order.line_items for items
+                const addr = shippoOrder.to_address || {};
+                const lineItems: any[] = shippoOrder.line_items || [];
+
+                return {
+                  order_po: String(shippoOrder.order_number || shippoOrder.object_id || orderIndex).replace(/^ETSY[-_]?/i, ''),
+                  order_key: shippoOrder.object_id || '',
+                  source: 'etsy',
+                  recipient: {
+                    first_name: addr.name?.split(' ')[0] || addr.first_name || '',
+                    last_name: addr.name?.split(' ').slice(1).join(' ') || addr.last_name || '',
+                    company_name: addr.company || addr.company_name || '',
+                    address_1: addr.street1 || addr.address1 || addr.address_1 || '',
+                    address_2: addr.street2 || addr.address2 || addr.address_2 || '',
+                    address_3: '',
+                    city: addr.city || '',
+                    state_code: addr.state || addr.state_code || '',
+                    province: addr.state || '',
+                    zip_postal_code: addr.zip || addr.postal_code || '',
+                    country_code: addr.country || addr.country_code || 'US',
+                    phone: addr.phone || '',
+                    email: shippoOrder.to_email || shippoOrder.buyer_email || '',
+                    address_order_po: '',
+                  },
+                  order_items: lineItems.map((item: any, itemIndex: number) => ({
+                    product_order_po: `ETSY_P_${orderIndex}_${itemIndex}`,
+                    product_qty: item.quantity || 1,
+                    product_sku: item.sku || '',
+                    product_title: item.title || item.description || '',
+                    product_guid: item.object_id || crypto.randomUUID(),
+                  })),
+                  order_status: 'Processing',
+                  shipping_code: 'GD',
+                  test_mode: false,
+                };
+              });
+
+              const sendData = {
+                accountId: customerInfo?.data?.account_id,
+                payment_token: customerInfo?.data?.account_key,
+                orders: transformedOrders,
+              };
+
+              const saveResult = await dispatch(saveShopifyOrder(sendData));
+              console.log('[Etsy] saveShopifyOrder result:', saveResult);
+
+              if ((saveResult as any).meta?.requestStatus === 'rejected') {
+                notification.error({
+                  message: 'Upload Failed',
+                  description: 'Orders were fetched from Etsy but could not be uploaded to pending orders. Please try again.',
+                });
+                return;
+              }
+
+              notification.success({
+                message: 'Success',
+                description: `${transformedOrders.length} Etsy order(s) imported successfully`,
+              });
+
+              setTimeout(() => {
+                dispatch(resetSaveOrderInfo());
+                dispatch(resetImport());
+                dispatch(updateWporder('' as any));
+                dispatch(clearAllShippingCache());
+                navigate('/importlist');
+              }, 2000);
+            } else {
+              // Log the full payload so we can diagnose unexpected response shapes
+              console.warn('[Etsy] No orders extracted from Shippo payload:', payload);
+              notification.warning({
+                message: 'No Orders Found',
+                description:
+                  (payload as any)?.message ||
+                  `No Etsy (Shippo) orders found with status "${shippoStatus}".`,
+              });
+            }
+          } catch (error) {
+            console.error('Error fetching Etsy/Shippo orders:', error);
+            notification.error({
+              message: 'Error',
+              description: 'An error occurred while fetching Etsy orders.',
+            });
+          } finally {
+            dispatch(resetShippoImportStatus());
+            setNextSpinning(false);
+          }
+        }
+
+        // ── Handle Square orders ────────────────────────────────────────────────
+        else if (platformType === 'Square') {
+          const accountKey = customerInfo?.data?.account_key || '';
+
+          if (!accountKey) {
+            notification.error({
+              message: 'Not Connected',
+              description: 'No Square credentials found. Please reconnect your Square store.',
+            });
+            setTimeout(() => navigate('/'), 1500);
+            return;
+          }
+
+          setNextSpinning(true);
+
+          try {
+            const result = await dispatch(
+              fetchSquareOrders({
+                account_key: accountKey,
+                start_date: myImport?.start_date,
+                end_date: myImport?.end_date,
+                status: myImport?.status,
+              })
+            );
+
+            const payload = result.payload as any;
+
+            // Square API may return { orders: [...] } or { items: [...] } or a plain array
+            const rawOrders: any[] =
+              Array.isArray(payload?.orders) ? payload.orders
+                : Array.isArray(payload?.items) ? payload.items
+                  : Array.isArray(payload?.data) ? payload.data
+                    : Array.isArray(payload) ? payload
+                      : [];
+
+            if (rawOrders.length > 0) {
+              const transformedOrders = rawOrders.map((sqOrder: any, orderIndex: number) => {
+                // Square order structure uses fulfillments for shipping address
+                const fulfillment = sqOrder.fulfillments?.[0] || {};
+                const addr = fulfillment.shipment_details?.recipient?.address
+                  || sqOrder.shipping_address
+                  || {};
+                const recipient = fulfillment.shipment_details?.recipient || {};
+                const lineItems: any[] = sqOrder.line_items || sqOrder.lineItems || [];
+
+                return {
+                  order_po: `SQUARE_${sqOrder.id || orderIndex}`,
+                  order_key: sqOrder.id || '',
+                  source: 'square',
+                  recipient: {
+                    first_name: recipient.display_name?.split(' ')[0] || addr.first_name || '',
+                    last_name: recipient.display_name?.split(' ').slice(1).join(' ') || addr.last_name || '',
+                    company_name: addr.company || '',
+                    address_1: addr.address_line_1 || addr.street1 || '',
+                    address_2: addr.address_line_2 || addr.street2 || '',
+                    address_3: '',
+                    city: addr.locality || addr.city || '',
+                    state_code: addr.administrative_district_level_1 || addr.state || '',
+                    province: addr.administrative_district_level_1 || '',
+                    zip_postal_code: addr.postal_code || addr.zip || '',
+                    country_code: addr.country || 'US',
+                    phone: recipient.phone_number || sqOrder.customer?.phone_number || '',
+                    email: recipient.email_address || sqOrder.customer?.email_address || '',
+                    address_order_po: '',
+                  },
+                  order_items: lineItems.map((item: any, itemIndex: number) => ({
+                    product_order_po: `SQUARE_P_${orderIndex}_${itemIndex}`,
+                    product_qty: item.quantity ? parseInt(item.quantity, 10) : 1,
+                    product_sku: item.catalog_object_id || item.sku || '',
+                    product_title: item.name || item.title || '',
+                    product_guid: item.uid || item.id || crypto.randomUUID(),
+                  })),
+                  order_status: 'Processing',
+                  shipping_code: 'GD',
+                  test_mode: false,
+                };
+              });
+
+              const sendData = {
+                accountId: customerInfo?.data?.account_id,
+                payment_token: customerInfo?.data?.account_key,
+                orders: transformedOrders,
+              };
+
+              const saveResult = await dispatch(saveShopifyOrder(sendData));
+              console.log('[Square] saveShopifyOrder result:', saveResult);
+
+              if ((saveResult as any).meta?.requestStatus === 'rejected') {
+                notification.error({
+                  message: 'Upload Failed',
+                  description: 'Orders were fetched from Square but could not be uploaded to pending orders. Please try again.',
+                });
+                return;
+              }
+
+              notification.success({
+                message: 'Success',
+                description: `${transformedOrders.length} Square order(s) imported successfully`,
+              });
+
+              setTimeout(() => {
+                dispatch(resetSaveOrderInfo());
+                dispatch(resetImport());
+                dispatch(updateWporder('' as any));
+                dispatch(clearAllShippingCache());
+                navigate('/importlist');
+              }, 2000);
+            } else {
+              console.warn('[Square] No orders extracted from Square payload:', payload);
+              notification.warning({
+                message: 'No Orders Found',
+                description:
+                  (payload as any)?.message ||
+                  'No Square orders matched the selected criteria.',
+              });
+            }
+          } catch (error) {
+            console.error('Error fetching Square orders:', error);
+            notification.error({
+              message: 'Error',
+              description: 'An error occurred while fetching Square orders.',
+            });
+          } finally {
+            dispatch(resetSquareImportStatus());
+            setNextSpinning(false);
           }
         }
       }
@@ -1172,6 +1478,9 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
           // Check if successful
           if (result.meta.requestStatus === "fulfilled") {
             dispatch(updateOrderStatus({ status: true, clicked: true }));
+            if (updatedValues?.order_po) {
+              dispatch(clearOrderErrors(updatedValues.order_po));
+            }
           } else {
             console.error("Failed to update order:", result.payload);
             openNotificationWithIcon({
@@ -1215,6 +1524,11 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const onDeleteHandler = () => { };
 
   const onBackHandler = () => {
+    if (location.pathname.startsWith("/editorder/")) {
+      navigate("/importlist");
+      return;
+    }
+
     switch (location.pathname) {
       case "/billingaddress":
         navigate("/mycompany");
@@ -1222,15 +1536,11 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
       case "/paymentaddress":
         navigate("/billingaddress");
         break;
-      case `/editorder/${currentorderFullFillment}`:
-        navigate("/importlist");
-
-        break;
       case "/shippingpreference":
         navigate("/billingaddress");
         break;
       case "/importlist":
-        navigate("/shippingpreference");
+        navigate("/");
         break;
       case "/checkout":
         navigate("/importlist");
@@ -1367,17 +1677,9 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
     if (location.pathname === "/importfilter") {
       if (myImport?.start_date || myImport?.end_date || myImport?.status) {
         if (saveOrderInfo?.statusCode === 200) {
-          openNotificationWithIcon({
-            type: "success",
-            message: "Success",
-            description: "Import and Export have been done successfully",
-          });
-
-          // Reset all import-related states before navigating to prevent re-triggering on return
-          dispatch(resetSaveOrderInfo());
-          dispatch(resetEcommerceGetImportOrders());
-          dispatch(resetImport());
-          navigate("/importlist");
+          // Note: Platform-specific functions (Shopify, Etsy, Wix, etc.) 
+          // manually display success notifications and navigate after a timeout.
+          // We no longer trigger a duplicate notification or early navigation here.
         } else if (saveOrderInfo?.statusCode === 400) {
           openNotificationWithIcon({
             type: "error",
@@ -1450,9 +1752,8 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
         );
 
         if (product) {
-          newTotalPrice += order.Product_price?.grand_total
-            ? order.Product_price?.grand_total
-            : order.Product_price?.credit_charge;
+          const price = order.Product_price?.grand_total ?? order.Product_price?.credit_charge ?? 0;
+          newTotalPrice += Number(price) || 0;
         }
       });
       setGrandtotal(newTotalPrice);
@@ -1560,15 +1861,27 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-gray-900 text-lg">{checkedOrders.length}</span>
-                  <span className="text-gray-700 font-medium">of {orders?.data?.length} selected</span>
+                  <span className="text-gray-700 font-medium">
+                    of{" "}
+                    {ordersStatus === "loading" ? (
+                      <Spin size="small" className="mx-1" />
+                    ) : (
+                      <span className="font-bold">{orders?.data?.length ?? 0}</span>
+                    )}{" "}
+                    selected
+                  </span>
                 </div>
               </span>
-              {product_details?.totalPrice && (
+              {(isShippingLoading || grandTotal > 0) && (
                 <>
                   <div className="h-8 w-px bg-white/40"></div>
                   <span className="flex items-center gap-3 bg-white/90 backdrop-blur-sm px-5 py-2 rounded-xl shadow-lg">
                     <span className="text-gray-700 font-semibold">Total:</span>
-                    <span className="font-bold text-blue-600 text-xl">${grandTotal.toFixed(2)}</span>
+                    {isShippingLoading ? (
+                      <Spin size="small" className="ml-2" />
+                    ) : (
+                      <span className="font-bold text-blue-600 text-xl">${(Number(grandTotal) || 0).toFixed(2)}</span>
+                    )}
                   </span>
                 </>
               )}

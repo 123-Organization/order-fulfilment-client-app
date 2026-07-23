@@ -128,7 +128,7 @@ export const disconnectShopify = createAsyncThunk(
         async (postData: { account_key: string }, thunkAPI) => {
                 console.log('Disconnecting Shopify...', postData)
                 try {
-                        const response = await fetch("https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/shopify/disconnect", {
+                        const response = await fetch(BASE_URL + "shopify/disconnect", {
                                 method: "POST",
                                 headers: {
                                         "Content-Type": "application/json",
@@ -152,7 +152,7 @@ export const disconnectSquarespace = createAsyncThunk(
         async (postData: { account_key: string }, thunkAPI) => {
                 console.log('Disconnecting Squarespace...', postData)
                 try {
-                        const response = await fetch("https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/squarespace/disconnect", {
+                        const response = await fetch(BASE_URL + "squarespace/disconnect", {
                                 method: "POST",
                                 headers: {
                                         "Content-Type": "application/json",

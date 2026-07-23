@@ -29,6 +29,19 @@ const WIX_STATUSES = [
   { value: 'CANCELED',          label: 'Canceled'           },
 ];
 
+// Shippo / Etsy order status options
+const SHIPPO_STATUSES = [
+  { value: 'PAID',      label: 'Paid'      },
+];
+
+// Square order status options
+const SQUARE_STATUSES = [
+  { value: 'OPEN',      label: 'Open'      },
+  { value: 'COMPLETED', label: 'Completed' },
+  { value: 'CANCELED',  label: 'Canceled'  },
+  { value: 'DRAFT',     label: 'Draft'     },
+];
+
 const countryList = require("../json/order_status_same_label.json");
 const { RangePicker } = DatePicker; 
 const { Option } = Select;
@@ -176,7 +189,9 @@ const ImportFilter: React.FC = () => {
   const getWporder = (values: string[]) => {
     console.log('getWporder', values);
     if (values && values.length > 0) {
-      dispatch(updateWporder(values.join(',') as any));
+      // Strip ETSY_ or ETSY- prefix from order numbers so we only query the raw number
+      const strippedValues = values.map(v => v.replace(/^ETSY[-_]?/i, ''));
+      dispatch(updateWporder(strippedValues.join(',') as any));
     } else {
       // Clear the stored order number so the Next button falls back to date-based import
       dispatch(updateWporder('' as any));
@@ -211,7 +226,7 @@ const ImportFilter: React.FC = () => {
             }}
             onSearch={onSearch}
             filterOption={filterOption}
-            options={typeValue === 'Squarespace' ? SQUARESPACE_STATUSES : typeValue === 'Wix' ? WIX_STATUSES : countryList}
+            options={typeValue === 'Squarespace' ? SQUARESPACE_STATUSES : typeValue === 'Wix' ? WIX_STATUSES : typeValue === 'Etsy' ? SHIPPO_STATUSES : typeValue === 'Square' ? SQUARE_STATUSES : countryList}
             // value={
             //   convertUsStateAbbrAndName(countryCode.toUpperCase())
             // }
@@ -249,7 +264,7 @@ const ImportFilter: React.FC = () => {
         rules={[
           { required: true, message: "Please enter your Order ID!" },
           {
-            pattern: new RegExp(/^[0-9]{2,14}$/),
+            pattern: new RegExp(/^[a-zA-Z0-9-_]{2,30}$/),
             message: "Please enter a valid Order ID!"
           }
         ]}

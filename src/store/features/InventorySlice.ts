@@ -130,133 +130,133 @@ export const getInventoryImages = createAsyncThunk(
 );
 //export orders from virtual inv https://v59dq0jx2e.execute-api.us-east-1.amazonaws.com/Prod/api/export-to-woocommerce
 export const exportOrders = createAsyncThunk(
-	"export/orders",
-	async (args: { data: any, domainName: string }, thunkAPI: any) => {
-		const state = await thunkAPI.getState() as any;
-		args.data = {
+        "export/orders",
+        async (args: { data: any, domainName: string }, thunkAPI: any) => {
+                const state = await thunkAPI.getState() as any;
+                args.data = {
 
-			"domainName": args.domainName,
-			"auth_code": "f8df5ecd-6c85-4d2c-a402-676b0556c156",
-			"productsList": args.data
-		}
-		const response = await fetch(`${BASE_URL}export-to-woocommerce`, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-			},
-		
-			body: JSON.stringify(args.data)
-		});
-		if (!response.ok) {
-			throw new Error('Failed to export orders');
-		}
-		const data = await response.json();
-		return data;
-	},
+                        "domainName": args.domainName,
+                        "auth_code": "f8df5ecd-6c85-4d2c-a402-676b0556c156",
+                        "productsList": args.data
+                }
+                const response = await fetch(`${BASE_URL}export-to-woocommerce`, {
+                        method: "POST",
+                        headers: {
+                                "Content-Type": "application/json",
+                        },
+
+                        body: JSON.stringify(args.data)
+                });
+                if (!response.ok) {
+                        throw new Error('Failed to export orders');
+                }
+                const data = await response.json();
+                return data;
+        },
 );
 
 // Shopify API base URL
-const SHOPIFY_API_URL = "https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/";
+const SHOPIFY_API_URL = BASE_URL;
 
 // Export products to Shopify
 export const exportToShopify = createAsyncThunk(
-	"export/shopify",
-	async (args: { productsList: any[], storeName: string, accessToken: string, accountKey: string }, thunkAPI: any) => {
-		const payload = {
-			account_key: args.accountKey,
-			productsList: args.productsList,
-			storeName: args.storeName,
-			access_token: args.accessToken
-		};
-		
-		const response = await fetch(`${SHOPIFY_API_URL}shopify/sync-products`, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				"Accept": "*/*",
-			},
-			body: JSON.stringify(payload)
-		});
-		
-		if (!response.ok) {
-			throw new Error('Failed to export products to Shopify');
-		}
-		
-		const data = await response.json();
-		return data;
-	},
+        "export/shopify",
+        async (args: { productsList: any[], storeName: string, accessToken: string, accountKey: string }, thunkAPI: any) => {
+                const payload = {
+                        account_key: args.accountKey,
+                        productsList: args.productsList,
+                        storeName: args.storeName,
+                        access_token: args.accessToken
+                };
+
+                const response = await fetch(`${SHOPIFY_API_URL}shopify/sync-products`, {
+                        method: "POST",
+                        headers: {
+                                "Content-Type": "application/json",
+                                "Accept": "*/*",
+                        },
+                        body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                        throw new Error('Failed to export products to Shopify');
+                }
+
+                const data = await response.json();
+                return data;
+        },
 );
 
 // Wix API base URL (same gateway as Shopify)
-const WIX_API_URL = "https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/";
+const WIX_API_URL = BASE_URL;
 
 // Export products to Wix
 export const exportToWix = createAsyncThunk(
-	"export/wix",
-	async (args: { productList: any[], accessToken: string, accountKey: string }, thunkAPI: any) => {
-		const response = await fetch(
-			`${WIX_API_URL}wix/sync-products?account_key=${args.accountKey}&access_token=${args.accessToken}`,
-			{
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					"Accept": "*/*",
-				},
-				body: JSON.stringify({ productList: args.productList }),
-			}
-		);
+        "export/wix",
+        async (args: { productList: any[], accessToken: string, accountKey: string }, thunkAPI: any) => {
+                const response = await fetch(
+                        `${WIX_API_URL}wix/sync-products?account_key=${args.accountKey}&access_token=${args.accessToken}`,
+                        {
+                                method: "POST",
+                                headers: {
+                                        "Content-Type": "application/json",
+                                        "Accept": "*/*",
+                                },
+                                body: JSON.stringify({ productList: args.productList }),
+                        }
+                );
 
-		if (!response.ok) {
-			throw new Error('Failed to export products to Wix');
-		}
+                if (!response.ok) {
+                        throw new Error('Failed to export products to Wix');
+                }
 
-		const data = await response.json();
-		return data;
-	},
+                const data = await response.json();
+                return data;
+        },
 );
 
 // Squarespace API base URL
-const SQUARESPACE_API_URL = "https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/";
+const SQUARESPACE_API_URL = BASE_URL;
 
 // Export products to Squarespace
 export const exportToSquarespace = createAsyncThunk(
-	"export/squarespace",
-	async (
-		args: {
-			productsList: any[];
-			accessToken: string;
-			sessionId: string;
-			accountKey: string;
-			currency?: string;
-			siteId?: number;
-		},
-		thunkAPI: any
-	) => {
-		const payload = {
-			access_token: args.accessToken,
-			currency: args.currency || "USD",
-			siteId: args.siteId || 2,
-			session_id: args.sessionId,
-			account_key: args.accountKey,
-			productsList: args.productsList,
-		};
+        "export/squarespace",
+        async (
+                args: {
+                        productsList: any[];
+                        accessToken: string;
+                        sessionId: string;
+                        accountKey: string;
+                        currency?: string;
+                        siteId?: number;
+                },
+                thunkAPI: any
+        ) => {
+                const payload = {
+                        access_token: args.accessToken,
+                        currency: args.currency || "USD",
+                        siteId: args.siteId || 2,
+                        session_id: args.sessionId,
+                        account_key: args.accountKey,
+                        productsList: args.productsList,
+                };
 
-		const response = await fetch(`${SQUARESPACE_API_URL}squarespace/sync-products`, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				"Accept": "*/*",
-			},
-			body: JSON.stringify(payload),
-		});
+                const response = await fetch(`${SQUARESPACE_API_URL}squarespace/sync-products`, {
+                        method: "POST",
+                        headers: {
+                                "Content-Type": "application/json",
+                                "Accept": "*/*",
+                        },
+                        body: JSON.stringify(payload),
+                });
 
-		if (!response.ok) {
-			throw new Error('Failed to export products to Squarespace');
-		}
+                if (!response.ok) {
+                        throw new Error('Failed to export products to Squarespace');
+                }
 
-		const data = await response.json();
-		return data;
-	},
+                const data = await response.json();
+                return data;
+        },
 );
 
 export const updateVirtualInventory = createAsyncThunk(
@@ -264,9 +264,9 @@ export const updateVirtualInventory = createAsyncThunk(
         async (args: { data: any }, thunkAPI: any) => {
                 console.log('args...', args)
                 const info = {
-                    virtual_inventory: args.data.map((data) => ({
-                        "sku": data.sku,
-                        "asking_price": data.asking_price,
+                        virtual_inventory: args.data.map((data) => ({
+                                "sku": data.sku,
+                                "asking_price": data.asking_price,
                                 "name": data.name,
                                 "description": data.description,
                                 "quantity_in_stock": data.quantity_in_stock,
@@ -275,9 +275,9 @@ export const updateVirtualInventory = createAsyncThunk(
                                 },
                                 ...(data.updated && { "updated": data.updated })
                         }
-                ))
-                
-        }
+                        ))
+
+                }
                 const response = await fetch(BASE_URL + "update-virtual-inventory", {
                         method: "PUT",
                         headers: {
@@ -317,7 +317,7 @@ export const deleteVirtualInventoryProduct = createAsyncThunk(
                         skus: args.skus,
                         account_key: accountKey
                 };
-                
+
                 const response = await fetch(BASE_URL + "delete-virtual-inventory", {
                         method: "DELETE",
                         headers: {
@@ -325,12 +325,12 @@ export const deleteVirtualInventoryProduct = createAsyncThunk(
                         },
                         body: JSON.stringify(payload)
                 });
-                
+
                 if (!response.ok) {
                         const errorData = await response.json().catch(() => ({}));
                         throw new Error(errorData.message || 'Failed to delete product from virtual inventory');
                 }
-                
+
                 const data = await response.json();
                 return { ...data, deletedSkus: args.skus };
         },
@@ -339,7 +339,7 @@ export const deleteVirtualInventoryProduct = createAsyncThunk(
 export const InventorySlice = createSlice({
         name: "inventory",
         initialState,
-	reducers: {
+        reducers: {
                 inventorySelectionUpdate: (state, action: PayloadAction) => {
                         console.log('inventorySelectionUpdateAction', action)
                         if (!find(state.inventorySelection, { sku: action?.payload?.sku })) {
@@ -356,7 +356,7 @@ export const InventorySlice = createSlice({
                 updateFilterVirtualInventory: (state, action) => {
                         state.filterVirtualInventory = { ...state.filterVirtualInventory, ...action.payload };
                 },
-                resetStatus:(state) =>{
+                resetStatus: (state) => {
                         state.status = "idle"
                 },
                 resetDeleteStatus: (state) => {
@@ -382,54 +382,54 @@ export const InventorySlice = createSlice({
                 builder.addCase(getInventoryImages.pending, (state, action) => {
                         state.inventoryImages = { loading: true }
                 });
-			builder.addCase(exportOrders.fulfilled, (state, action) => {
-				state.status = "success"
-				state.inventorySelection = action.payload
-				state.exportResponse = action.payload
-			});
-			builder.addCase(exportOrders.pending, (state, action) => {
-				state.status = "loading"
-			});
-			builder.addCase(exportOrders.rejected, (state, action) => {
-				state.status = "error"
-				state.exportResponse = action.payload
-			});
-			// Shopify export handlers
-			builder.addCase(exportToShopify.fulfilled, (state, action) => {
-				state.status = "success"
-				state.exportResponse = action.payload
-			});
-			builder.addCase(exportToShopify.pending, (state, action) => {
-				state.status = "loading"
-			});
-			builder.addCase(exportToShopify.rejected, (state, action) => {
-				state.status = "error"
-				state.exportResponse = action.payload
-			});
-			// Wix export handlers
-			builder.addCase(exportToWix.fulfilled, (state, action) => {
-				state.status = "success";
-				state.exportResponse = action.payload;
-			});
-			builder.addCase(exportToWix.pending, (state, action) => {
-				state.status = "loading";
-			});
-			builder.addCase(exportToWix.rejected, (state, action) => {
-				state.status = "error";
-				state.exportResponse = action.payload;
-			});
-			// Squarespace export handlers
-			builder.addCase(exportToSquarespace.fulfilled, (state, action) => {
-				state.status = "success";
-				state.exportResponse = action.payload;
-			});
-			builder.addCase(exportToSquarespace.pending, (state, action) => {
-				state.status = "loading";
-			});
-			builder.addCase(exportToSquarespace.rejected, (state, action) => {
-				state.status = "error";
-				state.exportResponse = action.payload;
-			});
+                builder.addCase(exportOrders.fulfilled, (state, action) => {
+                        state.status = "success"
+                        state.inventorySelection = action.payload
+                        state.exportResponse = action.payload
+                });
+                builder.addCase(exportOrders.pending, (state, action) => {
+                        state.status = "loading"
+                });
+                builder.addCase(exportOrders.rejected, (state, action) => {
+                        state.status = "error"
+                        state.exportResponse = action.payload
+                });
+                // Shopify export handlers
+                builder.addCase(exportToShopify.fulfilled, (state, action) => {
+                        state.status = "success"
+                        state.exportResponse = action.payload
+                });
+                builder.addCase(exportToShopify.pending, (state, action) => {
+                        state.status = "loading"
+                });
+                builder.addCase(exportToShopify.rejected, (state, action) => {
+                        state.status = "error"
+                        state.exportResponse = action.payload
+                });
+                // Wix export handlers
+                builder.addCase(exportToWix.fulfilled, (state, action) => {
+                        state.status = "success";
+                        state.exportResponse = action.payload;
+                });
+                builder.addCase(exportToWix.pending, (state, action) => {
+                        state.status = "loading";
+                });
+                builder.addCase(exportToWix.rejected, (state, action) => {
+                        state.status = "error";
+                        state.exportResponse = action.payload;
+                });
+                // Squarespace export handlers
+                builder.addCase(exportToSquarespace.fulfilled, (state, action) => {
+                        state.status = "success";
+                        state.exportResponse = action.payload;
+                });
+                builder.addCase(exportToSquarespace.pending, (state, action) => {
+                        state.status = "loading";
+                });
+                builder.addCase(exportToSquarespace.rejected, (state, action) => {
+                        state.status = "error";
+                        state.exportResponse = action.payload;
+                });
                 builder.addCase(updateVirtualInventory.fulfilled, (state, action) => {
                         state.exportResponse = action.payload
                 });
@@ -456,7 +456,7 @@ export const InventorySlice = createSlice({
                         state.deleteStatus = "error";
                         state.deleteError = action.error.message || "Failed to delete product";
                 });
-                        
+
         },
 
 });

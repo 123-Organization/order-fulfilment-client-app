@@ -14,8 +14,9 @@ import {
   AddProductToOrder,
 } from "../store/features/orderSlice";
 import { fetchOrder } from "../store/features/orderSlice";
-import { fetchShippingOption } from "../store/features/shippingSlice";
-import { clearProductData, clearSelectedImage, fetchProductDetails } from "../store/features/productSlice";
+import { setBatchShippingResults, updateShippingCacheEntries, invalidateShippingCacheEntries, clearAllShippingCache } from "../store/features/shippingSlice";
+import { clearProductData, clearSelectedImage, fetchProductDetails, clearProductDetails } from "../store/features/productSlice";
+import ImageGalleryModal from "../components/ImageGalleryModal";
 import { Link } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store";
 import { useNavigate } from "react-router-dom";
@@ -26,7 +27,7 @@ import DeleteMessage from "../components/DeleteMessage";
 import Loading from "../components/Loading";
 import { useNotificationContext } from "../context/NotificationContext";
 import styles from "../components/ToggleButtons.module.css";
-import { resetDeleteOrderStatus } from "../store/features/orderSlice";
+import { resetDeleteOrderStatus, resetRecipientStatus } from "../store/features/orderSlice";
 import { resetSubmitedOrders } from "../store/features/orderSlice";
 import SkeletonOrderCard from "../components/SkeletonOrderCard";
 import {
@@ -34,7 +35,7 @@ import {
   updateExcludedOrders,
   updateOrdersInfo,
 } from "../store/features/orderSlice";
-import { updateValidSKU, resetValidSKU } from "../store/features/orderSlice";
+import { updateValidSKU, resetValidSKU, setShippingLoading } from "../store/features/orderSlice";
 import PopupModal from "../components/PopupModal";
 import VirtualInvModal from "../components/VirtualInvModal";
 import ReplacingCode from "../components/ReplacingCode";
@@ -42,6 +43,7 @@ import { setProductData } from "../store/features/productSlice";
 import { convertGoogleDriveUrl, isGoogleDriveUrl, getGoogleDriveImageUrls } from "../helpers/fileHelper";
 import { useSearch } from "../context/SearchContext";
 import { useCookies } from "react-cookie";
+import config from "../config/configs";
 
 const { Option } = Select;
 type SizeType = Parameters<typeof Form>[0]["size"];
@@ -62,6 +64,8 @@ const ImportList: React.FC = () => {
   const isFirstRender = useRef(true);
   // Track which SKUs we've already fetched details for
   const fetchedSkusRef = useRef<Set<string>>(new Set());
+  // Guard against the main shipping useEffect re-entering while a fetch batch is in-flight
+  const shippingFetchInProgressRef = useRef(false);
 
   // Utility function to truncate text with character count control
   const truncateText = (htmlString: string, maxLength: number): string => {
@@ -90,6 +94,13 @@ const ImportList: React.FC = () => {
   const [productCode, setProductCode] = useState(false);
 
   const [orderPostData, setOrderPostData] = useState([]);
+  /** Clear orderPostData AND reset the in-flight shipping guard so the next
+   *  render cycle can trigger a fresh fetch.  Always use this instead of
+   *  calling resetOrderPostData() directly. */
+  const resetOrderPostData = () => {
+    shippingFetchInProgressRef.current = false;
+    setOrderPostData([]);
+  };
   const [DeleteMessageVisible, setDeleteMessageVisible] = useState(false);
   const [orderFullFillmentId, setOrderFullFillmentId] = useState("");
   const [order_po, setOrder_po] = useState("");
@@ -112,14 +123,22 @@ const ImportList: React.FC = () => {
   const [addProductDropdownVisible, setAddProductDropdownVisible] = useState<string | null>(null);
   const [currentOrderForAddProduct, setCurrentOrderForAddProduct] = useState<string>("");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  // True while a SKU-replace or add-product API call is in-flight.
+  // Prevents the empty-state screen from flashing during those ~2 s waits.
+  const [isPendingUpdate, setIsPendingUpdate] = useState(false);
   // Tracks which order is waiting for a product to be added via post5 popup
   const pendingNewProductOrderId = useRef<string | null>(null);
   const cookiePollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // State for product deletion within an order
   const [productDeleteModalVisible, setProductDeleteModalVisible] = useState(false);
-  const [productToDelete, setProductToDelete] = useState<{ product_guid: string; orderFullFillmentId: string; order_po: string } | null>(null);
+  const [productToDelete, setProductToDelete] = useState<{ product_guid: string | null | undefined; product_sku?: string | null; orderFullFillmentId: string; order_po: string } | null>(null);
   // State for expanded labels
   const [expandedLabels, setExpandedLabels] = useState<Set<string>>(new Set());
+  // State for the image-gallery "change image" flow
+  const [imageGalleryTarget, setImageGalleryTarget] = useState<{
+    orderItem: any;
+    order: any;
+  } | null>(null);
 
   const toggleLabels = (productSku: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -145,6 +164,8 @@ const ImportList: React.FC = () => {
 
   const orders = useAppSelector((state) => state.order.orders || []);
   const ordersStatus = useAppSelector((state) => state.order.status);
+  const recipientStatus = useAppSelector((state) => state.order.recipientStatus);
+  const replaceCodeStatus = useAppSelector((state) => state.order.replaceCodeStatus);
   const deleteOrderStatus = useAppSelector(
     (state) => state.order.deleteOrderStatus
   );
@@ -172,7 +193,180 @@ const ImportList: React.FC = () => {
   const currentOption = useAppSelector(
     (state) => state.Shipping.currentOption
   );
+  const recipientErrors = useAppSelector(
+    (state) => state.Shipping.recipientErrors || {}
+  );
+  const itemErrors = useAppSelector(
+    (state) => state.Shipping.itemErrors || {}
+  );
   const navigate = useNavigate();
+  /** In-memory cache of per-order shipping results. Used by dispatchShippingSelectively. */
+  const shippingCache = useAppSelector((state) => state.Shipping.shippingCache);
+  /** Ref so dispatchShippingSelectively reads latest cache without being in deps array. */
+  const shippingCacheRef = useRef(shippingCache);
+  // Keep ref current on every render
+  shippingCacheRef.current = shippingCache;
+  // ---------------------------------------------------------------------------
+  // Shipping helpers — fingerprints + selective batch fetching
+  // ---------------------------------------------------------------------------
+  const SHIPPING_BATCH_SIZE = 5;
+  const BASE_URL = config.SERVER_BASE_URL;
+
+  /**
+   * Build a stable fingerprint for an order from the fields the shipping API
+   * actually uses: recipient, order_items (sku + qty), and shipping_code.
+   * If none of these change, the cached result is still valid.
+   */
+  const buildOrderFingerprint = (order: any): string => {
+    const r = order.recipient || {};
+    const items = (order.order_items || [])
+      .map((i: any) => `${i.product_sku}:${i.product_qty}`)
+      .sort()
+      .join(',');
+    return [
+      order.order_po,
+      order.shipping_code || '',
+      r.first_name || '',
+      r.last_name || '',
+      r.address_1 || '',
+      r.address_2 || '',
+      r.city || '',
+      r.state_code || '',
+      r.zip_postal_code || '',
+      r.country_code || '',
+      items,
+    ].join('|');
+  };
+
+  /** Split an array into chunks of at most `size` elements */
+  const chunkArray = <T,>(arr: T[], size: number): T[][] => {
+    const chunks: T[][] = [];
+    for (let i = 0; i < arr.length; i += size) {
+      chunks.push(arr.slice(i, i + size));
+    }
+    return chunks;
+  };
+
+  /**
+   * Fetch shipping options for one order. Returns aggregated data/errors.
+   * Does NOT dispatch to Redux — caller collects all results first.
+   */
+  const fetchSingleOrderShipping = async (
+    order: any,
+    account_key: string
+  ): Promise<{
+    data: any[];
+    recipientErrors: Record<string, Record<string, string[]>>;
+    itemErrors: Record<string, string[]>;
+  }> => {
+    const orderPo: string = order.order_po;
+    const body = {
+      account_key,
+      orders: [{ order_po: order.order_po, order_key: null, recipient: order.recipient, order_items: order.order_items, shipping_code: order.shipping_code }],
+    };
+    try {
+      const response = await fetch(`${BASE_URL}shipping-options`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        const modelState: Record<string, string[]> = errData?.error?.ModelState || {};
+        const recipientErrors: Record<string, Record<string, string[]>> = {};
+        const itemErrors: Record<string, string[]> = {};
+        Object.entries(modelState).forEach(([key, msgs]) => {
+          const recipientMatch = key.match(/request\.orders\[0\]\.recipient\.(\w+)/);
+          if (recipientMatch) {
+            if (!recipientErrors[orderPo]) recipientErrors[orderPo] = {};
+            recipientErrors[orderPo][recipientMatch[1]] = msgs as string[];
+            return;
+          }
+          const itemMatch = key.match(/request\.orders\[0\]\.order_items\[\d+\]\.\w+/);
+          if (itemMatch) {
+            if (!itemErrors[orderPo]) itemErrors[orderPo] = [];
+            (msgs as string[]).forEach(m => { if (!itemErrors[orderPo].includes(m)) itemErrors[orderPo].push(m); });
+          }
+        });
+        console.log(`[shipping/single] errors for ${orderPo}:`, { recipientErrors, itemErrors });
+        return { data: [], recipientErrors, itemErrors };
+      }
+      const json = await response.json();
+      return { data: json.data || [], recipientErrors: {}, itemErrors: {} };
+    } catch (err) {
+      console.error(`[shipping/single] network error for ${orderPo}:`, err);
+      return { data: [], recipientErrors: {}, itemErrors: {} };
+    }
+  };
+
+  /**
+   * Selective shipping fetch — only fires API requests for orders whose
+   * fingerprint does NOT match the cached value.  For unchanged orders the
+   * cached result is reused without any network round-trip.
+   *
+   * After collecting results, dispatches a single updateShippingCacheEntries
+   * action which merges the new entries into the cache and rebuilds the
+   * derived shippingOptions / recipientErrors / itemErrors in one Redux update.
+   */
+  const dispatchShippingSelectively = useCallback(
+    async (orderList: any[]) => {
+      if (!orderList?.length) return;
+      const accountKey = customerInfo?.data?.account_key;
+
+      // Filter to orders that are actual cache misses
+      const ordersToFetch = orderList.filter(order => {
+        const fp = buildOrderFingerprint(order);
+        const cached = shippingCacheRef.current[order.order_po];
+        return !cached || cached.fingerprint !== fp;
+      });
+
+      if (!ordersToFetch.length) {
+        console.log('[shipping/cache] All orders cached — skipping API calls');
+        return;
+      }
+
+      console.log(
+        `[shipping/cache] Fetching ${ordersToFetch.length}/${orderList.length} orders (cache misses)`
+      );
+
+      const chunks = chunkArray(ordersToFetch, SHIPPING_BATCH_SIZE);
+
+      for (const chunk of chunks) {
+        const results = await Promise.allSettled(
+          chunk.map(order => fetchSingleOrderShipping(order, accountKey))
+        );
+        const chunkEntries: Array<{
+          order_po: string;
+          fingerprint: string;
+          data: any[];
+          recipientErrors: Record<string, Record<string, string[]>>;
+          itemErrors: Record<string, string[]>;
+        }> = [];
+        results.forEach((result, idx) => {
+          if (result.status === 'fulfilled') {
+            chunkEntries.push({
+              order_po: chunk[idx].order_po,
+              fingerprint: buildOrderFingerprint(chunk[idx]),
+              data: result.value.data,
+              recipientErrors: result.value.recipientErrors,
+              itemErrors: result.value.itemErrors,
+            });
+          }
+        });
+        // Dispatch after EACH chunk so shipping options appear progressively
+        // as batches resolve rather than waiting for all 20 to finish.
+        // isShippingLoading stays true until the finally block, keeping the
+        // bottom total spinner going until the last chunk lands.
+        if (chunkEntries.length) {
+          dispatch(updateShippingCacheEntries(chunkEntries));
+        }
+      }
+    },
+    [dispatch, customerInfo?.data?.account_key]
+    // NOTE: shippingCacheRef is intentionally NOT in deps — it's a ref so reads
+    // are always current without causing the callback to be recreated.
+  );
+
   console.log("productData", productData);
 
   // Search functionality
@@ -223,23 +417,36 @@ const ImportList: React.FC = () => {
           document.cookie = "ofa_product=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.finerworks.com";
           document.cookie = "ofa_product=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=finerworks.com";
 
-          dispatch(AddProductToOrder(postData)).then((result: any) => {
+          // Show skeleton instead of empty-state while waiting for API
+          setIsPendingUpdate(true);
+          dispatch(AddProductToOrder(postData)).then(async (result: any) => {
             if (AddProductToOrder.fulfilled.match(result)) {
               notificationApi.success({
                 message: "Product Added",
                 description: "Product has been successfully added to the order.",
               });
               dispatch(updateValidSKU([...validSKUs, postData.productCode]));
-              // Refresh orders list
-              setTimeout(() => {
-                dispatch(fetchOrder(customerInfo?.data?.account_id));
-                setOrderPostData([]);
-              }, 500);
+
+              // 1. Wipe shipping cache — every order becomes a cache miss.
+              dispatch(clearAllShippingCache());
+
+              // 2. Await fetchOrder FIRST so orders.data already contains
+              //    the new product before we open the shipping useEffect gate.
+              //    Clearing orderPostData before this resolves causes the
+              //    shipping useEffect to fire with stale orders.data, re-lock
+              //    the gate, and block a re-run when fresh data arrives.
+              await dispatch(fetchOrder(customerInfo?.data?.account_id));
+
+              // 3. NOW clear orderPostData — the shipping useEffect fires with
+              //    fresh orders.data + empty cache → fetches real prices → total updates.
+              resetOrderPostData();
+              setIsPendingUpdate(false);
             } else {
               notificationApi.error({
                 message: "Product Addition Failed",
                 description: "Could not add the product to the order.",
               });
+              setIsPendingUpdate(false);
             }
           });
         }
@@ -268,7 +475,7 @@ const ImportList: React.FC = () => {
         "terms_of_service_url": "/terms.aspx",
         "button_text": "Add Selected",
         "account_id": customerInfo?.data?.account_id,
-        "ReturnUrl": "https://local.finerworks.com:3000" + window.location.hash,
+        "ReturnUrl": "https://fa.finerworks.com" + window.location.hash,
       }
     };
     const encodedURI =
@@ -337,15 +544,24 @@ const ImportList: React.FC = () => {
   const handleAddProductCodeUpdate = async () => {
     // Set refreshing state to prevent "No Orders Found" flash
     setIsRefreshing(true);
-    // Wait for the fetch to complete before clearing orderPostData
+    // 1. Wipe shipping cache — every order becomes a cache miss.
+    dispatch(clearAllShippingCache());
+    // 2. Await fetchOrder so orders.data has the new product BEFORE we
+    //    trigger the shipping useEffect by clearing orderPostData.
+    await dispatch(fetchOrder(customerInfo?.data?.account_id));
+    // 3. NOW clear orderPostData — shipping useEffect fires with fresh data + empty cache.
+    resetOrderPostData();
+    setIsRefreshing(false);
+  };
 
-    // Add a small delay to ensure state is updated
-    setTimeout(() => {
-      dispatch(fetchOrder(customerInfo?.data?.account_id));
-      setOrderPostData([]);
-      setIsRefreshing(false);
-    }, 500);
-
+  /**
+   * Called by VirtualInvModal's onProductAdded — sets isPendingUpdate immediately
+   * so the skeleton loading UI appears right when the modal closes (no silent gap).
+   */
+  const handleVirtualInvProductAdded = async () => {
+    setIsPendingUpdate(true);
+    await handleAddProductCodeUpdate();
+    setIsPendingUpdate(false);
   };
 
   const AddProductsTemplate = ({ orderFullFillmentId }: { orderFullFillmentId: string }) => {
@@ -405,7 +621,7 @@ const ImportList: React.FC = () => {
   const onProductCodeReplace = (productCode: string) => {
     dispatch(fetchOrder(customerInfo?.data?.account_id));
     setTimeout(() => {
-      setOrderPostData([]);
+      resetOrderPostData();
       dispatch(updateValidSKU([...validSKUs, productCode]));
       dispatch(resetReplaceCodeStatus());
       dispatch(resetReplaceCodeResult());
@@ -425,7 +641,7 @@ const ImportList: React.FC = () => {
           dispatch(resetReplaceCodeResult());
           dispatch(fetchOrder(customerInfo?.data?.account_id));
           dispatch(clearProductData());
-          setOrderPostData([]);
+          resetOrderPostData();
         }, 2000);
       } else if (replaceCodeResult === null && skuToReplace.length > 0) {
         notificationApi.error({
@@ -445,17 +661,25 @@ const ImportList: React.FC = () => {
       return;
     }
 
-    // Only update if product_details has changed and is valid
+    // Only update if product_details has changed and is valid.
+    // A product is considered valid when the API responded with isActiveSKU === true.
+    // We key validSKUs on the product_guid so that placeholder-image products (which
+    // have sku:null but a real product_code and isActiveSKU:true) are still treated
+    // as valid, while truly invalid SKUs (isActiveSKU:false) are excluded.
     if (
       product_details &&
       Array.isArray(product_details) &&
       product_details.length > 0
     ) {
       const validCodes = product_details
-        .filter((product: any) => product?.sku || product.product_code)
-        .map((product: any) =>
-          (product?.sku || product.product_code).toString()
-        );
+        .filter((product: any) => product?.isActiveSKU !== false)
+        .flatMap((product: any) => {
+          const codes: string[] = [];
+          if (product?.sku) codes.push(product.sku.toString());
+          if (product?.product_code) codes.push(product.product_code.toString());
+          if (product?.product_guid) codes.push(product.product_guid.toString());
+          return codes;
+        });
 
       // Only dispatch if validCodes is different from current validSKUs
       if (JSON.stringify(validCodes) !== JSON.stringify(validSKUs)) {
@@ -494,6 +718,36 @@ const ImportList: React.FC = () => {
   useEffect(() => {
     dispatch(resetSubmitedOrders());
   }, []);
+
+  /**
+   * When updateOrdersInfo resolves (recipientStatus = 'succeeded') OR a SKU replacement
+   * resolves (replaceCodeStatus = 'succeeded'), reset orderPostData immediately so the
+   * shipping useEffect re-fires and the total price updates without a manual Refresh.
+   * For SKU replacements we also wipe the shipping cache so the stale fingerprint
+   * (built from the old SKU) is discarded and a fresh fetch runs with the new SKU.
+   */
+  useEffect(() => {
+    if (recipientStatus === 'succeeded') {
+      resetOrderPostData();
+      dispatch(resetRecipientStatus());
+    }
+  }, [recipientStatus, dispatch]);
+
+  // Show skeleton while a SKU-replace is in-flight, hide when done/idle
+  useEffect(() => {
+    if (replaceCodeStatus === 'loading') {
+      setIsPendingUpdate(true);
+    } else if (replaceCodeStatus === 'succeeded') {
+      // Wipe the entire shipping cache — the SKU changed so all fingerprints are stale
+      dispatch(clearAllShippingCache());
+      resetOrderPostData();
+      dispatch(resetReplaceCodeStatus());
+      // Keep skeleton a moment longer so the re-fetch has time to start
+      setTimeout(() => setIsPendingUpdate(false), 800);
+    } else if (replaceCodeStatus === 'failed') {
+      setIsPendingUpdate(false);
+    }
+  }, [replaceCodeStatus, dispatch]);
   // console.log("wporder", wporder);
 
   // useEffect(() => {
@@ -503,11 +757,38 @@ const ImportList: React.FC = () => {
   // }, [orders]);
 
   useEffect(() => {
+    // Skip the expensive initial fetch if we already have orders in Redux
+    // AND the shipping cache is populated (i.e. the user navigated back, nothing changed).
+    // The refresh button handles explicit re-fetching in that case.
+    const hasOrders = Array.isArray(orders?.data) && orders.data.length > 0;
+    const hasCachedShipping = Object.keys(shippingCacheRef.current).length > 0;
+
+    if (hasOrders && hasCachedShipping) {
+      console.log('[ImportList] Orders & shipping cache already populated — skipping mount fetch');
+      return;
+    }
+
     setTimeout(() => {
       dispatch(fetchOrder(customerInfo?.data?.account_id));
     }, 1000);
   }, []);
   // console.log("oo", customerInfo?.data?.account_id);
+
+  /** Explicit full refresh — clears shipping cache + product detail cache, then reloads orders. */
+  const [isRefreshingOrders, setIsRefreshingOrders] = useState(false);
+  const handleRefreshOrders = async () => {
+    setIsRefreshingOrders(true);
+    // 1. Wipe shipping cache so every order re-fetches shipping
+    dispatch(clearAllShippingCache());
+    // 2. Wipe the product SKU tracker and details so every SKU re-fetches
+    fetchedSkusRef.current.clear();
+    dispatch(clearProductDetails());
+    // 3. Reset orderPostData (also resets in-flight guard) so the main shipping effect re-runs
+    resetOrderPostData();
+    // 4. Re-fetch orders from the server
+    await dispatch(fetchOrder(customerInfo?.data?.account_id));
+    setIsRefreshingOrders(false);
+  };
 
   // Add responsive character limit based on screen size
   useEffect(() => {
@@ -538,17 +819,34 @@ const ImportList: React.FC = () => {
     };
   }, []);
 
-  let products: any = {};
   useEffect(() => {
     if (product_details && product_details?.length) {
-      product_details?.map((product, index) => {
-        products[product.sku] = product;
-        products[product?.product_code] = product;
-        products[product?.product_guid] = product;
-      });
+      // Merge with existing productData — do NOT replace it wholesale.
+      // product_details may be fetched in multiple batches (one per order),
+      // so each batch must ADD to the accumulated map rather than reset it.
+      setProductData((prev: any) => {
+        const next = { ...prev };
+        product_details.forEach((product: any) => {
+          // SKU (may be null for products keyed only by product_code)
+          if (product.sku != null) next[product.sku] = product;
 
-      console.log("productdadsadata", productData);
-      setProductData(products);
+          // product_code — store both original case and lowercase so mixed-case
+          // order SKUs (e.g. "18M163M93S12x15" vs "18M163M93S12X15") both resolve
+          if (product.product_code != null) {
+            next[product.product_code] = product;
+            next[product.product_code.toLowerCase()] = product;
+          }
+
+          // product_guid — the API returns it WITH dashes ("9ddd63d2-eae5-...")
+          // but order items often store it WITHOUT dashes ("9ddd63d2eae5...").
+          // Store both so the lookup works regardless of format.
+          if (product.product_guid != null) {
+            next[product.product_guid] = product;
+            next[product.product_guid.replace(/-/g, '')] = product;
+          }
+        });
+        return next;
+      });
     }
   }, [product_details]);
 
@@ -557,6 +855,8 @@ const ImportList: React.FC = () => {
     orderFullFillmentId: string,
     order_po: string
   ) => {
+    // Proactively remove from shipping cache before the delete completes
+    dispatch(invalidateShippingCacheEntries([order_po]));
     await dispatch(
       deleteOrder({
         orderFullFillmentId: [orderFullFillmentId],
@@ -597,16 +897,23 @@ const ImportList: React.FC = () => {
     );
 
     setBulkDeleteModalVisible(false);
-    // Clear checked orders
+    // Clear checked orders and the entire shipping cache
     dispatch(updateCheckedOrders([]));
+    dispatch(clearAllShippingCache());
     dispatch(fetchOrder(customerInfo?.data?.account_id));
   };
 
   // Delete a product from an order
-  const onDeleteProductFromOrder = (product_guid: string) => {
+  const onDeleteProductFromOrder = (_ignored_product_guid: string) => {
     if (!productToDelete) return;
 
     const { orderFullFillmentId, order_po } = productToDelete;
+
+    // Read the identifiers from state — do NOT use the _ignored_product_guid
+    // parameter because the DeleteMessage modal coerces null to "" before
+    // passing it back, which breaks the filter for invalid items.
+    const guidFromState = productToDelete.product_guid;
+    const skuFromState = productToDelete.product_sku;
 
     // Find the order containing this product
     const orderToUpdate = orders?.data?.find(
@@ -621,10 +928,17 @@ const ImportList: React.FC = () => {
       return;
     }
 
-    // Remove the product from the order items
-    const updatedOrderItems = orderToUpdate.order_items?.filter(
-      (item: any) => item.product_guid !== product_guid
-    );
+    // Remove the product from the order items.
+    // Invalid products often have product_guid === null, so fall back to
+    // matching by product_sku when the guid is absent.
+    const updatedOrderItems = orderToUpdate.order_items?.filter((item: any) => {
+      if (guidFromState != null) {
+        // Normal case: match by guid
+        return item.product_guid !== guidFromState;
+      }
+      // Guid is null — use sku as the fallback identifier
+      return skuFromState != null ? item.product_sku !== skuFromState : true;
+    });
 
     const updatedOrder = {
       ...orderToUpdate,
@@ -652,9 +966,13 @@ const ImportList: React.FC = () => {
             message: "Product Deleted",
             description: "Product has been successfully deleted from the order.",
           });
+          // Invalidate shipping cache for this specific order
+          if (productToDelete?.order_po) {
+            dispatch(invalidateShippingCacheEntries([productToDelete.order_po]));
+          }
           // Refresh orders
           dispatch(fetchOrder(customerInfo?.data?.account_id));
-          setOrderPostData([]);
+          resetOrderPostData();
           // Clear the fetchedSkusRef to allow re-fetching product details
           fetchedSkusRef.current.clear();
         } else {
@@ -720,11 +1038,27 @@ const ImportList: React.FC = () => {
 
   useEffect(() => {
     if (orders?.data?.length && !orderPostData.length) {
+      // Don't re-enter while a fetch batch is already in progress
+      if (shippingFetchInProgressRef.current) return;
+
       const validOrders = orders?.data?.filter(
         (order) => (order?.order_items && order?.order_items?.length > 0) && order?.shipping_code != null && order?.shipping_code !== ""
-
       );
       console.log("validOrders", validOrders);
+
+      // Short-circuit: if every valid order is already in the cache with a matching
+      // fingerprint we don't need to fetch anything — avoid setting orderPostData
+      // (which would cause a 2-second stale window when the ref is cleared later).
+      const allCached = validOrders?.length > 0 && validOrders.every((order: any) => {
+        const fp = buildOrderFingerprint(order);
+        const cached = shippingCacheRef.current[order.order_po];
+        return cached && cached.fingerprint === fp;
+      });
+      if (allCached) {
+        console.log('[shipping/effect] All valid orders cached — skipping fetch');
+        return;
+      }
+
       const orderPostDataList = validOrders
         ?.map((order) => ({
           order_po: order?.order_po,
@@ -743,7 +1077,7 @@ const ImportList: React.FC = () => {
           })),
         }))
         ?.flat();
-      const ProductDetails = orders?.data?.flatMap((order) =>
+      let ProductDetails = orders?.data?.flatMap((order) =>
         order.order_items?.map((item) => ({
           order_po: order.order_po,
           product_sku: item.product_sku || "AP1234567891011",
@@ -756,6 +1090,20 @@ const ImportList: React.FC = () => {
         }))
       );
 
+      // Filter out SKUs that are already in the persisted Redux store
+      const existingSkus = new Set<string>();
+      if (product_details && Array.isArray(product_details)) {
+        product_details.forEach((p: any) => {
+          if (p?.sku) existingSkus.add(p.sku.toString());
+          if (p?.product_code) existingSkus.add(p.product_code.toString());
+        });
+      }
+
+      ProductDetails = ProductDetails?.filter((item) => {
+        if (!item?.product_sku) return true; // keep if no SKU, let backend handle it
+        return !existingSkus.has(item.product_sku.toString());
+      });
+
       // Track the SKUs we're fetching
       ProductDetails?.forEach((item) => {
         if (item?.product_sku) {
@@ -763,9 +1111,24 @@ const ImportList: React.FC = () => {
         }
       });
 
-      dispatch(fetchShippingOption({ orders: orderPostDataList, account_key: customerInfo?.data?.account_key, }));
+      // Mark in-progress BEFORE setting orderPostData so no concurrent run starts
+      shippingFetchInProgressRef.current = true;
       setOrderPostData(orderPostDataList);
-      dispatch(fetchProductDetails(ProductDetails));
+
+      // Run the async shipping fetch without blocking the render
+      (async () => {
+        dispatch(setShippingLoading(true));
+        try {
+          await dispatchShippingSelectively(orderPostDataList);
+        } finally {
+          shippingFetchInProgressRef.current = false;
+          dispatch(setShippingLoading(false));
+        }
+      })();
+
+      if (ProductDetails && ProductDetails.length > 0) {
+        dispatch(fetchProductDetails(ProductDetails));
+      }
 
     }
   }, [orders, product_details, orderPostData, dispatch]);
@@ -784,8 +1147,19 @@ const ImportList: React.FC = () => {
       });
     });
 
-    // Find SKUs that haven't been fetched yet
-    const newSkus = allCurrentSkus.filter(sku => !fetchedSkusRef.current.has(sku));
+    // Build a map of SKUs currently in the persisted Redux store
+    const existingSkusInRedux = new Set<string>();
+    if (product_details && Array.isArray(product_details)) {
+      product_details.forEach((p: any) => {
+        if (p?.sku) existingSkusInRedux.add(p.sku.toString());
+        if (p?.product_code) existingSkusInRedux.add(p.product_code.toString());
+      });
+    }
+
+    // Find SKUs that haven't been fetched yet in this session OR aren't in Redux
+    const newSkus = allCurrentSkus.filter(
+      sku => !fetchedSkusRef.current.has(sku) && !existingSkusInRedux.has(sku)
+    );
 
     if (newSkus.length > 0) {
       console.log("Fetching details for new SKUs:", newSkus);
@@ -831,7 +1205,14 @@ const ImportList: React.FC = () => {
         }))?.flat();
 
         if (orderPostDataList?.length) {
-          dispatch(fetchShippingOption({ orders: orderPostDataList, account_key: customerInfo?.data?.account_key }));
+          (async () => {
+            dispatch(setShippingLoading(true));
+            try {
+              await dispatchShippingSelectively(orderPostDataList);
+            } finally {
+              dispatch(setShippingLoading(false));
+            }
+          })();
           setOrderPostData(orderPostDataList);
         }
       }
@@ -849,14 +1230,28 @@ const ImportList: React.FC = () => {
               // Only include orders that:
               // 1. Have items
               // 2. Are not in the excluded orders list
+              // 3. Have valid SKUs
+              // 4. Have no recipient errors from the shipping API
+              // 5. ALL products have an image (product_url_file must be non-empty)
               order.order_items &&
               order.order_items.length > 0 &&
               order.shipping_code != null &&
               order.shipping_code !== "" &&
-              validSKUs.includes(
-                order.order_items[0]?.product_sku?.toString()
-              ) &&
-              !excludedOrders.includes(order.order_po)
+              // All items must be valid — a product is invalid only if the API
+              // explicitly responded with isActiveSKU:false for that product_guid.
+              !order.order_items.some((item: any) => {
+                const detail =
+                  product_details?.find((p: any) => p.product_guid?.replace(/-/g, '') === item.product_guid?.replace(/-/g, '')) ??
+                  product_details?.find((p: any) =>
+                    (p.sku && p.sku.toString().toLowerCase() === item.product_sku?.toString().toLowerCase()) ||
+                    (p.product_code && p.product_code.toString().toLowerCase() === item.product_sku?.toString().toLowerCase())
+                  );
+                return detail ? detail.isActiveSKU === false : false;
+              }) &&
+              // Auto-exclude orders where any product is missing an image
+              !orderHasMissingImage(order.order_items) &&
+              !excludedOrders.includes(order.order_po) &&
+              (!recipientErrors[order.order_po] || Object.keys(recipientErrors[order.order_po]).length === 0)
           )
           .map((order) => ({
             order_po: order.order_po,
@@ -865,13 +1260,16 @@ const ImportList: React.FC = () => {
             productData: order.order_items,
             source: order.source,
             productImage:
-              productData[order.order_items[0]?.product_sku]?.image_url_1,
+              productData[order.order_items[0]?.product_guid]?.image_url_1
+              ?? productData[order.order_items[0]?.product_guid?.replace(/-/g, '')]?.image_url_1
+              ?? productData[order.order_items[0]?.product_sku]?.image_url_1
+              ?? productData[order.order_items[0]?.product_sku?.toLowerCase()]?.image_url_1,
           }))
         : [];
 
       dispatch(updateCheckedOrders(CheckedOrders));
     }
-  }, [orders?.data, excludedOrders, shipping_option, validSKUs]); // Removed productData to prevent excessive re-renders
+  }, [orders?.data, excludedOrders, shipping_option, validSKUs, recipientErrors]); // Added recipientErrors dependency
 
   const handleCheckboxChange = (e: any) => {
     const { value, checked } = e.target;
@@ -929,12 +1327,84 @@ const ImportList: React.FC = () => {
     dispatch(updateCheckedOrders(updatedOrders));
   };
 
+  /**
+   * Returns true if ANY item in the order has been confirmed invalid by the API.
+   * An item is invalid when product_details contains a matching entry (by product_guid
+   * or SKU) with isActiveSKU === false — i.e. the API responded and said so.
+   * Products whose details haven't been fetched yet are NOT considered invalid.
+   */
   const hasInvalidSKUs = (orderItems: any[]) => {
-    return orderItems?.some(item => !validSKUs.includes(item.product_sku?.toString()));
+    return orderItems?.some(item => {
+      // Look up the API response for this item — prefer product_guid match first
+      const detail =
+        // Normalize GUIDs before comparing — API returns with dashes, orders often store without
+        product_details?.find((p: any) => p.product_guid?.replace(/-/g, '') === item.product_guid?.replace(/-/g, '')) ??
+        product_details?.find((p: any) =>
+          (p.sku && p.sku.toString().toLowerCase() === item.product_sku?.toString().toLowerCase()) ||
+          (p.product_code && p.product_code.toString().toLowerCase() === item.product_sku?.toString().toLowerCase())
+        );
+      // Only flag invalid if the API has responded and explicitly said so
+      return detail ? detail.isActiveSKU === false : false;
+    });
   };
 
+  /**
+   * Returns true if ANY item in the order is missing a product image.
+   * We check product_image.product_url_file from the fetch-orders API response.
+   * An item is considered image-less when product_url_file is null/undefined/empty.
+   *
+   * Exception: items whose product_sku starts with "AP" (case-insensitive) are
+   * FinerWorks catalog products that don't require a customer-supplied image,
+   * so they are always exempt from this check.
+   */
+  const orderHasMissingImage = (orderItems: any[]): boolean => {
+    if (!orderItems || orderItems.length === 0) return false;
+    return orderItems.some((item: any) => {
+      // AP-prefix SKUs never require an image — skip them entirely
+      const sku: string = item?.product_sku ?? "";
+      if (sku.toUpperCase().startsWith("AP")) return false;
+
+      // Image URL may live in two places depending on the order source:
+      //   1. Nested:  item.product_image.product_url_file  (standard FW API response)
+      //   2. Flat:    item.product_url_file                (some integrations, e.g. post-product-thumbnails)
+      // An order is only "missing" an image if NEITHER location has a value.
+      const fileUrl =
+        item?.product_image?.product_url_file ||
+        item?.product_url_file;
+
+      return !fileUrl || fileUrl.trim() === '';
+    });
+  };
+
+  // Centralized robust lookup for product data that handles dash mismatches in GUIDs
+  // and case mismatches in SKUs.
+  const getProductDetail = useCallback((item?: { product_guid?: string; product_sku?: string } | any) => {
+    if (!item || !productData) return null;
+    const { product_guid, product_sku } = item;
+
+    // 1. Try exact GUID
+    if (product_guid && productData[product_guid]) return productData[product_guid];
+
+    // 2. Try stripped GUID (API returns with dashes, order items often without)
+    if (product_guid) {
+      const strippedGuid = String(product_guid).replace(/-/g, '');
+      if (productData[strippedGuid]) return productData[strippedGuid];
+    }
+
+    // 3. Try exact SKU
+    if (product_sku && productData[product_sku]) return productData[product_sku];
+
+    // 4. Try lowercase SKU (case mismatch fallback)
+    if (product_sku) {
+      const lowerSku = String(product_sku).toLowerCase();
+      if (productData[lowerSku]) return productData[lowerSku];
+    }
+
+    return null;
+  }, [productData]);
+
   // Function to get the correct image URL, handling Google Drive links
-  const getImageUrl = useCallback((order: any, productSku: string): string => {
+  const getImageUrl = useCallback((order: any, productSku: string, productGuid?: string): string => {
     let imageUrl = "";
     console.log(order?.product_url_thumbnail, "order?.order_items?.product_image?.product_url_thumbnail")
     // Try thumbnail first, then fallback to product data
@@ -942,9 +1412,9 @@ const ImportList: React.FC = () => {
       imageUrl = order.product_url_thumbnail;
     } else if (order?.product_image?.product_url_thumbnail) {
       imageUrl = order.product_image.product_url_thumbnail;
-    }
-    else if (productData[productSku]?.image_url_1) {
-      imageUrl = productData[productSku].image_url_1;
+    } else {
+      const entry = getProductDetail({ product_sku: productSku, product_guid: productGuid });
+      if (entry?.image_url_1) imageUrl = entry.image_url_1;
     }
 
     // Convert Google Drive URLs to direct image URLs
@@ -1044,7 +1514,7 @@ const ImportList: React.FC = () => {
     if (s.includes("squarespace")) {
       return (
         <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18 }}>
-          <path d="M12.001 0C5.373 0 0 5.373 0 12s5.373 12 12.001 12C18.627 24 24 18.627 24 12S18.627 0 12.001 0zm5.908 7.387a1.377 1.377 0 01-.403.977L8.364 17.506a1.382 1.382 0 01-1.953-1.953l9.142-9.143a1.381 1.381 0 011.953 1.953l-.006.006.409-.409-.006.006zm-1.818 8.154l-1.378 1.378-6.208-6.208 1.378-1.378 6.208 6.208zm-7.588 2.068a1.381 1.381 0 010-1.953l1.033-1.033 1.953 1.953-1.033 1.033a1.381 1.381 0 01-1.953 0zm9.54-9.541a1.381 1.381 0 010-1.953l-.975.975a1.381 1.381 0 011.952 1.952l.975-.974a1.381 1.381 0 01-1.953 0z"/>
+          <path d="M12.001 0C5.373 0 0 5.373 0 12s5.373 12 12.001 12C18.627 24 24 18.627 24 12S18.627 0 12.001 0zm5.908 7.387a1.377 1.377 0 01-.403.977L8.364 17.506a1.382 1.382 0 01-1.953-1.953l9.142-9.143a1.381 1.381 0 011.953 1.953l-.006.006.409-.409-.006.006zm-1.818 8.154l-1.378 1.378-6.208-6.208 1.378-1.378 6.208 6.208zm-7.588 2.068a1.381 1.381 0 010-1.953l1.033-1.033 1.953 1.953-1.033 1.033a1.381 1.381 0 01-1.953 0zm9.54-9.541a1.381 1.381 0 010-1.953l-.975.975a1.381 1.381 0 011.952 1.952l.975-.974a1.381 1.381 0 01-1.953 0z" />
         </svg>
       );
     }
@@ -1052,7 +1522,7 @@ const ImportList: React.FC = () => {
     if (s.includes("shopify")) {
       return (
         <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18 }}>
-          <path d="M15.337.009c-.074-.003-.154.022-.22.073l-1.01.76c-.167-.498-.41-.956-.73-1.33C12.77-1.166 11.82-1.5 10.84-1.5c-.013 0-.027 0-.04.002-.09.004-.18.024-.266.058C10.48-1.567 9.43-2 8.31-2c-.864 0-1.67.264-2.353.763-.683.5-1.21 1.196-1.522 2.01a8.29 8.29 0 00-.26 1.004l-.06.382C2.34 2.46.87 3.58.42 5.14L.002 6.73a.34.34 0 00.229.41l1.064.306v11.96a.34.34 0 00.34.34h16.5a.34.34 0 00.34-.34V7.856l1.064-.306a.34.34 0 00.23-.41L19.36 5.56c-.41-1.453-1.71-2.526-3.27-2.78l-.05-.334a7.67 7.67 0 00-.703-2.437zm-4.497 1.96c.307.345.533.77.672 1.272l-3.24 2.437a8.47 8.47 0 01-.14-.946 6.15 6.15 0 01-.027-.692c0-.596.075-1.145.216-1.621.135-.462.323-.83.547-1.09.11-.126.226-.222.342-.286.116-.064.234-.097.355-.1.404-.01.842.21 1.275 1.026zm-2.86-.693c-.166.192-.314.432-.44.716-.215.484-.357 1.082-.413 1.753a9.17 9.17 0 00.01 1.15l-1.62 1.22c.043-.412.126-.8.244-1.153a4.6 4.6 0 011.012-1.69 3.57 3.57 0 011.207-.996zm6.77 3.09l-8.28 6.23a.34.34 0 01-.54-.275V9.42a.34.34 0 01.136-.274l8.684-6.534v1.754zm1.01 12.64H8.31v-6.81l5.96-4.485v11.295h2.49z"/>
+          <path d="M15.337.009c-.074-.003-.154.022-.22.073l-1.01.76c-.167-.498-.41-.956-.73-1.33C12.77-1.166 11.82-1.5 10.84-1.5c-.013 0-.027 0-.04.002-.09.004-.18.024-.266.058C10.48-1.567 9.43-2 8.31-2c-.864 0-1.67.264-2.353.763-.683.5-1.21 1.196-1.522 2.01a8.29 8.29 0 00-.26 1.004l-.06.382C2.34 2.46.87 3.58.42 5.14L.002 6.73a.34.34 0 00.229.41l1.064.306v11.96a.34.34 0 00.34.34h16.5a.34.34 0 00.34-.34V7.856l1.064-.306a.34.34 0 00.23-.41L19.36 5.56c-.41-1.453-1.71-2.526-3.27-2.78l-.05-.334a7.67 7.67 0 00-.703-2.437zm-4.497 1.96c.307.345.533.77.672 1.272l-3.24 2.437a8.47 8.47 0 01-.14-.946 6.15 6.15 0 01-.027-.692c0-.596.075-1.145.216-1.621.135-.462.323-.83.547-1.09.11-.126.226-.222.342-.286.116-.064.234-.097.355-.1.404-.01.842.21 1.275 1.026zm-2.86-.693c-.166.192-.314.432-.44.716-.215.484-.357 1.082-.413 1.753a9.17 9.17 0 00.01 1.15l-1.62 1.22c.043-.412.126-.8.244-1.153a4.6 4.6 0 011.012-1.69 3.57 3.57 0 011.207-.996zm6.77 3.09l-8.28 6.23a.34.34 0 01-.54-.275V9.42a.34.34 0 01.136-.274l8.684-6.534v1.754zm1.01 12.64H8.31v-6.81l5.96-4.485v11.295h2.49z" />
         </svg>
       );
     }
@@ -1060,7 +1530,7 @@ const ImportList: React.FC = () => {
     if (s.includes("wix")) {
       return (
         <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18 }}>
-          <path d="M12.648 7.662l-1.514 8.676-1.017-4.795c-.156-.75-.42-1.244-.79-1.484-.37-.24-.888-.361-1.553-.361l-1.37 6.64L4.89 7.662H3l2.254 8.676c.156.735.435 1.23.837 1.484.403.254.94.36 1.614.31.686-.05 1.185-.217 1.499-.5.314-.285.55-.763.706-1.434l.945-4.49.946 4.49c.156.671.392 1.15.706 1.434.314.283.813.45 1.499.5.673.05 1.21-.056 1.613-.31.403-.254.681-.749.837-1.484L18.65 7.662H16.76l-1.506 8.578-1.072-6.64c-.12-.567-.314-.966-.58-1.2-.266-.235-.648-.352-1.145-.352-.498 0-.88.117-1.146.352-.265.234-.46.633-.58 1.2l-1.073 6.64-1.01-8.578z"/>
+          <path d="M12.648 7.662l-1.514 8.676-1.017-4.795c-.156-.75-.42-1.244-.79-1.484-.37-.24-.888-.361-1.553-.361l-1.37 6.64L4.89 7.662H3l2.254 8.676c.156.735.435 1.23.837 1.484.403.254.94.36 1.614.31.686-.05 1.185-.217 1.499-.5.314-.285.55-.763.706-1.434l.945-4.49.946 4.49c.156.671.392 1.15.706 1.434.314.283.813.45 1.499.5.673.05 1.21-.056 1.613-.31.403-.254.681-.749.837-1.484L18.65 7.662H16.76l-1.506 8.578-1.072-6.64c-.12-.567-.314-.966-.58-1.2-.266-.235-.648-.352-1.145-.352-.498 0-.88.117-1.146.352-.265.234-.46.633-.58 1.2l-1.073 6.64-1.01-8.578z" />
         </svg>
       );
     }
@@ -1068,7 +1538,7 @@ const ImportList: React.FC = () => {
     if (s.includes("woocommerce") || s.includes("wordpress")) {
       return (
         <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18 }}>
-          <path d="M2.047 5.357C1.2 6.523.778 7.912.778 9.524c0 2.04.554 3.722 1.66 5.045L.013 20.03h3.838l1.23-3.494h7.03l1.23 3.494h3.838l-2.426-5.461c1.106-1.323 1.66-3.004 1.66-5.045 0-1.612-.422-3.001-1.27-4.167C14.158 4.19 13.085 3.5 11.8 3.5H4.52c-1.285 0-2.358.69-3.144 1.857zm1.836 1.37c.4-.567.94-.85 1.623-.85h7.225c.683 0 1.223.283 1.623.85.4.567.6 1.276.6 2.127 0 .851-.2 1.56-.6 2.127-.4.567-.94.85-1.623.85H5.506c-.683 0-1.223-.283-1.623-.85-.4-.567-.6-1.276-.6-2.127 0-.851.2-1.56.6-2.127zm1.047 4.754h6.131l-1.553 4.413H6.483l-1.553-4.413z"/>
+          <path d="M2.047 5.357C1.2 6.523.778 7.912.778 9.524c0 2.04.554 3.722 1.66 5.045L.013 20.03h3.838l1.23-3.494h7.03l1.23 3.494h3.838l-2.426-5.461c1.106-1.323 1.66-3.004 1.66-5.045 0-1.612-.422-3.001-1.27-4.167C14.158 4.19 13.085 3.5 11.8 3.5H4.52c-1.285 0-2.358.69-3.144 1.857zm1.836 1.37c.4-.567.94-.85 1.623-.85h7.225c.683 0 1.223.283 1.623.85.4.567.6 1.276.6 2.127 0 .851-.2 1.56-.6 2.127-.4.567-.94.85-1.623.85H5.506c-.683 0-1.223-.283-1.623-.85-.4-.567-.6-1.276-.6-2.127 0-.851.2-1.56.6-2.127zm1.047 4.754h6.131l-1.553 4.413H6.483l-1.553-4.413z" />
         </svg>
       );
     }
@@ -1076,7 +1546,7 @@ const ImportList: React.FC = () => {
     if (s.includes("etsy")) {
       return (
         <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18 }}>
-          <path d="M9.386 3.578H6.75V3c0-.265-.265-.375-.53-.375H4.173c-.375 0-.53.11-.53.375v.578H.973C.598 3.578.375 3.8.375 4.176v1.922c0 .375.223.597.598.597h.756v12.555c0 .433.172.75.605.75h10.007c.434 0 .607-.317.607-.75V6.695h.756c.375 0 .597-.222.597-.597V4.176c0-.375-.222-.598-.597-.598H9.386V3zm-2.58 13.635H5.352v-4.77h1.454v4.77zm2.742 0H8.094v-4.77h1.454v4.77zm-.07-6.228H5.423a.675.675 0 010-1.348h4.055a.675.675 0 010 1.348z"/>
+          <path d="M11.465 1C5.679 1 1 5.679 1 11.465c0 5.787 4.679 10.466 10.465 10.466 5.787 0 10.466-4.679 10.466-10.466C21.931 5.679 17.252 1 11.465 1zm3.302 5.411l-.193 1.896h-3.11v2.378h2.918v1.896h-2.918v2.958h3.303l-.192 1.895H8.856V6.411h5.91z" />
         </svg>
       );
     }
@@ -1084,7 +1554,7 @@ const ImportList: React.FC = () => {
     if (s.includes("amazon")) {
       return (
         <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18 }}>
-          <path d="M13.958 10.09c0 1.232.029 2.256-.591 3.351-.502.891-1.301 1.438-2.186 1.438-1.214 0-1.922-.924-1.922-2.292 0-2.692 2.415-3.182 4.7-3.182v.685zm3.186 7.705a.66.66 0 01-.77.075c-1.079-.897-1.269-1.313-1.86-2.169-1.78 1.814-3.037 2.357-5.345 2.357-2.729 0-4.854-1.686-4.854-5.054 0-2.633 1.426-4.42 3.461-5.298 1.762-.77 4.222-.908 6.109-1.122v-.418c0-.77.06-1.682-.393-2.348-.395-.6-1.152-.848-1.823-.848-1.236 0-2.338.634-2.609 1.948-.056.294-.271.584-.567.598l-3.165-.34c-.265-.059-.561-.274-.484-.682C5.694 1.998 8.703 1 11.394 1c1.375 0 3.172.366 4.254 1.407 1.375 1.288 1.243 3.007 1.243 4.877v4.42c0 1.329.552 1.913 1.071 2.632.183.256.223.563-.01.754-.579.484-1.609 1.381-2.176 1.883l-.632-.178zm3.768 1.639c-2.973 2.204-7.284 3.375-10.996 3.375-5.2 0-9.88-1.923-13.42-5.123-.278-.252-.03-.596.305-.4 3.82 2.221 8.543 3.554 13.428 3.554 3.293 0 6.913-.683 10.244-2.096.503-.215.925.33.439.69zm1.248-1.421c-.379-.487-2.504-.23-3.461-.116-.291.035-.336-.218-.074-.401 1.695-1.192 4.479-.848 4.804-.449.325.402-.086 3.184-1.676 4.512-.244.205-.477.096-.369-.174.358-.894 1.156-2.886.776-3.372z"/>
+          <path d="M13.958 10.09c0 1.232.029 2.256-.591 3.351-.502.891-1.301 1.438-2.186 1.438-1.214 0-1.922-.924-1.922-2.292 0-2.692 2.415-3.182 4.7-3.182v.685zm3.186 7.705a.66.66 0 01-.77.075c-1.079-.897-1.269-1.313-1.86-2.169-1.78 1.814-3.037 2.357-5.345 2.357-2.729 0-4.854-1.686-4.854-5.054 0-2.633 1.426-4.42 3.461-5.298 1.762-.77 4.222-.908 6.109-1.122v-.418c0-.77.06-1.682-.393-2.348-.395-.6-1.152-.848-1.823-.848-1.236 0-2.338.634-2.609 1.948-.056.294-.271.584-.567.598l-3.165-.34c-.265-.059-.561-.274-.484-.682C5.694 1.998 8.703 1 11.394 1c1.375 0 3.172.366 4.254 1.407 1.375 1.288 1.243 3.007 1.243 4.877v4.42c0 1.329.552 1.913 1.071 2.632.183.256.223.563-.01.754-.579.484-1.609 1.381-2.176 1.883l-.632-.178zm3.768 1.639c-2.973 2.204-7.284 3.375-10.996 3.375-5.2 0-9.88-1.923-13.42-5.123-.278-.252-.03-.596.305-.4 3.82 2.221 8.543 3.554 13.428 3.554 3.293 0 6.913-.683 10.244-2.096.503-.215.925.33.439.69zm1.248-1.421c-.379-.487-2.504-.23-3.461-.116-.291.035-.336-.218-.074-.401 1.695-1.192 4.479-.848 4.804-.449.325.402-.086 3.184-1.676 4.512-.244.205-.477.096-.369-.174.358-.894 1.156-2.886.776-3.372z" />
         </svg>
       );
     }
@@ -1092,7 +1562,7 @@ const ImportList: React.FC = () => {
     if (s.includes("ebay")) {
       return (
         <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18 }}>
-          <path d="M0 7.856l3.578 8.284h2.008L9.03 7.856H6.937l-2.254 5.567L2.43 7.856H0zm10.14 0v8.284h1.95V7.856h-1.95zm3.025 0l3.396 4.035-3.396 4.249h2.292l2.238-2.842 2.253 2.842H22l-3.41-4.22L22 7.856h-2.237L17.51 10.64l-2.108-2.784h-2.237z"/>
+          <path d="M0 7.856l3.578 8.284h2.008L9.03 7.856H6.937l-2.254 5.567L2.43 7.856H0zm10.14 0v8.284h1.95V7.856h-1.95zm3.025 0l3.396 4.035-3.396 4.249h2.292l2.238-2.842 2.253 2.842H22l-3.41-4.22L22 7.856h-2.237L17.51 10.64l-2.108-2.784h-2.237z" />
         </svg>
       );
     }
@@ -1100,8 +1570,8 @@ const ImportList: React.FC = () => {
     // Generic store icon for unknown sources
     return (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 18, height: 18 }}>
-        <path d="M3 9l1-5h16l1 5M3 9h18M3 9v11a1 1 0 001 1h16a1 1 0 001-1V9"/>
-        <path d="M9 9v12M15 9v12"/>
+        <path d="M3 9l1-5h16l1 5M3 9h18M3 9v11a1 1 0 001 1h16a1 1 0 001-1V9" />
+        <path d="M9 9v12M15 9v12" />
       </svg>
     );
   };
@@ -1127,6 +1597,29 @@ const ImportList: React.FC = () => {
           0%, 100% { box-shadow: 0 0 0 2px rgba(239,68,68,0.25), 0 4px 16px rgba(239,68,68,0.12); }
           50%       { box-shadow: 0 0 0 4px rgba(239,68,68,0.45), 0 4px 20px rgba(239,68,68,0.22); }
         }
+        @keyframes shimmer {
+          0%   { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        @keyframes sku-skeleton-pulse {
+          0%, 100% { opacity: 0.55; }
+          50%       { opacity: 1; }
+        }
+        .sku-skeleton-bar {
+          border-radius: 6px;
+          background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.5s infinite linear;
+        }
+        .sku-skeleton-bar-dark {
+          border-radius: 6px;
+          background: linear-gradient(90deg, #1e2d42 25%, #253347 50%, #1e2d42 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.5s infinite linear;
+        }
       `}</style>
       <div
         className={`h-auto pt-4 mt-10 w-full ${style.overAll_box}`}
@@ -1134,37 +1627,74 @@ const ImportList: React.FC = () => {
       >
         <div className="flex justify-between items-center mb-10 px-9">
           <h1 className="text-left text-2xl font-bold mt-2">Orders</h1>
-          {filteredOrders && filteredOrders.length > 0 && (
-            <Button
-              type="default"
-              size="middle"
-              loading={deleteOrderStatus === "loading"}
-              onClick={() => setBulkDeleteModalVisible(true)}
-              className="bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200 border border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-800 shadow-sm hover:shadow-md transition-all duration-300 ease-in-out font-medium px-5 py-2 rounded-lg"
-              icon={
-                !deleteOrderStatus || deleteOrderStatus !== "loading" ? (
-                  <svg
-                    className="w-4 h-4 mr-1"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
-                  </svg>
-                ) : null
-              }
+          <div className="flex items-center gap-3">
+            {/* ── Refresh All button ── */}
+            <button
+              id="refresh-orders-btn"
+              onClick={handleRefreshOrders}
+              disabled={isRefreshingOrders || ordersStatus === 'loading'}
+              title="Refresh all orders, shipping options and product details"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                background: isDark ? '#0f1724' : '#f9fafb',
+                borderColor: isDark ? '#1e3048' : '#d1d5db',
+                color: isDark ? '#93c5fd' : '#374151',
+              }}
             >
-              <span>
-                {deleteOrderStatus === "loading" ? "Deleting..." : "Delete All"}
-              </span>
-            </Button>
-          )}
+              <svg
+                className={`w-4 h-4 transition-transform duration-700 ${isRefreshingOrders || ordersStatus === 'loading' ? 'animate-spin' : 'group-hover:rotate-180'}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                style={{
+                  animation: isRefreshingOrders || ordersStatus === 'loading'
+                    ? 'spin 0.8s linear infinite'
+                    : undefined,
+                }}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+              <span>{isRefreshingOrders || ordersStatus === 'loading' ? 'Refreshing...' : 'Refresh'}</span>
+            </button>
+
+            {/* ── Delete All button ── */}
+            {filteredOrders && filteredOrders.length > 0 && (
+              <Button
+                type="default"
+                size="middle"
+                loading={deleteOrderStatus === "loading"}
+                onClick={() => setBulkDeleteModalVisible(true)}
+                className="bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200 border border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-800 shadow-sm hover:shadow-md transition-all duration-300 ease-in-out font-medium px-5 py-2 rounded-lg"
+                icon={
+                  !deleteOrderStatus || deleteOrderStatus !== "loading" ? (
+                    <svg
+                      className="w-4 h-4 mr-1"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                  ) : null
+                }
+              >
+                <span>
+                  {deleteOrderStatus === "loading" ? "Deleting..." : "Delete All"}
+                </span>
+              </Button>
+            )}
+          </div>
         </div>
         <div
           className={`mx-auto max-w-7xl justify-center px-6 md:flex md:space-x-6 xl:px-0 ${style.orderes_box}`}
@@ -1177,14 +1707,23 @@ const ImportList: React.FC = () => {
                 const isExcluded = shipping_option.length > 0
                   && order?.order_items?.length > 0
                   && !checkedOrders.some((c: any) => c.order_po === order.order_po);
+                // True while this specific order's shipping hasn't resolved yet.
+                // shippingCache is populated per-order as each fetch batch completes,
+                // so this gates interactivity precisely without blocking other orders.
+                const orderNeedsShipping =
+                  order?.order_items?.length > 0 &&
+                  order?.shipping_code != null &&
+                  order?.shipping_code !== '';
+                const thisOrderShippingPending =
+                  orderNeedsShipping && !shippingCache[order?.order_po];
                 return (
                   <div
                     key={index}
                     className="justify-between mb-6 rounded-lg p-6 shadow-md sm:flex-row sm:justify-start space-y-2 relative overflow-hidden"
                     style={{
                       background: isDark
-                        ? (isExcluded ? "#0a1020" : "#0f1724")
-                        : (isExcluded ? "#f9fafb" : "#ffffff"),
+                        ? "#0f1724"
+                        : "#ffffff",
                       borderLeft: isExcluded
                         ? (isDark ? "4px solid #253347" : "4px solid #d1d5db")
                         : "4px solid transparent",
@@ -1193,54 +1732,192 @@ const ImportList: React.FC = () => {
                   >
                     <ul className="grid w-100  md:grid-cols-2 md:grid-rows-1 items-start ">
                       <li className="flex-1">
-                        {shipping_option.length > 0 &&
-                          order?.order_items.length > 0 ? (
-                          <div className="flex items-center">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                const isCurrentlyIncluded = checkedOrders.some(
-                                  (c: { order_po: string }) => c.order_po == order.order_po
-                                );
+                        {(() => {
+                          const apisNotReady =
+                            product_status !== "succeeded" ||
+                            // Block until at least one shipping result has come back globally
+                            (shipping_option.length === 0 && orderNeedsShipping) ||
+                            // Block until THIS order's shipping specifically has loaded
+                            thisOrderShippingPending;
+                          // An item is invalid only if the API explicitly responded with isActiveSKU:false.
+                          // Items whose product_details haven't loaded yet are NOT treated as invalid.
+                          const hasInvalidSku = order?.order_items?.some((item: any) => {
+                            const detail =
+                              product_details?.find((p: any) => p.product_guid?.replace(/-/g, '') === item.product_guid?.replace(/-/g, '')) ??
+                              product_details?.find((p: any) =>
+                                (p.sku && p.sku.toString().toLowerCase() === item.product_sku?.toString().toLowerCase()) ||
+                                (p.product_code && p.product_code.toString().toLowerCase() === item.product_sku?.toString().toLowerCase())
+                              );
+                            return detail ? detail.isActiveSKU === false : false;
+                          });
+                          const hasAddressIssues = !!recipientErrors[order?.order_po];
+                          const hasItemIssues = !!itemErrors[order?.order_po];
+                          const hasMissingImage = orderHasMissingImage(order?.order_items);
 
-                                if (!isCurrentlyIncluded) {
-                                  const parsedValue = {
-                                    order_po: order?.order_po,
-                                    Product_price: getShippingPrice(order?.order_po),
-                                    productData: order?.order_items,
-                                    productImage: productData[order?.order_items[0]?.product_sku]?.image_url_1,
-                                  };
-                                  dispatch(updateCheckedOrders([...checkedOrders, parsedValue]));
-                                  dispatch(updateExcludedOrders(excludedOrders.filter((o) => o !== order.order_po)));
-                                } else {
-                                  dispatch(updateCheckedOrders(checkedOrders.filter((c: any) => c.order_po !== order.order_po)));
-                                  dispatch(updateExcludedOrders([...excludedOrders, order.order_po]));
-                                }
-                              }}
-                              className="relative inline-flex h-9 w-[170px] items-center rounded-full bg-slate-100 p-1 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40 shadow-inner border border-slate-200/60"
-                              role="switch"
-                              aria-checked={checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po)}
-                            >
-                              <div
-                                className={`absolute left-1 h-7 w-[79px] rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-black/5 transition-transform duration-300 ease-out ${checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po)
-                                  ? 'translate-x-[81px]'
-                                  : 'translate-x-0'
-                                  }`}
-                              />
-                              <div className="relative z-10 flex w-full">
-                                <span className={`flex-1 text-center text-[11px] font-bold uppercase tracking-widest transition-colors duration-300 select-none ${!checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po) ? 'text-slate-700 drop-shadow-sm' : 'text-slate-400 hover:text-slate-500 cursor-pointer'
-                                  }`}>
-                                  Exclude
-                                </span>
-                                <span className={`flex-1 text-center text-[11px] font-bold uppercase tracking-widest transition-colors duration-300 select-none ${checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po) ? 'text-emerald-600 drop-shadow-sm' : 'text-slate-400 hover:text-slate-500 cursor-pointer'
-                                  }`}>
-                                  Include
-                                </span>
-                              </div>
-                            </button>
-                          </div>
-                        ) : null}
+                          // Block toggling if the order has validation issues or APIs failed/loading
+                          const isToggleDisabled = apisNotReady || hasInvalidSku || hasAddressIssues || hasItemIssues || hasMissingImage;
+
+                          return (shipping_option.length > 0 || orderPostData.length > 0 || Object.keys(recipientErrors).length > 0) &&
+                            order?.order_items.length > 0 ? (
+                            <div className="flex items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+
+                                  const isCurrentlyIncluded = checkedOrders.some(
+                                    (c: { order_po: string }) => c.order_po == order.order_po
+                                  );
+
+                                  // If trying to go Draft → Active but order is invalid, show detailed notification
+                                  if (!isCurrentlyIncluded && isToggleDisabled) {
+                                    const issues: string[] = [];
+
+                                    // Invalid SKUs
+                                    const invalidSkuItems = order?.order_items?.filter(
+                                      (item: any) => !product_details?.some(
+                                        (p: any) => p.sku === item.product_sku || p.product_code === item.product_sku
+                                      )
+                                    );
+                                    if (invalidSkuItems?.length > 0) {
+                                      invalidSkuItems.forEach((item: any) => {
+                                        issues.push(`Invalid product SKU: "${item.product_sku}"`);
+                                      });
+                                    }
+
+                                    // Address / recipient errors
+                                    const addrErrors = recipientErrors[order?.order_po];
+                                    if (addrErrors && Object.keys(addrErrors).length > 0) {
+                                      const fieldLabels: Record<string, string> = {
+                                        first_name: "First name",
+                                        last_name: "Last name",
+                                        address_1: "Address line 1",
+                                        city: "City",
+                                        state_code: "State / Province",
+                                        zip_postal_code: "Zip / Postal code",
+                                        country_code: "Country",
+                                        phone: "Phone",
+                                      };
+                                      Object.entries(addrErrors).forEach(([field, msgs]: [string, any]) => {
+                                        const label = fieldLabels[field] || field;
+                                        issues.push(`${label}: ${Array.isArray(msgs) ? msgs[0] : msgs}`);
+                                      });
+                                    }
+
+                                    // Item / product errors
+                                    const orderItemErrors = itemErrors[order?.order_po];
+                                    if (orderItemErrors && Object.keys(orderItemErrors).length > 0) {
+                                      Object.entries(orderItemErrors).forEach(([field, msgs]: [string, any]) => {
+                                        issues.push(`Product ${field}: ${Array.isArray(msgs) ? msgs[0] : msgs}`);
+                                      });
+                                    }
+
+                                    notificationApi.warning({
+                                      message: "Order Incomplete",
+                                      description: (
+                                        <div>
+                                          <p style={{ marginBottom: 8, fontWeight: 500, color: "#374151" }}>
+                                            This order cannot be activated. The following is still required:
+                                          </p>
+                                          <ul style={{ margin: 0, paddingLeft: 16, fontSize: 13, lineHeight: 1.8, color: "#b45309" }}>
+                                            {issues.length > 0
+                                              ? issues.map((issue, i) => <li key={i}>{issue}</li>)
+                                              : <li>Some required information is missing or invalid.</li>}
+                                          </ul>
+                                        </div>
+                                      ),
+                                      duration: 7,
+                                    });
+                                    return;
+                                  }
+
+                                  if (!isCurrentlyIncluded) {
+                                    const parsedValue = {
+                                      order_po: order?.order_po,
+                                      Product_price: getShippingPrice(order?.order_po),
+                                      productData: order?.order_items,
+                                      productImage:
+                                        productData[order?.order_items[0]?.product_guid]?.image_url_1
+                                        ?? productData[order?.order_items[0]?.product_guid?.replace(/-/g, '')]?.image_url_1
+                                        ?? productData[order?.order_items[0]?.product_sku]?.image_url_1
+                                        ?? productData[order?.order_items[0]?.product_sku?.toLowerCase()]?.image_url_1,
+                                    };
+                                    dispatch(updateCheckedOrders([...checkedOrders, parsedValue]));
+                                    dispatch(updateExcludedOrders(excludedOrders.filter((o) => o !== order.order_po)));
+                                  } else {
+                                    dispatch(updateCheckedOrders(checkedOrders.filter((c: any) => c.order_po !== order.order_po)));
+                                    dispatch(updateExcludedOrders([...excludedOrders, order.order_po]));
+                                  }
+                                }}
+                                className={`relative inline-flex h-9 w-[170px] items-center rounded-full p-1 transition-all duration-300 focus:outline-none shadow-inner border border-slate-200/60 ${isToggleDisabled ? "bg-slate-200 cursor-not-allowed opacity-60" : "bg-slate-100 focus:ring-2 focus:ring-blue-500/40"}`}
+                                role="switch"
+                                aria-checked={checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po)}
+                                title={hasMissingImage ? "Add an image to all products to activate this order" : isToggleDisabled ? "Click to see what is required to activate this order" : "Toggle Draft/Active"}
+                              >
+                                <div
+                                  className={`absolute left-1 h-7 w-[79px] rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-black/5 transition-transform duration-300 ease-out ${isToggleDisabled ? "bg-gray-100" : "bg-white"} ${checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po)
+                                    ? 'translate-x-[81px]'
+                                    : 'translate-x-0'
+                                    }`}
+                                />
+                                <div className="relative z-10 flex w-full">
+                                  <span className={`flex-1 text-center text-[11px] font-bold uppercase tracking-widest transition-colors duration-300 select-none ${!checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po) ? 'text-slate-700 drop-shadow-sm' : 'text-slate-400'}`}>
+                                    Draft
+                                  </span>
+                                  <span className={`flex-1 text-center text-[11px] font-bold uppercase tracking-widest transition-colors duration-300 select-none ${checkedOrders.some((c: { order_po: string }) => c.order_po == order.order_po) ? 'text-emerald-600 drop-shadow-sm' : 'text-slate-400'}`}>
+                                    Active
+                                  </span>
+                                </div>
+                              </button>
+                              {/* Badge shown when order is excluded */}
+                              {isExcluded && (
+                                hasMissingImage ? (
+                                  <span
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 4,
+                                      fontSize: 11,
+                                      fontWeight: 600,
+                                      color: "#92400e",
+                                      background: isDark ? "#2d1f0a" : "#fffbeb",
+                                      border: isDark ? "1px solid #78350f" : "1px solid #fcd34d",
+                                      borderRadius: 6,
+                                      padding: "2px 8px",
+                                      userSelect: "none",
+                                    }}
+                                  >
+                                    <svg style={{ width: 11, height: 11, flexShrink: 0 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    Image required
+                                  </span>
+                                ) : (
+                                  <span
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 4,
+                                      fontSize: 11,
+                                      fontWeight: 600,
+                                      color: "#6b7280",
+                                      background: isDark ? "#1e2d42" : "#f3f4f6",
+                                      border: isDark ? "1px solid #253347" : "1px solid #d1d5db",
+                                      borderRadius: 6,
+                                      padding: "2px 8px",
+                                      userSelect: "none",
+                                    }}
+                                  >
+                                    <svg style={{ width: 11, height: 11 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                    </svg>
+                                    Not included
+                                  </span>
+                                )
+                              )}
+                            </div>
+                          ) : null;
+                        })()}
                       </li>
 
                       <div className="w-100%   text-end">
@@ -1277,16 +1954,56 @@ const ImportList: React.FC = () => {
                       className="grid w-full gap-4 md:grid-cols-[minmax(180px,1fr)_minmax(300px,2fr)_minmax(200px,1fr)]"
                       key={index}
                     >
-                      <li style={{ opacity: isExcluded ? 0.4 : 1, filter: isExcluded ? "grayscale(0.5)" : "none", transition: "opacity 0.3s ease, filter 0.3s ease" }}>
+                      <li>
                         <label
-                          className="h-[220px] inline-flex items-center justify-between w-full p-3 rounded-lg cursor-pointer border-2"
+                          className="h-[220px] inline-flex items-center justify-between w-full p-3 rounded-lg cursor-default border-2"
                           style={{
                             position: "relative",
                             background: isDark ? "#0c1520" : "#ffffff",
-                            borderColor: isDark ? "#1e2d42" : "#e5e7eb",
+                            borderColor: (() => {
+                              const orderRecipErrors = recipientErrors[order?.order_po];
+                              if (orderRecipErrors && Object.keys(orderRecipErrors).length > 0) {
+                                return "#ef4444";
+                              }
+                              return isDark ? "#1e2d42" : "#e5e7eb";
+                            })(),
+                            boxShadow: (() => {
+                              const orderRecipErrors = recipientErrors[order?.order_po];
+                              if (orderRecipErrors && Object.keys(orderRecipErrors).length > 0) {
+                                return "0 0 0 2px rgba(239,68,68,0.18), 0 4px 16px rgba(239,68,68,0.08)";
+                              }
+                              return undefined;
+                            })(),
                             color: isDark ? "#8892a4" : undefined,
                           }}
                         >
+                          {/* Recipient error badge — top-left corner */}
+                          {recipientErrors[order?.order_po] && Object.keys(recipientErrors[order?.order_po]).length > 0 && (
+                            <div
+                              style={{
+                                position: "absolute",
+                                top: 8,
+                                left: 8,
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 4,
+                                backgroundColor: "#fef2f2",
+                                color: "#dc2626",
+                                border: "1px solid #fca5a5",
+                                borderRadius: 6,
+                                padding: "2px 8px",
+                                fontSize: 11,
+                                fontWeight: 600,
+                                zIndex: 2,
+                                userSelect: "none",
+                              }}
+                            >
+                              <svg style={{ width: 12, height: 12, flexShrink: 0 }} fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                              </svg>
+                              Address Issue
+                            </div>
+                          )}
                           {/* Platform source icon badge — top-right corner */}
                           {order?.source && (() => {
                             const palette = getPlatformColor(order.source);
@@ -1313,39 +2030,87 @@ const ImportList: React.FC = () => {
                               </div>
                             );
                           })()}
-                          <div className="block">
+                          <div className="block" style={{ marginTop: recipientErrors[order?.order_po] ? 18 : 0 }}>
                             <div className="w-full text-[12px] text-gray-700 leading-tight">
                               <span className="text-blue-600 font-medium">Order:</span> {order?.order_po}
                             </div>
                             <div className="w-full text-[12px] font-semibold text-gray-700 pt-2 pb-1">
                               Ship To
                             </div>
+                            {/* Recipient name */}
                             <div className="w-full text-[12px] text-gray-700 leading-tight">
                               {order?.recipient?.first_name}{" "}
                               {order?.recipient?.last_name}
                             </div>
-                            <div className="w-full text-[12px] text-gray-700 leading-tight">
+                            {/* address_1 */}
+                            <div
+                              className="w-full text-[12px] leading-tight"
+                              style={{
+                                color: recipientErrors[order?.order_po]?.address_1 ? "#dc2626" : (isDark ? "#8892a4" : "#374151"),
+                                border: recipientErrors[order?.order_po]?.address_1 ? "1px solid #fca5a5" : "1px solid transparent",
+                                borderRadius: 4,
+                                padding: "1px 4px",
+                                background: recipientErrors[order?.order_po]?.address_1 ? "#fef2f2" : "transparent",
+                              }}
+                              title={recipientErrors[order?.order_po]?.address_1?.[0]}
+                            >
                               {order?.recipient?.address_1}
                             </div>
-                            <div className="w-full text-[12px] text-gray-700 leading-tight">
+                            {/* city / state / zip */}
+                            <div
+                              className="w-full text-[12px] leading-tight"
+                              style={{
+                                color: (recipientErrors[order?.order_po]?.state_code || recipientErrors[order?.order_po]?.city || recipientErrors[order?.order_po]?.zip_postal_code) ? "#dc2626" : (isDark ? "#8892a4" : "#374151"),
+                                border: (recipientErrors[order?.order_po]?.state_code || recipientErrors[order?.order_po]?.city || recipientErrors[order?.order_po]?.zip_postal_code) ? "1px solid #fca5a5" : "1px solid transparent",
+                                borderRadius: 4,
+                                padding: "1px 4px",
+                                background: (recipientErrors[order?.order_po]?.state_code || recipientErrors[order?.order_po]?.city || recipientErrors[order?.order_po]?.zip_postal_code) ? "#fef2f2" : "transparent",
+                              }}
+                              title={recipientErrors[order?.order_po]?.state_code?.[0] || recipientErrors[order?.order_po]?.city?.[0] || recipientErrors[order?.order_po]?.zip_postal_code?.[0]}
+                            >
                               {order?.recipient?.city},{" "}{order?.recipient?.state}
                               {order?.recipient?.province}{" "}
                               {order?.recipient?.zip_postal_code}
                             </div>
-                            <div className="w-full text-[12px] text-gray-700 leading-tight">
+                            {/* country_code */}
+                            <div
+                              className="w-full text-[12px] leading-tight"
+                              style={{
+                                color: recipientErrors[order?.order_po]?.country_code ? "#dc2626" : (isDark ? "#8892a4" : "#374151"),
+                                border: recipientErrors[order?.order_po]?.country_code ? "1px solid #fca5a5" : "1px solid transparent",
+                                borderRadius: 4,
+                                padding: "1px 4px",
+                                background: recipientErrors[order?.order_po]?.country_code ? "#fef2f2" : "transparent",
+                              }}
+                              title={recipientErrors[order?.order_po]?.country_code?.[0]}
+                            >
                               {order?.recipient?.country_code}
                             </div>
-                            <div className="w-full pt-3">
+                            {/* Show all error messages below the address */}
+                            {recipientErrors[order?.order_po] && Object.keys(recipientErrors[order?.order_po]).length > 0 && (
+                              <div style={{ marginTop: 6 }}>
+                                {Object.entries(recipientErrors[order?.order_po]).map(([field, msgs]) => (
+                                  <div key={field} style={{ display: "flex", alignItems: "flex-start", gap: 4, marginBottom: 2 }}>
+                                    <svg style={{ width: 11, height: 11, flexShrink: 0, marginTop: 1, color: "#dc2626" }} fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                    </svg>
+                                    <span style={{ fontSize: 10, color: "#dc2626", lineHeight: 1.3 }}>{msgs[0]}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <div className="pt-3" style={{ width: recipientErrors[order?.order_po] && Object.keys(recipientErrors[order?.order_po]).length > 0 ? "auto" : "100%" }}>
                               <Button
                                 key="submit"
-                                className="   w-full text-gray-500"
+                                className="text-gray-500"
+                                style={{ width: recipientErrors[order?.order_po] && Object.keys(recipientErrors[order?.order_po]).length > 0 ? "auto" : "100%" }}
                                 size={"small"}
                                 type="default"
                               >
                                 <Link
                                   to={"/editorder/" + order?.orderFullFillmentId}
                                 >
-                                  Edit order
+                                  Edit address
                                 </Link>
                               </Button>
                             </div>
@@ -1362,11 +2127,23 @@ const ImportList: React.FC = () => {
                         />
                         {order?.order_items.length > 0 ? (
                           <>
-                            {order?.order_items?.map((orderItem) =>
-                              product_details.length > 0 &&
-                                !validSKUs.includes(orderItem.product_sku.toString()) ? (
+                            {order?.order_items?.map((orderItem) => {
+                              // Determine validity based on what the API returned for this item.
+                              // Match by product_guid first (most reliable), then fall back to
+                              // case-insensitive SKU / product_code comparison.
+                              const itemDetail =
+                                product_details?.find((p: any) => p.product_guid?.replace(/-/g, '') === orderItem.product_guid?.replace(/-/g, '')) ??
+                                product_details?.find((p: any) =>
+                                  (p.sku && p.sku.toString().toLowerCase() === orderItem.product_sku?.toString().toLowerCase()) ||
+                                  (p.product_code && p.product_code.toString().toLowerCase() === orderItem.product_sku?.toString().toLowerCase())
+                                );
+                              // Only show invalid UI when the API has responded AND explicitly
+                              // flagged this product as inactive (isActiveSKU === false).
+                              // If details haven't loaded yet, show the normal product card.
+                              const isItemInvalid = itemDetail ? itemDetail.isActiveSKU === false : false;
+                              return isItemInvalid ? (
                                 <div
-                                  key={orderItem.product_sku}
+                                  key={orderItem.product_sku ?? orderItem.product_guid}
                                   className="mb-4 p-4 border-2 border-red-300 rounded-lg bg-red-50 h-[220px]"
                                   style={{
                                     opacity: 1,
@@ -1408,7 +2185,7 @@ const ImportList: React.FC = () => {
                                       </div>
                                     </div>
                                   </div>
-                                  <div className="mt-4 ml-7">
+                                  <div className="mt-4 ml-7 flex items-center gap-3">
                                     <button
                                       className="h-9 inline-flex items-center px-4 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 hover:border-red-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
                                       onClick={() => {
@@ -1438,6 +2215,34 @@ const ImportList: React.FC = () => {
                                       </svg>
                                       Replace SKU
                                     </button>
+                                    <button
+                                      className="h-9 inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-600 bg-white hover:bg-red-50 hover:border-red-400 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-400 transition-colors duration-200"
+                                      onClick={() => {
+                                        setProductToDelete({
+                                          product_guid: orderItem?.product_guid,
+                                          product_sku: orderItem?.product_sku,
+                                          orderFullFillmentId: order?.orderFullFillmentId,
+                                          order_po: order?.order_po,
+                                        });
+                                        setProductDeleteModalVisible(true);
+                                      }}
+                                    >
+                                      <svg
+                                        className="w-4 h-4 mr-2"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth="2"
+                                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                        />
+                                      </svg>
+                                      Remove
+                                    </button>
                                   </div>
                                   {replacingModal && (
 
@@ -1451,15 +2256,120 @@ const ImportList: React.FC = () => {
                                     />
                                   )}
                                 </div>
+                              ) : itemDetail === undefined && product_status === 'loading' ? (
+                                // API is still in-flight — show a skeleton so the card doesn't
+                                // flash as "invalid" before the response arrives.
+                                <div
+                                  key={orderItem.product_sku ?? orderItem.product_guid}
+                                  className="mb-4 p-3 rounded-lg h-[220px] flex flex-col justify-between"
+                                  style={{
+                                    background: isDark ? "#0c1520" : "#ffffff",
+                                    border: isDark ? "1px solid #1e2d42" : "1px solid #e5e7eb",
+                                  }}
+                                >
+                                  {/* Top row: image placeholder + text bars */}
+                                  <div className="flex gap-3 items-start">
+                                    {/* Image placeholder */}
+                                    <div
+                                      className={isDark ? "sku-skeleton-bar-dark" : "sku-skeleton-bar"}
+                                      style={{ width: 72, height: 72, flexShrink: 0, borderRadius: 8 }}
+                                    />
+                                    <div className="flex-1 flex flex-col gap-2 pt-1">
+                                      {/* Title bar */}
+                                      <div
+                                        className={isDark ? "sku-skeleton-bar-dark" : "sku-skeleton-bar"}
+                                        style={{ height: 14, width: "70%" }}
+                                      />
+                                      {/* Subtitle bar */}
+                                      <div
+                                        className={isDark ? "sku-skeleton-bar-dark" : "sku-skeleton-bar"}
+                                        style={{ height: 12, width: "50%" }}
+                                      />
+                                      {/* Third bar */}
+                                      <div
+                                        className={isDark ? "sku-skeleton-bar-dark" : "sku-skeleton-bar"}
+                                        style={{ height: 12, width: "80%" }}
+                                      />
+                                      {/* Fourth bar */}
+                                      <div
+                                        className={isDark ? "sku-skeleton-bar-dark" : "sku-skeleton-bar"}
+                                        style={{ height: 12, width: "60%" }}
+                                      />
+                                    </div>
+                                  </div>
+                                  {/* Middle description bars */}
+                                  <div className="flex flex-col gap-2 mt-3">
+                                    <div
+                                      className={isDark ? "sku-skeleton-bar-dark" : "sku-skeleton-bar"}
+                                      style={{ height: 11, width: "95%" }}
+                                    />
+                                    <div
+                                      className={isDark ? "sku-skeleton-bar-dark" : "sku-skeleton-bar"}
+                                      style={{ height: 11, width: "75%" }}
+                                    />
+                                  </div>
+                                  {/* Bottom: loading label */}
+                                  <div className="flex items-center gap-2 mt-3">
+                                    <svg
+                                      style={{ width: 14, height: 14, flexShrink: 0, animation: "spin 0.9s linear infinite", color: isDark ? "#3b82f6" : "#6366f1" }}
+                                      fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                    >
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
+                                    <span style={{ fontSize: 12, color: isDark ? "#4b7fa8" : "#6b7280" }}>Validating product…</span>
+                                  </div>
+                                </div>
+                              ) : itemDetail === undefined && (product_status === 'succeeded' || product_status === 'failed') && product_details.length > 0 && !validSKUs.some(v => String(v).toLowerCase() === orderItem.product_sku?.toString().toLowerCase()) ? (
+                                // Fallback: API has fully responded but no match found for this item.
+                                // Only show invalid UI AFTER the API has definitively answered.
+                                <div
+                                  key={orderItem.product_sku ?? orderItem.product_guid}
+                                  className="mb-4 p-4 border-2 border-red-300 rounded-lg bg-red-50 h-[220px]"
+                                  style={{
+                                    opacity: 1,
+                                    filter: "none",
+                                    boxShadow: "0 0 0 2px rgba(239,68,68,0.25), 0 4px 16px rgba(239,68,68,0.12)",
+                                    animation: "pulse-border 2s ease-in-out infinite",
+                                  }}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex-1">
+                                      <div className="flex items-center mb-2">
+                                        <svg className="w-5 h-5 text-red-500 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                        </svg>
+                                        <h2 className="text-lg font-semibold text-red-700">Invalid SKU Detected</h2>
+                                      </div>
+                                      <div className="ml-7">
+                                        <p className="text-red-600 mb-2">Current SKU: <span className="font-mono bg-red-100 px-2 py-1 rounded">{orderItem?.product_sku}</span></p>
+                                        <p className="text-sm text-red-600">This SKU is not recognized in the system. Please add a valid SKU to proceed.</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="mt-4 ml-7 flex items-center gap-3">
+                                    <button
+                                      className="h-9 inline-flex items-center px-4 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 hover:border-red-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
+                                      onClick={() => { setReplacingModal(true); setSkuToReplace(orderItem?.product_sku); setSkuOrderFullilment(invalidSKuOrderFullilment?.find((item: any) => orderItem?.product_sku === item.sku)?.orderFullFillmentId || ""); }}
+                                    >
+                                      Replace SKU
+                                    </button>
+                                    <button
+                                      className="h-9 inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-600 bg-white hover:bg-red-50 hover:border-red-400 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-400 transition-colors duration-200"
+                                      onClick={() => { setProductToDelete({ product_guid: orderItem?.product_guid, product_sku: orderItem?.product_sku, orderFullFillmentId: order?.orderFullFillmentId, order_po: order?.order_po }); setProductDeleteModalVisible(true); }}
+                                    >
+                                      Remove
+                                    </button>
+                                  </div>
+                                </div>
                               ) : (
                                 <div
-                                  key={orderItem.product_sku}
+                                  key={orderItem.product_sku ?? orderItem.product_guid}
                                   className={`mb-3 w-full rounded-lg shadow-sm transition-all duration-200 ${style.orderes_lable}`}
                                   style={{
                                     background: isDark ? "#0c1520" : "#ffffff",
                                     border: isDark ? "1px solid #1e2d42" : "1px solid #e5e7eb",
-                                    opacity: isExcluded ? 0.4 : 1,
-                                    filter: isExcluded ? "grayscale(0.5)" : "none",
+                                    opacity: (isExcluded && !hasInvalidSKUs(order?.order_items) && !orderHasMissingImage(order?.order_items)) ? 0.4 : 1,
+                                    filter: (isExcluded && !hasInvalidSKUs(order?.order_items) && !orderHasMissingImage(order?.order_items)) ? "grayscale(0.5)" : "none",
                                     transition: "opacity 0.3s ease, filter 0.3s ease",
                                   }}
                                 >
@@ -1469,7 +2379,7 @@ const ImportList: React.FC = () => {
                                       {/* Image */}
                                       <div className={`flex-shrink-0 ${style.importlist_pic}`}>
                                         {(() => {
-                                          const originalImageUrl = getImageUrl(orderItem, orderItem?.product_sku);
+                                          const originalImageUrl = getImageUrl(orderItem, orderItem?.product_sku, orderItem?.product_guid);
                                           const imageKey = `${orderItem?.product_sku}-${orderItem?.product_order_po}`;
                                           const currentImageUrl = getCurrentImageUrl(imageKey, originalImageUrl);
                                           const hasError = imageErrors[imageKey];
@@ -1483,21 +2393,87 @@ const ImportList: React.FC = () => {
                                             });
                                           }
 
+                                          // No URL or confirmed load error — show placeholder
+                                          if (!originalImageUrl || hasError) {
+                                            const isApSku = (orderItem?.product_sku ?? "").toUpperCase().startsWith("AP");
+                                            // AP-prefix SKUs: render a plain static box — no image action needed
+                                            if (isApSku) {
+                                              return (
+                                                <div
+                                                  className="w-24 h-24 rounded flex flex-col items-center justify-center"
+                                                  style={{
+                                                    background: isDark ? "linear-gradient(135deg,#1a2535,#141e2e)" : "linear-gradient(135deg,#f3f4f6,#e9eaec)",
+                                                    border: isDark ? "1px solid #1e2d42" : "1px solid #e5e7eb",
+                                                  }}
+                                                >
+                                                  <svg className="w-8 h-8" style={{ color: isDark ? "#2d3f58" : "#d1d5db" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                  </svg>
+                                                </div>
+                                              );
+                                            }
+                                            return (
+                                              <div
+                                                className="w-24 h-24 rounded flex flex-col items-center justify-center cursor-pointer relative group transition-transform hover:scale-[1.02]"
+                                                style={{
+                                                  background: isDark ? "linear-gradient(135deg,#1a2535,#141e2e)" : "linear-gradient(135deg,#f3f4f6,#e9eaec)",
+                                                }}
+                                                onClick={() => setImageGalleryTarget({ orderItem, order })}
+                                                title="Click to add image"
+                                              >
+                                                {/* Smooth pulsing/glowing border element */}
+                                                <style>{`
+                                                  @keyframes smoothBreathingGlow {
+                                                    0%, 100% { opacity: 0.4; box-shadow: 0 0 4px rgba(96, 165, 250, 0.3); transform: scale(1); }
+                                                    50% { opacity: 0.85; box-shadow: 0 0 14px rgba(96, 165, 250, 0.8); transform: scale(1.03); }
+                                                  }
+                                                `}</style>
+                                                <div
+                                                  className="absolute inset-0 rounded border-2 border-blue-400 pointer-events-none transition-all"
+                                                  style={{ animation: 'smoothBreathingGlow 3s ease-in-out infinite' }}
+                                                />
+                                                <svg className="w-8 h-8 mb-1 group-hover:text-blue-400 transition-colors duration-300" style={{ color: isDark ? "#2d3f58" : "#d1d5db" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                </svg>
+                                                <span style={{ fontSize: 9, color: isDark ? "#3d5270" : "#9ca3af", fontWeight: 500 }} className="text-center group-hover:text-blue-400 transition-colors duration-300">Click to add<br />image</span>
+                                              </div>
+                                            );
+                                          }
+
                                           return (
-                                            <img
-                                              key={`${imageKey}-${imageUrlIndex[imageKey] || 0}`}
-                                              src={originalImageUrl}
-                                              alt="product"
-                                              className="w-24 h-24 object-contain rounded border border-gray-100"
-                                              onError={() => handleImageError(imageKey, originalImageUrl)}
-                                              onLoad={() => {
-                                                setImageErrors(prev => {
-                                                  const newState = { ...prev };
-                                                  delete newState[imageKey];
-                                                  return newState;
-                                                });
-                                              }}
-                                            />
+                                            <div className="relative w-24 h-24">
+                                              {/* Shimmer skeleton shown behind the image while it loads */}
+                                              <div
+                                                className="absolute inset-0 rounded border overflow-hidden"
+                                                style={{
+                                                  borderColor: isDark ? "#1e2d42" : "#e5e7eb",
+                                                  background: isDark
+                                                    ? "linear-gradient(90deg,#1a2535 25%,#243347 50%,#1a2535 75%)"
+                                                    : "linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%)",
+                                                  backgroundSize: "200% 100%",
+                                                  animation: "shimmer 1.5s infinite",
+                                                }}
+                                              />
+                                              <img
+                                                key={`${imageKey}-${imageUrlIndex[imageKey] || 0}`}
+                                                src={originalImageUrl}
+                                                alt="product"
+                                                className="absolute inset-0 w-full h-full object-contain rounded border border-gray-100 transition-opacity duration-300"
+                                                style={{ opacity: 0 }}
+                                                onError={(e) => {
+                                                  (e.target as HTMLImageElement).style.opacity = "0";
+                                                  handleImageError(imageKey, originalImageUrl);
+                                                }}
+                                                onLoad={(e) => {
+                                                  (e.target as HTMLImageElement).style.opacity = "1";
+                                                  setImageErrors(prev => {
+                                                    const newState = { ...prev };
+                                                    delete newState[imageKey];
+                                                    return newState;
+                                                  });
+                                                }}
+                                              />
+                                            </div>
                                           );
                                         })()}
                                       </div>
@@ -1506,9 +2482,9 @@ const ImportList: React.FC = () => {
                                       <div className="flex-1 min-w-0">
                                         {(Object.keys(productData)?.length && (
                                           <div className="w-full">
-                                            {productData[orderItem?.product_sku]?.labels?.length > 0 ? (
+                                            {getProductDetail(orderItem)?.labels?.length > 0 ? (
                                               (() => {
-                                                const labels = productData[orderItem?.product_sku]?.labels || [];
+                                                const labels = getProductDetail(orderItem)?.labels || [];
                                                 const typeLabel = labels.find((label: any) => label.key?.toLowerCase() === "type");
                                                 const otherLabels = labels.filter((label: any) => label.key?.toLowerCase() !== "type");
 
@@ -1550,7 +2526,12 @@ const ImportList: React.FC = () => {
                                               })()
                                             ) : (
                                               <div className={`w-full text-xs text-gray-600 ${style.order_description}`}>
-                                                {parse(truncateText(productData[orderItem?.product_sku]?.description_long || "", descriptionCharLimit))}
+                                                {(() => {
+                                                  const desc = getProductDetail(orderItem)?.description_long || "";
+                                                  // Hide API error messages returned as description (e.g. "Invalid product_sku...")
+                                                  if (desc.trimStart().toLowerCase().startsWith("invalid")) return null;
+                                                  return parse(truncateText(desc, descriptionCharLimit));
+                                                })()}
                                               </div>
                                             )}
                                           </div>
@@ -1567,33 +2548,80 @@ const ImportList: React.FC = () => {
                                       borderColor: isDark ? "#1e2d42" : "#f3f4f6",
                                     }}
                                   >
-                                    <button
-                                      type="button"
-                                      className="inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-red-500 transition-colors"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setProductToDelete({
-                                          product_guid: orderItem?.product_guid,
-                                          orderFullFillmentId: order?.orderFullFillmentId,
-                                          order_po: order?.order_po,
-                                        });
-                                        setProductDeleteModalVisible(true);
-                                      }}
-                                      title="Delete product"
-                                    >
-                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                      </svg>
-                                      Remove
-                                    </button>
-                                    <div className="text-sm text-gray-600">
-                                      {orderItem?.product_qty || 1}@ ${(productData[orderItem?.product_guid]?.total_price)?.toFixed(2)} ea
-                                      {console.log(orderItem?.product_guid, "productData[orderItem?.product_guid]?.total_price")}
+                                    <div className="flex items-center gap-2">
+                                      {/* Change Image button — hidden for AP-prefix SKUs (catalog products) */}
+                                      {!(orderItem?.product_sku ?? "").toUpperCase().startsWith("AP") && (
+                                        <button
+                                          type="button"
+                                          className="inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-blue-600 transition-colors"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setImageGalleryTarget({ orderItem, order });
+                                          }}
+                                          title="Change product image"
+                                        >
+                                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                          </svg>
+                                          Image
+                                        </button>
+                                      )}
+                                      {/* Remove product button */}
+                                      <button
+                                        type="button"
+                                        className="inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-red-500 transition-colors"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setProductToDelete({
+                                            product_guid: orderItem?.product_guid,
+                                            orderFullFillmentId: order?.orderFullFillmentId,
+                                            order_po: order?.order_po,
+                                          });
+                                          setProductDeleteModalVisible(true);
+                                        }}
+                                        title="Delete product"
+                                      >
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                        Remove
+                                      </button>
+                                    </div>
+                                    <div className="text-sm">
+                                      {/* Item errors (e.g. product_qty must be at least 1) */}
+                                      {itemErrors[order?.order_po]?.length > 0 ? (
+                                        <div
+                                          style={{
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: 4,
+                                            fontSize: 10,
+                                            fontWeight: 600,
+                                            color: "#92400e",
+                                            background: "#fffbeb",
+                                            border: "1px solid #fcd34d",
+                                            borderRadius: 4,
+                                            padding: "2px 6px",
+                                          }}
+                                        >
+                                          <svg style={{ width: 10, height: 10, flexShrink: 0 }} fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                          </svg>
+                                          {itemErrors[order?.order_po][0]}
+                                        </div>
+                                      ) : (
+                                        /* Only show price when product is valid and has no errors */
+                                        validSKUs.some(v => String(v).toLowerCase() === (orderItem?.product_sku ?? '').toString().toLowerCase() || String(v) === orderItem?.product_guid) &&
+                                          (!recipientErrors[order?.order_po] || Object.keys(recipientErrors[order?.order_po]).length === 0) &&
+                                          getProductDetail(orderItem)?.total_price != null ? (
+                                          <span className="text-gray-600">{orderItem?.product_qty || 1}@ ${(getProductDetail(orderItem)?.total_price)?.toFixed(2)} ea</span>
+                                        ) : null
+                                      )}
                                     </div>
                                   </div>
                                 </div>
-                              )
-                            )}
+                              );
+                            })}
                             {/* Add More Products Button */}
                             <div className="mt-4 flex justify-center">
                               <Dropdown
@@ -1657,7 +2685,7 @@ const ImportList: React.FC = () => {
                           <AddProductsTemplate orderFullFillmentId={order?.orderFullFillmentId} />
                         )}
                       </li>
-                      <li style={{ opacity: isExcluded ? 0.4 : 1, filter: isExcluded ? "grayscale(0.5)" : "none", transition: "opacity 0.3s ease, filter 0.3s ease" }}>
+                      <li>
                         <label
                           className={`h-[220px] inline-flex justify-between w-full p-5 rounded-lg cursor-pointer border-2 ${hasInvalidSKUs(order?.order_items) ? 'opacity-50 pointer-events-none' : ''}`}
                           style={{
@@ -1691,10 +2719,40 @@ const ImportList: React.FC = () => {
                                     </div>
                                   </div>
                                   <p className="text-gray-500 text-center text-sm font-medium">
-                                    Shipping Locked
+                                    Shipping Unavailable
                                   </p>
                                   <p className="text-gray-400 text-center text-xs mt-1">
-                                    Fix invalid SKUs to unlock
+                                    Order incomplete, missing data
+                                  </p>
+                                </div>
+                              ) : recipientErrors[order?.order_po] && Object.keys(recipientErrors[order?.order_po]).length > 0 ? (
+                                <div className="flex flex-col items-center justify-center h-full">
+                                  <div className="relative mb-3">
+                                    <svg
+                                      className="w-16 h-16 text-red-200"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth="1.5"
+                                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                                      />
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                    <div className="absolute -top-1 -right-1 bg-red-100 rounded-full p-1">
+                                      <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                      </svg>
+                                    </div>
+                                  </div>
+                                  <p className="text-red-500 text-center text-sm font-medium">
+                                    Address Issue
+                                  </p>
+                                  <p className="text-gray-400 text-center text-xs mt-1 px-3">
+                                    Fix the recipient address to unlock shipping
                                   </p>
                                 </div>
                               ) : (
@@ -1746,9 +2804,9 @@ const ImportList: React.FC = () => {
                   </div>
                 );
               })
-            ) : !orders?.data || isRefreshing ? (
+            ) : !orders?.data || isRefreshing || isPendingUpdate || ordersStatus === 'loading' ? (
               <SkeletonOrderCard count={3} />
-            ) : orders?.data && orders.data.length === 0 && !isRefreshing ? (
+            ) : orders?.data && orders.data.length === 0 && !isRefreshing && !isPendingUpdate && ordersStatus !== 'loading' ? (
               <div className="flex flex-col items-center justify-center h-64 rounded-lg shadow-md p-6 mb-20" style={{ background: isDark ? "#0f1724" : "#ffffff" }}>
                 <img
                   src={shoppingCart}
@@ -1963,7 +3021,71 @@ const ImportList: React.FC = () => {
       <VirtualInvModal
         visible={addProductVirtualInvVisible}
         onClose={() => setAddProductVirtualInvVisible(false)}
-        onProductAdded={handleAddProductCodeUpdate}
+        orderFullFillmentId={currentOrderForAddProduct}
+        onProductAdded={handleVirtualInvProductAdded}
+      />
+
+      {/* ── Image Gallery Modal — "Change Image" for existing products ── */}
+      <ImageGalleryModal
+        visible={!!imageGalleryTarget}
+        onClose={() => setImageGalleryTarget(null)}
+        title={imageGalleryTarget ? `Choose Image for "${imageGalleryTarget.orderItem?.product_sku}"` : "Select an Image"}
+        onImageSelect={async (image: any) => {
+          if (!imageGalleryTarget) return;
+          const { orderItem, order: targetOrder } = imageGalleryTarget;
+
+          setImageGalleryTarget(null);
+
+          // Patch only the matching item's product_image — leave everything else intact.
+          // Use the full order object from Redux so we send all required fields.
+          const freshOrder = orders?.data?.find(
+            (o: any) => o.orderFullFillmentId === targetOrder?.orderFullFillmentId
+          ) ?? targetOrder;
+
+          const updatedOrder = {
+            ...freshOrder,
+            order_items: (freshOrder.order_items ?? []).map((item: any) => {
+              if (item.product_guid !== orderItem.product_guid) return item;
+              return {
+                ...item,
+                product_image: {
+                  product_url_file: image.private_hires_uri,
+                  product_url_thumbnail: image.public_thumbnail_uri,
+                },
+              };
+            }),
+          };
+
+          const result = await dispatch(
+            updateOrdersInfo({
+              updatedValues: [updatedOrder],
+              customerId: customerInfo?.data?.account_id,
+            })
+          );
+
+          if (updateOrdersInfo.fulfilled.match(result)) {
+            notificationApi.success({
+              message: "Image Updated",
+              description: `Image "${image.title}" has been applied to this product.`,
+            });
+            // Invalidate shipping cache for this order and re-fetch so the UI refreshes
+            dispatch(invalidateShippingCacheEntries([targetOrder?.order_po]));
+            fetchedSkusRef.current.clear();
+            dispatch(clearProductDetails());
+
+            // Clear any local image error state so the new image is forced to render
+            setImageErrors({});
+            setImageUrlIndex({});
+
+            resetOrderPostData();
+            await dispatch(fetchOrder(customerInfo?.data?.account_id));
+          } else {
+            notificationApi.error({
+              message: "Image Update Failed",
+              description: "Could not update the product image. Please try again.",
+            });
+          }
+        }}
       />
     </div>
   );
