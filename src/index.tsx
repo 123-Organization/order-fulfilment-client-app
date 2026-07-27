@@ -13,15 +13,13 @@ const root = ReactDOM.createRoot(
 );
 // persistor.purge()// Clear the persisted state
 root.render(
-  <React.StrictMode>
-    <Provider store={store}>
-      <PersistGate loading={null} persistor={persistor}>
-        <HashRouter basename="/">
-          <App />
-        </HashRouter>
-      </PersistGate>
-    </Provider>
-  </React.StrictMode>
+  <Provider store={store}>
+    <PersistGate loading={null} persistor={persistor}>
+      <HashRouter basename="/">
+        <App />
+      </HashRouter>
+    </PersistGate>
+  </Provider>
 );
 
 // If you want to start measuring performance in your app, pass a function
