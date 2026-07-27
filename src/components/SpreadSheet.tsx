@@ -749,7 +749,7 @@ export default function SpreadSheet({ isOpen, onClose }: SpreadSheetProps) {
 
       // Immediately fetch all orders so Finerworks state isn't just the uploaded ones
       if (customerInfo?.data?.account_id) {
-        await dispatch(fetchOrder(customerInfo?.data?.account_key));
+        await dispatch(fetchOrder(customerInfo?.data?.account_id));
       }
 
       setStep(3);

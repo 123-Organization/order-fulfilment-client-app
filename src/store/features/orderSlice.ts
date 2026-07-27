@@ -115,7 +115,7 @@ export const fetchOrder = createAsyncThunk(
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ account_key: accountId, page: 1, limit: 50 })
+      body: JSON.stringify({ accountId: accountId, page: 1, limit: 50 })
     });
     const data = response.json();
 
@@ -297,33 +297,64 @@ export const CreateOrder = createAsyncThunk(
 
 
 
+const uploadInBatches = async (endpoint: string, postData: any, batchSize = 5) => {
+  const orders = postData?.orders;
+
+  if (Array.isArray(orders) && orders.length > batchSize) {
+    const batches: any[][] = [];
+    for (let i = 0; i < orders.length; i += batchSize) {
+      batches.push(orders.slice(i, i + batchSize));
+    }
+
+    const batchPromises = batches.map(async (batchOrders) => {
+      const payload = {
+        ...postData,
+        orders: batchOrders,
+      };
+      const response = await fetch(BASE_URL + endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+      return await response.json();
+    });
+
+    const results = await Promise.all(batchPromises);
+
+    const merged = results.reduce((acc: any, curr: any) => {
+      if (typeof curr === "object" && curr !== null) {
+        return { ...acc, ...curr };
+      }
+      return acc;
+    }, { batchResults: results });
+
+    return merged;
+  }
+
+  const response = await fetch(BASE_URL + endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(postData),
+  });
+  const data = await response.json();
+  return data;
+};
+
 export const saveOrder = createAsyncThunk(
   "order/save",
   async (postData: any, thunkAPI) => {
-    const response = await fetch(BASE_URL + "upload-orders", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(postData),
-    });
-    const data = await response.json();
-    return data;
+    return await uploadInBatches("upload-orders", postData, 5);
   },
 );
 
 export const saveShopifyOrder = createAsyncThunk(
   "order/save/shopify",
   async (postData: any, thunkAPI) => {
-    const response = await fetch(BASE_URL + "upload-orders-shopify", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(postData),
-    });
-    const data = await response.json();
-    return data;
+    return await uploadInBatches("upload-orders-shopify", postData, 5);
   },
 );
 
@@ -1017,7 +1048,29 @@ export const OrderSlice = createSlice({
     },
     resetUpdateImageStatus: (state) => {
       state.updateImageStatus = "idle"
-    }
+    },
+    /**
+     * Optimistically update a single order-item's quantity in Redux state
+     * without triggering a full fetchOrder re-fetch.
+     * Payload: { orderFullFillmentId: string, product_guid: string, new_quantity: number }
+     */
+    patchOrderItemQuantity: (
+      state,
+      action: PayloadAction<{ orderFullFillmentId: string; product_guid: string; new_quantity: number }>
+    ) => {
+      const { orderFullFillmentId, product_guid, new_quantity } = action.payload;
+      if (!state.orders?.data) return;
+      const order = state.orders.data.find(
+        (o: any) => o.orderFullFillmentId === orderFullFillmentId
+      );
+      if (!order) return;
+      const item = order.order_items?.find(
+        (i: any) => i.product_guid === product_guid
+      );
+      if (item) {
+        item.product_qty = new_quantity;
+      }
+    },
   },
   extraReducers: (builder) => {
     builder.addCase(fetchOrder.fulfilled, (state, action) => {
@@ -1275,4 +1328,4 @@ export const OrderSlice = createSlice({
 });
 
 export default OrderSlice.reducer;
-export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setShippingLoading, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, updateIframe, updateApp, updateOpenSheet, updateExcludedOrders, resetExcludedOrders, updateValidSKU, resetValidSKU, updateReplacingCode, resetReplacingCode, resetReplaceCodeResult, resetReplaceCodeStatus, resetSubmitStatus, resetSendOrderInfoStatus, resetSubmitOrdersResponse, resetShopifyOrdersResponse, resetSaveOrderInfo, resetUpdateImageStatus, resetSquarespaceOrdersResponse, resetSquarespaceImportStatus, resetWixOrdersResponse, resetWixImportStatus, resetShippoOrdersResponse, resetShippoImportStatus, resetSquareOrdersResponse, resetSquareImportStatus } = OrderSlice.actions;
+export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setShippingLoading, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, updateIframe, updateApp, updateOpenSheet, updateExcludedOrders, resetExcludedOrders, updateValidSKU, resetValidSKU, updateReplacingCode, resetReplacingCode, resetReplaceCodeResult, resetReplaceCodeStatus, resetSubmitStatus, resetSendOrderInfoStatus, resetSubmitOrdersResponse, resetShopifyOrdersResponse, resetSaveOrderInfo, resetUpdateImageStatus, resetSquarespaceOrdersResponse, resetSquarespaceImportStatus, resetWixOrdersResponse, resetWixImportStatus, resetShippoOrdersResponse, resetShippoImportStatus, resetSquareOrdersResponse, resetSquareImportStatus, patchOrderItemQuantity } = OrderSlice.actions;

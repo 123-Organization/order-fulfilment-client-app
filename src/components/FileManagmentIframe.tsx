@@ -224,7 +224,7 @@ export default function FileManagementIframe({
       };
       dispatch(updateProductValidSKU(data));
       setTimeout(() => {
-        dispatch(fetchOrder(companyinfo?.data?.account_key));
+        dispatch(fetchOrder(companyinfo?.data?.account_id));
       }, 2000);
     } else {
       // Process images one by one with sequential delays
@@ -237,7 +237,7 @@ export default function FileManagementIframe({
       };
       dispatch(AddProductToOrder(data));
       setTimeout(() => {
-        dispatch(fetchOrder(companyinfo?.data?.account_key));
+        dispatch(fetchOrder(companyinfo?.data?.account_id));
       }, 2000);
     }
   };

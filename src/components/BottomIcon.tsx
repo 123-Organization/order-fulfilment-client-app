@@ -271,7 +271,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   orders: transformedOrders,
                 };
 
-                dispatch(saveShopifyOrder(sendData));
+                await dispatch(saveShopifyOrder(sendData));
 
                 notification.success({
                   message: "Success",
@@ -382,7 +382,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                     };
 
 
-                    dispatch(saveShopifyOrder(sendData));
+                    await dispatch(saveShopifyOrder(sendData));
 
                     notification.success({
                       message: "Success",
@@ -647,7 +647,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   orders: transformedOrders,
                 };
 
-                dispatch(saveShopifyOrder(sendData));
+                await dispatch(saveShopifyOrder(sendData));
 
                 notification.success({
                   message: 'Success',
@@ -774,7 +774,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   orders: transformedOrders,
                 };
 
-                dispatch(saveShopifyOrder(sendData)); // reuse the generic save endpoint
+                await dispatch(saveShopifyOrder(sendData)); // reuse the generic save endpoint
 
                 notification.success({
                   message: 'Success',
@@ -988,7 +988,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   orders: transformedOrders,
                 };
 
-                dispatch(saveShopifyOrder(sendData));
+                await dispatch(saveShopifyOrder(sendData));
 
                 notification.success({
                   message: 'Success',
@@ -1091,7 +1091,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   orders: transformedOrders,
                 };
 
-                dispatch(saveShopifyOrder(sendData));
+                await dispatch(saveShopifyOrder(sendData));
 
                 notification.success({
                   message: 'Success',
@@ -1897,6 +1897,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                 className={`min-w-[130px] h-12 rounded-2xl font-bold border-0 bg-transparent hover:bg-white/10 text-white ${style.bottomIcon}`}
                 type="primary"
                 size="large"
+                disabled={nextSpinning}
                 icon={
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -1910,6 +1911,58 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
           </div>
         )}
       </div>
+
+      {/* Full-Screen Animated Waiting Screen Overlay during Order Upload */}
+      {nextSpinning && (
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-md transition-all duration-300 animate-fadeIn select-none">
+          <div className="relative flex flex-col items-center p-8 sm:p-10 max-w-md w-[90%] bg-slate-900/95 border border-slate-700/60 rounded-3xl shadow-2xl backdrop-blur-xl text-center overflow-hidden">
+            
+            {/* Background Ambient Glows */}
+            <div className="absolute -top-16 -left-16 w-44 h-44 bg-blue-500/25 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-16 -right-16 w-44 h-44 bg-teal-500/25 rounded-full blur-3xl pointer-events-none" />
+
+            {/* Animated Graphic & Icon Container */}
+            <div className="relative mb-6 flex items-center justify-center">
+              {/* Pulsing Outer Aura */}
+              <div className="absolute -inset-3 bg-gradient-to-r from-blue-500 via-indigo-500 to-teal-400 rounded-full opacity-35 blur-md animate-pulse" />
+              
+              {/* Dual Spinning Gradient Ring */}
+              <div className="w-24 h-24 rounded-full border-4 border-blue-500/20 border-t-blue-500 border-r-teal-400 animate-spin" />
+              
+              {/* Centered Bouncing Upload Icon */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <svg className="w-10 h-10 text-teal-400 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+              </div>
+            </div>
+
+            {/* Main Header */}
+            <h3 className="text-2xl font-bold text-white mb-2 tracking-tight">
+              Uploading Orders...
+            </h3>
+            
+            {/* Subtext */}
+            <p className="text-slate-300 text-sm mb-6 max-w-xs leading-relaxed">
+              Please wait while your orders are being fetched and uploaded in concurrent batches.
+            </p>
+
+            {/* Animated Shimmer Progress Bar */}
+            <div className="w-full bg-slate-800/90 rounded-full h-3 overflow-hidden border border-slate-700/60 mb-5 relative">
+              <div className="bg-gradient-to-r from-blue-500 via-teal-400 to-indigo-500 h-full w-full rounded-full animate-shimmerBar" />
+            </div>
+
+            {/* Status notice */}
+            <div className="flex items-center justify-center gap-2 text-xs text-slate-400 font-medium">
+              <svg className="w-4 h-4 text-amber-400 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>Please do not close or refresh this page</span>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -4,7 +4,8 @@ import { useAppDispatch, useAppSelector } from "../store";
 import { increaseProductQuantity } from "../store/features/productSlice";
 import { setQuantityUpdated } from "../store/features/productSlice";
 import { useNotificationContext } from "../context/NotificationContext";
-import { fetchOrder } from "../store/features/orderSlice";
+import { patchOrderItemQuantity } from "../store/features/orderSlice";
+
 type QuantityInputProps = {
   quantity: number;
   clicking: boolean;
@@ -12,6 +13,8 @@ type QuantityInputProps = {
   orderFullFillmentId: string;
   product_guid: string;
   onQuantityUpdated?: () => void;
+  /** Called with (orderFullFillmentId, isLoading) when the API starts/finishes. */
+  onLoadingChange?: (orderFullFillmentId: string, isLoading: boolean) => void;
 };
 
 const QuantityInput: React.FC<QuantityInputProps> = ({
@@ -21,6 +24,7 @@ const QuantityInput: React.FC<QuantityInputProps> = ({
   orderFullFillmentId,
   product_guid,
   onQuantityUpdated,
+  onLoadingChange,
 }) => {
   const [value, setValue] = useState<number>(quantity);
   const [clickTimer, setClickTimer] = useState<NodeJS.Timeout | null>(null);
@@ -32,7 +36,6 @@ const QuantityInput: React.FC<QuantityInputProps> = ({
   const { status, error } = useAppSelector((state) => state.ProductSlice);
   const notificationApi = useNotificationContext();
   const product_status = useAppSelector((state) => state.ProductSlice.status);
-  const customerInfo = useAppSelector((state) => state.Customer.customer_info);
   const quantityUpdatedRef = useRef(false);
 
   useEffect(() => {
@@ -47,13 +50,17 @@ const QuantityInput: React.FC<QuantityInputProps> = ({
     if (clickTimer) clearTimeout(clickTimer);
     setclicking(true);
 
-    // Store the timer in a ref to avoid race conditions
+    // Optimistically update the quantity in local Redux state immediately
+    // so the UI reflects the change without waiting for the API.
+    dispatch(patchOrderItemQuantity({ orderFullFillmentId, product_guid, new_quantity: newValue }));
+
+    // Signal loading start immediately so the order card can show a skeleton.
+    onLoadingChange?.(orderFullFillmentId, true);
+
     const newTimer = setTimeout(() => {
-
-
       dispatch(setQuantityUpdated(true));
 
-      // First update the quantity in the API
+      // Persist the new quantity to the backend
       dispatch(
         increaseProductQuantity({
           orderFullFillmentId,
@@ -61,23 +68,23 @@ const QuantityInput: React.FC<QuantityInputProps> = ({
           new_quantity: newValue,
         })
       ).then(() => {
-        setTimeout(async () => {
-          if (quantityUpdatedRef.current) {
-            notificationApi.success({
-              message: "Quantity Updated",
-              description: "Quantity has been successfully updated.",
-            });
-            quantityUpdatedRef.current = false;
-          }
-          await dispatch(fetchOrder(customerInfo?.data?.account_key));
-          onQuantityUpdated?.();
-        }, 3000);
+        if (quantityUpdatedRef.current) {
+          notificationApi.success({
+            message: "Quantity Updated",
+            description: "Quantity has been successfully updated.",
+          });
+          quantityUpdatedRef.current = false;
+        }
+        // Invalidate shipping cache for ONLY this order and re-fetch
+        // shipping options for just this one order — NOT all orders.
+        onQuantityUpdated?.();
+        // Signal loading done after shipping re-fetch is triggered.
+        onLoadingChange?.(orderFullFillmentId, false);
       });
-    }, 1000); // Reduced timeout for better UX
+    }, 1000);
 
     setClickTimer(newTimer);
   };
-
 
   const increase = () => updateQuantity(Math.min(value + 1, 1000));
   const decrease = () => updateQuantity(Math.max(value - 1, 1));
@@ -90,10 +97,9 @@ const QuantityInput: React.FC<QuantityInputProps> = ({
     };
   }, [clickTimer]);
 
-  // Add useEffect to monitor quantity prop changes
+  // Sync local value when the prop changes (e.g. after a full order re-fetch)
   useEffect(() => {
     if (quantity !== undefined && quantity !== null && quantity !== value) {
-
       setValue(quantity);
     }
   }, [quantity]);
@@ -108,7 +114,7 @@ const QuantityInput: React.FC<QuantityInputProps> = ({
           addonBefore={
             <span
               onClick={decrease}
-              className="cursor-pointer  text-base "
+              className="cursor-pointer text-base"
               onMouseDown={(e) => e.preventDefault()}
             >
               -

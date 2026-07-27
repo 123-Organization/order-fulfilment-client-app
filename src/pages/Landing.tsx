@@ -182,7 +182,7 @@ const Landing: React.FC = (): JSX.Element => {
     };
     dispatch(UploadOrdersExcel({ ...postData })).then(() => {
       if (customerInfo?.data?.account_id) {
-        dispatch(fetchOrder(customerInfo?.data?.account_key));
+        dispatch(fetchOrder(customerInfo?.data?.account_id));
       }
     });
   }

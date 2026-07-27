@@ -136,6 +136,8 @@ const ImportList: React.FC = () => {
   // State for expanded labels
   const [expandedLabels, setExpandedLabels] = useState<Set<string>>(new Set());
   const [clicking, setClicking] = useState(false);
+  /** Set of orderFullFillmentIds currently updating quantity + shipping. */
+  const [quantityLoadingOrders, setQuantityLoadingOrders] = useState<Set<string>>(new Set());
   // State for the image-gallery "change image" flow
   const [imageGalleryTarget, setImageGalleryTarget] = useState<{
     orderItem: any;
@@ -437,7 +439,7 @@ const ImportList: React.FC = () => {
               //    Clearing orderPostData before this resolves causes the
               //    shipping useEffect to fire with stale orders.data, re-lock
               //    the gate, and block a re-run when fresh data arrives.
-              await dispatch(fetchOrder(customerInfo?.data?.account_key));
+              await dispatch(fetchOrder(customerInfo?.data?.account_id));
 
               // 3. NOW clear orderPostData — the shipping useEffect fires with
               //    fresh orders.data + empty cache → fetches real prices → total updates.
@@ -550,7 +552,7 @@ const ImportList: React.FC = () => {
     dispatch(clearAllShippingCache());
     // 2. Await fetchOrder so orders.data has the new product BEFORE we
     //    trigger the shipping useEffect by clearing orderPostData.
-    await dispatch(fetchOrder(customerInfo?.data?.account_key));
+    await dispatch(fetchOrder(customerInfo?.data?.account_id));
     // 3. NOW clear orderPostData — shipping useEffect fires with fresh data + empty cache.
     resetOrderPostData();
     setIsRefreshing(false);
@@ -621,7 +623,7 @@ const ImportList: React.FC = () => {
     );
   };
   const onProductCodeReplace = (productCode: string) => {
-    dispatch(fetchOrder(customerInfo?.data?.account_key));
+    dispatch(fetchOrder(customerInfo?.data?.account_id));
     setTimeout(() => {
       resetOrderPostData();
       dispatch(updateValidSKU([...validSKUs, productCode]));
@@ -641,7 +643,7 @@ const ImportList: React.FC = () => {
           });
           dispatch(clearSelectedImage());
           dispatch(resetReplaceCodeResult());
-          dispatch(fetchOrder(customerInfo?.data?.account_key));
+          dispatch(fetchOrder(customerInfo?.data?.account_id));
           dispatch(clearProductData());
           resetOrderPostData();
         }, 2000);
@@ -771,7 +773,7 @@ const ImportList: React.FC = () => {
     }
 
     setTimeout(() => {
-      dispatch(fetchOrder(customerInfo?.data?.account_key));
+      dispatch(fetchOrder(customerInfo?.data?.account_id));
     }, 1000);
   }, []);
   // console.log("oo", customerInfo?.data?.account_id);
@@ -788,7 +790,7 @@ const ImportList: React.FC = () => {
     // 3. Reset orderPostData (also resets in-flight guard) so the main shipping effect re-runs
     resetOrderPostData();
     // 4. Re-fetch orders from the server
-    await dispatch(fetchOrder(customerInfo?.data?.account_key));
+    await dispatch(fetchOrder(customerInfo?.data?.account_id));
     setIsRefreshingOrders(false);
   };
 
@@ -877,7 +879,7 @@ const ImportList: React.FC = () => {
     );
   };
   const onProductCodeUpdate = (productCode: string) => {
-    dispatch(fetchOrder(customerInfo?.data?.account_key));
+    dispatch(fetchOrder(customerInfo?.data?.account_id));
   };
 
   const onBulkDeleteOrders = async () => {
@@ -902,7 +904,7 @@ const ImportList: React.FC = () => {
     // Clear checked orders and the entire shipping cache
     dispatch(updateCheckedOrders([]));
     dispatch(clearAllShippingCache());
-    dispatch(fetchOrder(customerInfo?.data?.account_key));
+    dispatch(fetchOrder(customerInfo?.data?.account_id));
   };
 
   // Delete a product from an order
@@ -973,7 +975,7 @@ const ImportList: React.FC = () => {
             dispatch(invalidateShippingCacheEntries([productToDelete.order_po]));
           }
           // Refresh orders
-          dispatch(fetchOrder(customerInfo?.data?.account_key));
+          dispatch(fetchOrder(customerInfo?.data?.account_id));
           resetOrderPostData();
           // Clear the fetchedSkusRef to allow re-fetching product details
           fetchedSkusRef.current.clear();
@@ -1008,7 +1010,7 @@ const ImportList: React.FC = () => {
       deleteNotificationShown.current.succeeded = true;
       // Reset status after showing notification
       dispatch(resetDeleteOrderStatus());
-      dispatch(fetchOrder(customerInfo?.data?.account_key));
+      dispatch(fetchOrder(customerInfo?.data?.account_id));
     } else if (
       deleteOrderStatus === "failed" &&
       !deleteNotificationShown.current.failed
@@ -2373,8 +2375,70 @@ const ImportList: React.FC = () => {
                                     opacity: (isExcluded && !hasInvalidSKUs(order?.order_items) && !orderHasMissingImage(order?.order_items)) ? 0.4 : 1,
                                     filter: (isExcluded && !hasInvalidSKUs(order?.order_items) && !orderHasMissingImage(order?.order_items)) ? "grayscale(0.5)" : "none",
                                     transition: "opacity 0.3s ease, filter 0.3s ease",
+                                    position: "relative",
+                                    overflow: "hidden",
                                   }}
                                 >
+                                  {/* Quantity-update loading shimmer overlay */}
+                                  {quantityLoadingOrders.has(order?.orderFullFillmentId) && (
+                                    <div
+                                      style={{
+                                        position: "absolute",
+                                        inset: 0,
+                                        zIndex: 20,
+                                        borderRadius: "inherit",
+                                        overflow: "hidden",
+                                        pointerEvents: "none",
+                                      }}
+                                    >
+                                      {/* Frosted-glass base */}
+                                      <div style={{
+                                        position: "absolute",
+                                        inset: 0,
+                                        background: isDark
+                                          ? "rgba(12, 21, 32, 0.65)"
+                                          : "rgba(255, 255, 255, 0.65)",
+                                        backdropFilter: "blur(3px)",
+                                      }} />
+                                      {/* Shimmer sweep */}
+                                      <div style={{
+                                        position: "absolute",
+                                        inset: 0,
+                                        background: "linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.18) 50%, transparent 60%)",
+                                        backgroundSize: "200% 100%",
+                                        animation: "shimmerSweep 1.4s linear infinite",
+                                      }} />
+                                      {/* Centered spinner + label */}
+                                      <div style={{
+                                        position: "absolute",
+                                        inset: 0,
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        gap: 8,
+                                      }}>
+                                        <svg
+                                          style={{ animation: "spin 0.9s linear infinite", width: 22, height: 22, color: isDark ? "#60a5fa" : "#3b82f6" }}
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          fill="none"
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.25" />
+                                          <path fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                                        </svg>
+                                        <span style={{
+                                          fontSize: 11,
+                                          fontWeight: 600,
+                                          letterSpacing: "0.05em",
+                                          color: isDark ? "#93c5fd" : "#2563eb",
+                                          textTransform: "uppercase",
+                                        }}>
+                                          Updating…
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )}
                                   {/* Main content area */}
                                   <div className="p-4 min-h-[120px] relative">
                                     {/* Quantity control — top right */}
@@ -2385,6 +2449,14 @@ const ImportList: React.FC = () => {
                                         setclicking={setClicking}
                                         orderFullFillmentId={order?.orderFullFillmentId}
                                         product_guid={orderItem?.product_guid}
+                                        onLoadingChange={(id, isLoading) => {
+                                          setQuantityLoadingOrders(prev => {
+                                            const next = new Set(prev);
+                                            if (isLoading) next.add(id);
+                                            else next.delete(id);
+                                            return next;
+                                          });
+                                        }}
                                         onQuantityUpdated={() => {
                                           // Invalidate shipping cache for ONLY this order,
                                           // then reset orderPostData so the shipping useEffect
@@ -3098,7 +3170,7 @@ const ImportList: React.FC = () => {
             setImageUrlIndex({});
 
             resetOrderPostData();
-            await dispatch(fetchOrder(customerInfo?.data?.account_key));
+            await dispatch(fetchOrder(customerInfo?.data?.account_id));
           } else {
             notificationApi.error({
               message: "Image Update Failed",

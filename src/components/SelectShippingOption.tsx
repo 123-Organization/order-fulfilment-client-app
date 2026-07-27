@@ -205,71 +205,65 @@ const SelectShippingOption: React.FC<{
       dispatch,
     ]);
 
-    // Add new useEffect to sync currentOption with shipping_option updates
+    // Sync selectedOption whenever fresh shipping data arrives for this order.
+    // After a quantity update the API returns new calculated_total values — we
+    // find the option in the fresh data that matches the currently-selected
+    // shipping method so the subtotal/grand-total display updates automatically.
     useEffect(() => {
-      if (shipping_option && poNumber) {
-        const currentShippingOption = shipping_option.find(
-          (option: ShippingOption) => option.order_po === poNumber
-        );
-        // console.log("currentShippingOption", currentShippingOption);
+      if (!shipping_option || !poNumber) return;
 
-        if (currentShippingOption) {
-          // Get existing options or initialize
-          const existingOptions = currentOption?.allOptions || [];
-          // console.log("existingOptions", existingOptions);
+      const freshShippingEntry = shipping_option.find(
+        (option: ShippingOption) => option.order_po === poNumber
+      );
+      if (!freshShippingEntry) return;
 
-          // Check if this order already exists and if the option has changed
-          const existingOrderOption = existingOptions.find(
-            (opt: StoredOption) => opt.order_po === poNumber
-          );
-          const hasChanged =
-            !existingOrderOption ||
-            JSON.stringify(existingOrderOption.selectedOption) !==
-            JSON.stringify(currentShippingOption);
+      // Determine the currently active shipping method key so we can find the
+      // matching entry in the refreshed options list.
+      const currentMethodKey = selectedOption
+        ? `${selectedOption.rate}-$${selectedOption.shipping_method}`
+        : null;
 
-          if (hasChanged) {
-            // Create updated options array
-            const updatedOptions = existingOptions.map((opt: StoredOption) => {
-              if (opt.order_po === poNumber) {
-                // Update the matching order with latest shipping option
-                return {
-                  order_po: poNumber,
-                  selectedOption: currentShippingOption,
-                };
-              }
-              return opt;
-            });
+      const freshOptions: ShippingOption[] = freshShippingEntry.options || [];
 
-            // If order not found in existing options, add it
-            if (
-              !existingOptions.some(
-                (opt: StoredOption) => opt.order_po === poNumber
-              )
-            ) {
-              updatedOptions.push({
-                order_po: poNumber,
-                selectedOption: currentShippingOption,
-              });
-            }
+      // Try to find the same shipping method in the new data (preserves user selection).
+      const matchedOption = currentMethodKey
+        ? freshOptions.find(
+            (opt: ShippingOption) =>
+              `${opt.rate}-$${opt.shipping_method}` === currentMethodKey
+          )
+        : null;
 
-            // Update the store only if changed
-            dispatch(
-              updateCurrentOption({
-                allOptions: updatedOptions,
-              })
-            );
+      // Fall back to preferred option if the previously selected method is no
+      // longer available or nothing was selected yet.
+      const nextOption =
+        matchedOption ||
+        freshShippingEntry.preferred_option ||
+        freshShippingEntry;
 
-            // Update selected option state only if different
-            if (
-              JSON.stringify(selectedOption) !==
-              JSON.stringify(currentShippingOption)
-            ) {
-              setSelectedOption(currentShippingOption);
-            }
-          }
-        }
-      }
-    }, [shipping_option, poNumber, dispatch]);
+      // Only update if calculated_total actually changed (avoids render loops).
+      const prevTotal = JSON.stringify(selectedOption?.calculated_total);
+      const nextTotal = JSON.stringify(nextOption?.calculated_total);
+      if (prevTotal === nextTotal) return;
+
+      setSelectedOption(nextOption);
+
+      // Persist the refreshed option into the Redux currentOption store so
+      // the grand-total in ImportList (read from currentOption.allOptions) is
+      // also updated.
+      const existingOptions = currentOption?.allOptions || [];
+      const updatedOptions = existingOptions.some(
+        (opt: StoredOption) => opt.order_po === poNumber
+      )
+        ? existingOptions.map((opt: StoredOption) =>
+            opt.order_po === poNumber
+              ? { order_po: poNumber, selectedOption: nextOption }
+              : opt
+          )
+        : [...existingOptions, { order_po: poNumber, selectedOption: nextOption }];
+
+      dispatch(updateCurrentOption({ allOptions: updatedOptions }));
+      onShippingOptionChange(poNumber, nextOption?.calculated_total);
+    }, [shipping_option, poNumber]);
 
     const handleOptionChange = useCallback(
       (value: string, order: any) => {
