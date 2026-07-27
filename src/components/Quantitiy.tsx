@@ -11,6 +11,7 @@ type QuantityInputProps = {
   setclicking: (clicking: boolean) => void;
   orderFullFillmentId: string;
   product_guid: string;
+  onQuantityUpdated?: () => void;
 };
 
 const QuantityInput: React.FC<QuantityInputProps> = ({
@@ -19,6 +20,7 @@ const QuantityInput: React.FC<QuantityInputProps> = ({
   setclicking,
   orderFullFillmentId,
   product_guid,
+  onQuantityUpdated,
 }) => {
   const [value, setValue] = useState<number>(quantity);
   const [clickTimer, setClickTimer] = useState<NodeJS.Timeout | null>(null);
@@ -26,7 +28,7 @@ const QuantityInput: React.FC<QuantityInputProps> = ({
   const quantityUpdated = useAppSelector(
     (state) => state.ProductSlice.quantityUpdated
   );
-  
+
   const { status, error } = useAppSelector((state) => state.ProductSlice);
   const notificationApi = useNotificationContext();
   const product_status = useAppSelector((state) => state.ProductSlice.status);
@@ -47,7 +49,7 @@ const QuantityInput: React.FC<QuantityInputProps> = ({
 
     // Store the timer in a ref to avoid race conditions
     const newTimer = setTimeout(() => {
-      
+
 
       dispatch(setQuantityUpdated(true));
 
@@ -59,7 +61,7 @@ const QuantityInput: React.FC<QuantityInputProps> = ({
           new_quantity: newValue,
         })
       ).then(() => {
-        setTimeout(() => {
+        setTimeout(async () => {
           if (quantityUpdatedRef.current) {
             notificationApi.success({
               message: "Quantity Updated",
@@ -67,7 +69,8 @@ const QuantityInput: React.FC<QuantityInputProps> = ({
             });
             quantityUpdatedRef.current = false;
           }
-          dispatch(fetchOrder(customerInfo?.data?.account_id));
+          await dispatch(fetchOrder(customerInfo?.data?.account_key));
+          onQuantityUpdated?.();
         }, 3000);
       });
     }, 1000); // Reduced timeout for better UX
@@ -90,7 +93,7 @@ const QuantityInput: React.FC<QuantityInputProps> = ({
   // Add useEffect to monitor quantity prop changes
   useEffect(() => {
     if (quantity !== undefined && quantity !== null && quantity !== value) {
-      
+
       setValue(quantity);
     }
   }, [quantity]);

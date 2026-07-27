@@ -4,6 +4,7 @@ import { Button, Form, Select, Skeleton, Tooltip, Modal, Dropdown } from "antd";
 import type { MenuProps } from "antd";
 import { InfoCircleOutlined, FullscreenOutlined } from "@ant-design/icons";
 import Spinner from "../components/Spinner";
+import QuantityInput from "../components/Quantitiy";
 import shoppingCart from "../assets/images/shopping-cart-228.svg";
 import {
   resetOrderStatus,
@@ -134,6 +135,7 @@ const ImportList: React.FC = () => {
   const [productToDelete, setProductToDelete] = useState<{ product_guid: string | null | undefined; product_sku?: string | null; orderFullFillmentId: string; order_po: string } | null>(null);
   // State for expanded labels
   const [expandedLabels, setExpandedLabels] = useState<Set<string>>(new Set());
+  const [clicking, setClicking] = useState(false);
   // State for the image-gallery "change image" flow
   const [imageGalleryTarget, setImageGalleryTarget] = useState<{
     orderItem: any;
@@ -435,7 +437,7 @@ const ImportList: React.FC = () => {
               //    Clearing orderPostData before this resolves causes the
               //    shipping useEffect to fire with stale orders.data, re-lock
               //    the gate, and block a re-run when fresh data arrives.
-              await dispatch(fetchOrder(customerInfo?.data?.account_id));
+              await dispatch(fetchOrder(customerInfo?.data?.account_key));
 
               // 3. NOW clear orderPostData — the shipping useEffect fires with
               //    fresh orders.data + empty cache → fetches real prices → total updates.
@@ -548,7 +550,7 @@ const ImportList: React.FC = () => {
     dispatch(clearAllShippingCache());
     // 2. Await fetchOrder so orders.data has the new product BEFORE we
     //    trigger the shipping useEffect by clearing orderPostData.
-    await dispatch(fetchOrder(customerInfo?.data?.account_id));
+    await dispatch(fetchOrder(customerInfo?.data?.account_key));
     // 3. NOW clear orderPostData — shipping useEffect fires with fresh data + empty cache.
     resetOrderPostData();
     setIsRefreshing(false);
@@ -619,7 +621,7 @@ const ImportList: React.FC = () => {
     );
   };
   const onProductCodeReplace = (productCode: string) => {
-    dispatch(fetchOrder(customerInfo?.data?.account_id));
+    dispatch(fetchOrder(customerInfo?.data?.account_key));
     setTimeout(() => {
       resetOrderPostData();
       dispatch(updateValidSKU([...validSKUs, productCode]));
@@ -639,7 +641,7 @@ const ImportList: React.FC = () => {
           });
           dispatch(clearSelectedImage());
           dispatch(resetReplaceCodeResult());
-          dispatch(fetchOrder(customerInfo?.data?.account_id));
+          dispatch(fetchOrder(customerInfo?.data?.account_key));
           dispatch(clearProductData());
           resetOrderPostData();
         }, 2000);
@@ -769,7 +771,7 @@ const ImportList: React.FC = () => {
     }
 
     setTimeout(() => {
-      dispatch(fetchOrder(customerInfo?.data?.account_id));
+      dispatch(fetchOrder(customerInfo?.data?.account_key));
     }, 1000);
   }, []);
   // console.log("oo", customerInfo?.data?.account_id);
@@ -786,7 +788,7 @@ const ImportList: React.FC = () => {
     // 3. Reset orderPostData (also resets in-flight guard) so the main shipping effect re-runs
     resetOrderPostData();
     // 4. Re-fetch orders from the server
-    await dispatch(fetchOrder(customerInfo?.data?.account_id));
+    await dispatch(fetchOrder(customerInfo?.data?.account_key));
     setIsRefreshingOrders(false);
   };
 
@@ -875,7 +877,7 @@ const ImportList: React.FC = () => {
     );
   };
   const onProductCodeUpdate = (productCode: string) => {
-    dispatch(fetchOrder(customerInfo?.data?.account_id));
+    dispatch(fetchOrder(customerInfo?.data?.account_key));
   };
 
   const onBulkDeleteOrders = async () => {
@@ -900,7 +902,7 @@ const ImportList: React.FC = () => {
     // Clear checked orders and the entire shipping cache
     dispatch(updateCheckedOrders([]));
     dispatch(clearAllShippingCache());
-    dispatch(fetchOrder(customerInfo?.data?.account_id));
+    dispatch(fetchOrder(customerInfo?.data?.account_key));
   };
 
   // Delete a product from an order
@@ -971,7 +973,7 @@ const ImportList: React.FC = () => {
             dispatch(invalidateShippingCacheEntries([productToDelete.order_po]));
           }
           // Refresh orders
-          dispatch(fetchOrder(customerInfo?.data?.account_id));
+          dispatch(fetchOrder(customerInfo?.data?.account_key));
           resetOrderPostData();
           // Clear the fetchedSkusRef to allow re-fetching product details
           fetchedSkusRef.current.clear();
@@ -1006,7 +1008,7 @@ const ImportList: React.FC = () => {
       deleteNotificationShown.current.succeeded = true;
       // Reset status after showing notification
       dispatch(resetDeleteOrderStatus());
-      dispatch(fetchOrder(customerInfo?.data?.account_id));
+      dispatch(fetchOrder(customerInfo?.data?.account_key));
     } else if (
       deleteOrderStatus === "failed" &&
       !deleteNotificationShown.current.failed
@@ -2374,7 +2376,25 @@ const ImportList: React.FC = () => {
                                   }}
                                 >
                                   {/* Main content area */}
-                                  <div className="p-4 min-h-[120px]">
+                                  <div className="p-4 min-h-[120px] relative">
+                                    {/* Quantity control — top right */}
+                                    <div className="absolute top-2 right-2 z-10">
+                                      <QuantityInput
+                                        quantity={orderItem?.product_qty || 1}
+                                        clicking={clicking}
+                                        setclicking={setClicking}
+                                        orderFullFillmentId={order?.orderFullFillmentId}
+                                        product_guid={orderItem?.product_guid}
+                                        onQuantityUpdated={() => {
+                                          // Invalidate shipping cache for ONLY this order,
+                                          // then reset orderPostData so the shipping useEffect
+                                          // re-fires and dispatchShippingSelectively refetches
+                                          // just this single cache-miss order.
+                                          dispatch(invalidateShippingCacheEntries([order?.order_po]));
+                                          resetOrderPostData();
+                                        }}
+                                      />
+                                    </div>
                                     <div className={`flex gap-3 ${style.description_box}`}>
                                       {/* Image */}
                                       <div className={`flex-shrink-0 ${style.importlist_pic}`}>
@@ -2614,7 +2634,7 @@ const ImportList: React.FC = () => {
                                         validSKUs.some(v => String(v).toLowerCase() === (orderItem?.product_sku ?? '').toString().toLowerCase() || String(v) === orderItem?.product_guid) &&
                                           (!recipientErrors[order?.order_po] || Object.keys(recipientErrors[order?.order_po]).length === 0) &&
                                           getProductDetail(orderItem)?.total_price != null ? (
-                                          <span className="text-gray-600">{orderItem?.product_qty || 1}@ ${(getProductDetail(orderItem)?.total_price)?.toFixed(2)} ea</span>
+                                          <span className="text-gray-600">{orderItem?.product_qty || 1} @ ${(getProductDetail(orderItem)?.total_price)?.toFixed(2)} ea</span>
                                         ) : null
                                       )}
                                     </div>
@@ -3078,7 +3098,7 @@ const ImportList: React.FC = () => {
             setImageUrlIndex({});
 
             resetOrderPostData();
-            await dispatch(fetchOrder(customerInfo?.data?.account_id));
+            await dispatch(fetchOrder(customerInfo?.data?.account_key));
           } else {
             notificationApi.error({
               message: "Image Update Failed",
