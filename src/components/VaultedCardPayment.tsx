@@ -237,7 +237,7 @@ export default function VaultedCardPayment({
           order.order_po?.startsWith("SQ_");
 
         if (isSquarespace && sqAccessToken && accountKey) {
-          const webhookUrl = `${BASE_URL}api/squarespace/fulfill-order?access_token=${encodeURIComponent(sqAccessToken)}&orderNumber=${encodeURIComponent(order.order_po)}&account_key=${encodeURIComponent(accountKey)}&orderId=${encodeURIComponent(order.order_key)}`;
+          const webhookUrl = `${BASE_URL}squarespace/fulfill-order?access_token=${encodeURIComponent(sqAccessToken)}&orderNumber=${encodeURIComponent(order.order_po)}&account_key=${encodeURIComponent(accountKey)}&orderId=${encodeURIComponent(order.order_key)}`;
           console.log("Injecting Squarespace webhook_url for order:", order.order_po);
           return { ...order, webhook_url: webhookUrl };
         }
