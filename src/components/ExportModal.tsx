@@ -16,8 +16,9 @@ import { useNotificationContext } from "../context/NotificationContext";
 import { inventorySelectionClean } from "../store/features/InventorySlice";
 import { resetStatus } from "../store/features/InventorySlice";
 import Spinner from "./Spinner";
-import { find, groupBy } from "lodash";
+import { find } from "lodash";
 import { updateCompanyInfo } from "../store/features/companySlice";
+import config from "../config/configs";
 import VariantSelectionModal from "./VariantSelectionModal";
 
 interface ExportModalProps {
@@ -67,11 +68,122 @@ const ExportModal: React.FC<ExportModalProps> = ({
     (state) => state.Inventory.exportResponse
   );
   const wordpressConnectionId = useAppSelector((state) => state.company.wordpress_connection_id);
-  const accountKey = companyInfo?.data?.account_key || "";
+  const accountKey = companyInfo?.data?.account_key || localStorage.getItem('squarespace_account_key') || "";
   
 
 
   const exportStatus = useAppSelector((state) => state.Inventory.status);
+
+  const getValidSquarespaceToken = async (): Promise<string | null> => {
+    let squarespaceToken: string =
+      (localStorage.getItem('squarespace_token') ||
+        localStorage.getItem('squarespace_access_token')) as string;
+    let squarespaceRefreshToken = '';
+    const accKey = accountKey || localStorage.getItem('squarespace_account_key') || '';
+
+    if (companyInfo?.data?.connections) {
+      const sqConnection = companyInfo.data.connections.find(
+        (conn: any) => conn.name === "Squarespace"
+      );
+
+      if (sqConnection && sqConnection.data) {
+        try {
+          const parsedData = JSON.parse(sqConnection.data);
+          if (!squarespaceToken) {
+            squarespaceToken = parsedData.access_token || parsedData.token || sqConnection.id;
+          }
+          squarespaceRefreshToken = parsedData.refresh_token;
+        } catch (e) {
+          if (!squarespaceToken) squarespaceToken = sqConnection.id;
+        }
+      } else if (sqConnection && sqConnection.id && !squarespaceToken) {
+        squarespaceToken = sqConnection.id;
+      }
+    }
+
+    if (!squarespaceToken) {
+      notificationApi.error({
+        message: 'Not Connected',
+        description: 'No Squarespace token found. Please reconnect your store.',
+      });
+      return null;
+    }
+
+    let isTokenValid = true;
+    try {
+      const validateRes = await fetch(`${config.SERVER_BASE_URL}squarespace/validate-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_token: squarespaceToken })
+      });
+      const validateData = await validateRes.json();
+
+      if (!validateRes.ok || validateData.valid === false || validateData.error || validateData?.message?.toLowerCase().includes("expired")) {
+        isTokenValid = false;
+      }
+    } catch (e) {
+      console.error("Error validating token", e);
+    }
+
+    if (!isTokenValid) {
+      if (squarespaceRefreshToken && accKey) {
+        try {
+          const refreshRes = await fetch(`${config.SERVER_BASE_URL}squarespace/refresh-token`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ account_key: accKey, refresh_token: squarespaceRefreshToken })
+          });
+          if (refreshRes.ok) {
+            const refreshData = await refreshRes.json();
+            const newToken = refreshData.access_token || refreshData.token || refreshData?.data?.access_token;
+            if (newToken) {
+              squarespaceToken = newToken;
+              localStorage.setItem('squarespace_token', squarespaceToken);
+              setSquarespaceConnectionData({ access_token: squarespaceToken });
+              return squarespaceToken;
+            } else {
+              notificationApi.info({
+                message: 'Token Refreshed',
+                description: 'Applying updated Squarespace authorization...'
+              });
+              await dispatch(updateCompanyInfo(companyInfo));
+              setTimeout(() => window.location.reload(), 1500);
+              return null;
+            }
+          } else {
+            throw new Error("Refresh token rejected");
+          }
+        } catch (e) {
+          localStorage.removeItem('squarespace_token');
+          localStorage.removeItem('squarespace_access_token');
+          localStorage.removeItem('squarespace_account_key');
+          notificationApi.error({
+            message: 'Squarespace Token Expired',
+            description: 'Your Squarespace access token has expired and refresh failed. Please reconnect your store.',
+          });
+          setTimeout(() => {
+            window.location.href = `${config.SERVER_BASE_URL}squarespace/auth?account_key=${accKey}`;
+          }, 2000);
+          return null;
+        }
+      } else {
+        localStorage.removeItem('squarespace_token');
+        localStorage.removeItem('squarespace_access_token');
+        localStorage.removeItem('squarespace_account_key');
+        notificationApi.error({
+          message: 'Squarespace Token Expired',
+          description: 'Your Squarespace access token has expired. Please reconnect your store.',
+        });
+        setTimeout(() => {
+          window.location.href = `${config.SERVER_BASE_URL}squarespace/auth?account_key=${accKey}`;
+        }, 2000);
+        return null;
+      }
+    }
+
+    setSquarespaceConnectionData({ access_token: squarespaceToken });
+    return squarespaceToken;
+  };
 
   const dispatch = useAppDispatch();
   const importData = (imgname: string) => {
@@ -276,12 +388,18 @@ const ExportModal: React.FC<ExportModalProps> = ({
         accountKey: accountKey,
       }));
       dispatch(resetStatus());
-    } else if (pendingExportPlatform === "Squarespace" && squarespaceConnectionData) {
+    } else if (pendingExportPlatform === "Squarespace") {
+      const validToken = await getValidSquarespaceToken();
+      if (!validToken) {
+        setPendingExportPlatform(null);
+        return;
+      }
       await dispatch(exportToSquarespace({
         productsList: formattedProductsList,
-        accessToken: squarespaceConnectionData.access_token,
+        accessToken: validToken,
         sessionId: cookies.Session || "",
-        accountKey: accountKey,
+        accountKey: accountKey || localStorage.getItem('squarespace_account_key') || "",
+        variant: true,
       }));
       dispatch(resetStatus());
     }
@@ -312,12 +430,18 @@ const ExportModal: React.FC<ExportModalProps> = ({
         accountKey: accountKey,
       }));
       dispatch(resetStatus());
-    } else if (pendingExportPlatform === "Squarespace" && squarespaceConnectionData) {
+    } else if (pendingExportPlatform === "Squarespace") {
+      const validToken = await getValidSquarespaceToken();
+      if (!validToken) {
+        setPendingExportPlatform(null);
+        return;
+      }
       await dispatch(exportToSquarespace({
         productsList: inventorySelection,
-        accessToken: squarespaceConnectionData.access_token,
+        accessToken: validToken,
         sessionId: cookies.Session || "",
-        accountKey: accountKey,
+        accountKey: accountKey || localStorage.getItem('squarespace_account_key') || "",
+        variant: false,
       }));
       dispatch(resetStatus());
     }
@@ -474,11 +598,8 @@ const ExportModal: React.FC<ExportModalProps> = ({
         return;
       }
 
-      if (!squarespaceConnectionData) {
-        notificationApi.error({
-          message: "Squarespace Connection Error",
-          description: "Could not retrieve Squarespace connection details.",
-        });
+      const validToken = await getValidSquarespaceToken();
+      if (!validToken) {
         return;
       }
 
@@ -493,9 +614,10 @@ const ExportModal: React.FC<ExportModalProps> = ({
 
       await dispatch(exportToSquarespace({
         productsList: inventorySelection,
-        accessToken: squarespaceConnectionData.access_token,
+        accessToken: validToken,
         sessionId: cookies.Session || "",
-        accountKey: accountKey,
+        accountKey: accountKey || localStorage.getItem('squarespace_account_key') || "",
+        variant: false,
       }));
       dispatch(resetStatus());
     }
@@ -521,17 +643,25 @@ const ExportModal: React.FC<ExportModalProps> = ({
       const uploaded = report?.uploaded ?? inventorySelection.length;
       const failed   = report?.failed   ?? 0;
 
+      const errorMsg =
+        exportResponse?.results?.find((r: any) => r.error || r.message || r.reason)?.error ||
+        exportResponse?.results?.find((r: any) => r.error || r.message || r.reason)?.message ||
+        exportResponse?.results?.find((r: any) => r.error || r.message || r.reason)?.reason ||
+        exportResponse?.message ||
+        exportResponse?.error ||
+        "";
+
       if (failed > 0 && uploaded > 0) {
         // Partial success — some exported, some failed
         notificationApi.warning({
           message: "Products Partially Exported",
-          description: `${uploaded} product(s) exported successfully, ${failed} product(s) failed to export.`,
+          description: `${uploaded} product(s) exported successfully, ${failed} product(s) failed to export.${errorMsg ? ` (${errorMsg})` : ""}`,
         });
       } else if (failed > 0 && uploaded === 0) {
         // All failed
         notificationApi.error({
           message: "Products Export Failed",
-          description: `${failed} product(s) failed to export.`,
+          description: `${failed} product(s) failed to export.${errorMsg ? ` Reason: ${errorMsg}` : ""}`,
         });
       } else {
         // All succeeded
@@ -551,9 +681,16 @@ const ExportModal: React.FC<ExportModalProps> = ({
     } else if (exportStatus === "error") {
       const report = exportResponse?.report;
       const failed = report?.failed ?? inventorySelection.length;
+      const errorMsg =
+        exportResponse?.results?.find((r: any) => r.error || r.message || r.reason)?.error ||
+        exportResponse?.results?.find((r: any) => r.error || r.message || r.reason)?.message ||
+        exportResponse?.results?.find((r: any) => r.error || r.message || r.reason)?.reason ||
+        exportResponse?.message ||
+        exportResponse?.error ||
+        "";
       notificationApi.error({
         message: "Products Export Failed",
-        description: `${failed} product(s) failed to export.`,
+        description: `${failed} product(s) failed to export.${errorMsg ? ` Reason: ${errorMsg}` : ""}`,
       });
     }
   }, [exportStatus, notificationApi]);
@@ -606,20 +743,22 @@ const ExportModal: React.FC<ExportModalProps> = ({
 
       // Check Squarespace connection
       let squarespaceObj = find(companyInfo.data.connections, {"name":"Squarespace"});
-      if (squarespaceObj?.name) {
+      let localSqToken = localStorage.getItem('squarespace_token') || localStorage.getItem('squarespace_access_token');
+      if (squarespaceObj?.name || localSqToken) {
         setSquarespaceConnected("Connected");
-        // The access token is stored in the .id field (same as Shopify/Wix pattern)
-        const accessToken = squarespaceObj.id || "";
+        let accessToken = localSqToken || squarespaceObj?.id || "";
+        if (!accessToken && squarespaceObj?.data) {
+          try {
+            const sqData = JSON.parse(squarespaceObj.data || "{}");
+            accessToken = sqData.access_token || sqData.token || "";
+          } catch {
+            accessToken = "";
+          }
+        }
         if (accessToken) {
           setSquarespaceConnectionData({ access_token: accessToken });
         } else {
-          // Try parsing from data field
-          try {
-            const sqData = JSON.parse(squarespaceObj.data || "{}");
-            setSquarespaceConnectionData({ access_token: sqData.access_token || "" });
-          } catch {
-            setSquarespaceConnectionData(null);
-          }
+          setSquarespaceConnectionData(null);
         }
       } else {
         setSquarespaceConnected("Disconnected");

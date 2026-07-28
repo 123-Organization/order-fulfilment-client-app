@@ -229,6 +229,7 @@ export const exportToSquarespace = createAsyncThunk(
                         accountKey: string;
                         currency?: string;
                         siteId?: number;
+                        variant?: boolean;
                 },
                 thunkAPI: any
         ) => {
@@ -239,9 +240,10 @@ export const exportToSquarespace = createAsyncThunk(
                         session_id: args.sessionId,
                         account_key: args.accountKey,
                         productsList: args.productsList,
+                        variant: args.variant ?? false,
                 };
 
-                const response = await fetch(`${SQUARESPACE_API_URL}squarespace/sync-products`, {
+                const response = await fetch(`${SQUARESPACE_API_URL}squarespace/sync-products-v2`, {
                         method: "POST",
                         headers: {
                                 "Content-Type": "application/json",
