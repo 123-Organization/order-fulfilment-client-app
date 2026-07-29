@@ -164,24 +164,6 @@ export default function VaultedCardPayment({
 
       console.log("submittedOrders", submittedOrders);
 
-      // Inserts dashes at UUID positions (8-4-4-4-rest) so the key goes from
-      // e.g. "6a68c8a455afbb6ac72740a3" → "6a68c8a4-55af-bb6a-c727-40a3".
-      // Works for both 24-char MongoDB ObjectIDs and 32-char UUIDs.
-      const formatOrderKeyWithDashes = (key: string): string => {
-        if (!key) return key;
-        const clean = key.replace(/-/g, ""); // strip any existing dashes
-        if (clean.length >= 20) {
-          return [
-            clean.slice(0, 8),
-            clean.slice(8, 12),
-            clean.slice(12, 16),
-            clean.slice(16, 20),
-            clean.slice(20),
-          ].join("-");
-        }
-        return key; // too short to dash — return as-is
-      };
-
       const editedSubmittedOrders = submittedOrders.map((order: any) => {
         const poParts = order.order_po.split("#");
 
@@ -191,7 +173,7 @@ export default function VaultedCardPayment({
           shipping_code: currentOption?.allOptions?.find(
             (option: any) => option.order_po === order.order_po
           )?.selectedOption?.id,
-          order_key: formatOrderKeyWithDashes(order.order_key),
+          order_key: order.order_key,
           order_items: order.order_items.map((item: any) => {
             if (!item.product_sku.startsWith("AP")) {
               return {
@@ -255,7 +237,6 @@ export default function VaultedCardPayment({
           order.order_po?.startsWith("SQ_");
 
         if (isSquarespace && sqAccessToken && accountKey) {
-          // order.order_key is already dash-formatted (done in editedSubmittedOrders above)
           const webhookUrl = `${BASE_URL}squarespace/fulfill-order?access_token=${encodeURIComponent(sqAccessToken)}&orderNumber=${encodeURIComponent(order.order_po)}&account_key=${encodeURIComponent(accountKey)}&orderId=${encodeURIComponent(order.order_key)}`;
           console.log("Injecting Squarespace webhook_url for order:", order.order_po, "orderId:", order.order_key);
           return { ...order, webhook_url: webhookUrl };
@@ -278,7 +259,7 @@ export default function VaultedCardPayment({
 
       const payload = {
         validate_only: false,
-        orders: [...ordersWithWebhook],
+        orders: ordersWithWebhook.map((order: any) => ({ ...order, order_key: null })),
         account_key: companyInfo?.data?.account_key,
         accountId: companyInfo?.data?.account_id,
         // Only include payment_token if credits don't cover the full amount
