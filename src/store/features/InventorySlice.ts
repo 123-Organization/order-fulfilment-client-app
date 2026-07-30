@@ -365,6 +365,19 @@ export const InventorySlice = createSlice({
                         state.deleteStatus = "idle";
                         state.deleteError = null;
                 },
+                // Used by the concurrent export logic in ExportModal to drive
+                // the shared loading/result state without dispatching individual thunks.
+                setExportLoading: (state) => {
+                        state.status = "loading";
+                        state.exportResponse = {};
+                },
+                setExportResult: (state, action: PayloadAction<{ response: any; failed: number }>) => {
+                        state.exportResponse = action.payload.response;
+                        state.status = action.payload.failed > 0 &&
+                                (action.payload.response?.report?.uploaded ?? 0) === 0
+                                ? "error"
+                                : "success";
+                },
         },
         extraReducers: (builder) => {
                 builder.addCase(listVirtualInventory.fulfilled, (state, action) => {
@@ -466,4 +479,4 @@ export const InventorySlice = createSlice({
 
 
 export default InventorySlice;
-export const { inventorySelectionUpdate, inventorySelectionClean, inventorySelectionDelete, updateFilterVirtualInventory, resetStatus, resetDeleteStatus } = InventorySlice.actions;
+export const { inventorySelectionUpdate, inventorySelectionClean, inventorySelectionDelete, updateFilterVirtualInventory, resetStatus, resetDeleteStatus, setExportLoading, setExportResult } = InventorySlice.actions;

@@ -14,7 +14,7 @@ import woocommerce from "../assets/images/store-woocommerce.svg";
 import { exportOrders, exportToShopify, exportToWix, exportToSquarespace } from "../store/features/InventorySlice";
 import { useNotificationContext } from "../context/NotificationContext";
 import { inventorySelectionClean } from "../store/features/InventorySlice";
-import { resetStatus } from "../store/features/InventorySlice";
+import { resetStatus, setExportLoading, setExportResult } from "../store/features/InventorySlice";
 import Spinner from "./Spinner";
 import { find } from "lodash";
 import { updateCompanyInfo } from "../store/features/companySlice";
@@ -335,115 +335,251 @@ const ExportModal: React.FC<ExportModalProps> = ({
   // Standalone products that have no variants — kept in sync with the last detectProductsWithVariants call
   const [standaloneProducts, setStandaloneProducts] = useState<any[]>([]);
 
+  // ---------------------------------------------------------------------------
+  // Concurrent export helpers
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Turn variant groups + standalone products into an array of "batches".
+   * Each batch is an array of products that should travel in ONE API call:
+   *   - variant group  → one batch containing all products in that group
+   *   - standalone     → one batch containing just that single product
+   */
+  const buildExportBatches = (
+    vGroups: any[],
+    standalones: any[]
+  ): any[][] => {
+    const batches: any[][] = [];
+
+    // One call per variant group (all members together)
+    vGroups.forEach((group) => {
+      if (group.products && group.products.length > 0) {
+        batches.push(group.products);
+      }
+    });
+
+    // One call per standalone product
+    standalones.forEach((product) => {
+      batches.push([product]);
+    });
+
+    return batches;
+  };
+
+  /**
+   * Fire one API call per batch concurrently (Promise.allSettled).
+   * Returns a merged exportResponse-shaped object and aggregate counts.
+   *
+   * Supported platforms: "WooCommerce" | "Shopify" | "Wix" | "Squarespace"
+   */
+  const runConcurrentExport = async (
+    platform: string,
+    batches: any[][],
+    connectionDetails: {
+      shopify?: { shop: string; access_token: string };
+      wix?: { access_token: string };
+      squarespace?: { access_token: string; sessionId: string; accountKey: string; variant?: boolean };
+      woocommerce?: { domainName: string };
+    }
+  ): Promise<{ mergedResponse: any; totalUploaded: number; totalFailed: number }> => {
+    const BASE = config.SERVER_BASE_URL;
+
+    const callBatch = async (productsList: any[]): Promise<any> => {
+      let response: Response;
+
+      if (platform === "WooCommerce" && connectionDetails.woocommerce) {
+        const payload = {
+          domainName: connectionDetails.woocommerce.domainName,
+          auth_code: "f8df5ecd-6c85-4d2c-a402-676b0556c156",
+          productsList,
+        };
+        response = await fetch(`${BASE}export-to-woocommerce`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      } else if (platform === "Shopify" && connectionDetails.shopify) {
+        const payload = {
+          account_key: accountKey,
+          productsList,
+          storeName: connectionDetails.shopify.shop,
+          access_token: connectionDetails.shopify.access_token,
+        };
+        response = await fetch(`${BASE}shopify/sync-products`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "*/*" },
+          body: JSON.stringify(payload),
+        });
+      } else if (platform === "Wix" && connectionDetails.wix) {
+        response = await fetch(
+          `${BASE}wix/sync-products?account_key=${accountKey}&access_token=${connectionDetails.wix.access_token}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Accept: "*/*" },
+            body: JSON.stringify({ productList: productsList }),
+          }
+        );
+      } else if (platform === "Squarespace" && connectionDetails.squarespace) {
+        const sqDetail = connectionDetails.squarespace;
+        const payload = {
+          access_token: sqDetail.access_token,
+          currency: "USD",
+          siteId: 2,
+          session_id: sqDetail.sessionId,
+          account_key: sqDetail.accountKey,
+          productsList,
+          variant: sqDetail.variant ?? false,
+        };
+        response = await fetch(`${BASE}squarespace/sync-products-v2`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "*/*" },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        throw new Error(`Unsupported platform: ${platform}`);
+      }
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status} from ${platform} API`);
+      }
+      return response.json();
+    };
+
+    // Fire all batches concurrently
+    const settled = await Promise.allSettled(batches.map((batch) => callBatch(batch)));
+
+    // Aggregate results
+    let totalUploaded = 0;
+    let totalFailed = 0;
+    const allResults: any[] = [];
+    const allErrors: string[] = [];
+
+    settled.forEach((result, idx) => {
+      const batchSize = batches[idx]?.length ?? 1;
+      if (result.status === "fulfilled") {
+        const data = result.value;
+        // Support both report-style and flat responses
+        const uploaded = data?.report?.uploaded ?? data?.uploaded ?? batchSize;
+        const failed   = data?.report?.failed   ?? data?.failed   ?? 0;
+        totalUploaded += uploaded;
+        totalFailed   += failed;
+        if (data?.results) allResults.push(...data.results);
+        if (data?.error || data?.message) allErrors.push(data.error || data.message);
+      } else {
+        // Entire batch call rejected
+        totalFailed += batchSize;
+        allErrors.push((result as PromiseRejectedResult).reason?.message || "Unknown error");
+      }
+    });
+
+    const mergedResponse = {
+      report: { uploaded: totalUploaded, failed: totalFailed },
+      results: allResults,
+      ...(allErrors.length > 0 && { error: allErrors[0], message: allErrors[0] }),
+    };
+
+    return { mergedResponse, totalUploaded, totalFailed };
+  };
+
+  /**
+   * Shared dispatcher called by all three export entry-points.
+   * Fires concurrent export, then writes result back into Redux state.
+   */
+  const dispatchConcurrentExport = async (
+    platform: string,
+    vGroups: any[],
+    standalones: any[],
+    connectionDetails: Parameters<typeof runConcurrentExport>[2]
+  ) => {
+    const batches = buildExportBatches(vGroups, standalones);
+    if (batches.length === 0) return;
+
+    dispatch(setExportLoading());
+    try {
+      const { mergedResponse, totalFailed } = await runConcurrentExport(platform, batches, connectionDetails);
+      dispatch(setExportResult({ response: mergedResponse, failed: totalFailed }));
+    } catch (err: any) {
+      dispatch(setExportResult({ response: { error: err?.message }, failed: 1 }));
+    }
+    dispatch(resetStatus());
+  };
+
   // Handle variant selection confirmation
   const handleVariantConfirm = async (selections: { primary: any; variants: any[] }[]) => {
     
     setVariantModalVisible(false);
     
-    // Format products with primaryItem flag for the API
-    // Each group has a primary product and its variants
-    const formattedProductsList: any[] = [];
-    
-    selections.forEach((group) => {
-      // Add primary product with primaryItem: true
-      if (group.primary) {
-        formattedProductsList.push({
-          ...group.primary,
-          primaryItem: true
-        });
-      }
-      
-      // Add variants without primaryItem flag (or with primaryItem: false)
-      group.variants.forEach((variant) => {
-        formattedProductsList.push({
-          ...variant,
-          primaryItem: false
-        });
-      });
-    });
+    // Build the variant groups expected by buildExportBatches:
+    // each selection → one group whose products = [primary, ...variants]
+    const formattedGroups = selections.map((group) => ({
+      products: [
+        ...(group.primary ? [{ ...group.primary, primaryItem: true }] : []),
+        ...group.variants.map((v) => ({ ...v, primaryItem: false })),
+      ],
+    }));
 
-    // Also include standalone products (selected but not part of any variant group)
-    standaloneProducts.forEach((product) => {
-      formattedProductsList.push({
-        ...product,
-        primaryItem: true
-      });
-    });
-    
+    // Standalone products (not part of any variant group)
+    const formattedStandalones = standaloneProducts.map((p) => ({ ...p, primaryItem: true }));
+
     if (pendingExportPlatform === "WooCommerce") {
-      await dispatch(exportOrders({ data: formattedProductsList, domainName: wordpressConnectionId }));
-      dispatch(resetStatus());
+      await dispatchConcurrentExport("WooCommerce", formattedGroups, formattedStandalones, {
+        woocommerce: { domainName: wordpressConnectionId },
+      });
     } else if (pendingExportPlatform === "Shopify" && shopifyConnectionData) {
-      await dispatch(exportToShopify({ 
-        productsList: formattedProductsList, 
-        storeName: shopifyConnectionData.shop,
-        accessToken: shopifyConnectionData.access_token,
-        accountKey: accountKey
-      }));
-      dispatch(resetStatus());
+      await dispatchConcurrentExport("Shopify", formattedGroups, formattedStandalones, {
+        shopify: shopifyConnectionData,
+      });
     } else if (pendingExportPlatform === "Wix" && wixConnectionData) {
-      await dispatch(exportToWix({
-        productList: formattedProductsList,
-        accessToken: wixConnectionData.access_token,
-        accountKey: accountKey,
-      }));
-      dispatch(resetStatus());
+      await dispatchConcurrentExport("Wix", formattedGroups, formattedStandalones, {
+        wix: wixConnectionData,
+      });
     } else if (pendingExportPlatform === "Squarespace") {
       const validToken = await getValidSquarespaceToken();
-      if (!validToken) {
-        setPendingExportPlatform(null);
-        return;
-      }
-      await dispatch(exportToSquarespace({
-        productsList: formattedProductsList,
-        accessToken: validToken,
-        sessionId: cookies.Session || "",
-        accountKey: accountKey || localStorage.getItem('squarespace_account_key') || "",
-        variant: true,
-      }));
-      dispatch(resetStatus());
+      if (!validToken) { setPendingExportPlatform(null); return; }
+      await dispatchConcurrentExport("Squarespace", formattedGroups, formattedStandalones, {
+        squarespace: {
+          access_token: validToken,
+          sessionId: cookies.Session || "",
+          accountKey: accountKey || localStorage.getItem('squarespace_account_key') || "",
+          variant: true,
+        },
+      });
     }
     
     setPendingExportPlatform(null);
   };
 
-  // Handle skipping variant configuration (export as individual products)
+  // Handle skipping variant configuration (export as individual standalone products — one call each)
   const handleSkipVariants = async () => {
     
     setVariantModalVisible(false);
-    
+
+    // Each selected product is treated as a standalone → one call per product
+    const standalones = inventorySelection.map((p: any) => ({ ...p, primaryItem: true }));
+
     if (pendingExportPlatform === "WooCommerce") {
-      await dispatch(exportOrders({ data: inventorySelection, domainName: wordpressConnectionId }));
-      dispatch(resetStatus());
+      await dispatchConcurrentExport("WooCommerce", [], standalones, {
+        woocommerce: { domainName: wordpressConnectionId },
+      });
     } else if (pendingExportPlatform === "Shopify" && shopifyConnectionData) {
-      await dispatch(exportToShopify({ 
-        productsList: inventorySelection, 
-        storeName: shopifyConnectionData.shop,
-        accessToken: shopifyConnectionData.access_token,
-        accountKey: accountKey
-      }));
-      dispatch(resetStatus());
+      await dispatchConcurrentExport("Shopify", [], standalones, {
+        shopify: shopifyConnectionData,
+      });
     } else if (pendingExportPlatform === "Wix" && wixConnectionData) {
-      await dispatch(exportToWix({
-        productList: inventorySelection,
-        accessToken: wixConnectionData.access_token,
-        accountKey: accountKey,
-      }));
-      dispatch(resetStatus());
+      await dispatchConcurrentExport("Wix", [], standalones, {
+        wix: wixConnectionData,
+      });
     } else if (pendingExportPlatform === "Squarespace") {
       const validToken = await getValidSquarespaceToken();
-      if (!validToken) {
-        setPendingExportPlatform(null);
-        return;
-      }
-      await dispatch(exportToSquarespace({
-        productsList: inventorySelection,
-        accessToken: validToken,
-        sessionId: cookies.Session || "",
-        accountKey: accountKey || localStorage.getItem('squarespace_account_key') || "",
-        variant: false,
-      }));
-      dispatch(resetStatus());
+      if (!validToken) { setPendingExportPlatform(null); return; }
+      await dispatchConcurrentExport("Squarespace", [], standalones, {
+        squarespace: {
+          access_token: validToken,
+          sessionId: cookies.Session || "",
+          accountKey: accountKey || localStorage.getItem('squarespace_account_key') || "",
+          variant: false,
+        },
+      });
     }
     
     setPendingExportPlatform(null);
@@ -484,8 +620,10 @@ const ExportModal: React.FC<ExportModalProps> = ({
         return;
       }
 
-      await dispatch(exportOrders({ data: inventorySelection, domainName: wordpressConnectionId }));
-      dispatch(resetStatus())
+      // No variants — each product gets its own concurrent call
+      await dispatchConcurrentExport("WooCommerce", [], inventorySelection.map((p: any) => ({ ...p, primaryItem: true })), {
+        woocommerce: { domainName: wordpressConnectionId },
+      });
     }
     else if(imgname === "WooCommerce" && wooConnected === "Disconnected"){
       notificationApi.error({
@@ -526,13 +664,10 @@ const ExportModal: React.FC<ExportModalProps> = ({
         return;
       }
   
-      await dispatch(exportToShopify({ 
-        productsList: inventorySelection, 
-        storeName: shopifyConnectionData.shop,
-        accessToken: shopifyConnectionData.access_token,
-        accountKey: accountKey
-      }));
-      dispatch(resetStatus())
+      // No variants — each product gets its own concurrent call
+      await dispatchConcurrentExport("Shopify", [], inventorySelection.map((p: any) => ({ ...p, primaryItem: true })), {
+        shopify: shopifyConnectionData,
+      });
     }
     else if(imgname === "Shopify" && shopifyConnected === "Disconnected"){
       notificationApi.error({
@@ -571,12 +706,10 @@ const ExportModal: React.FC<ExportModalProps> = ({
         return;
       }
 
-      await dispatch(exportToWix({
-        productList: inventorySelection,
-        accessToken: wixConnectionData.access_token,
-        accountKey: accountKey,
-      }));
-      dispatch(resetStatus());
+      // No variants — each product gets its own concurrent call
+      await dispatchConcurrentExport("Wix", [], inventorySelection.map((p: any) => ({ ...p, primaryItem: true })), {
+        wix: wixConnectionData,
+      });
     }
     else if (imgname === "Wix" && wixConnected === "Disconnected") {
       notificationApi.error({
@@ -612,14 +745,15 @@ const ExportModal: React.FC<ExportModalProps> = ({
         return;
       }
 
-      await dispatch(exportToSquarespace({
-        productsList: inventorySelection,
-        accessToken: validToken,
-        sessionId: cookies.Session || "",
-        accountKey: accountKey || localStorage.getItem('squarespace_account_key') || "",
-        variant: false,
-      }));
-      dispatch(resetStatus());
+      // No variants — each product gets its own concurrent call
+      await dispatchConcurrentExport("Squarespace", [], inventorySelection.map((p: any) => ({ ...p, primaryItem: true })), {
+        squarespace: {
+          access_token: validToken,
+          sessionId: cookies.Session || "",
+          accountKey: accountKey || localStorage.getItem('squarespace_account_key') || "",
+          variant: false,
+        },
+      });
     }
     else if (imgname === "Squarespace" && squarespaceConnected === "Disconnected") {
       notificationApi.error({
