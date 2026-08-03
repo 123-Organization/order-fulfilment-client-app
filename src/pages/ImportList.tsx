@@ -439,7 +439,7 @@ const ImportList: React.FC = () => {
               //    Clearing orderPostData before this resolves causes the
               //    shipping useEffect to fire with stale orders.data, re-lock
               //    the gate, and block a re-run when fresh data arrives.
-              await dispatch(fetchOrder(customerInfo?.data?.account_id));
+              await dispatch(fetchOrder(customerInfo?.data?.account_key));
 
               // 3. NOW clear orderPostData — the shipping useEffect fires with
               //    fresh orders.data + empty cache → fetches real prices → total updates.
@@ -552,7 +552,7 @@ const ImportList: React.FC = () => {
     dispatch(clearAllShippingCache());
     // 2. Await fetchOrder so orders.data has the new product BEFORE we
     //    trigger the shipping useEffect by clearing orderPostData.
-    await dispatch(fetchOrder(customerInfo?.data?.account_id));
+    await dispatch(fetchOrder(customerInfo?.data?.account_key));
     // 3. NOW clear orderPostData — shipping useEffect fires with fresh data + empty cache.
     resetOrderPostData();
     setIsRefreshing(false);
@@ -623,7 +623,7 @@ const ImportList: React.FC = () => {
     );
   };
   const onProductCodeReplace = (productCode: string) => {
-    dispatch(fetchOrder(customerInfo?.data?.account_id));
+    dispatch(fetchOrder(customerInfo?.data?.account_key));
     setTimeout(() => {
       resetOrderPostData();
       dispatch(updateValidSKU([...validSKUs, productCode]));
@@ -643,7 +643,7 @@ const ImportList: React.FC = () => {
           });
           dispatch(clearSelectedImage());
           dispatch(resetReplaceCodeResult());
-          dispatch(fetchOrder(customerInfo?.data?.account_id));
+          dispatch(fetchOrder(customerInfo?.data?.account_key));
           dispatch(clearProductData());
           resetOrderPostData();
         }, 2000);
@@ -773,7 +773,7 @@ const ImportList: React.FC = () => {
     }
 
     setTimeout(() => {
-      dispatch(fetchOrder(customerInfo?.data?.account_id));
+      dispatch(fetchOrder(customerInfo?.data?.account_key));
     }, 1000);
   }, []);
   // console.log("oo", customerInfo?.data?.account_id);
@@ -790,7 +790,7 @@ const ImportList: React.FC = () => {
     // 3. Reset orderPostData (also resets in-flight guard) so the main shipping effect re-runs
     resetOrderPostData();
     // 4. Re-fetch orders from the server
-    await dispatch(fetchOrder(customerInfo?.data?.account_id));
+    await dispatch(fetchOrder(customerInfo?.data?.account_key));
     setIsRefreshingOrders(false);
   };
 
@@ -879,7 +879,7 @@ const ImportList: React.FC = () => {
     );
   };
   const onProductCodeUpdate = (productCode: string) => {
-    dispatch(fetchOrder(customerInfo?.data?.account_id));
+    dispatch(fetchOrder(customerInfo?.data?.account_key));
   };
 
   const onBulkDeleteOrders = async () => {
@@ -904,7 +904,7 @@ const ImportList: React.FC = () => {
     // Clear checked orders and the entire shipping cache
     dispatch(updateCheckedOrders([]));
     dispatch(clearAllShippingCache());
-    dispatch(fetchOrder(customerInfo?.data?.account_id));
+    dispatch(fetchOrder(customerInfo?.data?.account_key));
   };
 
   // Delete a product from an order
@@ -975,7 +975,7 @@ const ImportList: React.FC = () => {
             dispatch(invalidateShippingCacheEntries([productToDelete.order_po]));
           }
           // Refresh orders
-          dispatch(fetchOrder(customerInfo?.data?.account_id));
+          dispatch(fetchOrder(customerInfo?.data?.account_key));
           resetOrderPostData();
           // Clear the fetchedSkusRef to allow re-fetching product details
           fetchedSkusRef.current.clear();
@@ -1010,7 +1010,7 @@ const ImportList: React.FC = () => {
       deleteNotificationShown.current.succeeded = true;
       // Reset status after showing notification
       dispatch(resetDeleteOrderStatus());
-      dispatch(fetchOrder(customerInfo?.data?.account_id));
+      dispatch(fetchOrder(customerInfo?.data?.account_key));
     } else if (
       deleteOrderStatus === "failed" &&
       !deleteNotificationShown.current.failed
@@ -3170,7 +3170,7 @@ const ImportList: React.FC = () => {
             setImageUrlIndex({});
 
             resetOrderPostData();
-            await dispatch(fetchOrder(customerInfo?.data?.account_id));
+            await dispatch(fetchOrder(customerInfo?.data?.account_key));
           } else {
             notificationApi.error({
               message: "Image Update Failed",
