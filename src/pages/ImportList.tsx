@@ -1420,13 +1420,22 @@ const ImportList: React.FC = () => {
   // Function to get the correct image URL, handling Google Drive links
   const getImageUrl = useCallback((order: any, productSku: string, productGuid?: string): string => {
     let imageUrl = "";
-    console.log(order?.product_url_thumbnail, "order?.order_items?.product_image?.product_url_thumbnail")
-    // Try thumbnail first, then fallback to product data
-    if (order?.product_url_thumbnail) {
+
+    // Helper: returns true if a URL is just a placeholder (not a real product image)
+    const isPlaceholder = (url?: string) =>
+      !url || url.includes("via.placeholder.com") || url.trim() === "";
+
+    // Try thumbnail first, but ONLY when it's a real (non-placeholder) URL.
+    // Placeholder thumbnails were injected during the upload transform and
+    // must not shadow the actual product image fetched from the catalog.
+    if (!isPlaceholder(order?.product_url_thumbnail)) {
       imageUrl = order.product_url_thumbnail;
-    } else if (order?.product_image?.product_url_thumbnail) {
+    } else if (!isPlaceholder(order?.product_image?.product_url_thumbnail)) {
       imageUrl = order.product_image.product_url_thumbnail;
-    } else {
+    }
+
+    // If we still don't have a real URL, fall back to the catalog product data
+    if (!imageUrl) {
       const entry = getProductDetail({ product_sku: productSku, product_guid: productGuid });
       if (entry?.image_url_1) imageUrl = entry.image_url_1;
     }
