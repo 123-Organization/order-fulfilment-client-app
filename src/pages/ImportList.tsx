@@ -772,6 +772,16 @@ const ImportList: React.FC = () => {
       return;
     }
 
+    // The shipping cache is empty — this means we've arrived here after an upload
+    // (BottomIcon calls clearAllShippingCache before navigating).  Clear the
+    // fetched-SKUs tracker and the product-details Redux slice so that
+    // fetchProductDetails is triggered for the newly uploaded orders once
+    // fetchOrder resolves with fresh data.
+    if (!hasCachedShipping) {
+      fetchedSkusRef.current.clear();
+      dispatch(clearProductDetails());
+    }
+
     setTimeout(() => {
       dispatch(fetchOrder(customerInfo?.data?.account_key));
     }, 1000);
