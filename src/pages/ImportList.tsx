@@ -335,6 +335,9 @@ const ImportList: React.FC = () => {
 
       const chunks = chunkArray(ordersToFetch, SHIPPING_BATCH_SIZE);
 
+      // Track individual orders that failed so we can retry only them afterwards
+      const failedOrders: any[] = [];
+
       for (const chunk of chunks) {
         const results = await Promise.allSettled(
           chunk.map(order => fetchSingleOrderShipping(order, accountKey))
@@ -355,6 +358,13 @@ const ImportList: React.FC = () => {
               recipientErrors: result.value.recipientErrors,
               itemErrors: result.value.itemErrors,
             });
+          } else {
+            // Collect failed orders for a single retry after all chunks finish
+            console.warn(
+              `[shipping/cache] Order ${chunk[idx].order_po} failed — queued for retry:`,
+              result.reason
+            );
+            failedOrders.push(chunk[idx]);
           }
         });
         // Dispatch after EACH chunk so shipping options appear progressively
@@ -363,6 +373,43 @@ const ImportList: React.FC = () => {
         // bottom total spinner going until the last chunk lands.
         if (chunkEntries.length) {
           dispatch(updateShippingCacheEntries(chunkEntries));
+        }
+      }
+
+      // Retry only the orders that failed — individually — so a single bad
+      // request doesn't cause the entire list to be re-fetched on the next
+      // effect cycle (which would waste resources re-calling orders that
+      // already succeeded and are safely in the cache).
+      if (failedOrders.length > 0) {
+        console.info(`[shipping/cache] Retrying ${failedOrders.length} failed order(s) individually...`);
+        const retryResults = await Promise.allSettled(
+          failedOrders.map(order => fetchSingleOrderShipping(order, accountKey))
+        );
+        const retryEntries: Array<{
+          order_po: string;
+          fingerprint: string;
+          data: any[];
+          recipientErrors: Record<string, Record<string, string[]>>;
+          itemErrors: Record<string, string[]>;
+        }> = [];
+        retryResults.forEach((result, idx) => {
+          if (result.status === 'fulfilled') {
+            retryEntries.push({
+              order_po: failedOrders[idx].order_po,
+              fingerprint: buildOrderFingerprint(failedOrders[idx]),
+              data: result.value.data,
+              recipientErrors: result.value.recipientErrors,
+              itemErrors: result.value.itemErrors,
+            });
+          } else {
+            console.error(
+              `[shipping/cache] Retry also failed for order ${failedOrders[idx].order_po}:`,
+              result.reason
+            );
+          }
+        });
+        if (retryEntries.length) {
+          dispatch(updateShippingCacheEntries(retryEntries));
         }
       }
     },
@@ -1125,6 +1172,14 @@ const ImportList: React.FC = () => {
         }
       });
 
+      // Fire product details FIRST, in parallel with shipping, so images load
+      // as early as possible. Keep a reference to the promise so we can check
+      // whether it succeeded after all shipping calls are done.
+      let productDetailPromise: Promise<any> | null = null;
+      if (ProductDetails && ProductDetails.length > 0) {
+        productDetailPromise = dispatch(fetchProductDetails(ProductDetails)) as Promise<any>;
+      }
+
       // Mark in-progress BEFORE setting orderPostData so no concurrent run starts
       shippingFetchInProgressRef.current = true;
       setOrderPostData(orderPostDataList);
@@ -1134,15 +1189,22 @@ const ImportList: React.FC = () => {
         dispatch(setShippingLoading(true));
         try {
           await dispatchShippingSelectively(orderPostDataList);
+
+          // After all shipping calls have finished, check if product details
+          // failed (e.g. timed out due to too many concurrent requests).
+          // If so, retry it exactly once now that the network is quieter.
+          if (productDetailPromise) {
+            const productResult = await productDetailPromise;
+            if (productResult?.meta?.requestStatus === 'rejected') {
+              console.info('[fetchProductDetails] Initial call failed — retrying after shipping finished...');
+              dispatch(fetchProductDetails(ProductDetails));
+            }
+          }
         } finally {
           shippingFetchInProgressRef.current = false;
           dispatch(setShippingLoading(false));
         }
       })();
-
-      if (ProductDetails && ProductDetails.length > 0) {
-        dispatch(fetchProductDetails(ProductDetails));
-      }
 
     }
   }, [orders, product_details, orderPostData, dispatch]);
