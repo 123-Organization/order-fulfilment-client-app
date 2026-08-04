@@ -501,7 +501,6 @@ const ExportModal: React.FC<ExportModalProps> = ({
     } catch (err: any) {
       dispatch(setExportResult({ response: { error: err?.message }, failed: 1 }));
     }
-    dispatch(resetStatus());
   };
 
   // Handle variant selection confirmation
@@ -812,6 +811,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
       if (onExportSuccess) {
         onExportSuccess();
       }
+      dispatch(resetStatus());
     } else if (exportStatus === "error") {
       const report = exportResponse?.report;
       const failed = report?.failed ?? inventorySelection.length;
@@ -826,6 +826,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
         message: "Products Export Failed",
         description: `${failed} product(s) failed to export.${errorMsg ? ` Reason: ${errorMsg}` : ""}`,
       });
+      dispatch(resetStatus());
     }
   }, [exportStatus, notificationApi]);
 
