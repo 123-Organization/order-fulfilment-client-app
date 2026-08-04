@@ -771,6 +771,33 @@ const ImportList: React.FC = () => {
   }, []);
 
   /**
+   * Pre-seed fetchedSkusRef from the persisted Redux product_details on mount.
+   *
+   * fetchedSkusRef is a useRef — it resets to an empty Set every time ImportList
+   * mounts (i.e. on every page navigation). Without this seed, all SKUs look
+   * "new" to the second useEffect below, causing fetchProductDetails to be
+   * dispatched for every product even when product_details is already fully
+   * populated in Redux (and persisted in localStorage).
+   *
+   * By pre-populating the ref from the existing store on mount we ensure:
+   *   1. Navigating back to this page never triggers a redundant API call.
+   *   2. After a quantity update (which introduces no new SKUs), the filter
+   *      in the second useEffect returns an empty newSkus list → no extra fetch.
+   */
+  useEffect(() => {
+    if (product_details && Array.isArray(product_details) && product_details.length > 0) {
+      product_details.forEach((p: any) => {
+        if (p?.sku) fetchedSkusRef.current.add(p.sku.toString());
+        if (p?.product_code) fetchedSkusRef.current.add(p.product_code.toString());
+        if (p?.product_guid) fetchedSkusRef.current.add(p.product_guid.toString());
+      });
+      console.log(
+        `[fetchedSkusRef] Pre-seeded ${fetchedSkusRef.current.size} SKUs from persisted product_details on mount`
+      );
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /**
    * When updateOrdersInfo resolves (recipientStatus = 'succeeded') OR a SKU replacement
    * resolves (replaceCodeStatus = 'succeeded'), reset orderPostData immediately so the
    * shipping useEffect re-fires and the total price updates without a manual Refresh.
@@ -819,15 +846,22 @@ const ImportList: React.FC = () => {
       return;
     }
 
-    // The shipping cache is empty — this means we've arrived here after an upload
-    // (BottomIcon calls clearAllShippingCache before navigating).  Clear the
-    // fetched-SKUs tracker and the product-details Redux slice so that
-    // fetchProductDetails is triggered for the newly uploaded orders once
-    // fetchOrder resolves with fresh data.
-    if (!hasCachedShipping) {
-      fetchedSkusRef.current.clear();
-      dispatch(clearProductDetails());
-    }
+    // NOTE: We intentionally do NOT clear product_details or fetchedSkusRef here.
+    //
+    // Previously this block called dispatch(clearProductDetails()) whenever the
+    // shipping cache was empty — but the shipping cache is never persisted to
+    // localStorage, so it is ALWAYS empty after a page refresh.  That caused
+    // product_details (which IS persisted to localStorage and loaded into Redux on
+    // startup) to be wiped on every refresh, making existingSkusInRedux empty and
+    // triggering fetchProductDetails for every single product on every navigation.
+    //
+    // New approach: the second useEffect (below) already detects genuinely new SKUs
+    // by comparing order_items against existingSkusInRedux (built from product_details).
+    // Only truly new SKUs (not yet in product_details) are fetched. Known SKUs —
+    // including those from a previous session loaded from localStorage — are reused.
+    //
+    // For an intentional full reset the user can click the explicit Refresh button,
+    // which calls handleRefreshOrders() and clears both caches properly.
 
     setTimeout(() => {
       dispatch(fetchOrder(customerInfo?.data?.account_key));
@@ -1065,9 +1099,9 @@ const ImportList: React.FC = () => {
         description: "Order has been successfully deleted.",
       });
       deleteNotificationShown.current.succeeded = true;
-      // Reset status after showing notification
+      // Order is already removed from Redux state in deleteOrder.fulfilled —
+      // no fetchOrder call needed, the list updates instantly.
       dispatch(resetDeleteOrderStatus());
-      dispatch(fetchOrder(customerInfo?.data?.account_key));
     } else if (
       deleteOrderStatus === "failed" &&
       !deleteNotificationShown.current.failed
@@ -1105,7 +1139,6 @@ const ImportList: React.FC = () => {
       const validOrders = orders?.data?.filter(
         (order) => (order?.order_items && order?.order_items?.length > 0) && order?.shipping_code != null && order?.shipping_code !== ""
       );
-      console.log("validOrders", validOrders);
 
       // Short-circuit: if every valid order is already in the cache with a matching
       // fingerprint we don't need to fetch anything — avoid setting orderPostData
@@ -1133,54 +1166,15 @@ const ImportList: React.FC = () => {
               product_url_file: "https://via.placeholder.com/150",
               product_url_thumbnail: "https://via.placeholder.com/150",
             },
-
-
           })),
         }))
         ?.flat();
-      let ProductDetails = orders?.data?.flatMap((order) =>
-        order.order_items?.map((item) => ({
-          order_po: order.order_po,
-          product_sku: item.product_sku || "AP1234567891011",
-          product_guid: item.product_guid || crypto.randomUUID(),
-          product_qty: item.product_qty,
-          product_image: {
-            product_url_file: "https://via.placeholder.com/150",
-            product_url_thumbnail: "https://via.placeholder.com/150",
-          },
-        }))
-      );
 
-      // Filter out SKUs that are already in the persisted Redux store
-      const existingSkus = new Set<string>();
-      if (product_details && Array.isArray(product_details)) {
-        product_details.forEach((p: any) => {
-          if (p?.sku) existingSkus.add(p.sku.toString());
-          if (p?.product_code) existingSkus.add(p.product_code.toString());
-        });
-      }
-
-      ProductDetails = ProductDetails?.filter((item) => {
-        if (!item?.product_sku) return true; // keep if no SKU, let backend handle it
-        return !existingSkus.has(item.product_sku.toString());
-      });
-
-      // Track the SKUs we're fetching
-      ProductDetails?.forEach((item) => {
-        if (item?.product_sku) {
-          fetchedSkusRef.current.add(item.product_sku.toString());
-        }
-      });
-
-      // Fire product details FIRST, in parallel with shipping, so images load
-      // as early as possible. Keep a reference to the promise so we can check
-      // whether it succeeded after all shipping calls are done.
-      let productDetailPromise: Promise<any> | null = null;
-      if (ProductDetails && ProductDetails.length > 0) {
-        productDetailPromise = dispatch(fetchProductDetails(ProductDetails)) as Promise<any>;
-      }
-
-      // Mark in-progress BEFORE setting orderPostData so no concurrent run starts
+      // Mark in-progress BEFORE setting orderPostData so no concurrent run starts.
+      // NOTE: fetchProductDetails is intentionally NOT called here — product detail
+      // fetching is handled exclusively by the useEffect below, which has
+      // product_details in its deps and can accurately see which SKUs are already
+      // known without relying on stale closure values.
       shippingFetchInProgressRef.current = true;
       setOrderPostData(orderPostDataList);
 
@@ -1189,111 +1183,77 @@ const ImportList: React.FC = () => {
         dispatch(setShippingLoading(true));
         try {
           await dispatchShippingSelectively(orderPostDataList);
-
-          // After all shipping calls have finished, check if product details
-          // failed (e.g. timed out due to too many concurrent requests).
-          // If so, retry it exactly once now that the network is quieter.
-          if (productDetailPromise) {
-            const productResult = await productDetailPromise;
-            if (productResult?.meta?.requestStatus === 'rejected') {
-              console.info('[fetchProductDetails] Initial call failed — retrying after shipping finished...');
-              dispatch(fetchProductDetails(ProductDetails));
-            }
-          }
         } finally {
           shippingFetchInProgressRef.current = false;
           dispatch(setShippingLoading(false));
         }
       })();
-
     }
-  }, [orders, product_details, orderPostData, dispatch]);
+  }, [orders, orderPostData, dispatch]);
 
-  // Separate useEffect to fetch product details for newly added products
+  // Sole owner of fetchProductDetails calls.
+  // product_details is in the deps array so existingSkusInRedux is ALWAYS
+  // current — the effect returns immediately if all order SKUs are already
+  // known, preventing repeated fetches on navigation and after quantity updates.
+  // fetchedSkusRef guards concurrent in-flight requests: a SKU is added to the
+  // ref the moment a fetch is dispatched and stays there until the component
+  // unmounts, so a rapid re-run (e.g. from a product_details change mid-flight)
+  // cannot dispatch a duplicate request for the same SKU.
   useEffect(() => {
     if (!orders?.data?.length) return;
 
-    // Collect all current SKUs from orders
+    // Collect all current SKUs from order items
     const allCurrentSkus: string[] = [];
     orders.data.forEach((order: any) => {
       order.order_items?.forEach((item: any) => {
-        if (item?.product_sku) {
-          allCurrentSkus.push(item.product_sku.toString());
-        }
+        if (item?.product_sku) allCurrentSkus.push(item.product_sku.toString());
       });
     });
 
-    // Build a map of SKUs currently in the persisted Redux store
+    if (allCurrentSkus.length === 0) return;
+
+    // Build the set of SKUs already present in the Redux store (always current
+    // because product_details is in the deps array).
     const existingSkusInRedux = new Set<string>();
     if (product_details && Array.isArray(product_details)) {
       product_details.forEach((p: any) => {
         if (p?.sku) existingSkusInRedux.add(p.sku.toString());
         if (p?.product_code) existingSkusInRedux.add(p.product_code.toString());
+        if (p?.product_guid) existingSkusInRedux.add(p.product_guid.toString());
       });
     }
 
-    // Find SKUs that haven't been fetched yet in this session OR aren't in Redux
-    const newSkus = allCurrentSkus.filter(
-      sku => !fetchedSkusRef.current.has(sku) && !existingSkusInRedux.has(sku)
+    // SKUs not yet in Redux AND not already being fetched (in-flight guard)
+    const skusToFetch = allCurrentSkus.filter(
+      sku => !existingSkusInRedux.has(sku) && !fetchedSkusRef.current.has(sku)
     );
 
-    if (newSkus.length > 0) {
-      console.log("Fetching details for new SKUs:", newSkus);
+    if (skusToFetch.length === 0) return; // nothing new — skip
 
-      // Build product details for new SKUs only
-      const newProductDetails = orders.data.flatMap((order: any) =>
-        order.order_items
-          ?.filter((item: any) => item?.product_sku && newSkus.includes(item.product_sku.toString()))
-          ?.map((item: any) => ({
-            order_po: order.order_po,
-            product_sku: item.product_sku,
-            product_guid: item.product_guid,
-            product_qty: item.product_qty,
-            product_image: {
-              product_url_file: "https://via.placeholder.com/150",
-              product_url_thumbnail: "https://via.placeholder.com/150",
-            },
-          }))
-      ).filter(Boolean);
+    console.log('[fetchProductDetails] Fetching details for new SKUs:', skusToFetch);
 
-      if (newProductDetails.length > 0) {
-        // Mark these SKUs as being fetched
-        newSkus.forEach(sku => fetchedSkusRef.current.add(sku));
-        dispatch(fetchProductDetails(newProductDetails));
+    const newProductDetails = orders.data.flatMap((order: any) =>
+      order.order_items
+        ?.filter((item: any) => item?.product_sku && skusToFetch.includes(item.product_sku.toString()))
+        ?.map((item: any) => ({
+          order_po: order.order_po,
+          product_sku: item.product_sku,
+          product_guid: item.product_guid,
+          product_qty: item.product_qty,
+          product_image: {
+            product_url_file: 'https://via.placeholder.com/150',
+            product_url_thumbnail: 'https://via.placeholder.com/150',
+          },
+        }))
+    ).filter(Boolean);
 
-        // Also update shipping options for orders with new products
-        const validOrders = orders.data.filter(
-          (order: any) => (order?.order_items && order?.order_items?.length > 0) && order?.shipping_code != null && order?.shipping_code !== ""
-        );
-        const orderPostDataList = validOrders?.map((order: any) => ({
-          order_po: order?.order_po,
-          recipient: order?.recipient,
-          shipping_code: order?.shipping_code,
-          order_items: order.order_items?.map((item: any) => ({
-            product_order_po: item.product_order_po,
-            product_qty: item.product_qty,
-            product_sku: item.product_sku,
-            product_image: {
-              product_url_file: "https://via.placeholder.com/150",
-              product_url_thumbnail: "https://via.placeholder.com/150",
-            },
-          })),
-        }))?.flat();
+    if (newProductDetails.length === 0) return;
 
-        if (orderPostDataList?.length) {
-          (async () => {
-            dispatch(setShippingLoading(true));
-            try {
-              await dispatchShippingSelectively(orderPostDataList);
-            } finally {
-              dispatch(setShippingLoading(false));
-            }
-          })();
-          setOrderPostData(orderPostDataList);
-        }
-      }
-    }
-  }, [orders?.data, dispatch, customerInfo?.data?.account_key]);
+    // Mark as in-flight BEFORE dispatching — prevents a concurrent re-run
+    // (triggered by product_details changing mid-flight) from duplicating the request.
+    skusToFetch.forEach(sku => fetchedSkusRef.current.add(sku));
+    dispatch(fetchProductDetails(newProductDetails));
+  }, [orders?.data, product_details, dispatch]);
 
   // Update the useEffect that handles setting checked orders
   useEffect(() => {
@@ -2538,13 +2498,28 @@ const ImportList: React.FC = () => {
                                             return next;
                                           });
                                         }}
-                                        onQuantityUpdated={() => {
+                                        onQuantityUpdated={(newQty) => {
                                           // Invalidate shipping cache for ONLY this order,
                                           // then reset orderPostData so the shipping useEffect
                                           // re-fires and dispatchShippingSelectively refetches
                                           // just this single cache-miss order.
                                           dispatch(invalidateShippingCacheEntries([order?.order_po]));
                                           resetOrderPostData();
+                                          // Re-fetch product details for ONLY this single product
+                                          // with its updated quantity. The API accepts an array,
+                                          // so we send a one-element array instead of all products.
+                                          if (orderItem?.product_sku || orderItem?.product_guid) {
+                                            dispatch(fetchProductDetails([{
+                                              order_po: order.order_po,
+                                              product_sku: orderItem.product_sku,
+                                              product_guid: orderItem.product_guid,
+                                              product_qty: newQty,
+                                              product_image: {
+                                                product_url_file: 'https://via.placeholder.com/150',
+                                                product_url_thumbnail: 'https://via.placeholder.com/150',
+                                              },
+                                            }]));
+                                          }
                                         }}
                                       />
                                     </div>

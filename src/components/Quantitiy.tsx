@@ -12,7 +12,8 @@ type QuantityInputProps = {
   setclicking: (clicking: boolean) => void;
   orderFullFillmentId: string;
   product_guid: string;
-  onQuantityUpdated?: () => void;
+  /** Called after the quantity API succeeds. Receives the final persisted quantity. */
+  onQuantityUpdated?: (newQuantity: number) => void;
   /** Called with (orderFullFillmentId, isLoading) when the API starts/finishes. */
   onLoadingChange?: (orderFullFillmentId: string, isLoading: boolean) => void;
 };
@@ -77,7 +78,7 @@ const QuantityInput: React.FC<QuantityInputProps> = ({
         }
         // Invalidate shipping cache for ONLY this order and re-fetch
         // shipping options for just this one order — NOT all orders.
-        onQuantityUpdated?.();
+        onQuantityUpdated?.(newValue);
         // Signal loading done after shipping re-fetch is triggered.
         onLoadingChange?.(orderFullFillmentId, false);
       });

@@ -1147,7 +1147,17 @@ export const OrderSlice = createSlice({
     );
     builder.addCase(deleteOrder.fulfilled, (state, action) => {
       state.deleteOrderStatus = 'succeeded';
-      state.orders = action.payload;
+      // Remove the deleted order(s) directly from state.orders.data using the
+      // orderFullFillmentId that was already supplied to the thunk.
+      // This avoids a follow-up fetchOrder (view-all-orders) call entirely.
+      if (state.orders?.data) {
+        const deletedIds = Array.isArray(action.meta.arg.orderFullFillmentId)
+          ? action.meta.arg.orderFullFillmentId
+          : [action.meta.arg.orderFullFillmentId];
+        state.orders.data = state.orders.data.filter(
+          (order: any) => !deletedIds.includes(order.orderFullFillmentId)
+        );
+      }
     }
     );
 

@@ -223,8 +223,13 @@ export const ProductSlice = createSlice({
                         state.error = action.payload as string;
                 });
                 builder.addCase(increaseProductQuantity.fulfilled, (state, action) => {
-                        state.product_details = action.payload;
-
+                        // NOTE: Do NOT assign action.payload to state.product_details here.
+                        // The increase-product-quantity endpoint returns a simple success/status
+                        // response — NOT a product list. Assigning it would wipe all accumulated
+                        // product details, breaking the existingSkus filter in ImportList and
+                        // causing fetchProductDetails to be called for every product on the next
+                        // render cycle (both after quantity changes and after page navigation).
+                        // product_details is managed exclusively by fetchProductDetails.
                         state.status = "succeeded";
                 });
                 builder.addCase(increaseProductQuantity.rejected, (state, action) => {
