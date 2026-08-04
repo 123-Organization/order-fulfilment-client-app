@@ -340,6 +340,43 @@ const ExportModal: React.FC<ExportModalProps> = ({
   // ---------------------------------------------------------------------------
 
   /**
+   * Squarespace requires that every variant in a product has a *unique* combination
+   * of attribute values (type, media, style, etc.). If the same image_guid is shared
+   * by multiple products that happen to have identical attributes (e.g. an old and a
+   * new version of the same print), the API returns "Product attributes must be unique."
+   *
+   * This helper deduplicates a variant group's product list by their attribute
+   * signature — which is everything in `description_short` except the `sku:` line.
+   * When two products collide, the user-selected or primaryItem one wins.
+   */
+  const deduplicateVariantProducts = (products: any[]): any[] => {
+    const seen = new Map<string, any>();
+    for (const product of products) {
+      // Build a stable attribute key from description_short, stripping the sku line
+      const desc: string = product.description_short || product.description_long || '';
+      const attrKey = desc
+        .split(/\r?\n/)
+        .map((l: string) => l.trim())
+        .filter((l: string) => l && !l.toLowerCase().startsWith('sku:'))
+        .join('|')
+        .toLowerCase();
+
+      if (!seen.has(attrKey)) {
+        seen.set(attrKey, product);
+      } else {
+        // Prefer the user-selected or primaryItem product over a non-selected duplicate
+        const existing = seen.get(attrKey);
+        const incomingScore = (product.isSelected ? 2 : 0) + (product.primaryItem ? 1 : 0);
+        const existingScore = (existing.isSelected ? 2 : 0) + (existing.primaryItem ? 1 : 0);
+        if (incomingScore > existingScore) {
+          seen.set(attrKey, product);
+        }
+      }
+    }
+    return Array.from(seen.values());
+  };
+
+  /**
    * Turn variant groups + standalone products into an array of "batches".
    * Each batch is an array of products that should travel in ONE API call:
    *   - variant group  → one batch containing all products in that group
@@ -352,9 +389,11 @@ const ExportModal: React.FC<ExportModalProps> = ({
     const batches: any[][] = [];
 
     // One call per variant group (all members together)
+    // Deduplicate within each group first to avoid "Product attributes must be unique" errors
     vGroups.forEach((group) => {
       if (group.products && group.products.length > 0) {
-        batches.push(group.products);
+        const deduped = deduplicateVariantProducts(group.products);
+        batches.push(deduped);
       }
     });
 
