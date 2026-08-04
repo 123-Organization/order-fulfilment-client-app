@@ -59,6 +59,8 @@ interface OrderState {
   sendOrderInfoStatus: "idle" | "loading" | "succeeded" | "failed";
   updateImageStatus: "idle" | "loading" | "succeeded" | "failed";
   isShippingLoading: boolean;
+  refreshOrderStatus: "idle" | "loading" | "succeeded" | "failed";
+  refreshOrderResponse: any;
 
 }
 
@@ -105,6 +107,8 @@ const initialState: OrderState = {
   sendOrderInfoStatus: "idle",
   updateImageStatus: "idle",
   isShippingLoading: false,
+  refreshOrderStatus: "idle",
+  refreshOrderResponse: null,
 };
 
 export const fetchOrder = createAsyncThunk(
@@ -885,6 +889,35 @@ export const updateOrderItemImage = createAsyncThunk(
   }
 )
 
+export const refreshSingleOrder = createAsyncThunk(
+  "order/refreshSingle",
+  async (postData: { account_key: string; orderFullFillmentId: string | number }, thunkAPI) => {
+    try {
+      const response = await fetch(
+        BASE_URL + "order-submit-status-bulk",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            account_key: postData.account_key,
+            orderIds: [String(postData.orderFullFillmentId)],
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        return thunkAPI.rejectWithValue(errorData);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Failed to refresh order status:", error);
+      return thunkAPI.rejectWithValue("Failed to refresh order status");
+    }
+  }
+);
 
 // curl --location 'https://ijbsrphg08.execute-api.us-east-1.amazonaws.com/Prod/api/validate-orders' \
 export const validateOrders = createAsyncThunk(
@@ -1048,6 +1081,10 @@ export const OrderSlice = createSlice({
     },
     resetUpdateImageStatus: (state) => {
       state.updateImageStatus = "idle"
+    },
+    resetRefreshOrderStatus: (state) => {
+      state.refreshOrderStatus = "idle";
+      state.refreshOrderResponse = null;
     },
     /**
      * Optimistically update a single order-item's quantity in Redux state
@@ -1333,9 +1370,22 @@ export const OrderSlice = createSlice({
       state.error = action.payload as string;
     })
 
+    // ── Single order status refresh ────────────────────────────────────────
+    builder.addCase(refreshSingleOrder.pending, (state) => {
+      state.refreshOrderStatus = 'loading';
+    });
+    builder.addCase(refreshSingleOrder.fulfilled, (state, action) => {
+      state.refreshOrderStatus = 'succeeded';
+      state.refreshOrderResponse = action.payload;
+    });
+    builder.addCase(refreshSingleOrder.rejected, (state, action) => {
+      state.refreshOrderStatus = 'failed';
+      state.error = action.payload as string;
+    });
+
   }
 
 });
 
 export default OrderSlice.reducer;
-export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setShippingLoading, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, updateIframe, updateApp, updateOpenSheet, updateExcludedOrders, resetExcludedOrders, updateValidSKU, resetValidSKU, updateReplacingCode, resetReplacingCode, resetReplaceCodeResult, resetReplaceCodeStatus, resetSubmitStatus, resetSendOrderInfoStatus, resetSubmitOrdersResponse, resetShopifyOrdersResponse, resetSaveOrderInfo, resetUpdateImageStatus, resetSquarespaceOrdersResponse, resetSquarespaceImportStatus, resetWixOrdersResponse, resetWixImportStatus, resetShippoOrdersResponse, resetShippoImportStatus, resetSquareOrdersResponse, resetSquareImportStatus, patchOrderItemQuantity } = OrderSlice.actions;
+export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setShippingLoading, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, updateIframe, updateApp, updateOpenSheet, updateExcludedOrders, resetExcludedOrders, updateValidSKU, resetValidSKU, updateReplacingCode, resetReplacingCode, resetReplaceCodeResult, resetReplaceCodeStatus, resetSubmitStatus, resetSendOrderInfoStatus, resetSubmitOrdersResponse, resetShopifyOrdersResponse, resetSaveOrderInfo, resetUpdateImageStatus, resetSquarespaceOrdersResponse, resetSquarespaceImportStatus, resetWixOrdersResponse, resetWixImportStatus, resetShippoOrdersResponse, resetShippoImportStatus, resetSquareOrdersResponse, resetSquareImportStatus, patchOrderItemQuantity, resetRefreshOrderStatus } = OrderSlice.actions;

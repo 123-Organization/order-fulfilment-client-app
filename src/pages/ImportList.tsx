@@ -13,6 +13,8 @@ import {
   updateCheckedOrders,
   deleteOrder,
   AddProductToOrder,
+  refreshSingleOrder,
+  resetRefreshOrderStatus,
 } from "../store/features/orderSlice";
 import { fetchOrder } from "../store/features/orderSlice";
 import { setBatchShippingResults, updateShippingCacheEntries, invalidateShippingCacheEntries, clearAllShippingCache } from "../store/features/shippingSlice";
@@ -143,6 +145,8 @@ const ImportList: React.FC = () => {
     orderItem: any;
     order: any;
   } | null>(null);
+  /** Set of order_po values for orders currently being refreshed. */
+  const [refreshingOrders, setRefreshingOrders] = useState<Set<string>>(new Set());
 
   const toggleLabels = (productSku: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1775,6 +1779,55 @@ const ImportList: React.FC = () => {
                       transition: "background 0.3s ease, border-color 0.3s ease",
                     }}
                   >
+                    {/* Per-order refresh loading overlay */}
+                    {refreshingOrders.has(order?.order_po) && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          zIndex: 20,
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 10,
+                          backdropFilter: "blur(3px)",
+                          background: isDark
+                            ? "rgba(15, 23, 36, 0.75)"
+                            : "rgba(255, 255, 255, 0.75)",
+                          borderRadius: 8,
+                        }}
+                      >
+                        <svg
+                          style={{ width: 32, height: 32, color: "#3b82f6", animation: "spin 0.9s linear infinite" }}
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            style={{ opacity: 0.25 }}
+                            cx="12" cy="12" r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            style={{ opacity: 0.85 }}
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z"
+                          />
+                        </svg>
+                        <span
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: isDark ? "#93c5fd" : "#1d4ed8",
+                            letterSpacing: "0.02em",
+                          }}
+                        >
+                          Refreshing order status…
+                        </span>
+                      </div>
+                    )}
                     <ul className="grid w-100  md:grid-cols-2 md:grid-rows-1 items-start ">
                       <li className="flex-1">
                         {(() => {
@@ -1965,7 +2018,76 @@ const ImportList: React.FC = () => {
                         })()}
                       </li>
 
-                      <div className="w-100%   text-end">
+                      <div className="w-100%   text-end" style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
+                        {/* Refresh Status Button */}
+                        <button
+                          type="button"
+                          title="Refresh order status"
+                          disabled={refreshingOrders.has(order?.order_po)}
+                          onClick={async () => {
+                            const accountKey = customerInfo?.data?.account_key;
+                            if (!accountKey || !order?.order_po) return;
+                            setRefreshingOrders(prev => new Set(prev).add(order.order_po));
+                            try {
+                              const result = await dispatch(
+                                refreshSingleOrder({
+                                  account_key: accountKey,
+                                  orderFullFillmentId: order?.orderFullFillmentId,
+                                })
+                              ).unwrap();
+                              notificationApi.success({
+                                message: "Order Refreshed",
+                                description: `Status for order #${order.order_po} has been refreshed successfully.`,
+                                duration: 4,
+                              });
+                            } catch (err: any) {
+                              notificationApi.error({
+                                message: "Refresh Failed",
+                                description: `Could not refresh order #${order.order_po}. Please try again.`,
+                                duration: 4,
+                              });
+                            } finally {
+                              setRefreshingOrders(prev => {
+                                const next = new Set(prev);
+                                next.delete(order.order_po);
+                                return next;
+                              });
+                              dispatch(resetRefreshOrderStatus());
+                            }
+                          }}
+                          className="max-md:pl-2 inline-flex flex-col justify-start items-start hover:bg-gray-50 dark:hover:bg-gray-800 group"
+                          style={{ opacity: refreshingOrders.has(order?.order_po) ? 0.5 : 1, cursor: refreshingOrders.has(order?.order_po) ? "not-allowed" : "pointer" }}
+                        >
+                          {refreshingOrders.has(order?.order_po) ? (
+                            <svg
+                              className="w-5 h-5 mb-1 text-blue-500 animate-spin"
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z" />
+                            </svg>
+                          ) : (
+                            <svg
+                              className="w-5 h-5 mb-1 text-gray-500 dark:text-gray-400 group-hover:text-blue-500 dark:group-hover:text-blue-400"
+                              aria-hidden="true"
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                stroke="currentColor"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                              />
+                            </svg>
+                          )}
+                        </button>
+
+                        {/* Delete Button */}
                         <button
                           data-tooltip-target="tooltip-document"
                           type="button"
@@ -1985,9 +2107,9 @@ const ImportList: React.FC = () => {
                           >
                             <path
                               stroke="currentColor"
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              stroke-width="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
                               d="M1 5h16M7 8v8m4-8v8M7 1h4a1 1 0 0 1 1 1v3H6V2a1 1 0 0 1 1-1ZM3 5h12v13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5Z"
                             />
                           </svg>
