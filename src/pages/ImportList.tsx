@@ -1412,7 +1412,11 @@ const ImportList: React.FC = () => {
         item?.product_image?.product_url_file ||
         item?.product_url_file;
 
-      return !fileUrl || fileUrl.trim() === '';
+      return (
+        !fileUrl || 
+        fileUrl.trim() === '' || 
+        fileUrl.includes('via.placeholder.com')
+      );
     });
   };
 
