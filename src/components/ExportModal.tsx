@@ -378,15 +378,22 @@ const ExportModal: React.FC<ExportModalProps> = ({
 
   /**
    * Turn variant groups + standalone products into an array of "batches".
-   * Each batch is an array of products that should travel in ONE API call:
-   *   - variant group  → one batch per distinct product `name` within that group
-   *                      (products with different names/types cannot share a single
-   *                       Squarespace product and would cause "Product attributes must
-   *                       be unique" errors if sent together)
-   *   - standalone     → one batch containing just that single product
+   * Each batch is an array of products that should travel in ONE API call.
    *
-   * Within each name-sub-group the products are also deduplicated by their
-   * attribute signature to remove any truly duplicate variants.
+   * Squarespace maps `media` (which encodes the print size) as the primary
+   * variant option dimension. If a batch contains products whose `media` value
+   * is duplicated (because they differ only by frame/style/etc.), the backend
+   * raises "Product attributes must be unique".
+   *
+   * Strategy:
+   *   1. Split by product `name` — different product types → separate SS products.
+   *   2. Within each name-group, build a "fixed-attributes key" from every label
+   *      EXCEPT `media` and `sku`. Products that share the same fixed-attributes
+   *      key differ ONLY by media/size → safe to batch together (media is unique).
+   *      Products that differ on any fixed attribute (e.g. different frame) must
+   *      become separate batches so Squarespace never sees a duplicate media value.
+   *   3. Deduplicate within each final batch to remove truly identical attribute sets.
+   *   - standalone → one batch per product.
    */
   const buildExportBatches = (
     vGroups: any[],
@@ -394,22 +401,56 @@ const ExportModal: React.FC<ExportModalProps> = ({
   ): any[][] => {
     const batches: any[][] = [];
 
+    /** Extract a label value by key (case-insensitive), returns '' if absent. */
+    const getLabelValue = (p: any, key: string): string => {
+      const found = (p.labels as any[] | undefined)?.find(
+        (l: any) => (l.key || '').toLowerCase() === key.toLowerCase()
+      );
+      return (found?.value || '').trim().toLowerCase();
+    };
+
+    /**
+     * Build a stable "fixed-attributes" key for a product:
+     * concatenate all label values that are NOT media/size/sku.
+     * Two products with the same key differ only by media → safe batch-mates.
+     */
+    const fixedAttrsKey = (p: any): string => {
+      // Label keys we treat as the SIZE dimension or the SKU — exclude from key
+      const sizeOrSkuKeys = new Set(['media', 'sku']);
+      const labels: any[] = (p.labels as any[] | undefined) || [];
+      return labels
+        .filter((l: any) => !sizeOrSkuKeys.has((l.key || '').toLowerCase()))
+        .sort((a: any, b: any) => (a.key || '').localeCompare(b.key || ''))
+        .map((l: any) => `${(l.key || '').toLowerCase()}=${(l.value || '').trim().toLowerCase()}`)
+        .join('|');
+    };
+
     vGroups.forEach((group) => {
       if (!group.products || group.products.length === 0) return;
 
-      // Split the group by product name so that products of different types
-      // (e.g. "Framed Giclee - Canvas Prints" vs "Giclee - Fine Art Paper Prints")
-      // are exported as separate Squarespace products, each with their own variants.
+      // Step 1: split by product name
       const byName = new Map<string, any[]>();
       group.products.forEach((p: any) => {
-        const key = (p.name || '').trim().toLowerCase();
-        if (!byName.has(key)) byName.set(key, []);
-        byName.get(key)!.push(p);
+        const nameKey = (p.name || '').trim().toLowerCase();
+        if (!byName.has(nameKey)) byName.set(nameKey, []);
+        byName.get(nameKey)!.push(p);
       });
 
       byName.forEach((nameProducts) => {
-        const deduped = deduplicateVariantProducts(nameProducts);
-        if (deduped.length > 0) batches.push(deduped);
+        // Step 2: within the name group, split by fixed attributes (frame/style/etc.)
+        // so each sub-batch only differs by media (size) → unique variant options.
+        const byFixedAttrs = new Map<string, any[]>();
+        nameProducts.forEach((p: any) => {
+          const fKey = fixedAttrsKey(p);
+          if (!byFixedAttrs.has(fKey)) byFixedAttrs.set(fKey, []);
+          byFixedAttrs.get(fKey)!.push(p);
+        });
+
+        byFixedAttrs.forEach((subProducts) => {
+          // Step 3: deduplicate within each final sub-batch
+          const deduped = deduplicateVariantProducts(subProducts);
+          if (deduped.length > 0) batches.push(deduped);
+        });
       });
     });
 
