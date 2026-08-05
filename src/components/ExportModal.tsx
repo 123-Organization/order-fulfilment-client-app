@@ -379,8 +379,14 @@ const ExportModal: React.FC<ExportModalProps> = ({
   /**
    * Turn variant groups + standalone products into an array of "batches".
    * Each batch is an array of products that should travel in ONE API call:
-   *   - variant group  → one batch containing all products in that group
+   *   - variant group  → one batch per distinct product `name` within that group
+   *                      (products with different names/types cannot share a single
+   *                       Squarespace product and would cause "Product attributes must
+   *                       be unique" errors if sent together)
    *   - standalone     → one batch containing just that single product
+   *
+   * Within each name-sub-group the products are also deduplicated by their
+   * attribute signature to remove any truly duplicate variants.
    */
   const buildExportBatches = (
     vGroups: any[],
@@ -388,13 +394,23 @@ const ExportModal: React.FC<ExportModalProps> = ({
   ): any[][] => {
     const batches: any[][] = [];
 
-    // One call per variant group (all members together)
-    // Deduplicate within each group first to avoid "Product attributes must be unique" errors
     vGroups.forEach((group) => {
-      if (group.products && group.products.length > 0) {
-        const deduped = deduplicateVariantProducts(group.products);
-        batches.push(deduped);
-      }
+      if (!group.products || group.products.length === 0) return;
+
+      // Split the group by product name so that products of different types
+      // (e.g. "Framed Giclee - Canvas Prints" vs "Giclee - Fine Art Paper Prints")
+      // are exported as separate Squarespace products, each with their own variants.
+      const byName = new Map<string, any[]>();
+      group.products.forEach((p: any) => {
+        const key = (p.name || '').trim().toLowerCase();
+        if (!byName.has(key)) byName.set(key, []);
+        byName.get(key)!.push(p);
+      });
+
+      byName.forEach((nameProducts) => {
+        const deduped = deduplicateVariantProducts(nameProducts);
+        if (deduped.length > 0) batches.push(deduped);
+      });
     });
 
     // One call per standalone product
