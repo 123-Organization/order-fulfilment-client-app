@@ -8,6 +8,7 @@ import wordpress from "../assets/images/wordpress-svgrepo-com (1).svg";
 import shopifyIcon from "../assets/images/store-shopify.svg";
 import wixIcon from "../assets/images/store-wix.svg";
 import squarespaceIcon from "../assets/images/store-squarespace.svg";
+import woocommerceIcon from "../assets/images/store-woocommerce.svg";
 import {
   listVirtualInventory,
   inventorySelectionUpdate,
@@ -23,6 +24,7 @@ import ExportModal from "../components/ExportModal";
 import EditInventoryModal from "../components/EditInventoryModal";
 import { AddProductToOrder, updateValidSKU } from "../store/features/orderSlice";
 import { useCookies } from "react-cookie";
+import config from "../config/configs";
 
 
 /**
@@ -81,6 +83,14 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
   const [productToDelete, setProductToDelete] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Unlink modal state
+  const [unlinkModalVisible, setUnlinkModalVisible] = useState(false);
+  const [productToUnlink, setProductToUnlink] = useState<any>(null);
+  const [selectedUnlinkPlatforms, setSelectedUnlinkPlatforms] = useState<Set<string>>(new Set());
+  const [unlinkingPlatforms, setUnlinkingPlatforms] = useState<Set<string>>(new Set());
+  const [unlinkedPlatforms, setUnlinkedPlatforms] = useState<Set<string>>(new Set());
+  const [unlinkErrors, setUnlinkErrors] = useState<Record<string, string>>({});
+
   // File Manager Iframe for filtering by image
   const [isImageFilterIframeOpen, setIsImageFilterIframeOpen] = useState(false);
   const [isIframeMaximized, setIsIframeMaximized] = useState(false);
@@ -110,6 +120,7 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
   const deleteError = useAppSelector(
     (state) => state.Inventory.deleteError
   );
+  const companyInfo = useAppSelector((state) => state.company.company_info);
   const dispatch = useAppDispatch();
   const [api, contextHolder] = notification.useNotification();
   const openNotificationWithIcon = ({
@@ -308,6 +319,216 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
     setDeleteModalVisible(true);
   };
 
+  // Open unlink modal
+  const handleOpenUnlinkModal = (product: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setProductToUnlink(product);
+    setSelectedUnlinkPlatforms(new Set());
+    setUnlinkingPlatforms(new Set());
+    setUnlinkedPlatforms(new Set());
+    setUnlinkErrors({});
+    setUnlinkModalVisible(true);
+  };
+
+  // Toggle platform selection in unlink modal
+  const toggleUnlinkPlatform = (platformKey: string) => {
+    setSelectedUnlinkPlatforms(prev => {
+      const next = new Set(prev);
+      if (next.has(platformKey)) next.delete(platformKey);
+      else next.add(platformKey);
+      return next;
+    });
+  };
+
+  // Get connection token for a platform by name
+  const getPlatformToken = (platformName: string): string => {
+    const connections: any[] = companyInfo?.data?.connections || [];
+    if (platformName === 'Squarespace') {
+      const sqConn = connections.find((c: any) => c.name === 'Squarespace');
+      let token = localStorage.getItem('squarespace_token') || localStorage.getItem('squarespace_access_token') || '';
+      if (!token && sqConn) {
+        try { const d = JSON.parse(sqConn.data || '{}'); token = d.access_token || d.token || sqConn.id || ''; } catch { token = sqConn.id || ''; }
+      }
+      return token;
+    }
+    const conn = connections.find((c: any) => c.name === platformName);
+    if (!conn) return '';
+    try { const d = JSON.parse((conn as any).data || '{}'); return d.access_token || d.token || conn.id || ''; } catch { return conn.id || ''; }
+  };
+
+  // Fire unlink API for selected platforms
+  const confirmUnlink = async () => {
+    if (!productToUnlink || selectedUnlinkPlatforms.size === 0) return;
+
+    const accountKey =
+      companyInfo?.data?.account_key ||
+      localStorage.getItem('squarespace_account_key') ||
+      cookies.AccountGUID ||
+      '';
+
+    // Map UI platform key → API source name
+    const platformSourceMap: Record<string, string> = {
+      squarespace: 'squarespace',
+      shopify: 'shopify',
+      wix: 'wix',
+      woocommerce: 'woocommerce',
+    };
+
+    const platformTokenMap: Record<string, string> = {
+      squarespace: getPlatformToken('Squarespace'),
+      shopify: getPlatformToken('Shopify'),
+      wix: getPlatformToken('Wix'),
+      woocommerce: getPlatformToken('WooCommerce'),
+    };
+
+    const toProcess = Array.from(selectedUnlinkPlatforms);
+
+    // Mark all as loading
+    setUnlinkingPlatforms(new Set(toProcess));
+
+    const results = await Promise.allSettled(
+      toProcess.map(async (platformKey) => {
+        const source = platformSourceMap[platformKey];
+        const token = platformTokenMap[platformKey];
+        if (!token) throw new Error('No access token found for this platform');
+        const res = await fetch(`${config.SERVER_BASE_URL}check-link-for-external-source`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            source,
+            sku: productToUnlink.sku,
+            access_token: token,
+            account_key: accountKey,
+          }),
+        });
+        if (!res.ok) throw new Error(`Server error: ${res.status}`);
+        return platformKey;
+      })
+    );
+
+    const succeeded = new Set<string>();
+    const errors: Record<string, string> = {};
+
+    results.forEach((result, idx) => {
+      const key = toProcess[idx];
+      if (result.status === 'fulfilled') {
+        succeeded.add(key);
+      } else {
+        errors[key] = (result as PromiseRejectedResult).reason?.message || 'Failed';
+      }
+    });
+
+    setUnlinkingPlatforms(new Set());
+    setUnlinkedPlatforms(succeeded);
+    setUnlinkErrors(errors);
+
+    if (succeeded.size > 0) {
+      notification.success({
+        message: 'Unlinked Successfully',
+        description: `"${productToUnlink.name || productToUnlink.sku}" was unlinked from ${succeeded.size} platform(s).`,
+        placement: 'topRight',
+        duration: 4,
+      });
+    }
+    if (Object.keys(errors).length > 0) {
+      notification.error({
+        message: 'Some Unlinks Failed',
+        description: `Failed to unlink from ${Object.keys(errors).length} platform(s). Check the modal for details.`,
+        placement: 'topRight',
+        duration: 4,
+      });
+    }
+
+    // Refresh inventory list if at least one platform was unlinked successfully
+    if (succeeded.size > 0) {
+      listInventory(1, true);
+    }
+
+    // Close modal after 1.2 s if everything succeeded
+    if (Object.keys(errors).length === 0) {
+      setTimeout(() => {
+        setUnlinkModalVisible(false);
+        setProductToUnlink(null);
+      }, 1200);
+    }
+  };
+
+  // Auto-unlink a deleted product from all platforms it was linked to
+  const autoUnlinkFromPlatforms = async (product: any) => {
+    const integrations = product?.third_party_integrations;
+    if (!integrations) return;
+
+    const connections: Array<{ name: string }> = companyInfo?.data?.connections || [];
+    const accountKey =
+      companyInfo?.data?.account_key ||
+      localStorage.getItem('squarespace_account_key') ||
+      cookies.AccountGUID ||
+      '';
+
+    const getToken = (platformName: string): string => {
+      const conn = connections.find((c: any) => c.name === platformName);
+      if (!conn) return '';
+      try {
+        const parsed = JSON.parse((conn as any).data || '{}');
+        return parsed.access_token || parsed.token || (conn as any).id || '';
+      } catch {
+        return (conn as any).id || '';
+      }
+    };
+
+    const unlinkRequests: Promise<void>[] = [];
+
+    const callUnlink = async (source: string, accessToken: string) => {
+      try {
+        await fetch(`${config.SERVER_BASE_URL}check-link-for-external-source`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            source,
+            sku: product.sku,
+            access_token: accessToken,
+            account_key: accountKey,
+          }),
+        });
+        console.log(`✅ Auto-unlinked SKU "${product.sku}" from ${source}`);
+      } catch (err) {
+        console.warn(`⚠️ Auto-unlink from ${source} failed for SKU "${product.sku}":`, err);
+      }
+    };
+
+    if (integrations.squarespace_product_id) {
+      const token =
+        getToken('Squarespace') ||
+        localStorage.getItem('squarespace_token') ||
+        localStorage.getItem('squarespace_access_token') ||
+        '';
+      if (token) unlinkRequests.push(callUnlink('squarespace', token));
+    }
+
+    if (
+      integrations.shopify_product_id ||
+      (integrations.shopify_graphql_product_id && integrations.shopify_graphql_product_id !== 0)
+    ) {
+      const token = getToken('Shopify');
+      if (token) unlinkRequests.push(callUnlink('shopify', token));
+    }
+
+    if (integrations.wix_inventory_id || integrations.wix_product_id) {
+      const token = getToken('Wix');
+      if (token) unlinkRequests.push(callUnlink('wix', token));
+    }
+
+    if (integrations.woocommerce_product_id) {
+      const token = getToken('WooCommerce');
+      if (token) unlinkRequests.push(callUnlink('woocommerce', token));
+    }
+
+    // Fire all unlink requests concurrently (best-effort — don't block delete UI)
+    if (unlinkRequests.length > 0) {
+      await Promise.allSettled(unlinkRequests);
+    }
+  };
+
   // Confirm delete product
   const confirmDeleteProduct = async () => {
     if (!productToDelete) return;
@@ -317,6 +538,9 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
       await dispatch(deleteVirtualInventoryProduct({
         skus: [productToDelete.sku]
       })).unwrap();
+
+      // Auto-unlink from any connected platforms (best-effort, non-blocking)
+      await autoUnlinkFromPlatforms(productToDelete);
 
       // Success - remove from local state and show notification
       setAllInventoryData((prevData) =>
@@ -1323,6 +1547,28 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
                               </svg>
                             </button>
 
+                            {/* Unlink Button */}
+                            <button
+                              onClick={(e) => handleOpenUnlinkModal(image, e)}
+                              className="p-2 bg-white border border-orange-300 rounded-lg hover:bg-orange-50 hover:border-orange-500 transition-all duration-200 group shadow-sm hover:shadow-md"
+                              title="Unlink from Platform"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-5 w-5 text-orange-400 group-hover:text-orange-600"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                                />
+                              </svg>
+                            </button>
+
                             {/* Delete Button */}
                             <button
                               onClick={(e) => handleDeleteProduct(image, e)}
@@ -1617,6 +1863,185 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Unlink from Platform Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-orange-100 rounded-full">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+              </svg>
+            </div>
+            <span className="text-lg font-semibold text-gray-800">Unlink from Platform</span>
+          </div>
+        }
+        open={unlinkModalVisible}
+        onCancel={() => {
+          setUnlinkModalVisible(false);
+          setProductToUnlink(null);
+        }}
+        footer={null}
+        centered
+        width={520}
+      >
+        {productToUnlink && (
+          <div className="py-2">
+            {/* Product info strip */}
+            <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-xl p-3 mb-5">
+              {productToUnlink.image_url_1 && (
+                <img
+                  src={productToUnlink.image_url_1}
+                  alt={productToUnlink.name}
+                  className="w-12 h-12 object-contain rounded-lg bg-white border border-gray-200 flex-shrink-0"
+                />
+              )}
+              <div className="min-w-0">
+                <p className="font-semibold text-gray-800 truncate">{productToUnlink.name || 'Unnamed Product'}</p>
+                <p className="text-xs text-gray-500">SKU: <span className="font-medium text-gray-700">{productToUnlink.sku}</span></p>
+              </div>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">
+              Select the platform(s) you want to unlink this product from, then click <strong>Unlink</strong>.
+            </p>
+
+            {/* Platform grid */}
+            {(() => {
+              const integrations = productToUnlink.third_party_integrations || {};
+              const platforms = [
+                {
+                  key: 'squarespace',
+                  name: 'Squarespace',
+                  icon: squarespaceIcon,
+                  linked: !!integrations.squarespace_product_id,
+                  color: '#000000',
+                  bg: '#f5f5f5',
+                },
+                {
+                  key: 'shopify',
+                  name: 'Shopify',
+                  icon: shopifyIcon,
+                  linked: !!(integrations.shopify_product_id || (integrations.shopify_graphql_product_id && integrations.shopify_graphql_product_id !== 0)),
+                  color: '#96bf48',
+                  bg: '#f6fff2',
+                },
+                {
+                  key: 'wix',
+                  name: 'Wix',
+                  icon: wixIcon,
+                  linked: !!(integrations.wix_inventory_id || integrations.wix_product_id),
+                  color: '#faad14',
+                  bg: '#fffbf0',
+                },
+                {
+                  key: 'woocommerce',
+                  name: 'WooCommerce',
+                  icon: woocommerceIcon,
+                  linked: !!integrations.woocommerce_product_id,
+                  color: '#7f54b3',
+                  bg: '#f8f4ff',
+                },
+              ];
+
+              return (
+                <div className="grid grid-cols-2 gap-3 mb-6">
+                  {platforms.map((p) => {
+                    const isSelected = selectedUnlinkPlatforms.has(p.key);
+                    const isLoading = unlinkingPlatforms.has(p.key);
+                    const isDone = unlinkedPlatforms.has(p.key);
+                    const hasError = !!unlinkErrors[p.key];
+
+                    return (
+                      <button
+                        key={p.key}
+                        type="button"
+                        disabled={isLoading || isDone}
+                        onClick={() => toggleUnlinkPlatform(p.key)}
+                        className={`relative flex items-center gap-3 p-3 rounded-xl border-2 transition-all duration-200 text-left ${
+                          isDone
+                            ? 'border-green-400 bg-green-50 opacity-80 cursor-default'
+                            : hasError
+                            ? 'border-red-400 bg-red-50'
+                            : isSelected
+                            ? 'border-orange-400 bg-orange-50 shadow-md'
+                            : 'border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-50/40 hover:shadow-sm'
+                        }`}
+                        style={{ cursor: isLoading || isDone ? 'default' : 'pointer' }}
+                      >
+                        {/* Platform logo */}
+                        <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-white border border-gray-100 shadow-sm p-1.5">
+                          <img src={p.icon} alt={p.name} className="w-full h-full object-contain" />
+                        </div>
+
+                        {/* Name & status */}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm text-gray-800">{p.name}</p>
+                          <p className={`text-xs font-medium ${
+                            isDone ? 'text-green-600'
+                            : hasError ? 'text-red-500'
+                            : p.linked ? 'text-blue-600'
+                            : 'text-gray-400'
+                          }`}>
+                            {isDone ? '✓ Unlinked' : hasError ? unlinkErrors[p.key] : p.linked ? 'Linked' : 'Not linked'}
+                          </p>
+                        </div>
+
+                        {/* State indicator */}
+                        {isLoading && (
+                          <Spin size="small" />
+                        )}
+                        {isDone && !isLoading && (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                        {isSelected && !isLoading && !isDone && (
+                          <div className="w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center flex-shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+
+            {/* Info note */}
+            <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-5">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-xs text-amber-800">
+                Unlinking removes the connection record between this product and the selected platform. The product listing on the platform itself will <strong>not</strong> be deleted.
+              </p>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex justify-end gap-3">
+              <Button
+                onClick={() => { setUnlinkModalVisible(false); setProductToUnlink(null); }}
+                disabled={unlinkingPlatforms.size > 0}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="primary"
+                danger
+                disabled={selectedUnlinkPlatforms.size === 0 || unlinkingPlatforms.size > 0}
+                loading={unlinkingPlatforms.size > 0}
+                onClick={confirmUnlink}
+                className="flex items-center gap-2"
+              >
+                {unlinkingPlatforms.size > 0 ? 'Unlinking...' : `Unlink${selectedUnlinkPlatforms.size > 0 ? ` (${selectedUnlinkPlatforms.size})` : ''}`}
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );
