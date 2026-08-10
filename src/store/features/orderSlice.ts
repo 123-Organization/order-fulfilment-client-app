@@ -315,7 +315,7 @@ const uploadInBatches = async (endpoint: string, postData: any, batchSize = 5) =
         ...postData,
         orders: batchOrders,
       };
-      const response = await fetch(BASE_URL + endpoint, {
+      const response = await fetch(`https://fa-ls.finerworks.com/api/` + endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -776,7 +776,7 @@ export const updateProductValidSKU = createAsyncThunk("order/update/validSKU", a
 );
 
 export const submitOrders = createAsyncThunk("order/submit", async (postData: any, thunkAPI) => {
-  const response = await fetch(BASE_URL + "submit-orders-v2", {
+  const response = await fetch(`https://fa-ls.finerworks.com/api/` + "submit-orders-v2", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

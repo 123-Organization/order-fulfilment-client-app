@@ -273,7 +273,7 @@ const ImportList: React.FC = () => {
       orders: [{ order_po: order.order_po, order_key: null, recipient: order.recipient, order_items: order.order_items, shipping_code: order.shipping_code }],
     };
     try {
-      const response = await fetch(`${BASE_URL}shipping-options`, {
+      const response = await fetch(`https://fa-ls.finerworks.com/api/shipping-options`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -1413,8 +1413,8 @@ const ImportList: React.FC = () => {
         item?.product_url_file;
 
       return (
-        !fileUrl || 
-        fileUrl.trim() === '' || 
+        !fileUrl ||
+        fileUrl.trim() === '' ||
         fileUrl.includes('via.placeholder.com')
       );
     });

@@ -18,11 +18,11 @@ interface ProductState {
 const STORAGE_KEY_PRODUCTS = "fw_product_details_cache";
 
 const loadPersistedProducts = () => {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY_PRODUCTS);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return [];
+        try {
+                const raw = localStorage.getItem(STORAGE_KEY_PRODUCTS);
+                if (raw) return JSON.parse(raw);
+        } catch { }
+        return [];
 };
 
 const initialState: ProductState = {
@@ -52,7 +52,7 @@ export const fetchProductDetails = createAsyncThunk(
                         "products": [...postData],
                         "account_key": getCookie("AccountGUID") || "default-key"
                 }
-                const response = await fetch(BASE_URL + "get-product-details", {
+                const response = await fetch(`https://fa-ls.finerworks.com/api/` + "get-product-details", {
                         method: "POST",
                         headers: {
                                 "Content-Type": "application/json",
@@ -160,7 +160,7 @@ export const ProductSlice = createSlice({
                         state.product_details = [];
                         try {
                                 localStorage.removeItem(STORAGE_KEY_PRODUCTS);
-                        } catch {}
+                        } catch { }
                 },
                 resetProductStatus: (state) => {
                         state.status = "idle";
@@ -208,11 +208,11 @@ export const ProductSlice = createSlice({
                                 state.product_details = action.payload;
                         }
                         state.status = "succeeded";
-                        
+
                         // Persist to localStorage
                         try {
                                 localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(state.product_details));
-                        } catch {}
+                        } catch { }
                 });
                 builder.addCase(fetchProductDetails.pending, (state, action) => {
                         state.status = "loading";
