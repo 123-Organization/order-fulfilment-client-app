@@ -46,6 +46,7 @@ import { setProductData } from "../store/features/productSlice";
 import { convertGoogleDriveUrl, isGoogleDriveUrl, getGoogleDriveImageUrls } from "../helpers/fileHelper";
 import { useSearch } from "../context/SearchContext";
 import { useCookies } from "react-cookie";
+import convertUsStateAbbrAndName from "../services/state";
 import config from "../config/configs";
 
 const { Option } = Select;
@@ -2239,8 +2240,8 @@ const ImportList: React.FC = () => {
                               }}
                               title={recipientErrors[order?.order_po]?.state_code?.[0] || recipientErrors[order?.order_po]?.city?.[0] || recipientErrors[order?.order_po]?.zip_postal_code?.[0]}
                             >
-                              {order?.recipient?.city},{" "}{order?.recipient?.state}
-                              {order?.recipient?.province}{" "}
+                              {order?.recipient?.city},{" "}{convertUsStateAbbrAndName(order?.recipient?.state_code || order?.recipient?.state || "") || (order?.recipient?.state_code || order?.recipient?.state)}{" "}
+                              {order?.recipient?.province}{order?.recipient?.province ? " " : ""}
                               {order?.recipient?.zip_postal_code}
                             </div>
                             {/* country_code */}

@@ -322,7 +322,8 @@ const uploadInBatches = async (endpoint: string, postData: any, batchSize = 5) =
         },
         body: JSON.stringify(payload),
       });
-      return await response.json();
+      const batchData = await response.json();
+      return batchData;
     });
 
     const results = await Promise.all(batchPromises);

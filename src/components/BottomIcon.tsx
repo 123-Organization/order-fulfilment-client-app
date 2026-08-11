@@ -44,6 +44,66 @@ type bottomIconProps = {
 
 const BASE_URL = config.SERVER_BASE_URL;
 
+/**
+ * Extracts the actual number of orders successfully imported from the upload
+ * API response.
+ *
+ * The upload API returns:
+ *   {
+ *     statusCode: 200,
+ *     status: true,
+ *     message: "Orders processed: N imported, ...",
+ *     imported_order_pos: ["po1", "po2"],      ← only newly imported
+ *     skipped_already_submitted_order_pos: [],
+ *     skipped_already_pending_order_pos: [],
+ *     data: [...]                               ← ALL processed orders (incl. skipped)
+ *   }
+ *
+ * Priority: imported_order_pos.length → count field → fallback
+ */
+const getUploadedCount = (saveResult: any, fallback: number): number => {
+  const payload = saveResult?.payload;
+
+  if (!payload) return fallback;
+
+  // Batch path: sum imported_order_pos across all batches
+  if (Array.isArray(payload?.batchResults)) {
+    const total = payload.batchResults.reduce((sum: number, batch: any) => {
+      if (Array.isArray(batch?.imported_order_pos)) return sum + batch.imported_order_pos.length;
+      if (typeof batch?.count === 'number') return sum + batch.count;
+      return sum;
+    }, 0);
+    return total;  // 0 is a valid result (all dupes) — don't fall back
+  }
+
+  // Single response — prefer the dedicated imported list
+  if (Array.isArray(payload?.imported_order_pos)) {
+    return payload.imported_order_pos.length;
+  }
+
+  // Legacy / other endpoints that return a plain count field
+  if (typeof payload?.count === 'number') return payload.count;
+
+  return fallback;
+};
+
+/**
+ * Returns a human-readable description for the success notification.
+ * Uses the API's own message when it includes import/skip breakdown info,
+ * otherwise falls back to a generic "<count> <platform> order(s) imported" string.
+ */
+const getUploadDescription = (saveResult: any, platform: string, fallbackCount: number): string => {
+  const payload = saveResult?.payload;
+
+  // Prefer the API's own detailed message (e.g. "Orders processed: 3 imported, 2 skipped (already pending)")
+  if (payload?.message && typeof payload.message === 'string' && payload.message.toLowerCase().includes('processed')) {
+    return payload.message;
+  }
+
+  const count = getUploadedCount(saveResult, fallbackCount);
+  return `${count} ${platform} order(s) imported successfully`;
+};
+
 // Helper function to validate phone numbers (allows formatted input like "(585) 729-4716")
 const isValidPhone = (phone: string | number | undefined): boolean => {
   if (!phone) return false;
@@ -271,11 +331,11 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   orders: transformedOrders,
                 };
 
-                await dispatch(saveShopifyOrder(sendData));
+                const saveResult = await dispatch(saveShopifyOrder(sendData));
 
                 notification.success({
                   message: "Success",
-                  description: `${allOrders.length} Shopify order(s) imported successfully${hasErrors ? ' (some orders failed)' : ''}`,
+                  description: getUploadDescription(saveResult, 'Shopify', allOrders.length),
                 });
 
                 setTimeout(() => {
@@ -381,12 +441,11 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                       orders: transformedOrders,
                     };
 
-
-                    await dispatch(saveShopifyOrder(sendData));
+                    const saveResultBulk = await dispatch(saveShopifyOrder(sendData));
 
                     notification.success({
                       message: "Success",
-                      description: `${result.payload.count} Shopify order(s) imported successfully`,
+                      description: getUploadDescription(saveResultBulk, 'Shopify', transformedOrders.length),
                     });
 
                     setTimeout(() => {
@@ -647,11 +706,11 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   orders: transformedOrders,
                 };
 
-                await dispatch(saveShopifyOrder(sendData));
+                const saveResultSqByNum = await dispatch(saveShopifyOrder(sendData));
 
                 notification.success({
                   message: 'Success',
-                  description: `${transformedOrders.length} Squarespace order(s) imported successfully${hasErrors ? ' (some failed)' : ''}`,
+                  description: getUploadDescription(saveResultSqByNum, 'Squarespace', transformedOrders.length),
                 });
 
                 setTimeout(() => {
@@ -775,11 +834,11 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   orders: transformedOrders,
                 };
 
-                await dispatch(saveShopifyOrder(sendData)); // reuse the generic save endpoint
+                const saveResultSqBulk = await dispatch(saveShopifyOrder(sendData)); // reuse the generic save endpoint
 
                 notification.success({
                   message: 'Success',
-                  description: `${transformedOrders.length} Squarespace order(s) imported successfully`,
+                  description: getUploadDescription(saveResultSqBulk, 'Squarespace', transformedOrders.length),
                 });
 
                 setTimeout(() => {
@@ -842,10 +901,10 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                     accountId: result.payload.orderDetails[0].accountId,
                     payment_token: result.payload.orderDetails[0].payment_token,
                   };
-                  dispatch(saveOrder(sendData));
+                  const saveResultWoo = await dispatch(saveOrder(sendData));
                   notification.success({
                     message: "Success",
-                    description: "Order imported successfully",
+                    description: getUploadDescription(saveResultWoo, 'WooCommerce', sendData.orders?.length ?? 1),
                   });
                   setTimeout(() => {
                     dispatch(clearAllShippingCache());
@@ -989,11 +1048,11 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   orders: transformedOrders,
                 };
 
-                await dispatch(saveShopifyOrder(sendData));
+                const saveResultWixByNum = await dispatch(saveShopifyOrder(sendData));
 
                 notification.success({
                   message: 'Success',
-                  description: `${transformedOrders.length} Wix order(s) imported successfully`,
+                  description: getUploadDescription(saveResultWixByNum, 'Wix', transformedOrders.length),
                 });
 
                 setTimeout(() => {
@@ -1092,11 +1151,11 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   orders: transformedOrders,
                 };
 
-                await dispatch(saveShopifyOrder(sendData));
+                const saveResultWixBulk = await dispatch(saveShopifyOrder(sendData));
 
                 notification.success({
                   message: 'Success',
-                  description: `${transformedOrders.length} Wix order(s) imported successfully`,
+                  description: getUploadDescription(saveResultWixBulk, 'Wix', transformedOrders.length),
                 });
 
                 setTimeout(() => {
@@ -1255,7 +1314,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
 
               notification.success({
                 message: 'Success',
-                description: `${transformedOrders.length} Etsy order(s) imported successfully`,
+                description: getUploadDescription(saveResult, 'Etsy', transformedOrders.length),
               });
 
               setTimeout(() => {
@@ -1384,7 +1443,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
 
               notification.success({
                 message: 'Success',
-                description: `${transformedOrders.length} Square order(s) imported successfully`,
+                description: getUploadDescription(saveResult, 'Square', transformedOrders.length),
               });
 
               setTimeout(() => {
