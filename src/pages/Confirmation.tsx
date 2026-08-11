@@ -4,7 +4,7 @@ import { useAppSelector, useAppDispatch } from "../store";
 import style from "./Pgaes.module.css";
 import { Steps } from "antd";
 import { useNavigate } from "react-router-dom";
-import { updateCheckedOrders, resetImport, DeleteAllOrders, resetSubmitStatus, resetExcludedOrders, sendOrderInformation, resetSendOrderInfoStatus, resetShopifyOrdersResponse, resetSubmitOrdersResponse } from "../store/features/orderSlice";
+import { updateCheckedOrders, resetImport, DeleteAllOrders, resetSubmitStatus, resetExcludedOrders, sendOrderInformation, resetSendOrderInfoStatus, resetShopifyOrdersResponse, resetSubmitOrdersResponse, removeSubmittedOrders } from "../store/features/orderSlice";
 import { getCustomerInfo } from "../store/features/customerSlice";
 import { InfoCircleOutlined } from "@ant-design/icons";
 
@@ -88,7 +88,8 @@ export default function Confirmation() {
       }
       console.log("sendOrderInformationStatus", sendOrderInformationStatus);
       dispatch(resetExcludedOrders());
-      
+      // Remove only the submitted orders from the pending list instantly
+      dispatch(removeSubmittedOrders(submitedOrders.map((o: any) => o.order_po)));
       // Refresh customer info to update credits after successful checkout
       dispatch(getCustomerInfo());
     } else if (submitStatus === "failed") {
@@ -98,6 +99,8 @@ export default function Confirmation() {
       dispatch(resetSubmitStatus());
       dispatch(resetImport());
       dispatch(resetExcludedOrders());
+      // Remove only the submitted orders from the pending list instantly
+      dispatch(removeSubmittedOrders(submitedOrders.map((o: any) => o.order_po)));
       dispatch(getCustomerInfo());
       // NOTE: error UI intentionally suppressed — remove this block once backend is stable
       // setIsLoading(true);

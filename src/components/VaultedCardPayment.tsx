@@ -132,9 +132,9 @@ export default function VaultedCardPayment({
   }, [paymentToken, selectedCard]);
   console.log("tooot", token);
 
-  const proccessPayment = () => {
+  const proccessPayment = (isInvoice: boolean = false) => {
     // If still loading tokens or no token available (and credits don't cover full amount)
-    if (!isFullyCoveredByCredits) {
+    if (!isFullyCoveredByCredits && !isInvoice) {
       if (isTokenLoading) {
         notificationApi.warning({
           message: "Payment Setup In Progress",
@@ -263,7 +263,7 @@ export default function VaultedCardPayment({
         account_key: companyInfo?.data?.account_key,
         accountId: companyInfo?.data?.account_id,
         // Only include payment_token if credits don't cover the full amount
-        ...(isFullyCoveredByCredits ? {} : { payment_token: token?.token }),
+        ...(isFullyCoveredByCredits ? {} : { payment_token: isInvoice ? "invoice" : token?.token }),
       }
 
       setHasAttemptedSubmit(true);
@@ -346,15 +346,27 @@ export default function VaultedCardPayment({
       <LoadingOverlay isLoading={isLoading} message={isFullyCoveredByCredits ? "Processing with Credits..." : "Processing Payment..."} />
       {/* Don't show token loading overlay if credits cover the full amount */}
       <LoadingOverlay isLoading={isTokenLoading && !isLoading && !isFullyCoveredByCredits} message="Setting up payment details..." />
-      <Button
-        key="submit"
-        className={`max-md:w-6/12 w-[170px] md:mx-8 mt-2 ${style.pay_button} ${isTokenLoading || isPayButtonDisabled ? style.disabled_button || 'opacity-50' : ''}`}
-        size={"large"}
-        onClick={proccessPayment}
-        disabled={isTokenLoading || isPayButtonDisabled}
-      >
-        {isTokenLoading ? "Setting Up..." : "Pay"}
-      </Button>
+      <div className="flex flex-wrap justify-center gap-4 mt-2">
+        <Button
+          key="submit"
+          className={`max-md:w-6/12 w-[170px] md:mx-8 ${style.pay_button} ${isTokenLoading || isPayButtonDisabled ? style.disabled_button || 'opacity-50' : ''}`}
+          size={"large"}
+          onClick={() => proccessPayment(false)}
+          disabled={isTokenLoading || isPayButtonDisabled}
+        >
+          {isTokenLoading ? "Setting Up..." : "Pay"}
+        </Button>
+        {false /* companyInfo?.data?.enable_invoice_payment */ && (
+          <Button
+            key="invoice"
+            className={`max-md:w-6/12 w-[170px] md:mx-8 ${style.pay_button} !bg-[#FFBF00] hover:!bg-[#e6ac00] !border-[#FFBF00] !text-black`}
+            size={"large"}
+            onClick={() => proccessPayment(true)}
+          >
+            Invoice Me
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

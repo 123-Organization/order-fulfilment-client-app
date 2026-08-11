@@ -328,12 +328,32 @@ const uploadInBatches = async (endpoint: string, postData: any, batchSize = 5) =
 
     const results = await Promise.all(batchPromises);
 
-    const merged = results.reduce((acc: any, curr: any) => {
-      if (typeof curr === "object" && curr !== null) {
-        return { ...acc, ...curr };
-      }
-      return acc;
-    }, { batchResults: results });
+    // Aggregate counts across all batches so the notification reflects totals,
+    // not just the last response (which the old spread-merge returned).
+    const allImported: string[] = [];
+    const allSkippedSubmitted: string[] = [];
+    const allSkippedPending: string[] = [];
+
+    results.forEach((r: any) => {
+      if (Array.isArray(r?.imported_order_pos)) allImported.push(...r.imported_order_pos);
+      if (Array.isArray(r?.skipped_already_submitted_order_pos)) allSkippedSubmitted.push(...r.skipped_already_submitted_order_pos);
+      if (Array.isArray(r?.skipped_already_pending_order_pos)) allSkippedPending.push(...r.skipped_already_pending_order_pos);
+    });
+
+    const combinedMessage = `Orders processed: ${allImported.length} imported, ${allSkippedSubmitted.length} skipped (already a submitted order), ${allSkippedPending.length} skipped (already pending)`;
+
+    const merged = {
+      // Keep batchResults for any legacy consumers
+      batchResults: results,
+      // Expose aggregated fields at the top level so getUploadedCount /
+      // getUploadDescription can read them the same way as a single response.
+      imported_order_pos: allImported,
+      skipped_already_submitted_order_pos: allSkippedSubmitted,
+      skipped_already_pending_order_pos: allSkippedPending,
+      message: combinedMessage,
+      status: results.some((r: any) => r?.status === true),
+      statusCode: 200,
+    };
 
     return merged;
   }
@@ -988,6 +1008,16 @@ export const OrderSlice = createSlice({
       state.myImport = {};
     },
 
+    // Remove a list of submitted orders from orders.data by order_po
+    // so the import list updates instantly without a full re-fetch.
+    removeSubmittedOrders: (state, action: PayloadAction<string[]>) => {
+      const submittedPos = new Set(action.payload);
+      if (state.orders?.data && Array.isArray(state.orders.data)) {
+        state.orders.data = state.orders.data.filter(
+          (order: any) => !submittedPos.has(order.order_po)
+        );
+      }
+    },
     updateCheckedOrders: (state, action: PayloadAction) => {
       state.checkedOrders = action.payload;
     },
@@ -1389,4 +1419,4 @@ export const OrderSlice = createSlice({
 });
 
 export default OrderSlice.reducer;
-export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setShippingLoading, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, updateIframe, updateApp, updateOpenSheet, updateExcludedOrders, resetExcludedOrders, updateValidSKU, resetValidSKU, updateReplacingCode, resetReplacingCode, resetReplaceCodeResult, resetReplaceCodeStatus, resetSubmitStatus, resetSendOrderInfoStatus, resetSubmitOrdersResponse, resetShopifyOrdersResponse, resetSaveOrderInfo, resetUpdateImageStatus, resetSquarespaceOrdersResponse, resetSquarespaceImportStatus, resetWixOrdersResponse, resetWixImportStatus, resetShippoOrdersResponse, resetShippoImportStatus, resetSquareOrdersResponse, resetSquareImportStatus, patchOrderItemQuantity, resetRefreshOrderStatus } = OrderSlice.actions;
+export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setShippingLoading, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, removeSubmittedOrders, updateIframe, updateApp, updateOpenSheet, updateExcludedOrders, resetExcludedOrders, updateValidSKU, resetValidSKU, updateReplacingCode, resetReplacingCode, resetReplaceCodeResult, resetReplaceCodeStatus, resetSubmitStatus, resetSendOrderInfoStatus, resetSubmitOrdersResponse, resetShopifyOrdersResponse, resetSaveOrderInfo, resetUpdateImageStatus, resetSquarespaceOrdersResponse, resetSquarespaceImportStatus, resetWixOrdersResponse, resetWixImportStatus, resetShippoOrdersResponse, resetShippoImportStatus, resetSquareOrdersResponse, resetSquareImportStatus, patchOrderItemQuantity, resetRefreshOrderStatus } = OrderSlice.actions;
