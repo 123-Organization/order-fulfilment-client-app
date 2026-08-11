@@ -356,7 +356,7 @@ export default function VaultedCardPayment({
         >
           {isTokenLoading ? "Setting Up..." : "Pay"}
         </Button>
-        {false /* companyInfo?.data?.enable_invoice_payment */ && (
+        {companyInfo?.data?.enable_invoice_payment && (
           <Button
             key="invoice"
             className={`max-md:w-6/12 w-[170px] md:mx-8 ${style.pay_button} !bg-[#FFBF00] hover:!bg-[#e6ac00] !border-[#FFBF00] !text-black`}
