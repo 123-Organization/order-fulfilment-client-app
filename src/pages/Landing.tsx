@@ -30,7 +30,7 @@ import { updateOpenSheet } from "../store/features/orderSlice";
 import SpreadSheet from "../components/SpreadSheet";
 import PlatformSettingsModal from "../components/PlatformSettingsModal";
 // Set to true when Shopify integration is fully ready
-const SHOPIFY_ENABLED = false;
+const SHOPIFY_ENABLED = true;
 // Set to true when Etsy integration is fully ready
 const ETSY_ENABLED = true;
 // Set to true when Square integration is fully ready
@@ -782,16 +782,23 @@ const Landing: React.FC = (): JSX.Element => {
 
     // Square integration
     if (imgname === "Square") {
-      if (!customerInfo?.data?.account_key && !cookies.AccountGUID) {
+      const accountKeyToUse = customerInfo?.data?.account_key || cookies.AccountGUID;
+      console.log("=== SQUARE CLICK ===");
+      console.log("accountKeyToUse:", accountKeyToUse);
+      console.log("squareConnectionStatus:", squareConnectionStatus);
+      console.log("user_profile_complete:", customerInfo?.data?.user_profile_complete);
+
+      if (!accountKeyToUse) {
         window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`;
         return;
       }
       if (squareConnectionStatus === 'connected') {
         navigate("/importfilter?type=Square");
-      } else if (customerInfo?.data?.user_profile_complete === true) {
-        const accountKey = customerInfo?.data?.account_key;
+      } else if (accountKeyToUse) {
         // Initiate Square OAuth — backend redirects the user through Square's OAuth flow
-        window.location.href = `${BASE_URL}square/auth?account_key=${accountKey}`;
+        const redirectUrl = `${BASE_URL}square/auth?account_key=${accountKeyToUse}`;
+        console.log("Redirecting to Square OAuth:", redirectUrl);
+        window.location.href = redirectUrl;
       } else {
         notificationApi.warning({
           message: "Please complete your profile",
