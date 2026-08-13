@@ -3,7 +3,8 @@ const prod = {
   // SERVER_BASE_URL : "https://ijbsrphg08.execute-api.us-east-1.amazonaws.com/Prod/api/",
   SERVER_BASE_URL: "https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/",
   COMPANION_BASE_URL: "https://prod-companion-app-filemanagement.finerworks.com",
-  WEBSOCKET_URL: ""
+  WEBSOCKET_URL: "",
+  TIKTOK_API_BASE_URL: "https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/",
 }
 
 const dev = {
@@ -11,7 +12,8 @@ const dev = {
   // SERVER_BASE_URL : "https://ijbsrphg08.execute-api.us-east-1.amazonaws.com/Prod/api/",
   SERVER_BASE_URL: "https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/",
   COMPANION_BASE_URL: "https://companion-app-filemanagement.finerworks.com",
-  WEBSOCKET_URL: ""
+  WEBSOCKET_URL: "",
+  TIKTOK_API_BASE_URL: "https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/"
 }
 
 const prodDomain = ['prod1-filemanger-app.finerworks.com']

@@ -38,10 +38,10 @@ const BIGCOMMERCE_ENABLED = false;
 const ETSY_ENABLED = true;
 // Set to true when Square integration is fully ready
 const SQUARE_ENABLED = true;
-// Set to true when TikTok Shop integration is fully ready
-const TIKTOK_ENABLED = true;
 const BASE_URL = configs.SERVER_BASE_URL;
 const TIKTOK_BASE_URL = configs.TIKTOK_API_BASE_URL;
+
+const TIKTOK_ENABLED = true;
 
 
 const images = [
@@ -2052,10 +2052,11 @@ const Landing: React.FC = (): JSX.Element => {
               {/* Step 1 — Validate key */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
                 {/* Icon */}
-                <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                <div style={{
+                  width: 28, height: 28, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
                   background: shippoConnectStep === 'validating' ? '#eff6ff'
                     : shippoConnectStep === 'valid' || shippoConnectStep === 'connecting' ? '#dcfce7'
-                    : '#fee2e2',
+                      : '#fee2e2',
                 }}>
                   {shippoConnectStep === 'validating' ? (
                     <svg style={{ width: 16, height: 16, animation: 'spin 1s linear infinite', color: '#3b82f6' }} viewBox="0 0 24 24" fill="none">
@@ -2063,11 +2064,11 @@ const Landing: React.FC = (): JSX.Element => {
                     </svg>
                   ) : shippoConnectStep === 'valid' || shippoConnectStep === 'connecting' ? (
                     <svg style={{ width: 14, height: 14, color: '#16a34a' }} viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                     </svg>
                   ) : (
                     <svg style={{ width: 14, height: 14, color: '#dc2626' }} viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"/>
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                     </svg>
                   )}
                 </div>
@@ -2075,10 +2076,11 @@ const Landing: React.FC = (): JSX.Element => {
                   <div style={{ fontSize: 13, fontWeight: 600, color: isDark ? '#e2e8f0' : '#1e293b' }}>
                     Step 1 — Validating API Key
                   </div>
-                  <div style={{ fontSize: 12, color:
-                    shippoConnectStep === 'validating' ? '#3b82f6'
-                    : shippoConnectStep === 'valid' || shippoConnectStep === 'connecting' ? '#16a34a'
-                    : '#dc2626',
+                  <div style={{
+                    fontSize: 12, color:
+                      shippoConnectStep === 'validating' ? '#3b82f6'
+                        : shippoConnectStep === 'valid' || shippoConnectStep === 'connecting' ? '#16a34a'
+                          : '#dc2626',
                     marginTop: 2,
                   }}>
                     {shippoConnectStep === 'validating' && 'Checking your key with Shippo…'}
@@ -2094,7 +2096,8 @@ const Landing: React.FC = (): JSX.Element => {
 
               {/* Step 2 — Save connection */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                <div style={{
+                  width: 28, height: 28, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
                   background: shippoConnectStep === 'connecting' ? '#eff6ff'
                     : isDark ? '#1e2a3f' : '#f1f5f9',
                   opacity: shippoConnectStep === 'validating' || shippoConnectStep === 'invalid' || shippoConnectStep === 'error' ? 0.4 : 1,
@@ -2105,7 +2108,7 @@ const Landing: React.FC = (): JSX.Element => {
                     </svg>
                   ) : (
                     <svg style={{ width: 14, height: 14, color: isDark ? '#64748b' : '#94a3b8' }} viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clipRule="evenodd"/>
+                      <path fillRule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clipRule="evenodd" />
                     </svg>
                   )}
                 </div>

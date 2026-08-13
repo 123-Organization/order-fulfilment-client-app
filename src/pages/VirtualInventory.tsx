@@ -9,6 +9,7 @@ import shopifyIcon from "../assets/images/store-shopify.svg";
 import wixIcon from "../assets/images/store-wix.svg";
 import squarespaceIcon from "../assets/images/store-squarespace.svg";
 import woocommerceIcon from "../assets/images/store-woocommerce.svg";
+import squareIcon from "../assets/images/store-square.svg";
 import {
   listVirtualInventory,
   inventorySelectionUpdate,
@@ -491,6 +492,7 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
       shopify: 'shopify',
       wix: 'wix',
       woocommerce: 'woocommerce',
+      square: 'square',
     };
 
     const platformTokenMap: Record<string, string> = {
@@ -498,6 +500,7 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
       shopify: getPlatformToken('Shopify'),
       wix: getPlatformToken('Wix'),
       woocommerce: getPlatformToken('WooCommerce'),
+      square: getPlatformToken('Square'),
     };
 
     const toProcess = Array.from(selectedUnlinkPlatforms);
@@ -640,6 +643,11 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
     if (integrations.woocommerce_product_id) {
       const token = getToken('WooCommerce');
       if (token) unlinkRequests.push(callUnlink('woocommerce', token));
+    }
+
+    if (integrations.square_product_id) {
+      const token = getToken('Square');
+      if (token) unlinkRequests.push(callUnlink('square', token));
     }
 
     // Fire all unlink requests concurrently (best-effort — don't block delete UI)
@@ -1784,7 +1792,7 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
                               />
                             </div>
                           )}
-                          {!!(image?.parent_sku) && (
+                          {image?.parent_sku && (
                             <div className="bg-purple-100 text-purple-700 rounded-full px-3 py-1 shadow-sm text-xs font-semibold" title={`Child of ${image.parent_sku}`}>
                               Child
                             </div>
@@ -2083,6 +2091,14 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
                   linked: !!integrations.woocommerce_product_id,
                   color: '#7f54b3',
                   bg: '#f8f4ff',
+                },
+                {
+                  key: 'square',
+                  name: 'Square',
+                  icon: squareIcon,
+                  linked: !!integrations.square_product_id,
+                  color: '#3e4348',
+                  bg: '#f5f5f5',
                 },
               ];
 
