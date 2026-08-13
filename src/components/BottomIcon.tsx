@@ -25,7 +25,7 @@ import { updateCompanyInfo } from "../store/features/companySlice";
 import { resetRecipientStatus } from "../store/features/orderSlice";
 import { clearOrderErrors, clearAllShippingCache } from "../store/features/shippingSlice";
 import style from "./Components.module.css";
-import { fetchWporder, fetchShopifyOrders, fetchShopifyOrderByName, fetchSquarespaceOrders, fetchSquarespaceOrderByNumber, resetSquarespaceImportStatus, updateWporder, fetchWixOrders, fetchWixOrderByNumber, resetWixImportStatus, fetchShippoOrders, resetShippoImportStatus, fetchSquareOrders, resetSquareImportStatus } from "../store/features/orderSlice";
+import { fetchWporder, fetchShopifyOrders, fetchShopifyOrderByName, fetchSquarespaceOrders, fetchSquarespaceOrderByNumber, resetSquarespaceImportStatus, updateWporder, fetchWixOrders, fetchWixOrderByNumber, resetWixImportStatus, fetchShippoOrders, fetchShippoOrderById, resetShippoImportStatus, fetchSquareOrders, resetSquareImportStatus } from "../store/features/orderSlice";
 type NotificationType = "success" | "info" | "warning" | "error";
 interface NotificationAlertProps {
   type: NotificationType;
@@ -1227,122 +1227,234 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
             return;
           }
 
-          // Determine status filter — default to PAID
-          const shippoStatus = myImport?.status || 'PAID';
-
           setNextSpinning(true);
 
-          try {
-            const result = await dispatch(
-              fetchShippoOrders({
-                account_key: resolvedShippoKey,
-                status: shippoStatus,
-                page: 1,
-                results: 25,
-                ...(myImport?.start_date && { startDate: myImport.start_date }),
-                ...(myImport?.end_date && { endDate: myImport.end_date }),
-              })
-            );
+          // ── Import by order number (single orders) ──────────────────────────
+          if (wporder.length > 0) {
+            const orderNumbers = wporder.split(',').map((n: string) => n.trim()).filter(Boolean);
 
-            const payload = result.payload as any;
+            try {
+              const result = await dispatch(
+                fetchShippoOrderById({
+                  account_key: resolvedShippoKey,
+                  order_numbers: orderNumbers,
+                })
+              );
 
-            // Handle various response shapes from the Shippo API.
-            // The backend may wrap the Shippo response differently, so we
-            // try every known key before giving up.
-            const rawOrders: any[] =
-              Array.isArray(payload?.orders) ? payload.orders
-                : Array.isArray(payload?.results) ? payload.results
-                  : Array.isArray(payload?.data) ? payload.data
-                    : Array.isArray(payload) ? payload
-                      : [];
+              const payload = result.payload as any;
 
-            if (rawOrders.length > 0) {
-              const transformedOrders = rawOrders.map((shippoOrder: any, orderIndex: number) => {
-                // Shippo order structure: order.to_address for shipping, order.line_items for items
-                const addr = shippoOrder.to_address || {};
-                const lineItems: any[] = shippoOrder.line_items || [];
+              // The API may return { orders: [...] } or { order: {...} } or a plain array
+              const rawOrders: any[] =
+                Array.isArray(payload?.orders) ? payload.orders
+                  : Array.isArray(payload?.results) ? payload.results
+                    : Array.isArray(payload?.data) ? payload.data
+                      : Array.isArray(payload) ? payload
+                        : payload?.order ? [payload.order]
+                          : [];
 
-                return {
-                  order_po: String(shippoOrder.order_number || shippoOrder.object_id || orderIndex).replace(/^ETSY[-_]?/i, ''),
-                  order_key: shippoOrder.object_id || '',
-                  source: 'etsy',
-                  recipient: {
-                    first_name: addr.name?.split(' ')[0] || addr.first_name || '',
-                    last_name: addr.name?.split(' ').slice(1).join(' ') || addr.last_name || '',
-                    company_name: addr.company || addr.company_name || '',
-                    address_1: addr.street1 || addr.address1 || addr.address_1 || '',
-                    address_2: addr.street2 || addr.address2 || addr.address_2 || '',
-                    address_3: '',
-                    city: addr.city || '',
-                    state_code: addr.state || addr.state_code || '',
-                    province: addr.state || '',
-                    zip_postal_code: addr.zip || addr.postal_code || '',
-                    country_code: addr.country || addr.country_code || 'US',
-                    phone: addr.phone || '',
-                    email: shippoOrder.to_email || shippoOrder.buyer_email || '',
-                    address_order_po: '',
-                  },
-                  order_items: lineItems.map((item: any, itemIndex: number) => ({
-                    product_order_po: `ETSY_P_${orderIndex}_${itemIndex}`,
-                    product_qty: item.quantity || 1,
-                    product_sku: item.sku || '',
-                    product_title: item.title || item.description || '',
-                    product_guid: item.object_id || crypto.randomUUID(),
-                  })),
-                  order_status: 'Processing',
-                  shipping_code: 'GD',
-                  test_mode: false,
-                };
-              });
+              if (rawOrders.length > 0) {
+                const transformedOrders = rawOrders.map((shippoOrder: any, orderIndex: number) => {
+                  const addr = shippoOrder.to_address || {};
+                  const lineItems: any[] = shippoOrder.line_items || [];
 
-              const sendData = {
-                accountId: customerInfo?.data?.account_id,
-                payment_token: customerInfo?.data?.account_key,
-                orders: transformedOrders,
-              };
-
-              const saveResult = await dispatch(saveShopifyOrder(sendData));
-              console.log('[Etsy] saveShopifyOrder result:', saveResult);
-
-              if ((saveResult as any).meta?.requestStatus === 'rejected') {
-                notification.error({
-                  message: 'Upload Failed',
-                  description: 'Orders were fetched from Etsy but could not be uploaded to pending orders. Please try again.',
+                  return {
+                    order_po: String(shippoOrder.order_number || shippoOrder.object_id || orderIndex).replace(/^ETSY[-_]?/i, ''),
+                    order_key: shippoOrder.object_id || '',
+                    source: 'etsy',
+                    recipient: {
+                      first_name: addr.name?.split(' ')[0] || addr.first_name || '',
+                      last_name: addr.name?.split(' ').slice(1).join(' ') || addr.last_name || '',
+                      company_name: addr.company || addr.company_name || '',
+                      address_1: addr.street1 || addr.address1 || addr.address_1 || '',
+                      address_2: addr.street2 || addr.address2 || addr.address_2 || '',
+                      address_3: '',
+                      city: addr.city || '',
+                      state_code: addr.state || addr.state_code || '',
+                      province: addr.state || '',
+                      zip_postal_code: addr.zip || addr.postal_code || '',
+                      country_code: addr.country || addr.country_code || 'US',
+                      phone: addr.phone || '',
+                      email: shippoOrder.to_email || shippoOrder.buyer_email || '',
+                      address_order_po: '',
+                    },
+                    order_items: lineItems.map((item: any, itemIndex: number) => ({
+                      product_order_po: `ETSY_P_${orderIndex}_${itemIndex}`,
+                      product_qty: item.quantity || 1,
+                      product_sku: item.sku || '',
+                      product_title: item.title || item.description || '',
+                      product_guid: item.object_id || crypto.randomUUID(),
+                    })),
+                    order_status: 'Processing',
+                    shipping_code: 'GD',
+                    test_mode: false,
+                  };
                 });
-                return;
+
+                const sendData = {
+                  accountId: customerInfo?.data?.account_id,
+                  payment_token: customerInfo?.data?.account_key,
+                  orders: transformedOrders,
+                };
+
+                const saveResult = await dispatch(saveShopifyOrder(sendData));
+                console.log('[Etsy single] saveShopifyOrder result:', saveResult);
+
+                if ((saveResult as any).meta?.requestStatus === 'rejected') {
+                  notification.error({
+                    message: 'Upload Failed',
+                    description: 'Order(s) were fetched from Etsy but could not be uploaded to pending orders. Please try again.',
+                  });
+                  return;
+                }
+
+                notification.success({
+                  message: 'Success',
+                  description: getUploadDescription(saveResult, 'Etsy', transformedOrders.length),
+                });
+
+                setTimeout(() => {
+                  dispatch(resetSaveOrderInfo());
+                  dispatch(resetImport());
+                  dispatch(updateWporder('' as any));
+                  dispatch(clearAllShippingCache());
+                  navigate('/importlist');
+                }, 2000);
+              } else {
+                console.warn('[Etsy single] No orders found in payload:', payload);
+                notification.warning({
+                  message: 'No Orders Found',
+                  description:
+                    (payload as any)?.message ||
+                    `No Etsy orders found for the specified order number(s).`,
+                });
               }
-
-              notification.success({
-                message: 'Success',
-                description: getUploadDescription(saveResult, 'Etsy', transformedOrders.length),
+            } catch (error) {
+              console.error('Error fetching Etsy order by ID:', error);
+              notification.error({
+                message: 'Error',
+                description: 'An error occurred while fetching the Etsy order.',
               });
-
-              setTimeout(() => {
-                dispatch(resetSaveOrderInfo());
-                dispatch(resetImport());
-                dispatch(updateWporder('' as any));
-                dispatch(clearAllShippingCache());
-                navigate('/importlist');
-              }, 2000);
-            } else {
-              // Log the full payload so we can diagnose unexpected response shapes
-              console.warn('[Etsy] No orders extracted from Shippo payload:', payload);
-              notification.warning({
-                message: 'No Orders Found',
-                description:
-                  (payload as any)?.message ||
-                  `No Etsy (Shippo) orders found with status "${shippoStatus}".`,
-              });
+            } finally {
+              dispatch(resetShippoImportStatus());
+              setNextSpinning(false);
             }
-          } catch (error) {
-            console.error('Error fetching Etsy/Shippo orders:', error);
-            notification.error({
-              message: 'Error',
-              description: 'An error occurred while fetching Etsy orders.',
-            });
-          } finally {
-            dispatch(resetShippoImportStatus());
-            setNextSpinning(false);
+          }
+
+          // ── Import by date range (bulk orders) ──────────────────────────────
+          else {
+            // Determine status filter — default to PAID
+            const shippoStatus = myImport?.status || 'PAID';
+
+            try {
+              const result = await dispatch(
+                fetchShippoOrders({
+                  account_key: resolvedShippoKey,
+                  status: shippoStatus,
+                  page: 1,
+                  results: 25,
+                  ...(myImport?.start_date && { startDate: myImport.start_date }),
+                  ...(myImport?.end_date && { endDate: myImport.end_date }),
+                })
+              );
+
+              const payload = result.payload as any;
+
+              // Handle various response shapes from the Shippo API.
+              const rawOrders: any[] =
+                Array.isArray(payload?.orders) ? payload.orders
+                  : Array.isArray(payload?.results) ? payload.results
+                    : Array.isArray(payload?.data) ? payload.data
+                      : Array.isArray(payload) ? payload
+                        : [];
+
+              if (rawOrders.length > 0) {
+                const transformedOrders = rawOrders.map((shippoOrder: any, orderIndex: number) => {
+                  // Shippo order structure: order.to_address for shipping, order.line_items for items
+                  const addr = shippoOrder.to_address || {};
+                  const lineItems: any[] = shippoOrder.line_items || [];
+
+                  return {
+                    order_po: String(shippoOrder.order_number || shippoOrder.object_id || orderIndex).replace(/^ETSY[-_]?/i, ''),
+                    order_key: shippoOrder.object_id || '',
+                    source: 'etsy',
+                    recipient: {
+                      first_name: addr.name?.split(' ')[0] || addr.first_name || '',
+                      last_name: addr.name?.split(' ').slice(1).join(' ') || addr.last_name || '',
+                      company_name: addr.company || addr.company_name || '',
+                      address_1: addr.street1 || addr.address1 || addr.address_1 || '',
+                      address_2: addr.street2 || addr.address2 || addr.address_2 || '',
+                      address_3: '',
+                      city: addr.city || '',
+                      state_code: addr.state || addr.state_code || '',
+                      province: addr.state || '',
+                      zip_postal_code: addr.zip || addr.postal_code || '',
+                      country_code: addr.country || addr.country_code || 'US',
+                      phone: addr.phone || '',
+                      email: shippoOrder.to_email || shippoOrder.buyer_email || '',
+                      address_order_po: '',
+                    },
+                    order_items: lineItems.map((item: any, itemIndex: number) => ({
+                      product_order_po: `ETSY_P_${orderIndex}_${itemIndex}`,
+                      product_qty: item.quantity || 1,
+                      product_sku: item.sku || '',
+                      product_title: item.title || item.description || '',
+                      product_guid: item.object_id || crypto.randomUUID(),
+                    })),
+                    order_status: 'Processing',
+                    shipping_code: 'GD',
+                    test_mode: false,
+                  };
+                });
+
+                const sendData = {
+                  accountId: customerInfo?.data?.account_id,
+                  payment_token: customerInfo?.data?.account_key,
+                  orders: transformedOrders,
+                };
+
+                const saveResult = await dispatch(saveShopifyOrder(sendData));
+                console.log('[Etsy] saveShopifyOrder result:', saveResult);
+
+                if ((saveResult as any).meta?.requestStatus === 'rejected') {
+                  notification.error({
+                    message: 'Upload Failed',
+                    description: 'Orders were fetched from Etsy but could not be uploaded to pending orders. Please try again.',
+                  });
+                  return;
+                }
+
+                notification.success({
+                  message: 'Success',
+                  description: getUploadDescription(saveResult, 'Etsy', transformedOrders.length),
+                });
+
+                setTimeout(() => {
+                  dispatch(resetSaveOrderInfo());
+                  dispatch(resetImport());
+                  dispatch(updateWporder('' as any));
+                  dispatch(clearAllShippingCache());
+                  navigate('/importlist');
+                }, 2000);
+              } else {
+                // Log the full payload so we can diagnose unexpected response shapes
+                console.warn('[Etsy] No orders extracted from Shippo payload:', payload);
+                notification.warning({
+                  message: 'No Orders Found',
+                  description:
+                    (payload as any)?.message ||
+                    `No Etsy (Shippo) orders found with status "${shippoStatus}".`,
+                });
+              }
+            } catch (error) {
+              console.error('Error fetching Etsy/Shippo orders:', error);
+              notification.error({
+                message: 'Error',
+                description: 'An error occurred while fetching Etsy orders.',
+              });
+            } finally {
+              dispatch(resetShippoImportStatus());
+              setNextSpinning(false);
+            }
           }
         }
 

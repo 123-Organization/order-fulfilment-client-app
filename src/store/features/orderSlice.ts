@@ -710,6 +710,45 @@ export const fetchShippoOrders = createAsyncThunk(
   }
 );
 
+// ── Shippo / Etsy – single order by ID ───────────────────────────────────────
+export const fetchShippoOrderById = createAsyncThunk(
+  "order/fetch/shippo-by-id",
+  async (
+    postData: {
+      account_key: string;
+      order_numbers: string[];
+    },
+    thunkAPI
+  ) => {
+    console.log('Fetching Shippo order by ID with:', postData);
+    try {
+      const response = await fetch(
+        BASE_URL + `shippo/order-by-id`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            account_key: postData.account_key,
+            order_numbers: postData.order_numbers,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error('API error in fetchShippoOrderById:', data);
+        return thunkAPI.rejectWithValue(data);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('API call failed in fetchShippoOrderById:', error);
+      return thunkAPI.rejectWithValue('Failed to fetch Shippo order by ID');
+    }
+  }
+);
+
 // ── Square orders ─────────────────────────────────────────────────────────────
 export const fetchSquareOrders = createAsyncThunk(
   "order/fetch/square",
@@ -1357,6 +1396,18 @@ export const OrderSlice = createSlice({
       state.shippoImportStatus = 'succeeded';
     });
     builder.addCase(fetchShippoOrders.rejected, (state, action) => {
+      state.shippoImportStatus = 'failed';
+      state.error = (action.payload as any)?.message || (action.payload as string);
+    });
+    // ── Shippo / Etsy – single order by ID ─────────────────────────────────
+    builder.addCase(fetchShippoOrderById.pending, (state) => {
+      state.shippoImportStatus = 'loading';
+    });
+    builder.addCase(fetchShippoOrderById.fulfilled, (state, action) => {
+      state.shippoOrdersResponse = action.payload;
+      state.shippoImportStatus = 'succeeded';
+    });
+    builder.addCase(fetchShippoOrderById.rejected, (state, action) => {
       state.shippoImportStatus = 'failed';
       state.error = (action.payload as any)?.message || (action.payload as string);
     });
