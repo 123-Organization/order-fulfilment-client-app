@@ -60,6 +60,8 @@ const ExportModal: React.FC<ExportModalProps> = ({
   const [wixConnectionData, setWixConnectionData] = useState<{ access_token: string } | null>(null);
   const [squarespaceConnected, setSquarespaceConnected] = useState<string>("Disconnected");
   const [squarespaceConnectionData, setSquarespaceConnectionData] = useState<{ access_token: string } | null>(null);
+  const [squareConnected, setSquareConnected] = useState<string>("Disconnected");
+  const [squareConnectionData, setSquareConnectionData] = useState<{ access_token: string } | null>(null);
   const [variantModalVisible, setVariantModalVisible] = useState(false);
   const [variantGroups, setVariantGroups] = useState<any[]>([]);
   const [pendingExportPlatform, setPendingExportPlatform] = useState<string | null>(null);
@@ -183,6 +185,70 @@ const ExportModal: React.FC<ExportModalProps> = ({
 
     setSquarespaceConnectionData({ access_token: squarespaceToken });
     return squarespaceToken;
+  };
+
+  // ── Square: resolve a valid access token, refreshing if necessary ──────────
+  const getValidSquareToken = async (): Promise<string | null> => {
+    const accKey = accountKey || '';
+
+    // Locate the Square connection in companyInfo
+    let squareToken = '';
+    let squareRefreshToken = '';
+
+    if (companyInfo?.data?.connections) {
+      const sqConn = companyInfo.data.connections.find(
+        (conn: any) => conn.name === 'Square'
+      );
+      if (sqConn) {
+        squareToken = sqConn.id || '';
+        if (sqConn.data) {
+          try {
+            const parsed = JSON.parse(sqConn.data);
+            if (!squareToken) squareToken = parsed.access_token || parsed.token || '';
+            squareRefreshToken = parsed.refresh_token || '';
+          } catch { /* ignore */ }
+        }
+      }
+    }
+
+    // Also accept token stored on the state (set during connection detection)
+    if (!squareToken && squareConnectionData?.access_token) {
+      squareToken = squareConnectionData.access_token;
+    }
+
+    if (!squareToken) {
+      notificationApi.error({
+        message: 'Not Connected',
+        description: 'No Square access token found. Please reconnect your store.',
+      });
+      return null;
+    }
+
+    // If we have a refresh token, proactively refresh before export to avoid
+    // mid-export failures (Square access tokens are short-lived).
+    if (squareRefreshToken && accKey) {
+      try {
+        const refreshRes = await fetch(`${config.SERVER_BASE_URL}square/refresh-token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ account_key: accKey, refresh_token: squareRefreshToken }),
+        });
+        if (refreshRes.ok) {
+          const refreshData = await refreshRes.json();
+          const newToken = refreshData.access_token || refreshData.token || refreshData?.data?.access_token;
+          if (newToken) {
+            squareToken = newToken;
+            setSquareConnectionData({ access_token: squareToken });
+          }
+        }
+        // If refresh fails non-fatally we still proceed with the existing token
+      } catch (e) {
+        console.warn('Square token refresh failed, proceeding with existing token:', e);
+      }
+    }
+
+    setSquareConnectionData({ access_token: squareToken });
+    return squareToken;
   };
 
   const dispatch = useAppDispatch();
@@ -476,6 +542,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
       wix?: { access_token: string };
       squarespace?: { access_token: string; sessionId: string; accountKey: string; variant?: boolean };
       woocommerce?: { domainName: string };
+      square?: { access_token: string };
     }
   ): Promise<{ mergedResponse: any; totalUploaded: number; totalFailed: number }> => {
     const BASE = config.SERVER_BASE_URL;
@@ -531,6 +598,15 @@ const ExportModal: React.FC<ExportModalProps> = ({
           headers: { "Content-Type": "application/json", Accept: "*/*" },
           body: JSON.stringify(payload),
         });
+      } else if (platform === "Square" && connectionDetails.square) {
+        response = await fetch(
+          `https://d7z22w3j4h.execute-api.us-east-1.amazonaws.com/Prod/api/square/sync-products?account_key=${accountKey}&access_token=${connectionDetails.square.access_token}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ productList: productsList }),
+          }
+        );
       } else {
         throw new Error(`Unsupported platform: ${platform}`);
       }
@@ -639,6 +715,12 @@ const ExportModal: React.FC<ExportModalProps> = ({
           variant: true,
         },
       });
+    } else if (pendingExportPlatform === "Square") {
+      const validSquareToken = await getValidSquareToken();
+      if (!validSquareToken) { setPendingExportPlatform(null); return; }
+      await dispatchConcurrentExport("Square", formattedGroups, formattedStandalones, {
+        square: { access_token: validSquareToken },
+      });
     }
 
     setPendingExportPlatform(null);
@@ -674,6 +756,12 @@ const ExportModal: React.FC<ExportModalProps> = ({
           accountKey: accountKey || localStorage.getItem('squarespace_account_key') || "",
           variant: false,
         },
+      });
+    } else if (pendingExportPlatform === "Square") {
+      const validSquareToken = await getValidSquareToken();
+      if (!validSquareToken) { setPendingExportPlatform(null); return; }
+      await dispatchConcurrentExport("Square", [], standalones, {
+        square: { access_token: validSquareToken },
       });
     }
 
@@ -856,7 +944,44 @@ const ExportModal: React.FC<ExportModalProps> = ({
         description: `Please connect to Squarespace to export products`,
       });
     }
-    else if (imgname !== "WooCommerce" && imgname !== "Shopify" && imgname !== "Wix" && imgname !== "Squarespace") {
+    // Handle Square Export
+    else if (imgname === "Square" && squareConnected === "Connected") {
+      const exportedProducts = inventorySelection.filter(
+        (product: any) => product.third_party_integrations?.square_product_id
+      );
+
+      if (exportedProducts.length > 0) {
+        notificationApi.warning({
+          message: "Products Already Exported",
+          description: `${exportedProducts.length} product(s) have already been exported to Square. Please select only unexported products.`,
+        });
+        return;
+      }
+
+
+      const { hasVariants: hasSquareVariants, variantGroups: detectedSquareVariants, standaloneProducts: detectedSquareStandalones } = detectProductsWithVariants(inventorySelection);
+      if (hasSquareVariants) {
+        setVariantGroups(detectedSquareVariants);
+        setStandaloneProducts(detectedSquareStandalones);
+        setPendingExportPlatform("Square");
+        setVariantModalVisible(true);
+        return;
+      }
+
+      // No variants — each product gets its own concurrent call
+      const validSquareToken = await getValidSquareToken();
+      if (!validSquareToken) return;
+      await dispatchConcurrentExport("Square", [], inventorySelection.map((p: any) => ({ ...p, primaryItem: true })), {
+        square: { access_token: validSquareToken },
+      });
+    }
+    else if (imgname === "Square" && squareConnected === "Disconnected") {
+      notificationApi.error({
+        message: "Square Not Connected",
+        description: `Please connect to Square to export products`,
+      });
+    }
+    else if (imgname !== "WooCommerce" && imgname !== "Shopify" && imgname !== "Wix" && imgname !== "Squarespace" && imgname !== "Square") {
       notificationApi.warning({
         message: "Platform is not supported",
         description: `This platform is not supported yet`,
@@ -995,6 +1120,26 @@ const ExportModal: React.FC<ExportModalProps> = ({
         setSquarespaceConnected("Disconnected");
         setSquarespaceConnectionData(null);
       }
+
+      // Check Square connection
+      let squareObj = find(companyInfo.data.connections, { "name": "Square" });
+      if (squareObj?.name) {
+        setSquareConnected("Connected");
+        try {
+          const squareData = JSON.parse(squareObj.data || "{}");
+          const squareToken = squareData.access_token || squareData.token || squareObj.id || "";
+          if (squareToken) {
+            setSquareConnectionData({ access_token: squareToken });
+          } else {
+            setSquareConnectionData(null);
+          }
+        } catch {
+          setSquareConnectionData(squareObj.id ? { access_token: squareObj.id } : null);
+        }
+      } else {
+        setSquareConnected("Disconnected");
+        setSquareConnectionData(null);
+      }
     }
   }, [companyInfo]);
 
@@ -1047,12 +1192,14 @@ const ExportModal: React.FC<ExportModalProps> = ({
                   const isShopify = image.name === "Shopify";
                   const isWix = image.name === "Wix";
                   const isSquarespace = image.name === "Squarespace";
-                  const isSupportedPlatform = isWooCommerce || isShopify || isWix || isSquarespace;
+                  const isSquare = image.name === "Square";
+                  const isSupportedPlatform = isWooCommerce || isShopify || isWix || isSquarespace || isSquare;
                   const isConnected = isWooCommerce ? wooConnected === "Connected"
                     : isShopify ? shopifyConnected === "Connected"
                       : isWix ? wixConnected === "Connected"
                         : isSquarespace ? squarespaceConnected === "Connected"
-                          : false;
+                          : isSquare ? squareConnected === "Connected"
+                            : false;
                   const isDisconnected = isSupportedPlatform && !isConnected;
 
                   return (

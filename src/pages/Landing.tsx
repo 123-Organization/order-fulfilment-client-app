@@ -34,7 +34,7 @@ const SHOPIFY_ENABLED = false;
 // Set to true when Etsy integration is fully ready
 const ETSY_ENABLED = true;
 // Set to true when Square integration is fully ready
-const SQUARE_ENABLED = false;
+const SQUARE_ENABLED = true;
 const BASE_URL = configs.SERVER_BASE_URL;
 
 
