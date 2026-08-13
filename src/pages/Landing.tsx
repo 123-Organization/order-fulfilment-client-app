@@ -73,6 +73,7 @@ const Landing: React.FC = (): JSX.Element => {
   const [shopifyConnectionStatus, setShopifyConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('verifying');
   const [lastShopifyConnectionData, setLastShopifyConnectionData] = useState<string | null>(null);
   const [showShopifyConnectModal, setShowShopifyConnectModal] = useState<boolean>(false);
+  const [shopifyShopDomain, setShopifyShopDomain] = useState<string>("");
   const [squarespaceConnectionStatus, setSquarespaceConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('verifying');
   const [lastSquarespaceConnectionData, setLastSquarespaceConnectionData] = useState<string | null>(null);
   const [wixConnectionStatus, setWixConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('verifying');
@@ -1621,6 +1622,7 @@ const Landing: React.FC = (): JSX.Element => {
       {(openExcel || opensheet) && (
         <SpreadSheet isOpen={isOpen} onClose={onClose} />
       )}
+      {/* TODO: Replace with dynamic shopify/auth backend endpoint when ready */}
       <Modal
         title="Connect to Shopify"
         open={showShopifyConnectModal}
@@ -1634,15 +1636,16 @@ const Landing: React.FC = (): JSX.Element => {
             type="primary"
             onClick={() => {
               setShowShopifyConnectModal(false);
-              window.location.href = "https://admin.shopify.com/oauth/install_custom_app?client_id=9ee7cc6b8c1a84382149ca350fd90e1e&no_redirect=true&signature=eyJleHBpcmVzX2F0IjoxNzczNDA4MjYwLCJwZXJtYW5lbnRfZG9tYWluIjoiZmluZXJ3b3Jrcy1kZXYtMy5teXNob3BpZnkuY29tIiwiY2xpZW50X2lkIjoiOWVlN2NjNmI4YzFhODQzODIxNDljYTM1MGZkOTBlMWUiLCJwdXJwb3NlIjoiY3VzdG9tX2FwcCIsIm1lcmNoYW50X29yZ2FuaXphdGlvbl9pZCI6MTI4OTY2OTUyfQ%3D%3D--4832b27e6bfe92d776e673ae4f963674bfda836a";
+              window.location.href = "https://shpf.finerworks.com/auth?shop=finerworks-dev-3.myshopify.com"
+                ;
             }}
           >
             Connect Store
           </Button>,
         ]}
       >
-        <p>You need to link your Shopify account to FinerWorks to import orders.</p>
-        <p>Would you like to authorize this app by opening the Shopify Admin connection panel?</p>
+        <p>You need to link your Shopify store to FinerWorks to import orders.</p>
+        <p>Click <strong>Connect Store</strong> to log in to your Shopify account and authorize access.</p>
       </Modal>
       {/* ── Shippo / Etsy connect modal ── */}
       <Modal
