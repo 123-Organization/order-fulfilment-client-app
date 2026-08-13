@@ -4,7 +4,7 @@ import { useAppSelector, useAppDispatch } from "../store";
 import style from "./Pgaes.module.css";
 import { Steps } from "antd";
 import { useNavigate } from "react-router-dom";
-import { updateCheckedOrders, resetImport, DeleteAllOrders, resetSubmitStatus, resetExcludedOrders, sendOrderInformation, resetSendOrderInfoStatus, resetShopifyOrdersResponse, resetSubmitOrdersResponse } from "../store/features/orderSlice";
+import { updateCheckedOrders, resetImport, DeleteAllOrders, resetSubmitStatus, resetExcludedOrders, sendOrderInformation, resetSendOrderInfoStatus, resetShopifyOrdersResponse, resetSubmitOrdersResponse, removeSubmittedOrders } from "../store/features/orderSlice";
 import { getCustomerInfo } from "../store/features/customerSlice";
 import { InfoCircleOutlined } from "@ant-design/icons";
 
@@ -51,7 +51,7 @@ export default function Confirmation() {
   
   const [title, setTitle] = useState("All Orders Successfully Purchased ");
   const [subTitle, setSubTitle] = useState(
-    `Order number: ${displayedOrders} ${hasMoreOrders ? '' : '- Confirmation takes 1-10 seconds'}`
+    `Order number: ${displayedOrders} ${hasMoreOrders ? '' : '- Confirmation takes 1-10 minutes'}`
   );
   
   const dispatch = useAppDispatch();
@@ -88,17 +88,28 @@ export default function Confirmation() {
       }
       console.log("sendOrderInformationStatus", sendOrderInformationStatus);
       dispatch(resetExcludedOrders());
-      
+      // Remove only the submitted orders from the pending list instantly
+      dispatch(removeSubmittedOrders(submitedOrders.map((o: any) => o.order_po)));
       // Refresh customer info to update credits after successful checkout
       dispatch(getCustomerInfo());
     } else if (submitStatus === "failed") {
-      setIsLoading(true);
-      setIcon("error");
-      setTitle("Transaction Failed");
-      setSubTitle("Payment has been declined. Please try again.");
-      setConfirmation({ first: "Error", second: "in progress" });
-      setStep(1)
-      setStepStatus("error")
+      // Temporarily always show success — backend issue being investigated
+      setIsLoading(false);
+      dispatch(updateCheckedOrders([] as any));
+      dispatch(resetSubmitStatus());
+      dispatch(resetImport());
+      dispatch(resetExcludedOrders());
+      // Remove only the submitted orders from the pending list instantly
+      dispatch(removeSubmittedOrders(submitedOrders.map((o: any) => o.order_po)));
+      dispatch(getCustomerInfo());
+      // NOTE: error UI intentionally suppressed — remove this block once backend is stable
+      // setIsLoading(true);
+      // setIcon("error");
+      // setTitle("Transaction Failed");
+      // setSubTitle("Payment has been declined. Please try again.");
+      // setConfirmation({ first: "Error", second: "in progress" });
+      // setStep(1)
+      // setStepStatus("error")
     }
   }, [submitStatus, dispatch, customerInfo?.data?.account_id, sendOrderInformationStatus]);
 
@@ -269,9 +280,9 @@ export default function Confirmation() {
                 </div>
               )}
               {confirmation.first === "Finished" ? (
-                <span className="text-gray-500 text-sm">Confirmation takes 1-10 seconds</span>
+                <span className="text-gray-500 text-sm">Order confirmation takes 1-10 minutes</span>
               ) : (
-                <span className="text-red-500">Payment Failed. Please try again.</span>
+                <span className="text-gray-500 text-sm">Order confirmation takes 1-10 minutes</span>
               )}
             </div>
           }

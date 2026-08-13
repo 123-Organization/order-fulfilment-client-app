@@ -4,6 +4,7 @@ import { Button, Form, Select, Skeleton, Tooltip, Modal, Dropdown } from "antd";
 import type { MenuProps } from "antd";
 import { InfoCircleOutlined, FullscreenOutlined } from "@ant-design/icons";
 import Spinner from "../components/Spinner";
+import QuantityInput from "../components/Quantitiy";
 import shoppingCart from "../assets/images/shopping-cart-228.svg";
 import {
   resetOrderStatus,
@@ -12,6 +13,8 @@ import {
   updateCheckedOrders,
   deleteOrder,
   AddProductToOrder,
+  refreshSingleOrder,
+  resetRefreshOrderStatus,
 } from "../store/features/orderSlice";
 import { fetchOrder } from "../store/features/orderSlice";
 import { setBatchShippingResults, updateShippingCacheEntries, invalidateShippingCacheEntries, clearAllShippingCache } from "../store/features/shippingSlice";
@@ -43,6 +46,7 @@ import { setProductData } from "../store/features/productSlice";
 import { convertGoogleDriveUrl, isGoogleDriveUrl, getGoogleDriveImageUrls } from "../helpers/fileHelper";
 import { useSearch } from "../context/SearchContext";
 import { useCookies } from "react-cookie";
+import convertUsStateAbbrAndName from "../services/state";
 import config from "../config/configs";
 
 const { Option } = Select;
@@ -134,11 +138,16 @@ const ImportList: React.FC = () => {
   const [productToDelete, setProductToDelete] = useState<{ product_guid: string | null | undefined; product_sku?: string | null; orderFullFillmentId: string; order_po: string } | null>(null);
   // State for expanded labels
   const [expandedLabels, setExpandedLabels] = useState<Set<string>>(new Set());
+  const [clicking, setClicking] = useState(false);
+  /** Set of orderFullFillmentIds currently updating quantity + shipping. */
+  const [quantityLoadingOrders, setQuantityLoadingOrders] = useState<Set<string>>(new Set());
   // State for the image-gallery "change image" flow
   const [imageGalleryTarget, setImageGalleryTarget] = useState<{
     orderItem: any;
     order: any;
   } | null>(null);
+  /** Set of order_po values for orders currently being refreshed. */
+  const [refreshingOrders, setRefreshingOrders] = useState<Set<string>>(new Set());
 
   const toggleLabels = (productSku: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -265,7 +274,7 @@ const ImportList: React.FC = () => {
       orders: [{ order_po: order.order_po, order_key: null, recipient: order.recipient, order_items: order.order_items, shipping_code: order.shipping_code }],
     };
     try {
-      const response = await fetch(`${BASE_URL}shipping-options`, {
+      const response = await fetch(`https://fa-ls.finerworks.com/api/shipping-options`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -331,6 +340,9 @@ const ImportList: React.FC = () => {
 
       const chunks = chunkArray(ordersToFetch, SHIPPING_BATCH_SIZE);
 
+      // Track individual orders that failed so we can retry only them afterwards
+      const failedOrders: any[] = [];
+
       for (const chunk of chunks) {
         const results = await Promise.allSettled(
           chunk.map(order => fetchSingleOrderShipping(order, accountKey))
@@ -351,6 +363,13 @@ const ImportList: React.FC = () => {
               recipientErrors: result.value.recipientErrors,
               itemErrors: result.value.itemErrors,
             });
+          } else {
+            // Collect failed orders for a single retry after all chunks finish
+            console.warn(
+              `[shipping/cache] Order ${chunk[idx].order_po} failed — queued for retry:`,
+              result.reason
+            );
+            failedOrders.push(chunk[idx]);
           }
         });
         // Dispatch after EACH chunk so shipping options appear progressively
@@ -359,6 +378,43 @@ const ImportList: React.FC = () => {
         // bottom total spinner going until the last chunk lands.
         if (chunkEntries.length) {
           dispatch(updateShippingCacheEntries(chunkEntries));
+        }
+      }
+
+      // Retry only the orders that failed — individually — so a single bad
+      // request doesn't cause the entire list to be re-fetched on the next
+      // effect cycle (which would waste resources re-calling orders that
+      // already succeeded and are safely in the cache).
+      if (failedOrders.length > 0) {
+        console.info(`[shipping/cache] Retrying ${failedOrders.length} failed order(s) individually...`);
+        const retryResults = await Promise.allSettled(
+          failedOrders.map(order => fetchSingleOrderShipping(order, accountKey))
+        );
+        const retryEntries: Array<{
+          order_po: string;
+          fingerprint: string;
+          data: any[];
+          recipientErrors: Record<string, Record<string, string[]>>;
+          itemErrors: Record<string, string[]>;
+        }> = [];
+        retryResults.forEach((result, idx) => {
+          if (result.status === 'fulfilled') {
+            retryEntries.push({
+              order_po: failedOrders[idx].order_po,
+              fingerprint: buildOrderFingerprint(failedOrders[idx]),
+              data: result.value.data,
+              recipientErrors: result.value.recipientErrors,
+              itemErrors: result.value.itemErrors,
+            });
+          } else {
+            console.error(
+              `[shipping/cache] Retry also failed for order ${failedOrders[idx].order_po}:`,
+              result.reason
+            );
+          }
+        });
+        if (retryEntries.length) {
+          dispatch(updateShippingCacheEntries(retryEntries));
         }
       }
     },
@@ -435,7 +491,7 @@ const ImportList: React.FC = () => {
               //    Clearing orderPostData before this resolves causes the
               //    shipping useEffect to fire with stale orders.data, re-lock
               //    the gate, and block a re-run when fresh data arrives.
-              await dispatch(fetchOrder(customerInfo?.data?.account_id));
+              await dispatch(fetchOrder(customerInfo?.data?.account_key));
 
               // 3. NOW clear orderPostData — the shipping useEffect fires with
               //    fresh orders.data + empty cache → fetches real prices → total updates.
@@ -548,7 +604,7 @@ const ImportList: React.FC = () => {
     dispatch(clearAllShippingCache());
     // 2. Await fetchOrder so orders.data has the new product BEFORE we
     //    trigger the shipping useEffect by clearing orderPostData.
-    await dispatch(fetchOrder(customerInfo?.data?.account_id));
+    await dispatch(fetchOrder(customerInfo?.data?.account_key));
     // 3. NOW clear orderPostData — shipping useEffect fires with fresh data + empty cache.
     resetOrderPostData();
     setIsRefreshing(false);
@@ -619,7 +675,7 @@ const ImportList: React.FC = () => {
     );
   };
   const onProductCodeReplace = (productCode: string) => {
-    dispatch(fetchOrder(customerInfo?.data?.account_id));
+    dispatch(fetchOrder(customerInfo?.data?.account_key));
     setTimeout(() => {
       resetOrderPostData();
       dispatch(updateValidSKU([...validSKUs, productCode]));
@@ -639,7 +695,7 @@ const ImportList: React.FC = () => {
           });
           dispatch(clearSelectedImage());
           dispatch(resetReplaceCodeResult());
-          dispatch(fetchOrder(customerInfo?.data?.account_id));
+          dispatch(fetchOrder(customerInfo?.data?.account_key));
           dispatch(clearProductData());
           resetOrderPostData();
         }, 2000);
@@ -720,6 +776,33 @@ const ImportList: React.FC = () => {
   }, []);
 
   /**
+   * Pre-seed fetchedSkusRef from the persisted Redux product_details on mount.
+   *
+   * fetchedSkusRef is a useRef — it resets to an empty Set every time ImportList
+   * mounts (i.e. on every page navigation). Without this seed, all SKUs look
+   * "new" to the second useEffect below, causing fetchProductDetails to be
+   * dispatched for every product even when product_details is already fully
+   * populated in Redux (and persisted in localStorage).
+   *
+   * By pre-populating the ref from the existing store on mount we ensure:
+   *   1. Navigating back to this page never triggers a redundant API call.
+   *   2. After a quantity update (which introduces no new SKUs), the filter
+   *      in the second useEffect returns an empty newSkus list → no extra fetch.
+   */
+  useEffect(() => {
+    if (product_details && Array.isArray(product_details) && product_details.length > 0) {
+      product_details.forEach((p: any) => {
+        if (p?.sku) fetchedSkusRef.current.add(p.sku.toString());
+        if (p?.product_code) fetchedSkusRef.current.add(p.product_code.toString());
+        if (p?.product_guid) fetchedSkusRef.current.add(p.product_guid.toString());
+      });
+      console.log(
+        `[fetchedSkusRef] Pre-seeded ${fetchedSkusRef.current.size} SKUs from persisted product_details on mount`
+      );
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /**
    * When updateOrdersInfo resolves (recipientStatus = 'succeeded') OR a SKU replacement
    * resolves (replaceCodeStatus = 'succeeded'), reset orderPostData immediately so the
    * shipping useEffect re-fires and the total price updates without a manual Refresh.
@@ -768,8 +851,25 @@ const ImportList: React.FC = () => {
       return;
     }
 
+    // NOTE: We intentionally do NOT clear product_details or fetchedSkusRef here.
+    //
+    // Previously this block called dispatch(clearProductDetails()) whenever the
+    // shipping cache was empty — but the shipping cache is never persisted to
+    // localStorage, so it is ALWAYS empty after a page refresh.  That caused
+    // product_details (which IS persisted to localStorage and loaded into Redux on
+    // startup) to be wiped on every refresh, making existingSkusInRedux empty and
+    // triggering fetchProductDetails for every single product on every navigation.
+    //
+    // New approach: the second useEffect (below) already detects genuinely new SKUs
+    // by comparing order_items against existingSkusInRedux (built from product_details).
+    // Only truly new SKUs (not yet in product_details) are fetched. Known SKUs —
+    // including those from a previous session loaded from localStorage — are reused.
+    //
+    // For an intentional full reset the user can click the explicit Refresh button,
+    // which calls handleRefreshOrders() and clears both caches properly.
+
     setTimeout(() => {
-      dispatch(fetchOrder(customerInfo?.data?.account_id));
+      dispatch(fetchOrder(customerInfo?.data?.account_key));
     }, 1000);
   }, []);
   // console.log("oo", customerInfo?.data?.account_id);
@@ -786,7 +886,7 @@ const ImportList: React.FC = () => {
     // 3. Reset orderPostData (also resets in-flight guard) so the main shipping effect re-runs
     resetOrderPostData();
     // 4. Re-fetch orders from the server
-    await dispatch(fetchOrder(customerInfo?.data?.account_id));
+    await dispatch(fetchOrder(customerInfo?.data?.account_key));
     setIsRefreshingOrders(false);
   };
 
@@ -875,7 +975,7 @@ const ImportList: React.FC = () => {
     );
   };
   const onProductCodeUpdate = (productCode: string) => {
-    dispatch(fetchOrder(customerInfo?.data?.account_id));
+    dispatch(fetchOrder(customerInfo?.data?.account_key));
   };
 
   const onBulkDeleteOrders = async () => {
@@ -900,7 +1000,7 @@ const ImportList: React.FC = () => {
     // Clear checked orders and the entire shipping cache
     dispatch(updateCheckedOrders([]));
     dispatch(clearAllShippingCache());
-    dispatch(fetchOrder(customerInfo?.data?.account_id));
+    dispatch(fetchOrder(customerInfo?.data?.account_key));
   };
 
   // Delete a product from an order
@@ -971,7 +1071,7 @@ const ImportList: React.FC = () => {
             dispatch(invalidateShippingCacheEntries([productToDelete.order_po]));
           }
           // Refresh orders
-          dispatch(fetchOrder(customerInfo?.data?.account_id));
+          dispatch(fetchOrder(customerInfo?.data?.account_key));
           resetOrderPostData();
           // Clear the fetchedSkusRef to allow re-fetching product details
           fetchedSkusRef.current.clear();
@@ -1004,9 +1104,9 @@ const ImportList: React.FC = () => {
         description: "Order has been successfully deleted.",
       });
       deleteNotificationShown.current.succeeded = true;
-      // Reset status after showing notification
+      // Order is already removed from Redux state in deleteOrder.fulfilled —
+      // no fetchOrder call needed, the list updates instantly.
       dispatch(resetDeleteOrderStatus());
-      dispatch(fetchOrder(customerInfo?.data?.account_id));
     } else if (
       deleteOrderStatus === "failed" &&
       !deleteNotificationShown.current.failed
@@ -1044,7 +1144,6 @@ const ImportList: React.FC = () => {
       const validOrders = orders?.data?.filter(
         (order) => (order?.order_items && order?.order_items?.length > 0) && order?.shipping_code != null && order?.shipping_code !== ""
       );
-      console.log("validOrders", validOrders);
 
       // Short-circuit: if every valid order is already in the cache with a matching
       // fingerprint we don't need to fetch anything — avoid setting orderPostData
@@ -1072,46 +1171,15 @@ const ImportList: React.FC = () => {
               product_url_file: "https://via.placeholder.com/150",
               product_url_thumbnail: "https://via.placeholder.com/150",
             },
-
-
           })),
         }))
         ?.flat();
-      let ProductDetails = orders?.data?.flatMap((order) =>
-        order.order_items?.map((item) => ({
-          order_po: order.order_po,
-          product_sku: item.product_sku || "AP1234567891011",
-          product_guid: item.product_guid || crypto.randomUUID(),
-          product_qty: item.product_qty,
-          product_image: {
-            product_url_file: "https://via.placeholder.com/150",
-            product_url_thumbnail: "https://via.placeholder.com/150",
-          },
-        }))
-      );
 
-      // Filter out SKUs that are already in the persisted Redux store
-      const existingSkus = new Set<string>();
-      if (product_details && Array.isArray(product_details)) {
-        product_details.forEach((p: any) => {
-          if (p?.sku) existingSkus.add(p.sku.toString());
-          if (p?.product_code) existingSkus.add(p.product_code.toString());
-        });
-      }
-
-      ProductDetails = ProductDetails?.filter((item) => {
-        if (!item?.product_sku) return true; // keep if no SKU, let backend handle it
-        return !existingSkus.has(item.product_sku.toString());
-      });
-
-      // Track the SKUs we're fetching
-      ProductDetails?.forEach((item) => {
-        if (item?.product_sku) {
-          fetchedSkusRef.current.add(item.product_sku.toString());
-        }
-      });
-
-      // Mark in-progress BEFORE setting orderPostData so no concurrent run starts
+      // Mark in-progress BEFORE setting orderPostData so no concurrent run starts.
+      // NOTE: fetchProductDetails is intentionally NOT called here — product detail
+      // fetching is handled exclusively by the useEffect below, which has
+      // product_details in its deps and can accurately see which SKUs are already
+      // known without relying on stale closure values.
       shippingFetchInProgressRef.current = true;
       setOrderPostData(orderPostDataList);
 
@@ -1125,99 +1193,72 @@ const ImportList: React.FC = () => {
           dispatch(setShippingLoading(false));
         }
       })();
-
-      if (ProductDetails && ProductDetails.length > 0) {
-        dispatch(fetchProductDetails(ProductDetails));
-      }
-
     }
-  }, [orders, product_details, orderPostData, dispatch]);
+  }, [orders, orderPostData, dispatch]);
 
-  // Separate useEffect to fetch product details for newly added products
+  // Sole owner of fetchProductDetails calls.
+  // product_details is in the deps array so existingSkusInRedux is ALWAYS
+  // current — the effect returns immediately if all order SKUs are already
+  // known, preventing repeated fetches on navigation and after quantity updates.
+  // fetchedSkusRef guards concurrent in-flight requests: a SKU is added to the
+  // ref the moment a fetch is dispatched and stays there until the component
+  // unmounts, so a rapid re-run (e.g. from a product_details change mid-flight)
+  // cannot dispatch a duplicate request for the same SKU.
   useEffect(() => {
     if (!orders?.data?.length) return;
 
-    // Collect all current SKUs from orders
+    // Collect all current SKUs from order items
     const allCurrentSkus: string[] = [];
     orders.data.forEach((order: any) => {
       order.order_items?.forEach((item: any) => {
-        if (item?.product_sku) {
-          allCurrentSkus.push(item.product_sku.toString());
-        }
+        if (item?.product_sku) allCurrentSkus.push(item.product_sku.toString());
       });
     });
 
-    // Build a map of SKUs currently in the persisted Redux store
+    if (allCurrentSkus.length === 0) return;
+
+    // Build the set of SKUs already present in the Redux store (always current
+    // because product_details is in the deps array).
     const existingSkusInRedux = new Set<string>();
     if (product_details && Array.isArray(product_details)) {
       product_details.forEach((p: any) => {
         if (p?.sku) existingSkusInRedux.add(p.sku.toString());
         if (p?.product_code) existingSkusInRedux.add(p.product_code.toString());
+        if (p?.product_guid) existingSkusInRedux.add(p.product_guid.toString());
       });
     }
 
-    // Find SKUs that haven't been fetched yet in this session OR aren't in Redux
-    const newSkus = allCurrentSkus.filter(
-      sku => !fetchedSkusRef.current.has(sku) && !existingSkusInRedux.has(sku)
+    // SKUs not yet in Redux AND not already being fetched (in-flight guard)
+    const skusToFetch = allCurrentSkus.filter(
+      sku => !existingSkusInRedux.has(sku) && !fetchedSkusRef.current.has(sku)
     );
 
-    if (newSkus.length > 0) {
-      console.log("Fetching details for new SKUs:", newSkus);
+    if (skusToFetch.length === 0) return; // nothing new — skip
 
-      // Build product details for new SKUs only
-      const newProductDetails = orders.data.flatMap((order: any) =>
-        order.order_items
-          ?.filter((item: any) => item?.product_sku && newSkus.includes(item.product_sku.toString()))
-          ?.map((item: any) => ({
-            order_po: order.order_po,
-            product_sku: item.product_sku,
-            product_guid: item.product_guid,
-            product_qty: item.product_qty,
-            product_image: {
-              product_url_file: "https://via.placeholder.com/150",
-              product_url_thumbnail: "https://via.placeholder.com/150",
-            },
-          }))
-      ).filter(Boolean);
+    console.log('[fetchProductDetails] Fetching details for new SKUs:', skusToFetch);
 
-      if (newProductDetails.length > 0) {
-        // Mark these SKUs as being fetched
-        newSkus.forEach(sku => fetchedSkusRef.current.add(sku));
-        dispatch(fetchProductDetails(newProductDetails));
+    const newProductDetails = orders.data.flatMap((order: any) =>
+      order.order_items
+        ?.filter((item: any) => item?.product_sku && skusToFetch.includes(item.product_sku.toString()))
+        ?.map((item: any) => ({
+          order_po: order.order_po,
+          product_sku: item.product_sku,
+          product_guid: item.product_guid,
+          product_qty: item.product_qty,
+          product_image: {
+            product_url_file: 'https://via.placeholder.com/150',
+            product_url_thumbnail: 'https://via.placeholder.com/150',
+          },
+        }))
+    ).filter(Boolean);
 
-        // Also update shipping options for orders with new products
-        const validOrders = orders.data.filter(
-          (order: any) => (order?.order_items && order?.order_items?.length > 0) && order?.shipping_code != null && order?.shipping_code !== ""
-        );
-        const orderPostDataList = validOrders?.map((order: any) => ({
-          order_po: order?.order_po,
-          recipient: order?.recipient,
-          shipping_code: order?.shipping_code,
-          order_items: order.order_items?.map((item: any) => ({
-            product_order_po: item.product_order_po,
-            product_qty: item.product_qty,
-            product_sku: item.product_sku,
-            product_image: {
-              product_url_file: "https://via.placeholder.com/150",
-              product_url_thumbnail: "https://via.placeholder.com/150",
-            },
-          })),
-        }))?.flat();
+    if (newProductDetails.length === 0) return;
 
-        if (orderPostDataList?.length) {
-          (async () => {
-            dispatch(setShippingLoading(true));
-            try {
-              await dispatchShippingSelectively(orderPostDataList);
-            } finally {
-              dispatch(setShippingLoading(false));
-            }
-          })();
-          setOrderPostData(orderPostDataList);
-        }
-      }
-    }
-  }, [orders?.data, dispatch, customerInfo?.data?.account_key]);
+    // Mark as in-flight BEFORE dispatching — prevents a concurrent re-run
+    // (triggered by product_details changing mid-flight) from duplicating the request.
+    skusToFetch.forEach(sku => fetchedSkusRef.current.add(sku));
+    dispatch(fetchProductDetails(newProductDetails));
+  }, [orders?.data, product_details, dispatch]);
 
   // Update the useEffect that handles setting checked orders
   useEffect(() => {
@@ -1372,7 +1413,11 @@ const ImportList: React.FC = () => {
         item?.product_image?.product_url_file ||
         item?.product_url_file;
 
-      return !fileUrl || fileUrl.trim() === '';
+      return (
+        !fileUrl ||
+        fileUrl.trim() === '' ||
+        fileUrl.includes('via.placeholder.com')
+      );
     });
   };
 
@@ -1406,13 +1451,22 @@ const ImportList: React.FC = () => {
   // Function to get the correct image URL, handling Google Drive links
   const getImageUrl = useCallback((order: any, productSku: string, productGuid?: string): string => {
     let imageUrl = "";
-    console.log(order?.product_url_thumbnail, "order?.order_items?.product_image?.product_url_thumbnail")
-    // Try thumbnail first, then fallback to product data
-    if (order?.product_url_thumbnail) {
+
+    // Helper: returns true if a URL is just a placeholder (not a real product image)
+    const isPlaceholder = (url?: string) =>
+      !url || url.includes("via.placeholder.com") || url.trim() === "";
+
+    // Try thumbnail first, but ONLY when it's a real (non-placeholder) URL.
+    // Placeholder thumbnails were injected during the upload transform and
+    // must not shadow the actual product image fetched from the catalog.
+    if (!isPlaceholder(order?.product_url_thumbnail)) {
       imageUrl = order.product_url_thumbnail;
-    } else if (order?.product_image?.product_url_thumbnail) {
+    } else if (!isPlaceholder(order?.product_image?.product_url_thumbnail)) {
       imageUrl = order.product_image.product_url_thumbnail;
-    } else {
+    }
+
+    // If we still don't have a real URL, fall back to the catalog product data
+    if (!imageUrl) {
       const entry = getProductDetail({ product_sku: productSku, product_guid: productGuid });
       if (entry?.image_url_1) imageUrl = entry.image_url_1;
     }
@@ -1730,6 +1784,55 @@ const ImportList: React.FC = () => {
                       transition: "background 0.3s ease, border-color 0.3s ease",
                     }}
                   >
+                    {/* Per-order refresh loading overlay */}
+                    {refreshingOrders.has(order?.order_po) && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          zIndex: 20,
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 10,
+                          backdropFilter: "blur(3px)",
+                          background: isDark
+                            ? "rgba(15, 23, 36, 0.75)"
+                            : "rgba(255, 255, 255, 0.75)",
+                          borderRadius: 8,
+                        }}
+                      >
+                        <svg
+                          style={{ width: 32, height: 32, color: "#3b82f6", animation: "spin 0.9s linear infinite" }}
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            style={{ opacity: 0.25 }}
+                            cx="12" cy="12" r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            style={{ opacity: 0.85 }}
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z"
+                          />
+                        </svg>
+                        <span
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: isDark ? "#93c5fd" : "#1d4ed8",
+                            letterSpacing: "0.02em",
+                          }}
+                        >
+                          Refreshing order status…
+                        </span>
+                      </div>
+                    )}
                     <ul className="grid w-100  md:grid-cols-2 md:grid-rows-1 items-start ">
                       <li className="flex-1">
                         {(() => {
@@ -1920,7 +2023,76 @@ const ImportList: React.FC = () => {
                         })()}
                       </li>
 
-                      <div className="w-100%   text-end">
+                      <div className="w-100%   text-end" style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
+                        {/* Refresh Status Button */}
+                        <button
+                          type="button"
+                          title="Refresh order status"
+                          disabled={refreshingOrders.has(order?.order_po)}
+                          onClick={async () => {
+                            const accountKey = customerInfo?.data?.account_key;
+                            if (!accountKey || !order?.order_po) return;
+                            setRefreshingOrders(prev => new Set(prev).add(order.order_po));
+                            try {
+                              const result = await dispatch(
+                                refreshSingleOrder({
+                                  account_key: accountKey,
+                                  orderFullFillmentId: order?.orderFullFillmentId,
+                                })
+                              ).unwrap();
+                              notificationApi.success({
+                                message: "Order Refreshed",
+                                description: `Status for order #${order.order_po} has been refreshed successfully.`,
+                                duration: 4,
+                              });
+                            } catch (err: any) {
+                              notificationApi.error({
+                                message: "Refresh Failed",
+                                description: `Could not refresh order #${order.order_po}. Please try again.`,
+                                duration: 4,
+                              });
+                            } finally {
+                              setRefreshingOrders(prev => {
+                                const next = new Set(prev);
+                                next.delete(order.order_po);
+                                return next;
+                              });
+                              dispatch(resetRefreshOrderStatus());
+                            }
+                          }}
+                          className="max-md:pl-2 inline-flex flex-col justify-start items-start hover:bg-gray-50 dark:hover:bg-gray-800 group"
+                          style={{ opacity: refreshingOrders.has(order?.order_po) ? 0.5 : 1, cursor: refreshingOrders.has(order?.order_po) ? "not-allowed" : "pointer" }}
+                        >
+                          {refreshingOrders.has(order?.order_po) ? (
+                            <svg
+                              className="w-5 h-5 mb-1 text-blue-500 animate-spin"
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z" />
+                            </svg>
+                          ) : (
+                            <svg
+                              className="w-5 h-5 mb-1 text-gray-500 dark:text-gray-400 group-hover:text-blue-500 dark:group-hover:text-blue-400"
+                              aria-hidden="true"
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                stroke="currentColor"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                              />
+                            </svg>
+                          )}
+                        </button>
+
+                        {/* Delete Button */}
                         <button
                           data-tooltip-target="tooltip-document"
                           type="button"
@@ -1940,9 +2112,9 @@ const ImportList: React.FC = () => {
                           >
                             <path
                               stroke="currentColor"
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              stroke-width="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
                               d="M1 5h16M7 8v8m4-8v8M7 1h4a1 1 0 0 1 1 1v3H6V2a1 1 0 0 1 1-1ZM3 5h12v13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5Z"
                             />
                           </svg>
@@ -2068,8 +2240,8 @@ const ImportList: React.FC = () => {
                               }}
                               title={recipientErrors[order?.order_po]?.state_code?.[0] || recipientErrors[order?.order_po]?.city?.[0] || recipientErrors[order?.order_po]?.zip_postal_code?.[0]}
                             >
-                              {order?.recipient?.city},{" "}{order?.recipient?.state}
-                              {order?.recipient?.province}{" "}
+                              {order?.recipient?.city},{" "}{convertUsStateAbbrAndName(order?.recipient?.state_code || order?.recipient?.state || "") || (order?.recipient?.state_code || order?.recipient?.state)}{" "}
+                              {order?.recipient?.province}{order?.recipient?.province ? " " : ""}
                               {order?.recipient?.zip_postal_code}
                             </div>
                             {/* country_code */}
@@ -2371,10 +2543,113 @@ const ImportList: React.FC = () => {
                                     opacity: (isExcluded && !hasInvalidSKUs(order?.order_items) && !orderHasMissingImage(order?.order_items)) ? 0.4 : 1,
                                     filter: (isExcluded && !hasInvalidSKUs(order?.order_items) && !orderHasMissingImage(order?.order_items)) ? "grayscale(0.5)" : "none",
                                     transition: "opacity 0.3s ease, filter 0.3s ease",
+                                    position: "relative",
+                                    overflow: "hidden",
                                   }}
                                 >
+                                  {/* Quantity-update loading shimmer overlay */}
+                                  {quantityLoadingOrders.has(order?.orderFullFillmentId) && (
+                                    <div
+                                      style={{
+                                        position: "absolute",
+                                        inset: 0,
+                                        zIndex: 20,
+                                        borderRadius: "inherit",
+                                        overflow: "hidden",
+                                        pointerEvents: "none",
+                                      }}
+                                    >
+                                      {/* Frosted-glass base */}
+                                      <div style={{
+                                        position: "absolute",
+                                        inset: 0,
+                                        background: isDark
+                                          ? "rgba(12, 21, 32, 0.65)"
+                                          : "rgba(255, 255, 255, 0.65)",
+                                        backdropFilter: "blur(3px)",
+                                      }} />
+                                      {/* Shimmer sweep */}
+                                      <div style={{
+                                        position: "absolute",
+                                        inset: 0,
+                                        background: "linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.18) 50%, transparent 60%)",
+                                        backgroundSize: "200% 100%",
+                                        animation: "shimmerSweep 1.4s linear infinite",
+                                      }} />
+                                      {/* Centered spinner + label */}
+                                      <div style={{
+                                        position: "absolute",
+                                        inset: 0,
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        gap: 8,
+                                      }}>
+                                        <svg
+                                          style={{ animation: "spin 0.9s linear infinite", width: 22, height: 22, color: isDark ? "#60a5fa" : "#3b82f6" }}
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          fill="none"
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.25" />
+                                          <path fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                                        </svg>
+                                        <span style={{
+                                          fontSize: 11,
+                                          fontWeight: 600,
+                                          letterSpacing: "0.05em",
+                                          color: isDark ? "#93c5fd" : "#2563eb",
+                                          textTransform: "uppercase",
+                                        }}>
+                                          Updating…
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )}
                                   {/* Main content area */}
-                                  <div className="p-4 min-h-[120px]">
+                                  <div className="p-4 min-h-[120px] relative">
+                                    {/* Quantity control — top right */}
+                                    <div className="absolute top-2 right-2 z-10">
+                                      <QuantityInput
+                                        quantity={orderItem?.product_qty || 1}
+                                        clicking={clicking}
+                                        setclicking={setClicking}
+                                        orderFullFillmentId={order?.orderFullFillmentId}
+                                        product_guid={orderItem?.product_guid}
+                                        onLoadingChange={(id, isLoading) => {
+                                          setQuantityLoadingOrders(prev => {
+                                            const next = new Set(prev);
+                                            if (isLoading) next.add(id);
+                                            else next.delete(id);
+                                            return next;
+                                          });
+                                        }}
+                                        onQuantityUpdated={(newQty) => {
+                                          // Invalidate shipping cache for ONLY this order,
+                                          // then reset orderPostData so the shipping useEffect
+                                          // re-fires and dispatchShippingSelectively refetches
+                                          // just this single cache-miss order.
+                                          dispatch(invalidateShippingCacheEntries([order?.order_po]));
+                                          resetOrderPostData();
+                                          // Re-fetch product details for ONLY this single product
+                                          // with its updated quantity. The API accepts an array,
+                                          // so we send a one-element array instead of all products.
+                                          if (orderItem?.product_sku || orderItem?.product_guid) {
+                                            dispatch(fetchProductDetails([{
+                                              order_po: order.order_po,
+                                              product_sku: orderItem.product_sku,
+                                              product_guid: orderItem.product_guid,
+                                              product_qty: newQty,
+                                              product_image: {
+                                                product_url_file: 'https://via.placeholder.com/150',
+                                                product_url_thumbnail: 'https://via.placeholder.com/150',
+                                              },
+                                            }]));
+                                          }
+                                        }}
+                                      />
+                                    </div>
                                     <div className={`flex gap-3 ${style.description_box}`}>
                                       {/* Image */}
                                       <div className={`flex-shrink-0 ${style.importlist_pic}`}>
@@ -2614,7 +2889,7 @@ const ImportList: React.FC = () => {
                                         validSKUs.some(v => String(v).toLowerCase() === (orderItem?.product_sku ?? '').toString().toLowerCase() || String(v) === orderItem?.product_guid) &&
                                           (!recipientErrors[order?.order_po] || Object.keys(recipientErrors[order?.order_po]).length === 0) &&
                                           getProductDetail(orderItem)?.total_price != null ? (
-                                          <span className="text-gray-600">{orderItem?.product_qty || 1}@ ${(getProductDetail(orderItem)?.total_price)?.toFixed(2)} ea</span>
+                                          <span className="text-gray-600">{orderItem?.product_qty || 1} @ ${(getProductDetail(orderItem)?.total_price)?.toFixed(2)} ea</span>
                                         ) : null
                                       )}
                                     </div>
@@ -3078,7 +3353,7 @@ const ImportList: React.FC = () => {
             setImageUrlIndex({});
 
             resetOrderPostData();
-            await dispatch(fetchOrder(customerInfo?.data?.account_id));
+            await dispatch(fetchOrder(customerInfo?.data?.account_key));
           } else {
             notificationApi.error({
               message: "Image Update Failed",

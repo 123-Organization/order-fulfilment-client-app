@@ -18,11 +18,11 @@ interface ProductState {
 const STORAGE_KEY_PRODUCTS = "fw_product_details_cache";
 
 const loadPersistedProducts = () => {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY_PRODUCTS);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return [];
+        try {
+                const raw = localStorage.getItem(STORAGE_KEY_PRODUCTS);
+                if (raw) return JSON.parse(raw);
+        } catch { }
+        return [];
 };
 
 const initialState: ProductState = {
@@ -52,7 +52,7 @@ export const fetchProductDetails = createAsyncThunk(
                         "products": [...postData],
                         "account_key": getCookie("AccountGUID") || "default-key"
                 }
-                const response = await fetch(BASE_URL + "get-product-details", {
+                const response = await fetch(`https://fa-ls.finerworks.com/api/` + "get-product-details", {
                         method: "POST",
                         headers: {
                                 "Content-Type": "application/json",
@@ -160,7 +160,7 @@ export const ProductSlice = createSlice({
                         state.product_details = [];
                         try {
                                 localStorage.removeItem(STORAGE_KEY_PRODUCTS);
-                        } catch {}
+                        } catch { }
                 },
                 resetProductStatus: (state) => {
                         state.status = "idle";
@@ -208,11 +208,11 @@ export const ProductSlice = createSlice({
                                 state.product_details = action.payload;
                         }
                         state.status = "succeeded";
-                        
+
                         // Persist to localStorage
                         try {
                                 localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(state.product_details));
-                        } catch {}
+                        } catch { }
                 });
                 builder.addCase(fetchProductDetails.pending, (state, action) => {
                         state.status = "loading";
@@ -223,8 +223,13 @@ export const ProductSlice = createSlice({
                         state.error = action.payload as string;
                 });
                 builder.addCase(increaseProductQuantity.fulfilled, (state, action) => {
-                        state.product_details = action.payload;
-
+                        // NOTE: Do NOT assign action.payload to state.product_details here.
+                        // The increase-product-quantity endpoint returns a simple success/status
+                        // response — NOT a product list. Assigning it would wipe all accumulated
+                        // product details, breaking the existingSkus filter in ImportList and
+                        // causing fetchProductDetails to be called for every product on the next
+                        // render cycle (both after quantity changes and after page navigation).
+                        // product_details is managed exclusively by fetchProductDetails.
                         state.status = "succeeded";
                 });
                 builder.addCase(increaseProductQuantity.rejected, (state, action) => {

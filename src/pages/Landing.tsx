@@ -182,7 +182,7 @@ const Landing: React.FC = (): JSX.Element => {
     };
     dispatch(UploadOrdersExcel({ ...postData })).then(() => {
       if (customerInfo?.data?.account_id) {
-        dispatch(fetchOrder(customerInfo?.data?.account_id));
+        dispatch(fetchOrder(customerInfo?.data?.account_key));
       }
     });
   }
@@ -908,7 +908,7 @@ const Landing: React.FC = (): JSX.Element => {
       }
     }, 8000);
     return () => clearTimeout(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

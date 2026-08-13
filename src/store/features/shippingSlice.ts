@@ -28,8 +28,8 @@ interface ShippingState {
 const STORAGE_KEY = "fw_recipientErrors";
 
 // Rehydrate from localStorage so errors AND cache survive page refresh
-const loadPersistedErrors = (): { 
-  recipientErrors: Record<string, Record<string, string[]>>; 
+const loadPersistedErrors = (): {
+  recipientErrors: Record<string, Record<string, string[]>>;
   itemErrors: Record<string, string[]>;
   shippingCache: Record<string, ShippingCacheEntry>;
 } => {
@@ -43,7 +43,7 @@ const loadPersistedErrors = (): {
         shippingCache: parsed.shippingCache || {}
       };
     }
-  } catch {}
+  } catch { }
   return { recipientErrors: {}, itemErrors: {}, shippingCache: {} };
 };
 
@@ -86,7 +86,7 @@ export const fetchShippingOption = createAsyncThunk(
 
     console.log("postData...", userAccount);
 
-    const response = await fetch(`${BASE_URL}shipping-options`, {
+    const response = await fetch(`https://fa-ls.finerworks.com/api/shipping-options`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -245,7 +245,7 @@ export const shipping = createSlice({
           recipientErrors: state.recipientErrors,
           itemErrors: state.itemErrors,
         }));
-      } catch {}
+      } catch { }
     },
     /** Call this once before starting a new batch to clear stale results. */
     clearShippingOptions: (state) => {
@@ -254,7 +254,7 @@ export const shipping = createSlice({
       state.itemErrors = {};
       try {
         localStorage.removeItem(STORAGE_KEY);
-      } catch {}
+      } catch { }
     },
     /**
      * Single synchronous action to commit ALL aggregated batch results at once.
@@ -279,7 +279,7 @@ export const shipping = createSlice({
           itemErrors: state.itemErrors,
           shippingCache: state.shippingCache,
         }));
-      } catch {}
+      } catch { }
     },
     /**
      * Merge one or more per-order shipping results into the cache, then rebuild
@@ -322,7 +322,7 @@ export const shipping = createSlice({
           itemErrors: state.itemErrors,
           shippingCache: state.shippingCache,
         }));
-      } catch {}
+      } catch { }
     },
     /**
      * Remove specific orders from the cache (e.g. after a product is added/removed).
@@ -349,7 +349,7 @@ export const shipping = createSlice({
           itemErrors: state.itemErrors,
           shippingCache: state.shippingCache,
         }));
-      } catch {}
+      } catch { }
     },
     /** Wipe the entire cache and reset all derived shipping state. */
     clearAllShippingCache: (state) => {
@@ -357,7 +357,7 @@ export const shipping = createSlice({
       state.shippingOptions = [];
       state.recipientErrors = {};
       state.itemErrors = {};
-      try { localStorage.removeItem(STORAGE_KEY); } catch {}
+      try { localStorage.removeItem(STORAGE_KEY); } catch { }
     },
   },
   extraReducers: (builder) => {
@@ -373,7 +373,7 @@ export const shipping = createSlice({
           itemErrors: state.itemErrors,
           shippingCache: state.shippingCache,
         }));
-      } catch {}
+      } catch { }
     });
 
     builder.addCase(fetchShippingOption.rejected, (state, action) => {
@@ -387,14 +387,14 @@ export const shipping = createSlice({
       state.shippingOptions = [...state.shippingOptions, ...data];
       // Merge errors by order_po (later calls can overwrite if same order retried)
       state.recipientErrors = { ...state.recipientErrors, ...recipientErrors };
-      state.itemErrors      = { ...state.itemErrors,      ...itemErrors };
+      state.itemErrors = { ...state.itemErrors, ...itemErrors };
       // Persist so errors survive page refresh
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
           recipientErrors: state.recipientErrors,
           itemErrors: state.itemErrors,
         }));
-      } catch {}
+      } catch { }
     });
 
     builder.addCase(fetchShippingOptionSingle.rejected, (state, action) => {

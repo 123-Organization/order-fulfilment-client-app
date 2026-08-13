@@ -59,6 +59,8 @@ interface OrderState {
   sendOrderInfoStatus: "idle" | "loading" | "succeeded" | "failed";
   updateImageStatus: "idle" | "loading" | "succeeded" | "failed";
   isShippingLoading: boolean;
+  refreshOrderStatus: "idle" | "loading" | "succeeded" | "failed";
+  refreshOrderResponse: any;
 
 }
 
@@ -105,6 +107,8 @@ const initialState: OrderState = {
   sendOrderInfoStatus: "idle",
   updateImageStatus: "idle",
   isShippingLoading: false,
+  refreshOrderStatus: "idle",
+  refreshOrderResponse: null,
 };
 
 export const fetchOrder = createAsyncThunk(
@@ -115,7 +119,7 @@ export const fetchOrder = createAsyncThunk(
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ accountId: accountId, page: 1, limit: 50 })
+      body: JSON.stringify({ account_key: accountId, page: 1, limit: 50 })
     });
     const data = response.json();
 
@@ -297,33 +301,85 @@ export const CreateOrder = createAsyncThunk(
 
 
 
+const uploadInBatches = async (endpoint: string, postData: any, batchSize = 5) => {
+  const orders = postData?.orders;
+
+  if (Array.isArray(orders) && orders.length > batchSize) {
+    const batches: any[][] = [];
+    for (let i = 0; i < orders.length; i += batchSize) {
+      batches.push(orders.slice(i, i + batchSize));
+    }
+
+    const batchPromises = batches.map(async (batchOrders) => {
+      const payload = {
+        ...postData,
+        orders: batchOrders,
+      };
+      const response = await fetch(`https://fa-ls.finerworks.com/api/` + endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+      const batchData = await response.json();
+      return batchData;
+    });
+
+    const results = await Promise.all(batchPromises);
+
+    // Aggregate counts across all batches so the notification reflects totals,
+    // not just the last response (which the old spread-merge returned).
+    const allImported: string[] = [];
+    const allSkippedSubmitted: string[] = [];
+    const allSkippedPending: string[] = [];
+
+    results.forEach((r: any) => {
+      if (Array.isArray(r?.imported_order_pos)) allImported.push(...r.imported_order_pos);
+      if (Array.isArray(r?.skipped_already_submitted_order_pos)) allSkippedSubmitted.push(...r.skipped_already_submitted_order_pos);
+      if (Array.isArray(r?.skipped_already_pending_order_pos)) allSkippedPending.push(...r.skipped_already_pending_order_pos);
+    });
+
+    const combinedMessage = `Orders processed: ${allImported.length} imported, ${allSkippedSubmitted.length} skipped (already a submitted order), ${allSkippedPending.length} skipped (already pending)`;
+
+    const merged = {
+      // Keep batchResults for any legacy consumers
+      batchResults: results,
+      // Expose aggregated fields at the top level so getUploadedCount /
+      // getUploadDescription can read them the same way as a single response.
+      imported_order_pos: allImported,
+      skipped_already_submitted_order_pos: allSkippedSubmitted,
+      skipped_already_pending_order_pos: allSkippedPending,
+      message: combinedMessage,
+      status: results.some((r: any) => r?.status === true),
+      statusCode: 200,
+    };
+
+    return merged;
+  }
+
+  const response = await fetch(BASE_URL + endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(postData),
+  });
+  const data = await response.json();
+  return data;
+};
+
 export const saveOrder = createAsyncThunk(
   "order/save",
   async (postData: any, thunkAPI) => {
-    const response = await fetch(BASE_URL + "upload-orders", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(postData),
-    });
-    const data = await response.json();
-    return data;
+    return await uploadInBatches("upload-orders", postData, 5);
   },
 );
 
 export const saveShopifyOrder = createAsyncThunk(
   "order/save/shopify",
   async (postData: any, thunkAPI) => {
-    const response = await fetch(BASE_URL + "upload-orders-shopify", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(postData),
-    });
-    const data = await response.json();
-    return data;
+    return await uploadInBatches("upload-orders-shopify", postData, 5);
   },
 );
 
@@ -741,7 +797,7 @@ export const updateProductValidSKU = createAsyncThunk("order/update/validSKU", a
 );
 
 export const submitOrders = createAsyncThunk("order/submit", async (postData: any, thunkAPI) => {
-  const response = await fetch(BASE_URL + "submit-orders-v2", {
+  const response = await fetch(`https://fa-ls.finerworks.com/api/` + "submit-orders-v2", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -854,6 +910,35 @@ export const updateOrderItemImage = createAsyncThunk(
   }
 )
 
+export const refreshSingleOrder = createAsyncThunk(
+  "order/refreshSingle",
+  async (postData: { account_key: string; orderFullFillmentId: string | number }, thunkAPI) => {
+    try {
+      const response = await fetch(
+        BASE_URL + "order-submit-status-bulk",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            account_key: postData.account_key,
+            orderIds: [String(postData.orderFullFillmentId)],
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        return thunkAPI.rejectWithValue(errorData);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Failed to refresh order status:", error);
+      return thunkAPI.rejectWithValue("Failed to refresh order status");
+    }
+  }
+);
 
 // curl --location 'https://ijbsrphg08.execute-api.us-east-1.amazonaws.com/Prod/api/validate-orders' \
 export const validateOrders = createAsyncThunk(
@@ -923,6 +1008,16 @@ export const OrderSlice = createSlice({
       state.myImport = {};
     },
 
+    // Remove a list of submitted orders from orders.data by order_po
+    // so the import list updates instantly without a full re-fetch.
+    removeSubmittedOrders: (state, action: PayloadAction<string[]>) => {
+      const submittedPos = new Set(action.payload);
+      if (state.orders?.data && Array.isArray(state.orders.data)) {
+        state.orders.data = state.orders.data.filter(
+          (order: any) => !submittedPos.has(order.order_po)
+        );
+      }
+    },
     updateCheckedOrders: (state, action: PayloadAction) => {
       state.checkedOrders = action.payload;
     },
@@ -1017,7 +1112,33 @@ export const OrderSlice = createSlice({
     },
     resetUpdateImageStatus: (state) => {
       state.updateImageStatus = "idle"
-    }
+    },
+    resetRefreshOrderStatus: (state) => {
+      state.refreshOrderStatus = "idle";
+      state.refreshOrderResponse = null;
+    },
+    /**
+     * Optimistically update a single order-item's quantity in Redux state
+     * without triggering a full fetchOrder re-fetch.
+     * Payload: { orderFullFillmentId: string, product_guid: string, new_quantity: number }
+     */
+    patchOrderItemQuantity: (
+      state,
+      action: PayloadAction<{ orderFullFillmentId: string; product_guid: string; new_quantity: number }>
+    ) => {
+      const { orderFullFillmentId, product_guid, new_quantity } = action.payload;
+      if (!state.orders?.data) return;
+      const order = state.orders.data.find(
+        (o: any) => o.orderFullFillmentId === orderFullFillmentId
+      );
+      if (!order) return;
+      const item = order.order_items?.find(
+        (i: any) => i.product_guid === product_guid
+      );
+      if (item) {
+        item.product_qty = new_quantity;
+      }
+    },
   },
   extraReducers: (builder) => {
     builder.addCase(fetchOrder.fulfilled, (state, action) => {
@@ -1094,7 +1215,17 @@ export const OrderSlice = createSlice({
     );
     builder.addCase(deleteOrder.fulfilled, (state, action) => {
       state.deleteOrderStatus = 'succeeded';
-      state.orders = action.payload;
+      // Remove the deleted order(s) directly from state.orders.data using the
+      // orderFullFillmentId that was already supplied to the thunk.
+      // This avoids a follow-up fetchOrder (view-all-orders) call entirely.
+      if (state.orders?.data) {
+        const deletedIds = Array.isArray(action.meta.arg.orderFullFillmentId)
+          ? action.meta.arg.orderFullFillmentId
+          : [action.meta.arg.orderFullFillmentId];
+        state.orders.data = state.orders.data.filter(
+          (order: any) => !deletedIds.includes(order.orderFullFillmentId)
+        );
+      }
     }
     );
 
@@ -1270,9 +1401,22 @@ export const OrderSlice = createSlice({
       state.error = action.payload as string;
     })
 
+    // ── Single order status refresh ────────────────────────────────────────
+    builder.addCase(refreshSingleOrder.pending, (state) => {
+      state.refreshOrderStatus = 'loading';
+    });
+    builder.addCase(refreshSingleOrder.fulfilled, (state, action) => {
+      state.refreshOrderStatus = 'succeeded';
+      state.refreshOrderResponse = action.payload;
+    });
+    builder.addCase(refreshSingleOrder.rejected, (state, action) => {
+      state.refreshOrderStatus = 'failed';
+      state.error = action.payload as string;
+    });
+
   }
 
 });
 
 export default OrderSlice.reducer;
-export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setShippingLoading, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, updateIframe, updateApp, updateOpenSheet, updateExcludedOrders, resetExcludedOrders, updateValidSKU, resetValidSKU, updateReplacingCode, resetReplacingCode, resetReplaceCodeResult, resetReplaceCodeStatus, resetSubmitStatus, resetSendOrderInfoStatus, resetSubmitOrdersResponse, resetShopifyOrdersResponse, resetSaveOrderInfo, resetUpdateImageStatus, resetSquarespaceOrdersResponse, resetSquarespaceImportStatus, resetWixOrdersResponse, resetWixImportStatus, resetShippoOrdersResponse, resetShippoImportStatus, resetSquareOrdersResponse, resetSquareImportStatus } = OrderSlice.actions;
+export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setShippingLoading, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, removeSubmittedOrders, updateIframe, updateApp, updateOpenSheet, updateExcludedOrders, resetExcludedOrders, updateValidSKU, resetValidSKU, updateReplacingCode, resetReplacingCode, resetReplaceCodeResult, resetReplaceCodeStatus, resetSubmitStatus, resetSendOrderInfoStatus, resetSubmitOrdersResponse, resetShopifyOrdersResponse, resetSaveOrderInfo, resetUpdateImageStatus, resetSquarespaceOrdersResponse, resetSquarespaceImportStatus, resetWixOrdersResponse, resetWixImportStatus, resetShippoOrdersResponse, resetShippoImportStatus, resetSquareOrdersResponse, resetSquareImportStatus, patchOrderItemQuantity, resetRefreshOrderStatus } = OrderSlice.actions;

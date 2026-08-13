@@ -235,14 +235,32 @@ html.dark .shadow-sm         { box-shadow: var(--shadow-sm) !important; }
 html.dark .hover\:bg-gray-50:hover  { background-color: var(--bg-surface-2) !important; }
 html.dark .hover\:bg-gray-100:hover { background-color: #0c1520 !important; }
 
-/* ── Keyframes ── */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateX(-10px); }
   to   { opacity: 1; transform: translateX(0); }
 }
 
+@keyframes shimmerBar {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
 .animate-fadeIn {
   animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-shimmerBar {
+  animation: shimmerBar 1.8s ease-in-out infinite;
+}
+
+@keyframes shimmerSweep {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 
 body {

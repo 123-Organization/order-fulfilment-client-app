@@ -28,12 +28,12 @@ interface SelectedProductForImageChange {
   product_sku: string;
 }
 
-export default function FileManagementIframe({ 
-  iframe, 
-  setIframe, 
-  selectedProductForImageChange 
-}: { 
-  iframe: boolean; 
+export default function FileManagementIframe({
+  iframe,
+  setIframe,
+  selectedProductForImageChange
+}: {
+  iframe: boolean;
   setIframe: (value: boolean) => void;
   selectedProductForImageChange?: SelectedProductForImageChange | null;
 }) {
@@ -47,18 +47,18 @@ export default function FileManagementIframe({
   const SelectedImage = useAppSelector(
     (state) => state.ProductSlice.SelectedImage
   );
-  
+
 
   const location = useLocation();
-  
+
   const iframeState = useAppSelector((state) => state.company.iframeState);
-  
+
   const productData = useAppSelector((state) => state.ProductSlice.productData);
   const ordersStatus = useAppSelector((state) => state.order.status);
   const companyinfoStatus = useAppSelector(
     (state) => state.company.companyinfoStatus
   );
-  const companyinfo=useAppSelector((state)=>state.company.company_info)
+  const companyinfo = useAppSelector((state) => state.company.company_info)
 
   const productDataStatus = useAppSelector(
     (state) => state.order.productDataStatus
@@ -70,20 +70,20 @@ export default function FileManagementIframe({
   const iframee = document.getElementById("file-manager-iframe");
 
   useEffect(() => {
-    if(iframeState){
-    if (SelectedImage) {
-      const data = {
-        ...productData,
-        
-        product_url_file: [SelectedImage],
-        product_url_thumbnail: [SelectedImage],
-      };
-      
-      dispatch(setProductData(data)); 
+    if (iframeState) {
+      if (SelectedImage) {
+        const data = {
+          ...productData,
+
+          product_url_file: [SelectedImage],
+          product_url_thumbnail: [SelectedImage],
+        };
+
+        dispatch(setProductData(data));
+      }
     }
-  }
-  }, [SelectedImage,iframeState]);
-  
+  }, [SelectedImage, iframeState]);
+
   useEffect(() => {
     setIframeLink("https://prod1-filemanger-app.finerworks.com/#/thumbnail");
     const settings = {
@@ -99,7 +99,7 @@ export default function FileManagementIframe({
         account_id: companyinfo?.data?.account_id,
       },
     };
-  
+
     // Add an event listener for the iframe load event
     const handleIframeLoad = () => {
       const iframeElement = document.getElementById("file-manager-iframe") as HTMLIFrameElement | null;
@@ -182,7 +182,7 @@ export default function FileManagementIframe({
 
   const filterImages = (data: any) => {
     return data?.data?.fileSelected.map(
-      (image: any) => ( 
+      (image: any) => (
         {
           public_thumbnail_uri: image?.public_thumbnail_uri,
           public_preview_uri: image?.private_hires_uri,
@@ -196,7 +196,7 @@ export default function FileManagementIframe({
       const data = event.data;
 
       const filteredImages = filterImages(data);
-    
+
       dispatch(setSelectedImage(filteredImages[0]));
       setLogo(filteredImages[0]);
     } catch (error) {
@@ -221,23 +221,23 @@ export default function FileManagementIframe({
         product_url_file: [productData?.product_url_file?.[0]?.public_preview_uri],
         product_url_thumbnail: [productData?.product_url_file?.[0]?.public_thumbnail_uri],
         account_key: companyinfo?.data?.account_key,
-        };
+      };
       dispatch(updateProductValidSKU(data));
       setTimeout(() => {
-        dispatch(fetchOrder(companyinfo?.data?.account_id));
+        dispatch(fetchOrder(companyinfo?.data?.account_key));
       }, 2000);
     } else {
       // Process images one by one with sequential delays
-    // Process images one by one with sequential delays
-    const data = {
-      ...productData,
-      product_url_file: [productData?.product_url_file?.[0]?.public_preview_uri]  ,
-      product_url_thumbnail:[ productData?.product_url_file?.[0]?.public_thumbnail_uri],
-      account_key: companyinfo?.data?.account_key,
+      // Process images one by one with sequential delays
+      const data = {
+        ...productData,
+        product_url_file: [productData?.product_url_file?.[0]?.public_preview_uri],
+        product_url_thumbnail: [productData?.product_url_file?.[0]?.public_thumbnail_uri],
+        account_key: companyinfo?.data?.account_key,
       };
       dispatch(AddProductToOrder(data));
       setTimeout(() => {
-        dispatch(fetchOrder(companyinfo?.data?.account_id));
+        dispatch(fetchOrder(companyinfo?.data?.account_key));
       }, 2000);
     }
   };
@@ -266,7 +266,7 @@ export default function FileManagementIframe({
       accountId: companyinfo?.data?.account_id,
     };
 
-  
+
     dispatch(updateOrderItemImage(postData));
   };
 
@@ -342,7 +342,7 @@ export default function FileManagementIframe({
       setIframeLink("https://prod1-filemanger-app.finerworks.com/#/thumbnail");
     }
   }, [iframe, iframeState]);
-  
+
 
   return (
     <div className="z-100">
@@ -366,7 +366,7 @@ export default function FileManagementIframe({
         className="z-50"
         onCancel={() => {
           setIframe(false);
-          setLogoUpdate(false); 
+          setLogoUpdate(false);
           dispatch(clearProductData());// Reset logoUpdate when closing
           dispatch(updateIframeState(false));
         }}
@@ -430,7 +430,7 @@ export default function FileManagementIframe({
             </button>
           )}
           {/* Add Product Button - shown when adding new product */}
-          {!selectedProductForImageChange && productData?.product_url_file?.[0]?.public_preview_uri?.length > 0  &&
+          {!selectedProductForImageChange && productData?.product_url_file?.[0]?.public_preview_uri?.length > 0 &&
             (location.pathname.includes("/editorder") ||
               location.pathname.includes("/importlist")) && (
               <button

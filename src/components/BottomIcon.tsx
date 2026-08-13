@@ -44,6 +44,66 @@ type bottomIconProps = {
 
 const BASE_URL = config.SERVER_BASE_URL;
 
+/**
+ * Extracts the actual number of orders successfully imported from the upload
+ * API response.
+ *
+ * The upload API returns:
+ *   {
+ *     statusCode: 200,
+ *     status: true,
+ *     message: "Orders processed: N imported, ...",
+ *     imported_order_pos: ["po1", "po2"],      ← only newly imported
+ *     skipped_already_submitted_order_pos: [],
+ *     skipped_already_pending_order_pos: [],
+ *     data: [...]                               ← ALL processed orders (incl. skipped)
+ *   }
+ *
+ * Priority: imported_order_pos.length → count field → fallback
+ */
+const getUploadedCount = (saveResult: any, fallback: number): number => {
+  const payload = saveResult?.payload;
+
+  if (!payload) return fallback;
+
+  // Batch path: sum imported_order_pos across all batches
+  if (Array.isArray(payload?.batchResults)) {
+    const total = payload.batchResults.reduce((sum: number, batch: any) => {
+      if (Array.isArray(batch?.imported_order_pos)) return sum + batch.imported_order_pos.length;
+      if (typeof batch?.count === 'number') return sum + batch.count;
+      return sum;
+    }, 0);
+    return total;  // 0 is a valid result (all dupes) — don't fall back
+  }
+
+  // Single response — prefer the dedicated imported list
+  if (Array.isArray(payload?.imported_order_pos)) {
+    return payload.imported_order_pos.length;
+  }
+
+  // Legacy / other endpoints that return a plain count field
+  if (typeof payload?.count === 'number') return payload.count;
+
+  return fallback;
+};
+
+/**
+ * Returns a human-readable description for the success notification.
+ * Uses the API's own message when it includes import/skip breakdown info,
+ * otherwise falls back to a generic "<count> <platform> order(s) imported" string.
+ */
+const getUploadDescription = (saveResult: any, platform: string, fallbackCount: number): string => {
+  const payload = saveResult?.payload;
+
+  // Prefer the API's own detailed message (e.g. "Orders processed: 3 imported, 2 skipped (already pending)")
+  if (payload?.message && typeof payload.message === 'string' && payload.message.toLowerCase().includes('processed')) {
+    return payload.message;
+  }
+
+  const count = getUploadedCount(saveResult, fallbackCount);
+  return `${count} ${platform} order(s) imported successfully`;
+};
+
 // Helper function to validate phone numbers (allows formatted input like "(585) 729-4716")
 const isValidPhone = (phone: string | number | undefined): boolean => {
   if (!phone) return false;
@@ -271,11 +331,11 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   orders: transformedOrders,
                 };
 
-                dispatch(saveShopifyOrder(sendData));
+                const saveResult = await dispatch(saveShopifyOrder(sendData));
 
                 notification.success({
                   message: "Success",
-                  description: `${allOrders.length} Shopify order(s) imported successfully${hasErrors ? ' (some orders failed)' : ''}`,
+                  description: getUploadDescription(saveResult, 'Shopify', allOrders.length),
                 });
 
                 setTimeout(() => {
@@ -381,12 +441,11 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                       orders: transformedOrders,
                     };
 
-
-                    dispatch(saveShopifyOrder(sendData));
+                    const saveResultBulk = await dispatch(saveShopifyOrder(sendData));
 
                     notification.success({
                       message: "Success",
-                      description: `${result.payload.count} Shopify order(s) imported successfully`,
+                      description: getUploadDescription(saveResultBulk, 'Shopify', transformedOrders.length),
                     });
 
                     setTimeout(() => {
@@ -647,11 +706,11 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   orders: transformedOrders,
                 };
 
-                dispatch(saveShopifyOrder(sendData));
+                const saveResultSqByNum = await dispatch(saveShopifyOrder(sendData));
 
                 notification.success({
                   message: 'Success',
-                  description: `${transformedOrders.length} Squarespace order(s) imported successfully${hasErrors ? ' (some failed)' : ''}`,
+                  description: getUploadDescription(saveResultSqByNum, 'Squarespace', transformedOrders.length),
                 });
 
                 setTimeout(() => {
@@ -695,6 +754,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   startDate: startISO,
                   endDate: endISO,
                   fulfillmentStatus: myImport.status || 'PENDING',
+                  account_key: customerInfo?.data?.account_key,
                 })
               );
 
@@ -774,11 +834,11 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   orders: transformedOrders,
                 };
 
-                dispatch(saveShopifyOrder(sendData)); // reuse the generic save endpoint
+                const saveResultSqBulk = await dispatch(saveShopifyOrder(sendData)); // reuse the generic save endpoint
 
                 notification.success({
                   message: 'Success',
-                  description: `${transformedOrders.length} Squarespace order(s) imported successfully`,
+                  description: getUploadDescription(saveResultSqBulk, 'Squarespace', transformedOrders.length),
                 });
 
                 setTimeout(() => {
@@ -841,10 +901,10 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                     accountId: result.payload.orderDetails[0].accountId,
                     payment_token: result.payload.orderDetails[0].payment_token,
                   };
-                  dispatch(saveOrder(sendData));
+                  const saveResultWoo = await dispatch(saveOrder(sendData));
                   notification.success({
                     message: "Success",
-                    description: "Order imported successfully",
+                    description: getUploadDescription(saveResultWoo, 'WooCommerce', sendData.orders?.length ?? 1),
                   });
                   setTimeout(() => {
                     dispatch(clearAllShippingCache());
@@ -988,11 +1048,11 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   orders: transformedOrders,
                 };
 
-                dispatch(saveShopifyOrder(sendData));
+                const saveResultWixByNum = await dispatch(saveShopifyOrder(sendData));
 
                 notification.success({
                   message: 'Success',
-                  description: `${transformedOrders.length} Wix order(s) imported successfully`,
+                  description: getUploadDescription(saveResultWixByNum, 'Wix', transformedOrders.length),
                 });
 
                 setTimeout(() => {
@@ -1091,11 +1151,11 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   orders: transformedOrders,
                 };
 
-                dispatch(saveShopifyOrder(sendData));
+                const saveResultWixBulk = await dispatch(saveShopifyOrder(sendData));
 
                 notification.success({
                   message: 'Success',
-                  description: `${transformedOrders.length} Wix order(s) imported successfully`,
+                  description: getUploadDescription(saveResultWixBulk, 'Wix', transformedOrders.length),
                 });
 
                 setTimeout(() => {
@@ -1180,7 +1240,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                 page: 1,
                 results: 25,
                 ...(myImport?.start_date && { startDate: myImport.start_date }),
-                ...(myImport?.end_date   && { endDate:   myImport.end_date   }),
+                ...(myImport?.end_date && { endDate: myImport.end_date }),
               })
             );
 
@@ -1254,7 +1314,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
 
               notification.success({
                 message: 'Success',
-                description: `${transformedOrders.length} Etsy order(s) imported successfully`,
+                description: getUploadDescription(saveResult, 'Etsy', transformedOrders.length),
               });
 
               setTimeout(() => {
@@ -1383,7 +1443,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
 
               notification.success({
                 message: 'Success',
-                description: `${transformedOrders.length} Square order(s) imported successfully`,
+                description: getUploadDescription(saveResult, 'Square', transformedOrders.length),
               });
 
               setTimeout(() => {
@@ -1897,6 +1957,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                 className={`min-w-[130px] h-12 rounded-2xl font-bold border-0 bg-transparent hover:bg-white/10 text-white ${style.bottomIcon}`}
                 type="primary"
                 size="large"
+                disabled={nextSpinning}
                 icon={
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -1910,6 +1971,58 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
           </div>
         )}
       </div>
+
+      {/* Full-Screen Animated Waiting Screen Overlay during Order Upload */}
+      {nextSpinning && (
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-md transition-all duration-300 animate-fadeIn select-none">
+          <div className="relative flex flex-col items-center p-8 sm:p-10 max-w-md w-[90%] bg-slate-900/95 border border-slate-700/60 rounded-3xl shadow-2xl backdrop-blur-xl text-center overflow-hidden">
+
+            {/* Background Ambient Glows */}
+            <div className="absolute -top-16 -left-16 w-44 h-44 bg-blue-500/25 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-16 -right-16 w-44 h-44 bg-teal-500/25 rounded-full blur-3xl pointer-events-none" />
+
+            {/* Animated Graphic & Icon Container */}
+            <div className="relative mb-6 flex items-center justify-center">
+              {/* Pulsing Outer Aura */}
+              <div className="absolute -inset-3 bg-gradient-to-r from-blue-500 via-indigo-500 to-teal-400 rounded-full opacity-35 blur-md animate-pulse" />
+
+              {/* Dual Spinning Gradient Ring */}
+              <div className="w-24 h-24 rounded-full border-4 border-blue-500/20 border-t-blue-500 border-r-teal-400 animate-spin" />
+
+              {/* Centered Bouncing Upload Icon */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <svg className="w-10 h-10 text-teal-400 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+              </div>
+            </div>
+
+            {/* Main Header */}
+            <h3 className="text-2xl font-bold text-white mb-2 tracking-tight">
+              Uploading Orders...
+            </h3>
+
+            {/* Subtext */}
+            <p className="text-slate-300 text-sm mb-6 max-w-xs leading-relaxed">
+              Please wait while your orders are being fetched and uploaded in concurrent batches.
+            </p>
+
+            {/* Animated Shimmer Progress Bar */}
+            <div className="w-full bg-slate-800/90 rounded-full h-3 overflow-hidden border border-slate-700/60 mb-5 relative">
+              <div className="bg-gradient-to-r from-blue-500 via-teal-400 to-indigo-500 h-full w-full rounded-full animate-shimmerBar" />
+            </div>
+
+            {/* Status notice */}
+            <div className="flex items-center justify-center gap-2 text-xs text-slate-400 font-medium">
+              <svg className="w-4 h-4 text-amber-400 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>Please do not close or refresh this page</span>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -322,7 +322,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                   style={{ filter: isActive("/") ? "invert(38%) sepia(98%) saturate(400%) hue-rotate(143deg) brightness(90%)" : undefined }}
                 />
               </div>
-              <span className="text-center leading-tight mt-0.5 font-medium">Stores</span>
+              <span className="text-center leading-tight mt-0.5 font-medium" style={{ fontSize: 10 }}>Import<br />Orders</span>
             </button>
 
             {/* Pending Orders */}
@@ -463,7 +463,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                   className="group-hover:scale-110 transition-transform duration-200"
                 />
               </div>
-              <span className="text-center leading-tight mt-0.5 font-medium">Virtual Inventory</span>
+              <span className="text-center leading-tight mt-0.5 font-medium" style={{ fontSize: 10 }}>Sync<br />Products</span>
             </button>
 
 
@@ -489,7 +489,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                     d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                 </svg>
               </div>
-              <span className="text-center leading-tight mt-0.5 font-medium">Disconnect</span>
+              <span className="text-center leading-tight mt-0.5 font-medium" style={{ fontSize: 10 }}>Disconnect</span>
             </button>
 
 
@@ -501,7 +501,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
               <div className="p-1.5 rounded-lg group-hover:bg-gray-200 transition-all duration-200">
                 <UserAvatar />
               </div>
-              <span className="text-center leading-tight mt-0.5 font-medium">Profile</span>
+              <span className="text-center leading-tight mt-0.5 font-medium" style={{ fontSize: 10 }}>Profile</span>
             </a>
           </div>
         </div>
