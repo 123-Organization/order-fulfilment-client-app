@@ -1189,7 +1189,14 @@ const ImportList: React.FC = () => {
         try {
           await dispatchShippingSelectively(orderPostDataList);
         } finally {
+          // Reset orderPostData BEFORE clearing the in-flight guard so the
+          // shipping useEffect can re-run cleanly. This handles the race where
+          // fetchOrder returns a new order WHILE a prior shipping batch was in
+          // flight — orderPostData was holding the stale order list and blocking
+          // a re-run. Clearing it here lets the effect fire again immediately;
+          // the allCached check ensures already-fetched orders are skipped.
           shippingFetchInProgressRef.current = false;
+          setOrderPostData([]);
           dispatch(setShippingLoading(false));
         }
       })();
