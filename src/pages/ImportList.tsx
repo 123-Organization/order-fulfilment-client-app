@@ -66,7 +66,15 @@ const ImportList: React.FC = () => {
 
   const firstTimeRender = useRef(true);
   const isFirstRender = useRef(true);
-  // Track which SKUs we've already fetched details for
+  // Guards concurrent in-flight fetchProductDetails requests within a single
+  // mount session. A SKU is added here the moment a dispatch fires, and stays
+  // until the component unmounts — this prevents the effect from firing a
+  // duplicate request if product_details changes mid-flight.
+  // NOTE: intentionally NOT pre-seeded from product_details on mount — the
+  // existingSkusInRedux check inside the effect (backed by the live product_details
+  // Redux slice) handles persistent deduplication correctly. Pre-seeding here
+  // was blocking fetchProductDetails for newly imported orders whose SKUs
+  // happened to appear in product_details from a prior session.
   const fetchedSkusRef = useRef<Set<string>>(new Set());
   // Guard against the main shipping useEffect re-entering while a fetch batch is in-flight
   const shippingFetchInProgressRef = useRef(false);
@@ -775,32 +783,21 @@ const ImportList: React.FC = () => {
     dispatch(resetSubmitedOrders());
   }, []);
 
-  /**
-   * Pre-seed fetchedSkusRef from the persisted Redux product_details on mount.
-   *
-   * fetchedSkusRef is a useRef — it resets to an empty Set every time ImportList
-   * mounts (i.e. on every page navigation). Without this seed, all SKUs look
-   * "new" to the second useEffect below, causing fetchProductDetails to be
-   * dispatched for every product even when product_details is already fully
-   * populated in Redux (and persisted in localStorage).
-   *
-   * By pre-populating the ref from the existing store on mount we ensure:
-   *   1. Navigating back to this page never triggers a redundant API call.
-   *   2. After a quantity update (which introduces no new SKUs), the filter
-   *      in the second useEffect returns an empty newSkus list → no extra fetch.
-   */
-  useEffect(() => {
-    if (product_details && Array.isArray(product_details) && product_details.length > 0) {
-      product_details.forEach((p: any) => {
-        if (p?.sku) fetchedSkusRef.current.add(p.sku.toString());
-        if (p?.product_code) fetchedSkusRef.current.add(p.product_code.toString());
-        if (p?.product_guid) fetchedSkusRef.current.add(p.product_guid.toString());
-      });
-      console.log(
-        `[fetchedSkusRef] Pre-seeded ${fetchedSkusRef.current.size} SKUs from persisted product_details on mount`
-      );
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // NOTE: The pre-seeding useEffect that used to populate fetchedSkusRef from
+  // product_details on mount has been intentionally removed.
+  //
+  // Root cause it caused: when a new order was imported and the user was
+  // navigated to /importlist, fetchedSkusRef was pre-filled with every SKU
+  // that had ever been fetched. If the new order's product SKU matched any
+  // previously seen SKU (common across Etsy orders for the same product), the
+  // fetchProductDetails effect's `skusToFetch` filter came up empty and the
+  // API was never called — leaving the new order without product data.
+  //
+  // Deduplication for already-known SKUs is handled correctly by the
+  // `existingSkusInRedux` set inside the fetchProductDetails useEffect, which
+  // is built from the live product_details Redux slice on every run.
+  // fetchedSkusRef's only job is to prevent concurrent duplicate in-flight
+  // requests within the same render cycle — no pre-seeding needed for that.
 
   /**
    * When updateOrdersInfo resolves (recipientStatus = 'succeeded') OR a SKU replacement

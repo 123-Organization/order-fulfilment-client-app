@@ -24,6 +24,7 @@ import UpdatePopup from "./UpdatePopup";
 import { updateCompanyInfo } from "../store/features/companySlice";
 import { resetRecipientStatus } from "../store/features/orderSlice";
 import { clearOrderErrors, clearAllShippingCache } from "../store/features/shippingSlice";
+import { clearProductDetails } from "../store/features/productSlice";
 import style from "./Components.module.css";
 import { fetchWporder, fetchShopifyOrders, fetchShopifyOrderByName, fetchSquarespaceOrders, fetchSquarespaceOrderByNumber, resetSquarespaceImportStatus, updateWporder, fetchWixOrders, fetchWixOrderByNumber, resetWixImportStatus, fetchShippoOrders, fetchShippoOrderById, resetShippoImportStatus, fetchSquareOrders, resetSquareImportStatus } from "../store/features/orderSlice";
 type NotificationType = "success" | "info" | "warning" | "error";
@@ -343,6 +344,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   dispatch(resetImport());
                   dispatch(updateWporder('' as any));
                   dispatch(clearAllShippingCache());
+                  dispatch(clearProductDetails());
                   navigate("/importlist");
                 }, 2000);
               } else {
@@ -453,6 +455,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                       dispatch(resetImport());
                       dispatch(updateWporder('' as any));
                       dispatch(clearAllShippingCache());
+                      dispatch(clearProductDetails());
                       navigate("/importlist");
                     }, 2000);
                   } else {
@@ -718,6 +721,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   dispatch(resetImport());
                   dispatch(updateWporder('' as any));
                   dispatch(clearAllShippingCache());
+                  dispatch(clearProductDetails());
                   navigate('/importlist');
                 }, 2000);
               } else {
@@ -846,6 +850,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   dispatch(resetImport());
                   dispatch(updateWporder('' as any));
                   dispatch(clearAllShippingCache());
+                  dispatch(clearProductDetails());
                   navigate('/importlist');
                 }, 2000);
               } else {
@@ -908,6 +913,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   });
                   setTimeout(() => {
                     dispatch(clearAllShippingCache());
+                    dispatch(clearProductDetails());
                     navigate("/importlist");
                   }, 2000);
                 } else {
@@ -1060,6 +1066,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   dispatch(resetImport());
                   dispatch(updateWporder('' as any));
                   dispatch(clearAllShippingCache());
+                  dispatch(clearProductDetails());
                   navigate('/importlist');
                 }, 2000);
               } else {
@@ -1163,6 +1170,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   dispatch(resetImport());
                   dispatch(updateWporder('' as any));
                   dispatch(clearAllShippingCache());
+                  dispatch(clearProductDetails());
                   navigate('/importlist');
                 }, 2000);
               } else {
@@ -1317,6 +1325,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   dispatch(resetImport());
                   dispatch(updateWporder('' as any));
                   dispatch(clearAllShippingCache());
+                  dispatch(clearProductDetails());
                   navigate('/importlist');
                 }, 2000);
               } else {
@@ -1433,6 +1442,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   dispatch(resetImport());
                   dispatch(updateWporder('' as any));
                   dispatch(clearAllShippingCache());
+                  dispatch(clearProductDetails());
                   navigate('/importlist');
                 }, 2000);
               } else {
@@ -1563,6 +1573,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                 dispatch(resetImport());
                 dispatch(updateWporder('' as any));
                 dispatch(clearAllShippingCache());
+                dispatch(clearProductDetails());
                 navigate('/importlist');
               }, 2000);
             } else {
