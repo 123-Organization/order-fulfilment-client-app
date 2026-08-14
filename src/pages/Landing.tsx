@@ -100,6 +100,9 @@ const Landing: React.FC = (): JSX.Element => {
   const [shippoLiveKey, setShippoLiveKey] = useState('');
   const [shippoTestKey, setShippoTestKey] = useState('');
   const [shippoConnecting, setShippoConnecting] = useState(false);
+  // Two-phase connect: 'idle' → 'validating' → 'connecting' → done/error
+  type ShippoConnectStep = 'idle' | 'validating' | 'connecting' | 'valid' | 'invalid' | 'error';
+  const [shippoConnectStep, setShippoConnectStep] = useState<ShippoConnectStep>('idle');
 
   const [cookies] = useCookies(["Session", "AccountGUID"]);
   const order = useAppSelector((state) => state.order.orders);
@@ -1646,20 +1649,26 @@ const Landing: React.FC = (): JSX.Element => {
           </div>
         }
         open={showShippoConnectModal}
-        onCancel={() => { if (!shippoConnecting) setShowShippoConnectModal(false); }}
+        onCancel={() => {
+          if (!shippoConnecting) {
+            setShowShippoConnectModal(false);
+            setShippoConnectStep('idle');
+            setShippoLiveKey('');
+          }
+        }}
         footer={null}
-        width={460}
+        width={480}
         centered
       >
         <div style={{ padding: '8px 0 4px' }}>
           <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 20, lineHeight: 1.6 }}>
-            Enter your <strong>Shippo API keys</strong> to enable Etsy order import.
-            You can find these in your{' '}
+            Enter your <strong>Shippo Live API key</strong> to enable Etsy order import.
+            You can find this in your{' '}
             <a href="https://support.finerworks.com/how-to-use-the-order-fulfillment-app/etsy-documentation/" target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb' }}>GoShippo documentation</a>.
           </p>
 
-          {/* Live key */}
-          <div style={{ marginBottom: 16 }}>
+          {/* Live key input */}
+          <div style={{ marginBottom: 20 }}>
             <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: isDark ? '#8892a4' : '#374151', marginBottom: 6, textTransform: 'uppercase', letterSpacing: .4 }}>
               Live Key
             </label>
@@ -1668,22 +1677,104 @@ const Landing: React.FC = (): JSX.Element => {
               type="text"
               placeholder="shippo_live_…"
               value={shippoLiveKey}
-              onChange={e => setShippoLiveKey(e.target.value)}
+              onChange={e => { setShippoLiveKey(e.target.value); setShippoConnectStep('idle'); }}
               disabled={shippoConnecting}
               style={{
-                width: '100%', padding: '9px 12px', borderRadius: 8, border: '1.5px solid #d1d5db',
+                width: '100%', padding: '10px 12px', borderRadius: 8,
+                border: `1.5px solid ${shippoConnectStep === 'invalid' || shippoConnectStep === 'error' ? '#ef4444' : shippoConnectStep === 'valid' ? '#22c55e' : '#d1d5db'}`,
                 fontSize: 13, fontFamily: 'monospace', outline: 'none', boxSizing: 'border-box',
                 background: isDark ? '#0f1724' : '#fff', color: isDark ? '#e8edf5' : '#111827',
+                transition: 'border-color 0.2s',
               }}
             />
           </div>
 
+          {/* ── Progress steps — shown once connecting starts ── */}
+          {shippoConnectStep !== 'idle' && (
+            <div style={{
+              background: isDark ? '#0f1a2e' : '#f8fafc',
+              border: `1px solid ${isDark ? '#1e3a5f' : '#e2e8f0'}`,
+              borderRadius: 10, padding: '14px 16px', marginBottom: 20,
+            }}>
+              {/* Step 1 — Validate key */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                {/* Icon */}
+                <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: shippoConnectStep === 'validating' ? '#eff6ff'
+                    : shippoConnectStep === 'valid' || shippoConnectStep === 'connecting' ? '#dcfce7'
+                    : '#fee2e2',
+                }}>
+                  {shippoConnectStep === 'validating' ? (
+                    <svg style={{ width: 16, height: 16, animation: 'spin 1s linear infinite', color: '#3b82f6' }} viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="50 80" strokeLinecap="round" />
+                    </svg>
+                  ) : shippoConnectStep === 'valid' || shippoConnectStep === 'connecting' ? (
+                    <svg style={{ width: 14, height: 14, color: '#16a34a' }} viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
+                    </svg>
+                  ) : (
+                    <svg style={{ width: 14, height: 14, color: '#dc2626' }} viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"/>
+                    </svg>
+                  )}
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: isDark ? '#e2e8f0' : '#1e293b' }}>
+                    Step 1 — Validating API Key
+                  </div>
+                  <div style={{ fontSize: 12, color:
+                    shippoConnectStep === 'validating' ? '#3b82f6'
+                    : shippoConnectStep === 'valid' || shippoConnectStep === 'connecting' ? '#16a34a'
+                    : '#dc2626',
+                    marginTop: 2,
+                  }}>
+                    {shippoConnectStep === 'validating' && 'Checking your key with Shippo…'}
+                    {(shippoConnectStep === 'valid' || shippoConnectStep === 'connecting') && 'Shippo live key is valid ✓'}
+                    {shippoConnectStep === 'invalid' && 'Invalid key — please double-check and try again'}
+                    {shippoConnectStep === 'error' && 'Could not reach Shippo — check your connection'}
+                  </div>
+                </div>
+              </div>
 
+              {/* Connector line */}
+              <div style={{ width: 2, height: 10, background: isDark ? '#1e3a5f' : '#e2e8f0', marginLeft: 13, marginBottom: 10 }} />
+
+              {/* Step 2 — Save connection */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: shippoConnectStep === 'connecting' ? '#eff6ff'
+                    : isDark ? '#1e2a3f' : '#f1f5f9',
+                  opacity: shippoConnectStep === 'validating' || shippoConnectStep === 'invalid' || shippoConnectStep === 'error' ? 0.4 : 1,
+                }}>
+                  {shippoConnectStep === 'connecting' ? (
+                    <svg style={{ width: 16, height: 16, animation: 'spin 1s linear infinite', color: '#3b82f6' }} viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="50 80" strokeLinecap="round" />
+                    </svg>
+                  ) : (
+                    <svg style={{ width: 14, height: 14, color: isDark ? '#64748b' : '#94a3b8' }} viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clipRule="evenodd"/>
+                    </svg>
+                  )}
+                </div>
+                <div style={{ opacity: shippoConnectStep === 'validating' || shippoConnectStep === 'invalid' || shippoConnectStep === 'error' ? 0.4 : 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: isDark ? '#e2e8f0' : '#1e293b' }}>
+                    Step 2 — Saving Connection
+                  </div>
+                  <div style={{ fontSize: 12, color: shippoConnectStep === 'connecting' ? '#3b82f6' : isDark ? '#64748b' : '#94a3b8', marginTop: 2 }}>
+                    {shippoConnectStep === 'connecting' ? 'Saving your key to FinerWorks…' : 'Waiting for key validation…'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* CSS keyframe for spinner */}
+          <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
 
           {/* Actions */}
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
             <Button
-              onClick={() => setShowShippoConnectModal(false)}
+              onClick={() => { setShowShippoConnectModal(false); setShippoConnectStep('idle'); setShippoLiveKey(''); }}
               disabled={shippoConnecting}
             >
               Cancel
@@ -1691,42 +1782,65 @@ const Landing: React.FC = (): JSX.Element => {
             <Button
               type="primary"
               loading={shippoConnecting}
-              disabled={!shippoLiveKey.trim()}
+              disabled={!shippoLiveKey.trim() || shippoConnecting}
               onClick={async () => {
                 const accountKey = customerInfo?.data?.account_key;
                 if (!accountKey) return;
-                setShippoConnecting(true);
-                try {
-                  const res = await fetch(
-                    `${BASE_URL}shippo/connect`,
-                    {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        account_key: accountKey,
-                        live_key: shippoLiveKey.trim(),
 
-                      }),
-                    }
-                  );
-                  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                setShippoConnecting(true);
+                setShippoConnectStep('validating');
+
+                try {
+                  // ── Phase 1: Validate the live key ─────────────────────────
+                  const validateRes = await fetch(`${BASE_URL}shippo/validate-key`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ live_key: shippoLiveKey.trim() }),
+                  });
+
+                  const validateData = await validateRes.json().catch(() => ({}));
+
+                  if (!validateData?.valid || validateData?.status === false) {
+                    // Key is invalid
+                    setShippoConnectStep('invalid');
+                    notificationApi.error({
+                      message: 'Invalid API Key',
+                      description: validateData?.message || 'The Shippo live key you entered is not valid. Please check and try again.',
+                    });
+                    return; // stop — don't proceed to save
+                  }
+
+                  // ── Phase 2: Save the connection ────────────────────────────
+                  setShippoConnectStep('connecting');
+
+                  const connectRes = await fetch(`${BASE_URL}shippo/connect`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ account_key: accountKey, live_key: shippoLiveKey.trim() }),
+                  });
+
+                  if (!connectRes.ok) throw new Error(`HTTP ${connectRes.status}`);
+
                   setEtsyConnectionStatus('connected');
                   setShowShippoConnectModal(false);
+                  setShippoConnectStep('idle');
+                  setShippoLiveKey('');
                   notificationApi.success({
                     message: 'Etsy Connected',
-                    description: 'Your Shippo keys have been saved. You can now import Etsy orders.',
+                    description: 'Your Shippo key has been validated and saved. You can now import Etsy orders.',
                   });
                 } catch (err: any) {
+                  setShippoConnectStep('error');
                   notificationApi.error({
                     message: 'Connection Failed',
-                    description: 'Could not connect to Shippo. Please check your keys and try again.',
+                    description: 'Could not complete the connection. Please check your key and try again.',
                   });
                 } finally {
                   setShippoConnecting(false);
                 }
               }}
             >
-              Connect
+              {shippoConnectStep === 'invalid' || shippoConnectStep === 'error' ? 'Retry' : 'Connect'}
             </Button>
           </div>
         </div>
@@ -1736,3 +1850,4 @@ const Landing: React.FC = (): JSX.Element => {
 };
 
 export default Landing;
+
