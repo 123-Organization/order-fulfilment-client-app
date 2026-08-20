@@ -340,60 +340,135 @@ const ExportModal: React.FC<ExportModalProps> = ({
   // ---------------------------------------------------------------------------
 
   /**
-   * Squarespace requires that every variant in a product has a *unique* combination
-   * of attribute values (type, media, style, etc.). If the same image_guid is shared
-   * by multiple products that happen to have identical attributes (e.g. an old and a
-   * new version of the same print), the API returns "Product attributes must be unique."
-   *
-   * This helper deduplicates a variant group's product list by their attribute
-   * signature — which is everything in `description_short` except the `sku:` line.
-   * When two products collide, the user-selected or primaryItem one wins.
+   * Build a stable attribute fingerprint from the product's `labels` array,
+   * which is what the backend uses to construct Squarespace variant option names/values.
+   * Strips any existing "sku" key so we fingerprint only real variant dimensions
+   * (type, media, style, etc.).
    */
-  const deduplicateVariantProducts = (products: any[]): any[] => {
-    const seen = new Map<string, any>();
-    for (const product of products) {
-      // Build a stable attribute key from description_short, stripping the sku line
-      const desc: string = product.description_short || product.description_long || '';
-      const attrKey = desc
-        .split(/\r?\n/)
-        .map((l: string) => l.trim())
-        .filter((l: string) => l && !l.toLowerCase().startsWith('sku:'))
-        .join('|')
-        .toLowerCase();
-
-      if (!seen.has(attrKey)) {
-        seen.set(attrKey, product);
-      } else {
-        // Prefer the user-selected or primaryItem product over a non-selected duplicate
-        const existing = seen.get(attrKey);
-        const incomingScore = (product.isSelected ? 2 : 0) + (product.primaryItem ? 1 : 0);
-        const existingScore = (existing.isSelected ? 2 : 0) + (existing.primaryItem ? 1 : 0);
-        if (incomingScore > existingScore) {
-          seen.set(attrKey, product);
-        }
-      }
+  const buildAttrKey = (product: any): string => {
+    // Primary: use labels array (what the server actually sends to Squarespace)
+    if (Array.isArray(product.labels) && product.labels.length > 0) {
+      return product.labels
+        .filter((l: any) => l?.key && !l.key.toLowerCase().includes('sku'))
+        .map((l: any) => `${String(l.key).toLowerCase()}:${String(l.value).toLowerCase()}`)
+        .sort() // sort for stability regardless of order
+        .join('|');
     }
-    return Array.from(seen.values());
+    // Fallback: use description_short minus the sku line
+    const desc: string = product.description_short || product.description_long || '';
+    return desc
+      .split(/\r?\n/)
+      .map((l: string) => l.trim())
+      .filter((l: string) => l && !l.toLowerCase().startsWith('sku:'))
+      .join('|')
+      .toLowerCase();
+  };
+
+  /**
+   * Squarespace requires every variant in a group to have a UNIQUE combination of
+   * attribute values. When customers have multiple products with identical attributes
+   * (same type, media, style, etc.) — which is a real-world scenario — we MUST NOT
+   * drop the "duplicates"; instead we make them distinguishable.
+   *
+   * The backend builds Squarespace variant options from the product's `labels` array.
+   * So to fix the "Product attributes must be unique." error we must inject a new label
+   * entry into each colliding product's labels, giving the server a distinct option value
+   * per variant.
+   *
+   * Algorithm:
+   *  1. Group products by their labels fingerprint (ignoring any existing SKU label).
+   *  2. Groups of size 1  → pass through unchanged.
+   *  3. Groups of size >1 → inject { key: "SKU", value: product.sku } into labels
+   *     (and also append "SKU: <sku>" to description_short as a belt-and-suspenders
+   *     fallback in case the server reads from there instead).
+   *
+    * This ensures ALL products — even 4 identically-described ones — are exported
+   * as separate variants instead of being silently rejected.
+   *
+   * KEY LESSON from failures:
+   *  - Injecting with key "SKU" doesn't work — the server strips "SKU" from labels
+   *    because Squarespace tracks SKU as its own separate field (not an option dimension).
+   *  - We must use a neutral key like "Variant" that the server will pass through as a
+   *    Squarespace productOption dimension.
+   *  - The injected label must be FIRST so the server encounters it first when it builds
+   *    the productOptions name list.
+   */
+  const makeVariantsUnique = (products: any[]): any[] => {
+    // Step 1 – group by attribute fingerprint
+    const fingerprints = new Map<string, any[]>();
+    for (const product of products) {
+      const key = buildAttrKey(product);
+      if (!fingerprints.has(key)) fingerprints.set(key, []);
+      fingerprints.get(key)!.push(product);
+    }
+
+    const result: any[] = [];
+
+    fingerprints.forEach((group) => {
+      if (group.length === 1) {
+        // No collision – keep as-is
+        result.push(group[0]);
+      } else {
+        // Collision – inject a distinguishing "Variant" dimension into every field
+        // the server might read to build Squarespace productOption names/values.
+        // We use "Variant" (not "SKU") because the server strips SKU before sending
+        // to Squarespace (Squarespace tracks it separately).
+        group.forEach((product, idx) => {
+          const variantLabel = `Option ${idx + 1}`;
+
+          // ── 1. Patch labels array ──────────────────────────────────────────────────
+          // Remove any pre-existing "Variant" or "SKU" entry to avoid duplicates,
+          // then PREPEND the new discriminator so the server sees it first.
+          const existingLabels: Array<{ key: string; value: string }> = Array.isArray(product.labels)
+            ? product.labels
+            : [];
+          const labelsStripped = existingLabels.filter(
+            (l) => !['variant', 'sku'].includes(l.key.toLowerCase())
+          );
+          // Inject "Variant" as the FIRST label entry
+          const patchedLabels = [
+            { key: 'Variant', value: variantLabel },
+            ...labelsStripped,
+          ];
+
+          // ── 2. Patch description_short ─────────────────────────────────────────────
+          // Prepend "Variant: Option N" as the FIRST line so the server parses it first.
+          const existingDesc: string = product.description_short || product.description_long || '';
+          const variantLine = `Variant: ${variantLabel}`;
+          const alreadyPatched = existingDesc
+            .split(/\r?\n/)
+            .some((l: string) => l.trim().toLowerCase().startsWith('variant:'));
+          const patchedDesc = alreadyPatched
+            ? existingDesc
+            : existingDesc
+              ? `${variantLine}\n${existingDesc}`
+              : variantLine;
+
+          // ── 3. Patch name (some servers use name to derive a variant title option) ──
+          const baseName: string = (product.name || '').replace(/\s*\(Option \d+\)\s*$/, '').trim();
+          const patchedName = `${baseName} (Option ${idx + 1})`;
+
+          // Preserve original product_code so backend and FinerWorks product lookups remain valid
+          result.push({
+            ...product,
+            name: patchedName,
+            product_code: product.product_code,
+            labels: patchedLabels,
+            description_short: patchedDesc,
+          });
+        });
+      }
+    });
+
+    return result;
   };
 
   /**
    * Turn variant groups + standalone products into an array of "batches".
    * Each batch is an array of products that should travel in ONE API call.
    *
-   * Squarespace maps `media` (which encodes the print size) as the primary
-   * variant option dimension. If a batch contains products whose `media` value
-   * is duplicated (because they differ only by frame/style/etc.), the backend
-   * raises "Product attributes must be unique".
-   *
-   * Strategy:
-   *   1. Split by product `name` — different product types → separate SS products.
-   *   2. Within each name-group, build a "fixed-attributes key" from every label
-   *      EXCEPT `media` and `sku`. Products that share the same fixed-attributes
-   *      key differ ONLY by media/size → safe to batch together (media is unique).
-   *      Products that differ on any fixed attribute (e.g. different frame) must
-   *      become separate batches so Squarespace never sees a duplicate media value.
-   *   3. Deduplicate within each final batch to remove truly identical attribute sets.
-   *   - standalone → one batch per product.
+   * Each confirmed variant group → ONE API call.
+   * Standalone products → one call each.
    */
   const buildExportBatches = (
     vGroups: any[],
@@ -401,57 +476,10 @@ const ExportModal: React.FC<ExportModalProps> = ({
   ): any[][] => {
     const batches: any[][] = [];
 
-    /** Extract a label value by key (case-insensitive), returns '' if absent. */
-    const getLabelValue = (p: any, key: string): string => {
-      const found = (p.labels as any[] | undefined)?.find(
-        (l: any) => (l.key || '').toLowerCase() === key.toLowerCase()
-      );
-      return (found?.value || '').trim().toLowerCase();
-    };
-
-    /**
-     * Build a stable "fixed-attributes" key for a product:
-     * concatenate all label values that are NOT media/size/sku.
-     * Two products with the same key differ only by media → safe batch-mates.
-     */
-    const fixedAttrsKey = (p: any): string => {
-      // Label keys we treat as the SIZE dimension or the SKU — exclude from key
-      const sizeOrSkuKeys = new Set(['media', 'sku']);
-      const labels: any[] = (p.labels as any[] | undefined) || [];
-      return labels
-        .filter((l: any) => !sizeOrSkuKeys.has((l.key || '').toLowerCase()))
-        .sort((a: any, b: any) => (a.key || '').localeCompare(b.key || ''))
-        .map((l: any) => `${(l.key || '').toLowerCase()}=${(l.value || '').trim().toLowerCase()}`)
-        .join('|');
-    };
-
     vGroups.forEach((group) => {
       if (!group.products || group.products.length === 0) return;
-
-      // Step 1: split by product name
-      const byName = new Map<string, any[]>();
-      group.products.forEach((p: any) => {
-        const nameKey = (p.name || '').trim().toLowerCase();
-        if (!byName.has(nameKey)) byName.set(nameKey, []);
-        byName.get(nameKey)!.push(p);
-      });
-
-      byName.forEach((nameProducts) => {
-        // Step 2: within the name group, split by fixed attributes (frame/style/etc.)
-        // so each sub-batch only differs by media (size) → unique variant options.
-        const byFixedAttrs = new Map<string, any[]>();
-        nameProducts.forEach((p: any) => {
-          const fKey = fixedAttrsKey(p);
-          if (!byFixedAttrs.has(fKey)) byFixedAttrs.set(fKey, []);
-          byFixedAttrs.get(fKey)!.push(p);
-        });
-
-        byFixedAttrs.forEach((subProducts) => {
-          // Step 3: deduplicate within each final sub-batch
-          const deduped = deduplicateVariantProducts(subProducts);
-          if (deduped.length > 0) batches.push(deduped);
-        });
-      });
+      const uniquified = makeVariantsUnique(group.products);
+      if (uniquified.length > 0) batches.push(uniquified);
     });
 
     // One call per standalone product

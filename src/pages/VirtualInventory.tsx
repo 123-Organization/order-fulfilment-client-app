@@ -91,6 +91,14 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
   const [unlinkedPlatforms, setUnlinkedPlatforms] = useState<Set<string>>(new Set());
   const [unlinkErrors, setUnlinkErrors] = useState<Record<string, string>>({});
 
+  // Relink modal state
+  const [relinkModalVisible, setRelinkModalVisible] = useState(false);
+  const [productToRelink, setProductToRelink] = useState<any>(null);
+  const [selectedRelinkPlatforms, setSelectedRelinkPlatforms] = useState<Set<string>>(new Set());
+  const [relinkingPlatforms, setRelinkingPlatforms] = useState<Set<string>>(new Set());
+  const [relinkedPlatforms, setRelinkedPlatforms] = useState<Set<string>>(new Set());
+  const [relinkErrors, setRelinkErrors] = useState<Record<string, string>>();
+
   // File Manager Iframe for filtering by image
   const [isImageFilterIframeOpen, setIsImageFilterIframeOpen] = useState(false);
   const [isIframeMaximized, setIsIframeMaximized] = useState(false);
@@ -328,6 +336,117 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
     setUnlinkedPlatforms(new Set());
     setUnlinkErrors({});
     setUnlinkModalVisible(true);
+  };
+
+  // Open relink modal
+  const handleOpenRelinkModal = (product: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setProductToRelink(product);
+    setSelectedRelinkPlatforms(new Set());
+    setRelinkingPlatforms(new Set());
+    setRelinkedPlatforms(new Set());
+    setRelinkErrors(undefined);
+    setRelinkModalVisible(true);
+  };
+
+  // Toggle platform selection in relink modal
+  const toggleRelinkPlatform = (platformKey: string) => {
+    setSelectedRelinkPlatforms(prev => {
+      const next = new Set(prev);
+      if (next.has(platformKey)) next.delete(platformKey);
+      else next.add(platformKey);
+      return next;
+    });
+  };
+
+  // Fire relink API for selected platforms
+  const confirmRelink = async () => {
+    if (!productToRelink || selectedRelinkPlatforms.size === 0) return;
+
+    const accountKey =
+      companyInfo?.data?.account_key ||
+      localStorage.getItem('squarespace_account_key') ||
+      cookies.AccountGUID ||
+      '';
+
+    const platformSourceMap: Record<string, string> = {
+      squarespace: 'squarespace',
+      shopify: 'shopify',
+      wix: 'wix',
+      woocommerce: 'woocommerce',
+    };
+
+    const platformTokenMap: Record<string, string> = {
+      squarespace: getPlatformToken('Squarespace'),
+      shopify: getPlatformToken('Shopify'),
+      wix: getPlatformToken('Wix'),
+      woocommerce: getPlatformToken('WooCommerce'),
+    };
+
+    const toProcess = Array.from(selectedRelinkPlatforms);
+    setRelinkingPlatforms(new Set(toProcess));
+
+    const results = await Promise.allSettled(
+      toProcess.map(async (platformKey) => {
+        const source = platformSourceMap[platformKey];
+        const token = platformTokenMap[platformKey];
+        if (!token) throw new Error('No access token found for this platform');
+        const res = await fetch(`${config.SERVER_BASE_URL}relink-external-source`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sku: [productToRelink.sku],
+            source,
+            access_token: token,
+            account_key: accountKey,
+          }),
+        });
+        if (!res.ok) throw new Error(`Server error: ${res.status}`);
+        return platformKey;
+      })
+    );
+
+    const succeeded = new Set<string>();
+    const errors: Record<string, string> = {};
+
+    results.forEach((result, idx) => {
+      const key = toProcess[idx];
+      if (result.status === 'fulfilled') {
+        succeeded.add(key);
+      } else {
+        errors[key] = (result as PromiseRejectedResult).reason?.message || 'Failed';
+      }
+    });
+
+    setRelinkingPlatforms(new Set());
+    setRelinkedPlatforms(succeeded);
+    setRelinkErrors(errors);
+
+    if (succeeded.size > 0) {
+      notification.success({
+        message: 'Relinked Successfully',
+        description: `"${productToRelink.name || productToRelink.sku}" was re-linked to ${succeeded.size} platform(s).`,
+        placement: 'topRight',
+        duration: 4,
+      });
+      // Refresh inventory so updated integrations are reflected
+      listInventory(1, true);
+    }
+    if (Object.keys(errors).length > 0) {
+      notification.error({
+        message: 'Some Relinks Failed',
+        description: `Failed to re-link to ${Object.keys(errors).length} platform(s). Check the modal for details.`,
+        placement: 'topRight',
+        duration: 4,
+      });
+    }
+
+    if (Object.keys(errors).length === 0) {
+      setTimeout(() => {
+        setRelinkModalVisible(false);
+        setProductToRelink(null);
+      }, 1200);
+    }
   };
 
   // Toggle platform selection in unlink modal
@@ -1547,6 +1666,28 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
                               </svg>
                             </button>
 
+                            {/* Relink Button */}
+                            <button
+                              onClick={(e) => handleOpenRelinkModal(image, e)}
+                              className="p-2 bg-white border border-green-300 rounded-lg hover:bg-green-50 hover:border-green-500 transition-all duration-200 group shadow-sm hover:shadow-md"
+                              title="Relink to Platform"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-5 w-5 text-green-500 group-hover:text-green-700"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M13.828 10.172a4 4 0 015.656 0l4 4a4 4 0 11-5.656 5.656l-1.102-1.101m.758-4.899a4 4 0 01-5.656 0l-4-4a4 4 0 015.656-5.656l1.1 1.1"
+                                />
+                              </svg>
+                            </button>
+
                             {/* Unlink Button */}
                             <button
                               onClick={(e) => handleOpenUnlinkModal(image, e)}
@@ -2038,6 +2179,160 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
                 className="flex items-center gap-2"
               >
                 {unlinkingPlatforms.size > 0 ? 'Unlinking...' : `Unlink${selectedUnlinkPlatforms.size > 0 ? ` (${selectedUnlinkPlatforms.size})` : ''}`}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Relink to Platform Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-green-100 rounded-full">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 015.656 0l4 4a4 4 0 11-5.656 5.656l-1.102-1.101m.758-4.899a4 4 0 01-5.656 0l-4-4a4 4 0 015.656-5.656l1.1 1.1" />
+              </svg>
+            </div>
+            <span className="text-lg font-semibold text-gray-800">Relink to Platform</span>
+          </div>
+        }
+        open={relinkModalVisible}
+        onCancel={() => {
+          setRelinkModalVisible(false);
+          setProductToRelink(null);
+        }}
+        footer={null}
+        centered
+        width={520}
+      >
+        {productToRelink && (
+          <div className="py-2">
+            {/* Product info strip */}
+            <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-xl p-3 mb-5">
+              {productToRelink.image_url_1 && (
+                <img
+                  src={productToRelink.image_url_1}
+                  alt={productToRelink.name}
+                  className="w-12 h-12 object-contain rounded-lg bg-white border border-gray-200 flex-shrink-0"
+                />
+              )}
+              <div className="min-w-0">
+                <p className="font-semibold text-gray-800 truncate">{productToRelink.name || 'Unnamed Product'}</p>
+                <p className="text-xs text-gray-500">SKU: <span className="font-medium text-gray-700">{productToRelink.sku}</span></p>
+              </div>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">
+              Select the platform(s) you want to re-establish a connection for, then click <strong>Relink</strong>.
+            </p>
+
+            {/* Platform grid */}
+            {(() => {
+              const platforms = [
+                { key: 'squarespace', name: 'Squarespace', icon: squarespaceIcon },
+                { key: 'shopify',     name: 'Shopify',     icon: shopifyIcon },
+                { key: 'wix',         name: 'Wix',         icon: wixIcon },
+                { key: 'woocommerce', name: 'WooCommerce', icon: woocommerceIcon },
+              ];
+              return (
+                <div className="grid grid-cols-2 gap-3 mb-6">
+                  {platforms.map((p) => {
+                    const isSelected  = selectedRelinkPlatforms.has(p.key);
+                    const isLoading   = relinkingPlatforms.has(p.key);
+                    const isDone      = relinkedPlatforms.has(p.key);
+                    const hasError    = !!(relinkErrors && relinkErrors[p.key]);
+                    const hasToken    = !!getPlatformToken(
+                      p.key === 'squarespace' ? 'Squarespace'
+                      : p.key === 'shopify'   ? 'Shopify'
+                      : p.key === 'wix'       ? 'Wix'
+                      : 'WooCommerce'
+                    );
+
+                    return (
+                      <button
+                        key={p.key}
+                        type="button"
+                        disabled={isLoading || isDone || !hasToken}
+                        onClick={() => toggleRelinkPlatform(p.key)}
+                        className={`relative flex items-center gap-3 p-3 rounded-xl border-2 transition-all duration-200 text-left ${
+                          isDone
+                            ? 'border-green-400 bg-green-50 opacity-80 cursor-default'
+                            : hasError
+                            ? 'border-red-400 bg-red-50'
+                            : !hasToken
+                            ? 'border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed'
+                            : isSelected
+                            ? 'border-green-400 bg-green-50 shadow-md'
+                            : 'border-gray-200 bg-white hover:border-green-300 hover:bg-green-50/40 hover:shadow-sm'
+                        }`}
+                        style={{ cursor: isLoading || isDone || !hasToken ? 'default' : 'pointer' }}
+                      >
+                        {/* Platform logo */}
+                        <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-white border border-gray-100 shadow-sm p-1.5">
+                          <img src={p.icon} alt={p.name} className="w-full h-full object-contain" />
+                        </div>
+
+                        {/* Name & status */}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm text-gray-800">{p.name}</p>
+                          <p className={`text-xs font-medium ${
+                            isDone    ? 'text-green-600'
+                            : hasError ? 'text-red-500'
+                            : !hasToken ? 'text-gray-400'
+                            : 'text-blue-600'
+                          }`}>
+                            {isDone ? '✓ Relinked' : hasError ? (relinkErrors && relinkErrors[p.key]) : !hasToken ? 'Not connected' : 'Ready to relink'}
+                          </p>
+                        </div>
+
+                        {/* State indicator */}
+                        {isLoading && <Spin size="small" />}
+                        {isDone && !isLoading && (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                        {isSelected && !isLoading && !isDone && (
+                          <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+
+            {/* Info note */}
+            <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-lg p-3 mb-5">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-xs text-blue-800">
+                Relinking re-establishes the connection record between this product and the selected platform, without creating a new listing. Only platforms you are currently connected to can be relinked.
+              </p>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex justify-end gap-3">
+              <Button
+                onClick={() => { setRelinkModalVisible(false); setProductToRelink(null); }}
+                disabled={relinkingPlatforms.size > 0}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="primary"
+                disabled={selectedRelinkPlatforms.size === 0 || relinkingPlatforms.size > 0}
+                loading={relinkingPlatforms.size > 0}
+                onClick={confirmRelink}
+                style={{ background: '#16a34a', borderColor: '#16a34a' }}
+              >
+                {relinkingPlatforms.size > 0 ? 'Relinking...' : `Relink${selectedRelinkPlatforms.size > 0 ? ` (${selectedRelinkPlatforms.size})` : ''}`}
               </Button>
             </div>
           </div>
