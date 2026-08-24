@@ -674,22 +674,28 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                     order_po: `${sqOrder.orderNumber || sqOrder.id || orderIndex}`,
                     order_key: sqOrder.id || '',
                     source: sqOrder.channelName || 'squarespace',
-                    recipient: {
-                      first_name: addr.firstName || addr.first_name || '',
-                      last_name: addr.lastName || addr.last_name || '',
-                      company_name: addr.company || addr.company_name || '',
-                      address_1: addr.address1 || addr.address_1 || '',
-                      address_2: addr.address2 || addr.address_2 || '',
-                      address_3: '',
-                      city: addr.city || '',
-                      state_code: addr.state || addr.state_code || '',
-                      province: addr.state || '',
-                      zip_postal_code: addr.zip || addr.postalCode || '',
-                      country_code: addr.countryCode || addr.country_code || 'US',
-                      phone: addr.phone || sqOrder.customerEmail || '',
-                      email: sqOrder.customerEmail || '',
-                      address_order_po: '',
-                    },
+                    recipient: (() => {
+                      const countryCode = (addr.countryCode || addr.country_code || 'US').toUpperCase();
+                      const isUS = countryCode === 'US';
+                      const stateValue = addr.state || addr.state_code || '';
+                      const companyPhone = companyInfo?.data?.phone || companyInfo?.data?.business_info?.phone || '';
+                      return {
+                        first_name: addr.firstName || addr.first_name || '',
+                        last_name: addr.lastName || addr.last_name || '',
+                        company_name: addr.company || addr.company_name || '',
+                        address_1: addr.address1 || addr.address_1 || '',
+                        address_2: addr.address2 || addr.address_2 || '',
+                        address_3: '',
+                        city: addr.city || '',
+                        state_code: isUS ? stateValue : '',
+                        province: isUS ? '' : stateValue,
+                        zip_postal_code: addr.zip || addr.postalCode || '',
+                        country_code: countryCode,
+                        phone: addr.phone || companyPhone,
+                        email: sqOrder.customerEmail || '',
+                        address_order_po: '',
+                      };
+                    })(),
                     order_items: lineItems.map((item: any, itemIndex: number) => ({
                       product_order_po: `SQ_P_${orderIndex}_${itemIndex}`,
                       product_qty: item.quantity || 1,
@@ -802,22 +808,28 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                       order_po: `${sqOrder.orderNumber || sqOrder.id || orderIndex}`,
                       order_key: sqOrder.id || '',
                       source: sqOrder.channelName || 'squarespace',
-                      recipient: {
-                        first_name: addr.firstName || addr.first_name || '',
-                        last_name: addr.lastName || addr.last_name || '',
-                        company_name: addr.company || addr.company_name || '',
-                        address_1: addr.address1 || addr.address_1 || '',
-                        address_2: addr.address2 || addr.address_2 || '',
-                        address_3: '',
-                        city: addr.city || '',
-                        state_code: addr.state || addr.state_code || '',
-                        province: addr.state || '',
-                        zip_postal_code: addr.zip || addr.postalCode || '',
-                        country_code: addr.countryCode || addr.country_code || 'US',
-                        phone: addr.phone || sqOrder.customerEmail || '',
-                        email: sqOrder.customerEmail || '',
-                        address_order_po: '',
-                      },
+                      recipient: (() => {
+                        const countryCode = (addr.countryCode || addr.country_code || 'US').toUpperCase();
+                        const isUS = countryCode === 'US';
+                        const stateValue = addr.state || addr.state_code || '';
+                        const companyPhone = companyInfo?.data?.phone || companyInfo?.data?.business_info?.phone || '';
+                        return {
+                          first_name: addr.firstName || addr.first_name || '',
+                          last_name: addr.lastName || addr.last_name || '',
+                          company_name: addr.company || addr.company_name || '',
+                          address_1: addr.address1 || addr.address_1 || '',
+                          address_2: addr.address2 || addr.address_2 || '',
+                          address_3: '',
+                          city: addr.city || '',
+                          state_code: isUS ? stateValue : '',
+                          province: isUS ? '' : stateValue,
+                          zip_postal_code: addr.zip || addr.postalCode || '',
+                          country_code: countryCode,
+                          phone: addr.phone || companyPhone,
+                          email: sqOrder.customerEmail || '',
+                          address_order_po: '',
+                        };
+                      })(),
                       order_items: lineItems.map((item: any, itemIndex: number) => ({
                         product_order_po: `SQ_P_${orderIndex}_${itemIndex}`,
                         product_qty: item.quantity || 1,
