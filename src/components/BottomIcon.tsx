@@ -834,7 +834,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
 
                 const sendData = {
                   accountId: customerInfo?.data?.account_id,
-                  payment_token: customerInfo?.data?.account_key,
+                  account_key: customerInfo?.data?.account_key,
                   orders: transformedOrders,
                 };
 
