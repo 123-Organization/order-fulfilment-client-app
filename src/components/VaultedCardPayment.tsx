@@ -182,8 +182,8 @@ export default function VaultedCardPayment({
                 product_cropping: item.product_cropping,
                 product_guid: item.product_guid,
                 product_image: {
-                  pixel_width: 600,
-                  pixel_height: 600,
+                  pixel_width: item?.product_image?.pixel_width,
+                  pixel_height: item?.product_image?.pixel_height,
                   product_url_file: item?.product_image?.product_url_file ?
                     item?.product_image?.product_url_file : item?.product_url_file,
                   product_url_thumbnail: item?.product_image?.product_url_thumbnail ?
