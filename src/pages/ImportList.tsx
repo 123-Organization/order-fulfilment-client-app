@@ -431,7 +431,7 @@ const ImportList: React.FC = () => {
     // are always current without causing the callback to be recreated.
   );
 
-  console.log("productData", productData);
+  // console.log("productData", productData);
 
   // Search functionality
   const { searchTerm } = useSearch();
@@ -691,7 +691,7 @@ const ImportList: React.FC = () => {
       dispatch(resetReplaceCodeResult());
     }, 2000);
   };
-  console.log("checkedOrders", checkedOrders);
+  // console.log("checkedOrders", checkedOrders);
 
   useEffect(() => {
     if (replaceCodeResult !== undefined) {
@@ -750,7 +750,7 @@ const ImportList: React.FC = () => {
         dispatch(updateValidSKU(validCodes));
       }
     }
-  }, [product_details, validSKUs]); // Keep only product_details as dependency
+  }, [product_details]); // validSKUs intentionally omitted — it's the output of this effect, including it would create a self-referential loop
 
   // Keep your second useEffect separate
   useEffect(() => {
@@ -777,7 +777,7 @@ const ImportList: React.FC = () => {
     }
   }, [orders?.data, validSKUs]);
   // console.log("validd", validSKUs);
-  console.log("invalidSKuOrderFullilment", invalidSKuOrderFullilment);
+  // console.log("invalidSKuOrderFullilment", invalidSKuOrderFullilment);
 
   useEffect(() => {
     dispatch(resetSubmitedOrders());
@@ -1134,71 +1134,57 @@ const ImportList: React.FC = () => {
   };
 
   useEffect(() => {
-    if (orders?.data?.length && !orderPostData.length) {
-      // Don't re-enter while a fetch batch is already in progress
-      if (shippingFetchInProgressRef.current) return;
+    // Don't re-enter while a fetch batch is already in progress
+    if (shippingFetchInProgressRef.current) return;
+    if (!orders?.data?.length) return;
 
-      const validOrders = orders?.data?.filter(
-        (order) => (order?.order_items && order?.order_items?.length > 0) && order?.shipping_code != null && order?.shipping_code !== ""
-      );
+    const validOrders = orders?.data?.filter(
+      (order) => (order?.order_items && order?.order_items?.length > 0) && order?.shipping_code != null && order?.shipping_code !== ""
+    );
 
-      // Short-circuit: if every valid order is already in the cache with a matching
-      // fingerprint we don't need to fetch anything — avoid setting orderPostData
-      // (which would cause a 2-second stale window when the ref is cleared later).
-      const allCached = validOrders?.length > 0 && validOrders.every((order: any) => {
-        const fp = buildOrderFingerprint(order);
-        const cached = shippingCacheRef.current[order.order_po];
-        return cached && cached.fingerprint === fp;
-      });
-      if (allCached) {
-        console.log('[shipping/effect] All valid orders cached — skipping fetch');
-        return;
-      }
-
-      const orderPostDataList = validOrders
-        ?.map((order) => ({
-          order_po: order?.order_po,
-          recipient: order?.recipient,
-          shipping_code: order?.shipping_code,
-          order_items: order.order_items?.map((item) => ({
-            product_order_po: item.product_order_po,
-            product_qty: item.product_qty,
-            product_sku: item.product_sku || "AP1234567891011",
-            product_image: {
-              product_url_file: "https://via.placeholder.com/150",
-              product_url_thumbnail: "https://via.placeholder.com/150",
-            },
-          })),
-        }))
-        ?.flat();
-
-      // Mark in-progress BEFORE setting orderPostData so no concurrent run starts.
-      // NOTE: fetchProductDetails is intentionally NOT called here — product detail
-      // fetching is handled exclusively by the useEffect below, which has
-      // product_details in its deps and can accurately see which SKUs are already
-      // known without relying on stale closure values.
-      shippingFetchInProgressRef.current = true;
-      setOrderPostData(orderPostDataList);
-
-      // Run the async shipping fetch without blocking the render
-      (async () => {
-        dispatch(setShippingLoading(true));
-        try {
-          await dispatchShippingSelectively(orderPostDataList);
-        } finally {
-          // Reset orderPostData BEFORE clearing the in-flight guard so the
-          // shipping useEffect can re-run cleanly. This handles the race where
-          // fetchOrder returns a new order WHILE a prior shipping batch was in
-          // flight — orderPostData was holding the stale order list and blocking
-          // a re-run. Clearing it here lets the effect fire again immediately;
-          // the allCached check ensures already-fetched orders are skipped.
-          shippingFetchInProgressRef.current = false;
-          setOrderPostData([]);
-          dispatch(setShippingLoading(false));
-        }
-      })();
+    // Short-circuit: if every valid order is already in the cache with a matching
+    // fingerprint we don't need to fetch anything.
+    const allCached = validOrders?.length > 0 && validOrders.every((order: any) => {
+      const fp = buildOrderFingerprint(order);
+      const cached = shippingCacheRef.current[order.order_po];
+      return cached && cached.fingerprint === fp;
+    });
+    if (allCached) {
+      console.log('[shipping/cache] All orders cached — skipping API calls');
+      return;
     }
-  }, [orders, orderPostData, dispatch]);
+
+    const orderPostDataList = validOrders
+      ?.map((order) => ({
+        order_po: order?.order_po,
+        recipient: order?.recipient,
+        shipping_code: order?.shipping_code,
+        order_items: order.order_items?.map((item) => ({
+          product_order_po: item.product_order_po,
+          product_qty: item.product_qty,
+          product_sku: item.product_sku || "AP1234567891011",
+          product_image: {
+            product_url_file: "https://via.placeholder.com/150",
+            product_url_thumbnail: "https://via.placeholder.com/150",
+          },
+        })),
+      }))
+      ?.flat();
+
+    // Mark in-progress BEFORE dispatching so no concurrent run starts.
+    shippingFetchInProgressRef.current = true;
+
+    // Run the async shipping fetch without blocking the render
+    (async () => {
+      dispatch(setShippingLoading(true));
+      try {
+        await dispatchShippingSelectively(orderPostDataList);
+      } finally {
+        shippingFetchInProgressRef.current = false;
+        dispatch(setShippingLoading(false));
+      }
+    })();
+  }, [orders, dispatch]);
 
   // Sole owner of fetchProductDetails calls.
   // product_details is in the deps array so existingSkusInRedux is ALWAYS
@@ -1342,7 +1328,6 @@ const ImportList: React.FC = () => {
 
   const handleShippingOptionChange = (order_po: string, updatedPrice: any) => {
     let updatedOrders = [...checkedOrders];
-    console.log("updatedOrders", updatedOrders);
 
     // Check if the order is already in checkedOrders
     const orderIndex = updatedOrders.findIndex(
@@ -1503,8 +1488,6 @@ const ImportList: React.FC = () => {
   // Get current image URL for a specific image key
   const getCurrentImageUrl = useCallback((imageKey: string, originalUrl: string): string => {
     if (!originalUrl) return "";
-    console.log(originalUrl, "originalUrl")
-    console.log(imageKey, "imageKey")
 
     if (isGoogleDriveUrl(originalUrl)) {
       const possibleUrls = getGoogleDriveImageUrls(originalUrl);
@@ -1864,7 +1847,7 @@ const ImportList: React.FC = () => {
                           // Block toggling if the order has validation issues or APIs failed/loading
                           const isToggleDisabled = apisNotReady || hasInvalidSku || hasAddressIssues || hasItemIssues || hasMissingImage;
 
-                          return (shipping_option.length > 0 || orderPostData.length > 0 || Object.keys(recipientErrors).length > 0) &&
+                          return (shipping_option.length > 0 || Object.keys(recipientErrors).length > 0) &&
                             order?.order_items.length > 0 ? (
                             <div className="flex items-center gap-3">
                               <button
