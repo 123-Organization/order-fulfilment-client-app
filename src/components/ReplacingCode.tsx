@@ -124,10 +124,13 @@ const ReplacingCode: React.FC<ReplacingCodeProps> = ({
     setIsLoading(true);
     const data = {
       orderFullFillmentId,
+      account_key: customerInfo.data.account_key,
       productCode: inputValue,
       skuCode: "",
       product_url_file: [image.private_hires_uri || image.public_preview_uri || image.public_thumbnail_uri],
       product_url_thumbnail: [image.public_thumbnail_uri],
+      pixel_width: image.pix_w,
+      pixel_height: image.pix_h,
       toReplace,
       accountId,
     };

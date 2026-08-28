@@ -68,7 +68,7 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
-  
+
 
   const fetchImages = useCallback(
     (page: number, search: string, library: "temporary" | "inventory" = activeLibrary) =>
@@ -219,7 +219,7 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({
               <Spin indicator={<LoadingOutlined style={{ fontSize: 48, color: BRAND }} spin />} />
               <span style={{ color: "#9ca3af", fontSize: 14, fontWeight: 500 }}>Loading your images…</span>
             </div>
-          ) : images.length === 0 || !images ? (
+          ) : !images || images.length === 0 ? (
             <div style={{ height: 460, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={<span style={{ color: "#9ca3af" }}>{searchValue ? `No images match "${searchValue}"` : "No images in your library yet"}</span>} />
             </div>
