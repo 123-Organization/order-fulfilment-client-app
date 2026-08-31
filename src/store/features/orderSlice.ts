@@ -154,15 +154,20 @@ export const updateOrdersInfo = createAsyncThunk(
     let Data;
 
     // Check what format the data is coming in
-    if (Array.isArray(postData) && postData.length > 1 && postData[1].customerId) {
-      // Format from BottomIcon.tsx: [updatedValues, {customerId: id}]
+    if (postData?.orders && (postData?.accountId || postData?.account_key)) {
+      // Direct format: { orders: [...], accountId, account_key }
+      Data = postData;
+    } else if (Array.isArray(postData) && postData.length > 1 && postData[1].customerId) {
+      // Format from BottomIcon.tsx: [updatedValues, {customerId: id, account_key: ...}]
       const orderData = postData[0];
       const customerId = postData[1].customerId;
+      const accountKey = postData[1].account_key;
 
       // If orderData is already an array of orders
       if (Array.isArray(orderData)) {
         Data = {
           "accountId": customerId,
+          "account_key": accountKey,
           "orders": orderData
         };
       }
@@ -170,14 +175,16 @@ export const updateOrdersInfo = createAsyncThunk(
       else {
         Data = {
           "accountId": customerId,
+          "account_key": accountKey,
           "orders": [orderData]
         };
       }
     }
-    // Format from EditOrder.tsx where we send {updatedValues: [...], customerId: ...}
+    // Format from EditOrder.tsx / ImportList.tsx where we send {updatedValues: [...], customerId: ..., account_key: ...}
     else if (postData.updatedValues && postData.customerId) {
       Data = {
         "accountId": postData.customerId,
+        "account_key": postData.account_key,
         "orders": postData.updatedValues
       };
     }
@@ -188,6 +195,7 @@ export const updateOrdersInfo = createAsyncThunk(
       if (Array.isArray(postData) && postData.length > 0) {
         Data = {
           "accountId": postData[1]?.customerId,
+          "account_key": postData[1]?.account_key,
           "orders": Array.isArray(postData[0]) ? postData[0] : [postData[0]]
         };
       } else {
