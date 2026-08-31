@@ -7,6 +7,7 @@ import {
   fetchOrder,
   resetReplaceCodeStatus,
   updateProductValidSKU,
+  updateOrderWithImage,
 } from "../store/features/orderSlice";
 import { useNotificationContext } from "../context/NotificationContext";
 import { updateIframeState } from "../store/features/companySlice";
@@ -57,6 +58,7 @@ const ReplacingCode: React.FC<ReplacingCodeProps> = ({
     (state) => state.order.replaceCodeStatus
   );
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
+  const orders = useAppSelector((state) => state.order.orders);
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value?.trim());
 
@@ -122,7 +124,14 @@ const ReplacingCode: React.FC<ReplacingCodeProps> = ({
 
   const handleImageSelect = (image: any) => {
     setIsLoading(true);
-    const data = {
+
+    // Find the full order from Redux state so we can send the complete payload to PUT update-orders
+    const ordersData = Array.isArray(orders?.data) ? orders.data : Array.isArray(orders) ? orders : [];
+    const fullOrder = ordersData.find(
+      (o: any) => String(o.orderFullFillmentId) === String(orderFullFillmentId)
+    );
+
+    const skuPayload = {
       orderFullFillmentId,
       account_key: customerInfo.data.account_key,
       productCode: inputValue,
@@ -135,13 +144,33 @@ const ReplacingCode: React.FC<ReplacingCodeProps> = ({
       accountId,
     };
 
-    dispatch(updateProductValidSKU(data));
-    setTimeout(() => {
+    const imagePayload = fullOrder ? {
+      accountId: customerInfo.data.account_id,
+      account_key: customerInfo.data.account_key,
+      order: fullOrder,
+      productSku: toReplace,
+      newProductSku: inputValue,
+      product_url_file: image.private_hires_uri || image.public_preview_uri || image.public_thumbnail_uri,
+      product_url_thumbnail: image.public_thumbnail_uri,
+      pixel_width: image.pix_w,
+      pixel_height: image.pix_h,
+    } : null;
+
+    // Dispatch both in parallel
+    const calls: Promise<any>[] = [dispatch(updateProductValidSKU(skuPayload))];
+    if (imagePayload) {
+      calls.push(dispatch(updateOrderWithImage(imagePayload)));
+    }
+
+    Promise.all(calls).then(() => {
       setInputValue("");
       onProductCodeUpdate(inputValue);
       setIsLoading(false);
       onClose();
-    }, 1000);
+    }).catch(() => {
+      setIsLoading(false);
+    });
+
     setGalleryVisible(false);
   };
 

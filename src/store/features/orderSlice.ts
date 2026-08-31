@@ -843,6 +843,96 @@ export const updateProductValidSKU = createAsyncThunk("order/update/validSKU", a
 },
 );
 
+/**
+ * Calls PUT update-orders with updated product_image fields.
+ * Dispatched in parallel with updateProductValidSKU when replacing a non-AP product SKU.
+ *
+ * postData: {
+ *   accountId: number,
+ *   account_key: string,
+ *   order: any,              // full order object from Redux state
+ *   productSku: string,      // old SKU to match in order_items (used to find the right item)
+ *   newProductSku: string,   // new product code/SKU to set
+ *   product_url_file: string,
+ *   product_url_thumbnail: string,
+ *   pixel_width: number,
+ *   pixel_height: number,
+ * }
+ */
+export const updateOrderWithImage = createAsyncThunk(
+  "order/updateOrderWithImage",
+  async (postData: {
+    accountId: number;
+    account_key: string;
+    order: any;
+    productSku: string;
+    newProductSku: string;
+    product_url_file: string;
+    product_url_thumbnail: string;
+    pixel_width: number;
+    pixel_height: number;
+  }, thunkAPI) => {
+    try {
+      const oldSku = (postData.productSku || '').toString().toLowerCase();
+      const oldGuid = oldSku.replace(/-/g, '');
+
+      const updatedItems = (postData.order?.order_items || []).map((item: any) => {
+        const itemSku = (item.product_sku || '').toString().toLowerCase();
+        const itemGuid = (item.product_guid || '').toString().toLowerCase().replace(/-/g, '');
+        const isMatch =
+          (itemSku && oldSku && itemSku === oldSku) ||
+          (itemGuid && oldGuid && itemGuid === oldGuid) ||
+          (postData.order?.order_items?.length === 1);
+
+        if (isMatch) {
+          return {
+            ...item,
+            product_sku: postData.newProductSku || item.product_sku,
+            product_image: {
+              ...(item.product_image || {}),
+              product_url_file: postData.product_url_file,
+              product_url_thumbnail: postData.product_url_thumbnail,
+              pixel_width: postData.pixel_width,
+              pixel_height: postData.pixel_height,
+            },
+          };
+        }
+        return item;
+      });
+
+      const payload = {
+        accountId: postData.accountId,
+        account_key: postData.account_key,
+        orders: [
+          {
+            ...postData.order,
+            order_items: updatedItems,
+          },
+        ],
+      };
+
+      console.log("[updateOrderWithImage] Sending payload:", payload);
+
+      const response = await fetch(BASE_URL + "update-orders", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("[updateOrderWithImage] API error:", errorData);
+        return thunkAPI.rejectWithValue(errorData);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("[updateOrderWithImage] Failed:", error);
+      return thunkAPI.rejectWithValue("Failed to update order with image");
+    }
+  }
+);
+
 export const submitOrders = createAsyncThunk("order/submit", async (postData: any, thunkAPI) => {
   const response = await fetch(`https://fa-ls.finerworks.com/api/` + "submit-orders-v2", {
     method: "POST",
