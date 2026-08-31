@@ -3301,6 +3301,7 @@ const ImportList: React.FC = () => {
 
           // Patch only the matching item's product_image — leave everything else intact.
           // Use the full order object from Redux so we send all required fields.
+          console.log('[ImportList] Selected image object:', image);
           const freshOrder = orders?.data?.find(
             (o: any) => o.orderFullFillmentId === targetOrder?.orderFullFillmentId
           ) ?? targetOrder;
@@ -3314,6 +3315,8 @@ const ImportList: React.FC = () => {
                 product_image: {
                   product_url_file: image.private_hires_uri,
                   product_url_thumbnail: image.public_thumbnail_uri,
+                  pixel_width: image.pix_w ?? 0,
+                  pixel_height: image.pix_h ?? 0,
                 },
               };
             }),
