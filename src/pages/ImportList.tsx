@@ -1054,6 +1054,7 @@ const ImportList: React.FC = () => {
     const postData = {
       updatedValues: updatedOrders,
       customerId: customerInfo?.data?.account_id,
+      account_key: customerInfo?.data?.account_key
     };
 
     dispatch(updateOrdersInfo(postData))
@@ -3322,6 +3323,7 @@ const ImportList: React.FC = () => {
             updateOrdersInfo({
               updatedValues: [updatedOrder],
               customerId: customerInfo?.data?.account_id,
+              account_key: customerInfo?.data?.account_key
             })
           );
 

@@ -1666,7 +1666,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
           const result = await dispatch(
             updateOrdersInfo([
               updatedValues, // The order with updates
-              { customerId: customerInfo?.data?.account_id }, // Customer ID in expected format
+              { customerId: customerInfo?.data?.account_id, account_key: customerInfo?.data?.account_key_ }, // Customer ID in expected format
             ])
           );
 
