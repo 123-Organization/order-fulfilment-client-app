@@ -867,7 +867,7 @@ const ImportList: React.FC = () => {
 
     setTimeout(() => {
       dispatch(fetchOrder(customerInfo?.data?.account_key));
-    }, 1000);
+    }, 50);  // minimal delay to let React finish the navigation transition
   }, []);
   // console.log("oo", customerInfo?.data?.account_id);
 
@@ -3067,9 +3067,9 @@ const ImportList: React.FC = () => {
                   </div>
                 );
               })
-            ) : !orders?.data || isRefreshing || isPendingUpdate || ordersStatus === 'loading' ? (
+            ) : !orders?.data || isRefreshing || isPendingUpdate || ordersStatus === 'loading' || ordersStatus === 'idle' ? (
               <SkeletonOrderCard count={3} />
-            ) : orders?.data && orders.data.length === 0 && !isRefreshing && !isPendingUpdate && ordersStatus !== 'loading' ? (
+            ) : orders?.data && orders.data.length === 0 && !isRefreshing && !isPendingUpdate && ordersStatus === 'succeeded' ? (
               <div className="flex flex-col items-center justify-center h-64 rounded-lg shadow-md p-6 mb-20" style={{ background: isDark ? "#0f1724" : "#ffffff" }}>
                 <img
                   src={shoppingCart}
