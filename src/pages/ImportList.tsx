@@ -1049,17 +1049,10 @@ const ImportList: React.FC = () => {
       order_items: updatedOrderItems,
     };
 
-    // Update all orders with the modified order
-    const updatedOrders = orders?.data?.map((order: any) => {
-      if (order.orderFullFillmentId === orderFullFillmentId) {
-        return updatedOrder;
-      }
-      return order;
-    });
-
-    // Format the data for the API
+    // Format the data for the API — send only the single modified order,
+    // not the full list of all orders.
     const postData = {
-      updatedValues: updatedOrders,
+      updatedValues: [updatedOrder],
       customerId: customerInfo?.data?.account_id,
       account_key: customerInfo?.data?.account_key
     };
