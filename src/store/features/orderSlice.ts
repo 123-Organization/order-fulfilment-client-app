@@ -408,11 +408,12 @@ export const saveUserProfile = createAsyncThunk(
 
 export const deleteOrder = createAsyncThunk(
   "order/delete",
-  async (postData: { orderFullFillmentId: string | string[], accountId: number }, thunkAPI) => {
+  async (postData: { orderFullFillmentId: string | string[], accountId: number, account_key?: string }, thunkAPI) => {
 
     const sendData = {
       "orderFullFillmentId": postData.orderFullFillmentId,
-      "accountId": postData.accountId
+      "accountId": postData.accountId,
+      "account_key": postData.account_key
     }
     const response = await fetch(BASE_URL + "delete-order", {
       method: "DELETE",
@@ -801,7 +802,8 @@ export const DeleteAllOrders = createAsyncThunk(
   "order/delete/all",
   async (postData: any, thunkAPI) => {
     postData = {
-      "accountId": postData.accountId
+      "accountId": postData.accountId,
+      "account_key": postData.account_key
     }
     const response = await fetch(BASE_URL + "soft-delete-after-payment", {
       method: "POST",

@@ -958,6 +958,7 @@ const ImportList: React.FC = () => {
       deleteOrder({
         orderFullFillmentId: [orderFullFillmentId],
         accountId: customerInfo?.data?.account_id,
+        account_key: customerInfo?.data?.account_key,
       })
     );
     // Reset notification tracking when initiating a new delete
@@ -986,18 +987,24 @@ const ImportList: React.FC = () => {
 
     const orderFullFillmentIds = orders.data.map((order: any) => order.orderFullFillmentId);
 
-    await dispatch(
+    const result = await dispatch(
       deleteOrder({
         orderFullFillmentId: orderFullFillmentIds,
         accountId: customerInfo?.data?.account_id,
+        account_key: customerInfo?.data?.account_key,
       })
     );
 
     setBulkDeleteModalVisible(false);
-    // Clear checked orders and the entire shipping cache
-    dispatch(updateCheckedOrders([]));
-    dispatch(clearAllShippingCache());
-    dispatch(fetchOrder(customerInfo?.data?.account_key));
+
+    // Only clear the shipping cache and re-fetch orders when the delete
+    // actually succeeded. If it failed, leave everything intact so
+    // SelectShippingOption does not lose its options and flicker.
+    if (deleteOrder.fulfilled.match(result)) {
+      dispatch(updateCheckedOrders([]));
+      dispatch(clearAllShippingCache());
+      dispatch(fetchOrder(customerInfo?.data?.account_key));
+    }
   };
 
   // Delete a product from an order
