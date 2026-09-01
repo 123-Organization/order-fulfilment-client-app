@@ -79,12 +79,15 @@ const SelectShippingOption: React.FC<{
 
     const [selectedOption, setSelectedOption] = useState<any>(null);
 
-    // Clear local state when currentOption is null (after logout/purge)
+    // Clear local state when currentOption is null AND there is no shipping data
+    // for this specific order. This handles logout/purge correctly without wiping
+    // selectedOption during the initial import load (when currentOption is null
+    // simply because no chunk has landed yet and populated it).
     useEffect(() => {
-      if (!currentOption) {
+      if (!currentOption && !shipping_details) {
         setSelectedOption(null);
       }
-    }, [currentOption]);
+    }, [currentOption, shipping_details]);
 
     // Set initial preferred option if available
 
@@ -225,6 +228,12 @@ const SelectShippingOption: React.FC<{
         matchedOption ||
         freshShippingEntry.preferred_option ||
         freshShippingEntry;
+
+      // Don't overwrite a fully-resolved selectedOption with a fallback that has
+      // no calculated_total yet. This prevents the flicker during progressive
+      // batch loading where early chunks provide raw shipping entries (no totals)
+      // that would replace an already-correct value set by the main init effect.
+      if (selectedOption?.calculated_total && !nextOption?.calculated_total) return;
 
       // Only update if calculated_total actually changed (avoids render loops).
       const prevTotal = JSON.stringify(selectedOption?.calculated_total);
