@@ -79,17 +79,53 @@ const SelectShippingOption: React.FC<{
 
     const [selectedOption, setSelectedOption] = useState<any>(null);
 
-    // Clear local state when currentOption is null AND there is no shipping data
-    // for this specific order. This handles logout/purge correctly without wiping
-    // selectedOption during the initial import load (when currentOption is null
-    // simply because no chunk has landed yet and populated it).
+    // Clear local state whenever there is no shipping data for this specific order.
+    // This covers three cases:
+    //   1. Logout / store purge (currentOption null + no shipping_details)
+    //   2. Refresh / delete where clearAllShippingCache wiped shipping_details
+    //      but currentOption.allOptions still has stale entries — without this
+    //      guard the component would briefly show stale selections until new data lands.
+    // We intentionally do NOT gate on currentOption here — shipping_details absence
+    // is the authoritative signal that this order's data is gone.
     useEffect(() => {
-      if (!currentOption && !shipping_details) {
+      if (!shipping_details) {
         setSelectedOption(null);
       }
-    }, [currentOption, shipping_details]);
+    }, [shipping_details]);
 
     // Set initial preferred option if available
+
+    /**
+     * Find the best shipping option for this order from a fresh shipping entry.
+     * Priority:
+     *   1. Match by order.shipping_code against option.id (numeric) or option.shipping_code (string)
+     *   2. Fall back to the API-provided preferred_option
+     *   3. Fall back to the first available option
+     */
+    const resolveOptionByShippingCode = (
+      shippingEntry: any,
+      orderShippingCode: string | number | null | undefined
+    ): any => {
+      const options: any[] = shippingEntry?.options || [];
+
+      if (orderShippingCode != null && orderShippingCode !== '') {
+        const numericCode = Number(orderShippingCode);
+        const isNumeric = !isNaN(numericCode);
+
+        const matched = options.find((opt: any) => {
+          // Numeric id match  (e.g. shipping_code "36" → option.id 36)
+          if (isNumeric && opt.id === numericCode) return true;
+          // String shipping_code match  (e.g. "GD" → option.shipping_code "GD")
+          if (opt.shipping_code === String(orderShippingCode)) return true;
+          return false;
+        });
+
+        if (matched) return matched;
+      }
+
+      // No match — fall back to preferred_option or first available
+      return shippingEntry?.preferred_option ?? options[0] ?? null;
+    };
 
     useEffect(() => {
       if (shipping_details) {
@@ -102,50 +138,30 @@ const SelectShippingOption: React.FC<{
           (opt: StoredOption) => opt.order_po === poNumber
         );
 
+        // Get the order's shipping_code so we can match the correct option
+        const orderShippingCode = orders?.data?.find(
+          (order: any) => order.order_po == poNumber
+        )?.shipping_code;
+
         if (currentOrderOption?.selectedOption) {
-          // If we have a previously selected option in the store, use that
-          const orderShippingCode = orders?.data?.find(
-            (order: any) => order.order_po == poNumber
-          )?.shipping_code;
-
-          const orderCodeToShippingOption =
-            currentOrderOption?.selectedOption?.options?.find(
-              (option: ShippingOption) => {
-                if (currentOrderOption?.selectedOption?.options?.length > 1) {
-                  const isNumeric = !isNaN(Number(orderShippingCode)) && orderShippingCode !== null && orderShippingCode !== '';
-
-                  if (isNumeric) {
-                    const numericCode = Number(orderShippingCode);
-                    if (option.id === numericCode) {
-                      return option.id;
-                    } else if (option.id !== numericCode && option.shipping_code == orderShippingCode) {
-                      return currentOrderOption?.selectedOption?.preferred_option;
-                    }
-                  } else {
-                    return option.shipping_code === orderShippingCode
-                      ? option.shipping_code === orderShippingCode
-                      : currentOrderOption?.selectedOption?.preferred_option;
-                  }
-                } else {
-                  return option;
-                }
-              }
-            );
-          const optionToSet = orderCodeToShippingOption
-            ? orderCodeToShippingOption
-            : currentOrderOption?.selectedOption;
+          // A previous selection exists in the store. Re-resolve from the live
+          // shipping_details using shipping_code in case the data refreshed
+          // (e.g. after a quantity change) so the rate/calculated_total is current.
+          // NOTE: we read options from shipping_details (the live entry) NOT from
+          // currentOrderOption.selectedOption (a single option object with no options[]).
+          const resolvedOption = resolveOptionByShippingCode(shipping_details, orderShippingCode);
 
           // Guard: only update local state if the value actually changed
           setSelectedOption((prev: any) => {
-            if (JSON.stringify(prev) === JSON.stringify(optionToSet)) return prev;
-            return optionToSet;
+            if (JSON.stringify(prev) === JSON.stringify(resolvedOption)) return prev;
+            return resolvedOption;
           });
 
-          if (orderCodeToShippingOption && orderCodeToShippingOption?.calculated_total) {
+          if (resolvedOption?.calculated_total) {
             const existingOptions = latestCurrentOption?.allOptions || [];
             const updatedOptions = existingOptions.map((opt: StoredOption) => {
               if (opt.order_po === poNumber) {
-                return { order_po: poNumber, selectedOption: orderCodeToShippingOption };
+                return { order_po: poNumber, selectedOption: resolvedOption };
               }
               return opt;
             });
@@ -154,21 +170,23 @@ const SelectShippingOption: React.FC<{
             if (JSON.stringify(existingOptions) !== JSON.stringify(updatedOptions)) {
               dispatch(updateCurrentOption({ allOptions: updatedOptions }));
             }
+            onShippingOptionChange(poNumber, resolvedOption?.calculated_total);
           }
 
         } else if (!currentOrderOption?.selectedOption) {
-          // If no previously selected option, use the preferred option
-          const shippingOption = shipping_option?.find(
+          // No previously stored selection — resolve from shipping_code.
+          const shippingEntry = shipping_option?.find(
             (option: ShippingOption) => option.order_po == poNumber
           );
+          const resolvedOption = resolveOptionByShippingCode(shippingEntry, orderShippingCode);
 
           // Guard: only update local state if the value actually changed
           setSelectedOption((prev: any) => {
-            if (JSON.stringify(prev) === JSON.stringify(shippingOption ?? null)) return prev;
-            return shippingOption ?? null;
+            if (JSON.stringify(prev) === JSON.stringify(resolvedOption)) return prev;
+            return resolvedOption;
           });
 
-          if (shippingOption) {
+          if (shippingEntry && resolvedOption) {
             const existingOptions = latestCurrentOption?.allOptions || [];
             const orderExists = existingOptions.some(
               (opt: StoredOption) => opt.order_po === poNumber
@@ -177,9 +195,12 @@ const SelectShippingOption: React.FC<{
             if (!orderExists) {
               const updatedOptions = [
                 ...existingOptions,
-                { order_po: poNumber, selectedOption: shippingOption },
+                { order_po: poNumber, selectedOption: resolvedOption },
               ];
               dispatch(updateCurrentOption({ allOptions: updatedOptions }));
+            }
+            if (resolvedOption?.calculated_total) {
+              onShippingOptionChange(poNumber, resolvedOption?.calculated_total);
             }
           }
         }
@@ -206,28 +227,41 @@ const SelectShippingOption: React.FC<{
       );
       if (!freshShippingEntry) return;
 
+      const freshOptions: ShippingOption[] = freshShippingEntry.options || [];
+
       // Determine the currently active shipping method key so we can find the
       // matching entry in the refreshed options list.
-      const currentMethodKey = selectedOption
+      const currentMethodKey = selectedOption?.rate != null && selectedOption?.shipping_method != null
         ? `${selectedOption.rate}-$${selectedOption.shipping_method}`
         : null;
 
-      const freshOptions: ShippingOption[] = freshShippingEntry.options || [];
-
       // Try to find the same shipping method in the new data (preserves user selection).
-      const matchedOption = currentMethodKey
+      const matchedByMethod = currentMethodKey
         ? freshOptions.find(
           (opt: ShippingOption) =>
             `${opt.rate}-$${opt.shipping_method}` === currentMethodKey
         )
         : null;
 
-      // Fall back to preferred option if the previously selected method is no
-      // longer available or nothing was selected yet.
+      // When no current method is selected (selectedOption is null — e.g. just after a
+      // refresh), resolve by shipping_code instead of blindly using preferred_option.
+      // This prevents the sync effect from racing with the init effect and overwriting
+      // the shipping_code-matched selection with preferred_option.
+      const orderShippingCode = !matchedByMethod && !currentMethodKey
+        ? orders?.data?.find((o: any) => o.order_po == poNumber)?.shipping_code
+        : null;
+
       const nextOption =
-        matchedOption ||
+        matchedByMethod ||
+        (orderShippingCode != null
+          ? resolveOptionByShippingCode(freshShippingEntry, orderShippingCode)
+          : null) ||
         freshShippingEntry.preferred_option ||
-        freshShippingEntry;
+        freshShippingEntry.options?.[0] ||
+        null;
+
+      // Nothing to set — data may still be arriving, bail out.
+      if (!nextOption) return;
 
       // Don't overwrite a fully-resolved selectedOption with a fallback that has
       // no calculated_total yet. This prevents the flicker during progressive
@@ -260,6 +294,7 @@ const SelectShippingOption: React.FC<{
       onShippingOptionChange(poNumber, nextOption?.calculated_total);
     }, [shipping_option, poNumber]);
 
+
     const handleOptionChange = useCallback(
       (value: string, order: any) => {
 
@@ -272,8 +307,7 @@ const SelectShippingOption: React.FC<{
           (od: any) => od.order_po == order.calculated_total.order_po
         );
 
-        if (updateOrder && orders?.data) {
-          // Create new order with updated shipping code
+        if (updateOrder) {
           // Determine if we should use option.id or option.shipping_class_code
           let shippingCodeValue = option?.id !== undefined ? option.id : option?.shipping_class_code;
 
@@ -290,15 +324,10 @@ const SelectShippingOption: React.FC<{
             shipping_code: shippingCodeValue,
           };
 
-          // Map through all orders and only update the matching one
-          const updatedOrders = orders.data.map((ord: any) =>
-            ord.order_po === updatedOrder.order_po ? updatedOrder : ord
-          );
-          console.log("updatedOrders", updatedOrders);
-
-          // Update with all orders, not just the single one
+          // Send only the single changed order — no need to include all orders
+          // in the payload since the API updates only the orders provided.
           const data = {
-            orders: updatedOrders,
+            orders: [updatedOrder],
             accountId: customerinfo?.data?.account_id,
             account_key: customerinfo?.data?.account_key,
           };
@@ -348,8 +377,6 @@ const SelectShippingOption: React.FC<{
         poNumber,
         onShippingOptionChange,
         dispatch,
-        shipping_option,
-        orders,
         currentOption,
       ]
     );

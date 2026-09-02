@@ -17,7 +17,7 @@ import {
   resetRefreshOrderStatus,
 } from "../store/features/orderSlice";
 import { fetchOrder } from "../store/features/orderSlice";
-import { setBatchShippingResults, updateShippingCacheEntries, invalidateShippingCacheEntries, clearAllShippingCache } from "../store/features/shippingSlice";
+import { setBatchShippingResults, updateShippingCacheEntries, invalidateShippingCacheEntries, clearAllShippingCache, removeCurrentOption } from "../store/features/shippingSlice";
 import { clearProductData, clearSelectedImage, fetchProductDetails, clearProductDetails } from "../store/features/productSlice";
 import ImageGalleryModal from "../components/ImageGalleryModal";
 import { Link } from "react-router-dom";
@@ -123,7 +123,7 @@ const ImportList: React.FC = () => {
   const [invalidSKuOrderFullilment, setInvalidSKuOrderFullilment] = useState(
     []
   );
-  const [skuOrderFullilment, setSkuOrderFullilment] = useState();
+  const [skuOrderFullilment, setSkuOrderFullilment] = useState<string>("");
   const [skuModal, setSkuModal] = useState(false);
   const [replacingModal, setReplacingModal] = useState(false);
   const [skuToReplace, setSkuToReplace] = useState("");
@@ -492,7 +492,10 @@ const ImportList: React.FC = () => {
               dispatch(updateValidSKU([...validSKUs, postData.productCode]));
 
               // 1. Wipe shipping cache — every order becomes a cache miss.
+              // Also clear currentOption so stale allOptions don't persist across the
+              // refresh and cause SelectShippingOption to re-apply old selections.
               dispatch(clearAllShippingCache());
+              dispatch(removeCurrentOption());
 
               // 2. Await fetchOrder FIRST so orders.data already contains
               //    the new product before we open the shipping useEffect gate.
@@ -609,7 +612,9 @@ const ImportList: React.FC = () => {
     // Set refreshing state to prevent "No Orders Found" flash
     setIsRefreshing(true);
     // 1. Wipe shipping cache — every order becomes a cache miss.
+    // Also clear currentOption so stale allOptions don't persist.
     dispatch(clearAllShippingCache());
+    dispatch(removeCurrentOption());
     // 2. Await fetchOrder so orders.data has the new product BEFORE we
     //    trigger the shipping useEffect by clearing orderPostData.
     await dispatch(fetchOrder(customerInfo?.data?.account_key));
@@ -682,14 +687,16 @@ const ImportList: React.FC = () => {
       </div>
     );
   };
-  const onProductCodeReplace = (productCode: string) => {
-    dispatch(fetchOrder(customerInfo?.data?.account_key));
-    setTimeout(() => {
-      resetOrderPostData();
+  const onProductCodeReplace = async (productCode?: string) => {
+    setIsPendingUpdate(true);
+    await dispatch(fetchOrder(customerInfo?.data?.account_key));
+    resetOrderPostData();
+    if (productCode) {
       dispatch(updateValidSKU([...validSKUs, productCode]));
-      dispatch(resetReplaceCodeStatus());
-      dispatch(resetReplaceCodeResult());
-    }, 2000);
+    }
+    dispatch(resetReplaceCodeStatus());
+    dispatch(resetReplaceCodeResult());
+    setIsPendingUpdate(false);
   };
   // console.log("checkedOrders", checkedOrders);
 
@@ -819,7 +826,9 @@ const ImportList: React.FC = () => {
       setIsPendingUpdate(true);
     } else if (replaceCodeStatus === 'succeeded') {
       // Wipe the entire shipping cache — the SKU changed so all fingerprints are stale
+      // Also clear currentOption so stale allOptions don't persist.
       dispatch(clearAllShippingCache());
+      dispatch(removeCurrentOption());
       resetOrderPostData();
       dispatch(resetReplaceCodeStatus());
       // Keep skeleton a moment longer so the re-fetch has time to start
@@ -876,7 +885,9 @@ const ImportList: React.FC = () => {
   const handleRefreshOrders = async () => {
     setIsRefreshingOrders(true);
     // 1. Wipe shipping cache so every order re-fetches shipping
+    // Also clear currentOption so stale allOptions don't persist across the refresh.
     dispatch(clearAllShippingCache());
+    dispatch(removeCurrentOption());
     // 2. Wipe the product SKU tracker and details so every SKU re-fetches
     fetchedSkusRef.current.clear();
     dispatch(clearProductDetails());
@@ -1003,6 +1014,7 @@ const ImportList: React.FC = () => {
     if (deleteOrder.fulfilled.match(result)) {
       dispatch(updateCheckedOrders([]));
       dispatch(clearAllShippingCache());
+      dispatch(removeCurrentOption());
       dispatch(fetchOrder(customerInfo?.data?.account_key));
     }
   };
@@ -1119,20 +1131,7 @@ const ImportList: React.FC = () => {
     }
   }, [deleteOrderStatus, notificationApi, dispatch]);
 
-  const getShippingPrice = (order_po) => {
-    const shippingForOrder = currentOption?.allOptions?.find(
-      (option) => option.order_po == order_po
-    );
-    // console.log("shippingForOrder", shippingForOrder);
-    if (shippingForOrder) {
-      const selectedOption = shippingForOrder?.selectedOption;
-      const charges = {
-        grand_total: selectedOption?.calculated_total?.order_grand_total,
-        credit_charge: selectedOption?.calculated_total?.order_credits_used,
-      }; // or apply logic to select a specific shipping option
-      return charges;
-    } else return 0; // Default value if no shipping option is found
-  };
+
 
   useEffect(() => {
     // Don't re-enter while a fetch batch is already in progress
@@ -1243,13 +1242,48 @@ const ImportList: React.FC = () => {
         }))
     ).filter(Boolean);
 
-    if (newProductDetails.length === 0) return;
-
     // Mark as in-flight BEFORE dispatching — prevents a concurrent re-run
     // (triggered by product_details changing mid-flight) from duplicating the request.
     skusToFetch.forEach(sku => fetchedSkusRef.current.add(sku));
     dispatch(fetchProductDetails(newProductDetails));
   }, [orders?.data, product_details, dispatch]);
+
+  const currentOptionRef = useRef(currentOption);
+  currentOptionRef.current = currentOption;
+  const prevCheckedOrdersJsonRef = useRef<string>("");
+
+  const getShippingPrice = (order_po: any) => {
+    const shippingForOrder = currentOptionRef.current?.allOptions?.find(
+      (option: any) => option.order_po == order_po
+    );
+    if (shippingForOrder?.selectedOption?.calculated_total?.order_grand_total != null) {
+      const selectedOption = shippingForOrder.selectedOption;
+      return {
+        grand_total: selectedOption.calculated_total.order_grand_total,
+        credit_charge: selectedOption.calculated_total.order_credits_used ?? 0,
+      };
+    }
+    // Fall back to live shipping_option from Redux if currentOption is not populated yet
+    const liveEntry = shipping_option?.find((opt: any) => opt.order_po == order_po);
+    const orderShippingCode = orders?.data?.find((o: any) => o.order_po == order_po)?.shipping_code;
+
+    const matchedOption = (orderShippingCode != null && orderShippingCode !== '')
+      ? liveEntry?.options?.find((opt: any) => {
+          const num = Number(orderShippingCode);
+          if (!isNaN(num) && opt.id === num) return true;
+          return opt.shipping_code === String(orderShippingCode);
+        })
+      : null;
+
+    const fallbackOption = matchedOption ?? liveEntry?.preferred_option ?? liveEntry?.options?.[0];
+    if (fallbackOption?.calculated_total?.order_grand_total != null) {
+      return {
+        grand_total: fallbackOption.calculated_total.order_grand_total,
+        credit_charge: fallbackOption.calculated_total.order_credits_used ?? 0,
+      };
+    }
+    return 0;
+  };
 
   // Update the useEffect that handles setting checked orders
   useEffect(() => {
@@ -1299,9 +1333,13 @@ const ImportList: React.FC = () => {
           }))
         : [];
 
-      dispatch(updateCheckedOrders(CheckedOrders));
+      const json = JSON.stringify(CheckedOrders);
+      if (json !== prevCheckedOrdersJsonRef.current) {
+        prevCheckedOrdersJsonRef.current = json;
+        dispatch(updateCheckedOrders(CheckedOrders));
+      }
     }
-  }, [orders?.data, excludedOrders, shipping_option, validSKUs, recipientErrors]); // Added recipientErrors dependency
+  }, [orders?.data, excludedOrders, shipping_option, validSKUs, recipientErrors, product_details]);
 
   const handleCheckboxChange = (e: any) => {
     const { value, checked } = e.target;
@@ -1328,15 +1366,14 @@ const ImportList: React.FC = () => {
   // console.log("checkedOrders", checkedOrders);
 
   const handleShippingOptionChange = (order_po: string, updatedPrice: any) => {
-    let updatedOrders = [...checkedOrders];
-
-    // Check if the order is already in checkedOrders
-    const orderIndex = updatedOrders.findIndex(
-      (order) => order.order_po == order_po
+    // Only update shipping price if this order is ALREADY in checkedOrders.
+    // Never force-add orders that are invalid, excluded, or not checked!
+    const orderIndex = checkedOrders.findIndex(
+      (order: any) => order.order_po == order_po
     );
 
     if (orderIndex !== -1) {
-      // Update the shipping price for the existing order
+      const updatedOrders = [...checkedOrders];
       updatedOrders[orderIndex] = {
         ...updatedOrders[orderIndex],
         Product_price: {
@@ -1344,18 +1381,8 @@ const ImportList: React.FC = () => {
           credit_charge: updatedPrice?.order_credits_used,
         },
       };
-    } else {
-      // Add the order with the updated shipping price
-      updatedOrders.push({
-        order_po,
-        Product_price: {
-          grand_total: updatedPrice?.order_grand_total,
-          credit_charge: updatedPrice?.order_credits_used,
-        },
-      });
+      dispatch(updateCheckedOrders(updatedOrders));
     }
-
-    dispatch(updateCheckedOrders(updatedOrders));
   };
 
   /**
@@ -2375,46 +2402,37 @@ const ImportList: React.FC = () => {
                                       </svg>
                                       Replace SKU
                                     </button>
-                                    <button
-                                      className="h-9 inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-600 bg-white hover:bg-red-50 hover:border-red-400 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-400 transition-colors duration-200"
-                                      onClick={() => {
-                                        setProductToDelete({
-                                          product_guid: orderItem?.product_guid,
-                                          product_sku: orderItem?.product_sku,
-                                          orderFullFillmentId: order?.orderFullFillmentId,
-                                          order_po: order?.order_po,
-                                        });
-                                        setProductDeleteModalVisible(true);
-                                      }}
-                                    >
-                                      <svg
-                                        className="w-4 h-4 mr-2"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                        xmlns="http://www.w3.org/2000/svg"
+                                    {order?.order_items?.length > 1 && (
+                                      <button
+                                        className="h-9 inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-600 bg-white hover:bg-red-50 hover:border-red-400 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-400 transition-colors duration-200"
+                                        onClick={() => {
+                                          setProductToDelete({
+                                            product_guid: orderItem?.product_guid,
+                                            product_sku: orderItem?.product_sku,
+                                            orderFullFillmentId: order?.orderFullFillmentId,
+                                            order_po: order?.order_po,
+                                          });
+                                          setProductDeleteModalVisible(true);
+                                        }}
                                       >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth="2"
-                                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                        />
-                                      </svg>
-                                      Remove
-                                    </button>
+                                        <svg
+                                          className="w-4 h-4 mr-2"
+                                          fill="none"
+                                          stroke="currentColor"
+                                          viewBox="0 0 24 24"
+                                          xmlns="http://www.w3.org/2000/svg"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth="2"
+                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                          />
+                                        </svg>
+                                        Remove
+                                      </button>
+                                    )}
                                   </div>
-                                  {replacingModal && (
-
-                                    <ReplacingCode
-                                      visible={replacingModal}
-                                      onClose={() => setReplacingModal(false)}
-                                      orderFullFillmentId={skuOrderFullilment}
-                                      toReplace={skuToReplace}
-                                      accountId={customerInfo?.data?.account_id}
-                                      onProductCodeUpdate={onProductCodeReplace}
-                                    />
-                                  )}
                                 </div>
                               ) : itemDetail === undefined && product_status === 'loading' ? (
                                 // API is still in-flight — show a skeleton so the card doesn't
@@ -2614,15 +2632,37 @@ const ImportList: React.FC = () => {
                                           });
                                         }}
                                         onQuantityUpdated={(newQty) => {
-                                          // Invalidate shipping cache for ONLY this order,
-                                          // then reset orderPostData so the shipping useEffect
-                                          // re-fires and dispatchShippingSelectively refetches
-                                          // just this single cache-miss order.
                                           dispatch(invalidateShippingCacheEntries([order?.order_po]));
                                           resetOrderPostData();
-                                          // Re-fetch product details for ONLY this single product
-                                          // with its updated quantity. The API accepts an array,
-                                          // so we send a one-element array instead of all products.
+
+                                          if (order?.order_po && order?.recipient && order?.shipping_code) {
+                                            const updatedItems = order.order_items?.map((item: any) => ({
+                                              product_order_po: item.product_order_po,
+                                              product_qty: (item.product_guid === orderItem?.product_guid || item.product_sku === orderItem?.product_sku) ? newQty : item.product_qty,
+                                              product_sku: item.product_sku || "AP1234567891011",
+                                              product_image: {
+                                                product_url_file: "https://via.placeholder.com/150",
+                                                product_url_thumbnail: "https://via.placeholder.com/150",
+                                              },
+                                            }));
+
+                                            const singleOrderPostData = [{
+                                              order_po: order.order_po,
+                                              recipient: order.recipient,
+                                              shipping_code: order.shipping_code,
+                                              order_items: updatedItems,
+                                            }];
+
+                                            (async () => {
+                                              dispatch(setShippingLoading(true));
+                                              try {
+                                                await dispatchShippingSelectively(singleOrderPostData);
+                                              } finally {
+                                                dispatch(setShippingLoading(false));
+                                              }
+                                            })();
+                                          }
+
                                           if (orderItem?.product_sku || orderItem?.product_guid) {
                                             dispatch(fetchProductDetails([{
                                               order_po: order.order_po,
@@ -2829,26 +2869,45 @@ const ImportList: React.FC = () => {
                                           Image
                                         </button>
                                       )}
-                                      {/* Remove product button */}
-                                      <button
-                                        type="button"
-                                        className="inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-red-500 transition-colors"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setProductToDelete({
-                                            product_guid: orderItem?.product_guid,
-                                            orderFullFillmentId: order?.orderFullFillmentId,
-                                            order_po: order?.order_po,
-                                          });
-                                          setProductDeleteModalVisible(true);
-                                        }}
-                                        title="Delete product"
-                                      >
-                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                        Remove
-                                      </button>
+                                      {/* Remove or Replace product button based on item count */}
+                                      {order?.order_items?.length > 1 ? (
+                                        <button
+                                          type="button"
+                                          className="inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-red-500 transition-colors"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setProductToDelete({
+                                              product_guid: orderItem?.product_guid,
+                                              orderFullFillmentId: order?.orderFullFillmentId,
+                                              order_po: order?.order_po,
+                                            });
+                                            setProductDeleteModalVisible(true);
+                                          }}
+                                          title="Delete product"
+                                        >
+                                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                          </svg>
+                                          Remove
+                                        </button>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          className="inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-emerald-600 transition-colors"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setReplacingModal(true);
+                                            setSkuToReplace(orderItem?.product_sku || "");
+                                            setSkuOrderFullilment(order?.orderFullFillmentId || "");
+                                          }}
+                                          title="Replace product"
+                                        >
+                                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                          </svg>
+                                          Replace
+                                        </button>
+                                      )}
                                     </div>
                                     <div className="text-sm">
                                       {/* Item errors (e.g. product_qty must be at least 1) */}
@@ -3286,6 +3345,14 @@ const ImportList: React.FC = () => {
         onClose={() => setAddProductVirtualInvVisible(false)}
         orderFullFillmentId={currentOrderForAddProduct}
         onProductAdded={handleVirtualInvProductAdded}
+      />
+      <ReplacingCode
+        visible={replacingModal}
+        onClose={() => setReplacingModal(false)}
+        orderFullFillmentId={skuOrderFullilment}
+        toReplace={skuToReplace}
+        accountId={customerInfo?.data?.account_id}
+        onProductCodeUpdate={onProductCodeReplace}
       />
 
       {/* ── Image Gallery Modal — "Change Image" for existing products ── */}

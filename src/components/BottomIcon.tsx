@@ -2067,7 +2067,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   </span>
                 </div>
               </span>
-              {(isShippingLoading || grandTotal > 0) && (
+              {(isShippingLoading || checkedOrders.length > 0) && (
                 <>
                   <div className="h-8 w-px bg-white/40"></div>
                   <span className="flex items-center gap-3 bg-white/90 backdrop-blur-sm px-5 py-2 rounded-xl shadow-lg">

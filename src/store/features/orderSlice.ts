@@ -1295,10 +1295,31 @@ export const OrderSlice = createSlice({
     builder.addCase(updateOrdersInfo.fulfilled, (state, action) => {
       console.log("updateOrdersInfo.fulfilled called with:", action.payload);
       state.productCode = action.payload;
-      state.orders = action.payload;
       state.recipientStatus = "succeeded";
-    }
-    );
+
+      // Merge the updated order(s) back into the existing list rather than
+      // replacing it wholesale. The API only returns the orders we sent
+      // (now just one when changing a shipping method), so overwriting
+      // state.orders would drop every other order from the UI.
+      const updatedOrders: any[] = action.payload?.data ?? [];
+      if (Array.isArray(updatedOrders) && updatedOrders.length > 0 && Array.isArray(state.orders?.data)) {
+        const updatedByPo = new Map(updatedOrders.map((o: any) => [o.order_po, o]));
+        state.orders = {
+          ...state.orders,
+          data: state.orders.data.map((existing: any) =>
+            updatedByPo.has(existing.order_po)
+              ? { ...existing, ...updatedByPo.get(existing.order_po) }
+              : existing
+          ),
+        };
+      } else if (!state.orders?.data) {
+        // No existing orders in state — use the payload directly (e.g. initial load)
+        state.orders = action.payload;
+      }
+      // If updatedOrders is empty or the payload has no data array, leave
+      // state.orders untouched (recipient-status update still fires above).
+    });
+
     builder.addCase(updateOrdersInfo.rejected, (state, action) => {
       console.log("updateOrdersInfo.pending called with:", action.payload);
       state.recipientStatus = "failed";
@@ -1417,24 +1438,40 @@ export const OrderSlice = createSlice({
       state.uploadStatus = 'failed';
       state.error = action.payload as string;
     })
+    builder.addCase(updateProductValidSKU.pending, (state) => {
+      state.replaceCodeStatus = 'loading';
+    });
     builder.addCase(updateProductValidSKU.fulfilled, (state, action) => {
-      state.orders = {
-        data: Array.isArray(action.payload?.data)
-          ? action.payload.data
-          : Array.isArray(action.payload)
-            ? action.payload
-            : []
-      };
+      // Only merge/update orders if the payload contains non-empty order data.
+      // If the API returns empty data or success status without an orders array,
+      // preserve existing state.orders so the UI doesn't flash empty.
+      const payloadData = Array.isArray(action.payload?.data)
+        ? action.payload.data
+        : Array.isArray(action.payload)
+          ? action.payload
+          : [];
+
+      if (payloadData.length > 0 && Array.isArray(state.orders?.data)) {
+        const updatedByPo = new Map(payloadData.map((o: any) => [o.order_po, o]));
+        state.orders = {
+          ...state.orders,
+          data: state.orders.data.map((existing: any) =>
+            updatedByPo.has(existing.order_po)
+              ? { ...existing, ...(updatedByPo.get(existing.order_po) as object || {}) }
+              : existing
+          ),
+        };
+      }
 
       state.replaceCodeResult = action.payload;
-      console.log('state.replaceCodeResult', state.replaceCodeResult)
+      console.log('state.replaceCodeResult', state.replaceCodeResult);
       state.replaceCodeStatus = 'succeeded';
-    })
+    });
     builder.addCase(updateProductValidSKU.rejected, (state, action) => {
-      state.error = action.payload as string
-      console.log('state.error', state.error)
+      state.error = action.payload as string;
+      console.log('state.error', state.error);
       state.replaceCodeStatus = 'failed';
-    })
+    });
     builder.addCase(submitOrders.fulfilled, (state, action) => {
       state.submitStatus = 'succeeded';
       state.submitOrdersResponse = action.payload;
