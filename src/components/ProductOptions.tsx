@@ -195,7 +195,7 @@ export default function ProductOptions({ id, recipient, onProductCodeUpdate, set
   const handleProductCodeUpdate = () => {
     // Refresh logic (e.g., re-fetch order details)
     dispatch(
-      fetchSingleOrderDetails({ accountId: customerInfo?.data?.account_id, orderFullFillmentId: id })
+      fetchSingleOrderDetails({ accountId: customerInfo?.data?.account_id, orderFullFillmentId: id, account_key: customerInfo?.data?.account_key })
     );
   };
 

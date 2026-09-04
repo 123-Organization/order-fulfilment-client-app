@@ -1278,6 +1278,20 @@ export const OrderSlice = createSlice({
         item.product_qty = new_quantity;
       }
     },
+    /**
+     * Patch a single order in state.orders.data without a full list re-fetch.
+     * Payload is the fresh order object from the API (must have orderFullFillmentId).
+     */
+    patchSingleOrderInList: (state, action: PayloadAction<any>) => {
+      if (!state.orders?.data) return;
+      const freshOrder = action.payload;
+      const idx = state.orders.data.findIndex(
+        (o: any) => o.orderFullFillmentId === freshOrder.orderFullFillmentId
+      );
+      if (idx !== -1) {
+        state.orders.data[idx] = { ...state.orders.data[idx], ...freshOrder };
+      }
+    },
   },
   extraReducers: (builder) => {
     builder.addCase(fetchOrder.fulfilled, (state, action) => {
@@ -1367,6 +1381,19 @@ export const OrderSlice = createSlice({
     });
     builder.addCase(fetchSingleOrderDetails.fulfilled, (state, action) => {
       state.order = action.payload;
+      // Also patch the single order into the list so ImportList re-renders
+      // without requiring a full fetchOrder (view-all-orders) call.
+      const freshOrders: any[] = action.payload?.data || [];
+      if (freshOrders.length > 0 && state.orders?.data) {
+        freshOrders.forEach((freshOrder: any) => {
+          const idx = state.orders.data.findIndex(
+            (o: any) => o.orderFullFillmentId === freshOrder.orderFullFillmentId
+          );
+          if (idx !== -1) {
+            state.orders.data[idx] = { ...state.orders.data[idx], ...freshOrder };
+          }
+        });
+      }
     }
     );
     builder.addCase(deleteOrder.pending, (state, action) => {
@@ -1607,4 +1634,4 @@ export const OrderSlice = createSlice({
 });
 
 export default OrderSlice.reducer;
-export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setShippingLoading, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, removeSubmittedOrders, updateIframe, updateApp, updateOpenSheet, updateExcludedOrders, resetExcludedOrders, updateValidSKU, resetValidSKU, updateReplacingCode, resetReplacingCode, resetReplaceCodeResult, resetReplaceCodeStatus, resetSubmitStatus, resetSendOrderInfoStatus, resetSubmitOrdersResponse, resetShopifyOrdersResponse, resetSaveOrderInfo, resetUpdateImageStatus, resetSquarespaceOrdersResponse, resetSquarespaceImportStatus, resetWixOrdersResponse, resetWixImportStatus, resetShippoOrdersResponse, resetShippoImportStatus, resetSquareOrdersResponse, resetSquareImportStatus, patchOrderItemQuantity, resetRefreshOrderStatus } = OrderSlice.actions;
+export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setShippingLoading, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, removeSubmittedOrders, updateIframe, updateApp, updateOpenSheet, updateExcludedOrders, resetExcludedOrders, updateValidSKU, resetValidSKU, updateReplacingCode, resetReplacingCode, resetReplaceCodeResult, resetReplaceCodeStatus, resetSubmitStatus, resetSendOrderInfoStatus, resetSubmitOrdersResponse, resetShopifyOrdersResponse, resetSaveOrderInfo, resetUpdateImageStatus, resetSquarespaceOrdersResponse, resetSquarespaceImportStatus, resetWixOrdersResponse, resetWixImportStatus, resetShippoOrdersResponse, resetShippoImportStatus, resetSquareOrdersResponse, resetSquareImportStatus, patchOrderItemQuantity, patchSingleOrderInList, resetRefreshOrderStatus } = OrderSlice.actions;

@@ -13,7 +13,7 @@ interface PopupModalProps {
   onClose: () => void;
   setProductCode: (productCode: boolean) => void;
   orderFullFillmentId: string;
-  onProductCodeUpdate: () => void;
+  onProductCodeUpdate: (orderFullFillmentId: string) => void;
 }
 
 const PopupModal: React.FC<PopupModalProps> = ({
@@ -66,7 +66,7 @@ const PopupModal: React.FC<PopupModalProps> = ({
       setTimeout(() => {
         setInputValue("");
         dispatch(clearSelectedImage());
-        onProductCodeUpdate();
+        onProductCodeUpdate(orderFullFillmentId);
         dispatch(updateValidSKU([...validSKU, inputValue]));
         setIsLoading(false);
         onClose();
@@ -101,7 +101,7 @@ const PopupModal: React.FC<PopupModalProps> = ({
     });
     setGalleryVisible(false);
     setInputValue("");
-    onProductCodeUpdate();
+    onProductCodeUpdate(orderFullFillmentId);
     onClose();
   };
 
@@ -121,7 +121,7 @@ const PopupModal: React.FC<PopupModalProps> = ({
       onClose();
       setInputValue("");
       setIsLoading(false);
-      onProductCodeUpdate();
+      onProductCodeUpdate(orderFullFillmentId);
       dispatch(resetOrderStatus());
     } else if (productDataStatus === "failed") {
       notificationApi.error({

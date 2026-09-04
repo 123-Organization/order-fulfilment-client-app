@@ -70,7 +70,7 @@ const EditOrder: React.FC = () => {
   }, [order, recipient, phone, phoneValue]);
 
   useEffect(() => {
-    dispatch(fetchSingleOrderDetails({ accountId: customerInfo?.data?.account_id, orderFullFillmentId: id }));
+    dispatch(fetchSingleOrderDetails({ accountId: customerInfo?.data?.account_id, orderFullFillmentId: id, account_key: customerInfo?.data?.account_key }));
   }, [dispatch]);
 
   useEffect(() => { form.setFieldsValue(initialValues); }, [form, initialValues]);

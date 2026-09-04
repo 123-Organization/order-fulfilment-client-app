@@ -15,6 +15,8 @@ import {
   AddProductToOrder,
   refreshSingleOrder,
   resetRefreshOrderStatus,
+  fetchSingleOrderDetails,
+  patchSingleOrderInList,
 } from "../store/features/orderSlice";
 import { fetchOrder } from "../store/features/orderSlice";
 import { setBatchShippingResults, updateShippingCacheEntries, invalidateShippingCacheEntries, clearAllShippingCache, removeCurrentOption } from "../store/features/shippingSlice";
@@ -608,17 +610,70 @@ const ImportList: React.FC = () => {
     ];
   };
 
-  const handleAddProductCodeUpdate = async () => {
-    // Set refreshing state to prevent "No Orders Found" flash
+  /**
+   * Refresh only the single order that just had a product added/changed.
+   * This avoids:
+   *   1. A full fetchOrder (view-all-orders) call for all orders — we only
+   *      need the one updated order.
+   *   2. Wiping the entire shipping cache — we only invalidate the one
+   *      order whose items changed; all other orders keep their cached
+   *      shipping options so SelectShippingOption doesn't re-fetch them.
+   *
+   * @param orderFullFillmentId  The ID of the order that was just updated.
+   */
+  const handleAddProductCodeUpdate = async (orderFullFillmentId: string) => {
+    if (!orderFullFillmentId) {
+      // Safety fallback: full refresh if we somehow don't have the id
+      setIsRefreshing(true);
+      dispatch(clearAllShippingCache());
+      dispatch(removeCurrentOption());
+      await dispatch(fetchOrder(customerInfo?.data?.account_key));
+      resetOrderPostData();
+      setIsRefreshing(false);
+      return;
+    }
+
     setIsRefreshing(true);
-    // 1. Wipe shipping cache — every order becomes a cache miss.
-    // Also clear currentOption so stale allOptions don't persist.
-    dispatch(clearAllShippingCache());
-    dispatch(removeCurrentOption());
-    // 2. Await fetchOrder so orders.data has the new product BEFORE we
-    //    trigger the shipping useEffect by clearing orderPostData.
-    await dispatch(fetchOrder(customerInfo?.data?.account_key));
-    // 3. NOW clear orderPostData — shipping useEffect fires with fresh data + empty cache.
+
+    // 1. Fetch fresh data for ONLY this one order so the UI updates immediately.
+    const result = await dispatch(
+      fetchSingleOrderDetails({
+        accountId: customerInfo?.data?.account_id,
+        orderFullFillmentId,
+        account_key: customerInfo?.data?.account_key,
+      })
+    );
+
+    // 2. If the API returned the updated order, find its order_po so we can
+    //    target the shipping-cache invalidation precisely.
+    //    fetchSingleOrderDetails.fulfilled already patches orders.data in-place
+    //    via the reducer, so the list re-renders immediately.
+    let orderPo: string | null = null;
+    if (fetchSingleOrderDetails.fulfilled.match(result)) {
+      const freshOrders: any[] = (result.payload as any)?.data || [];
+      if (freshOrders.length > 0) {
+        orderPo = freshOrders[0]?.order_po ?? null;
+      }
+    }
+
+    // Fallback: look up order_po from current Redux state if the API didn't return it
+    if (!orderPo) {
+      orderPo =
+        orders?.data?.find((o: any) => o.orderFullFillmentId === orderFullFillmentId)
+          ?.order_po ?? null;
+    }
+
+    // 3. Invalidate ONLY this order's shipping cache entry so the shipping
+    //    useEffect re-fetches just this one (all other cached entries stay intact).
+    if (orderPo) {
+      dispatch(invalidateShippingCacheEntries([orderPo]));
+    } else {
+      // Last resort: can't determine order_po — wipe the whole cache
+      dispatch(clearAllShippingCache());
+      dispatch(removeCurrentOption());
+    }
+
+    // 4. Clear orderPostData to let the shipping useEffect re-run for cache misses.
     resetOrderPostData();
     setIsRefreshing(false);
   };
@@ -627,9 +682,9 @@ const ImportList: React.FC = () => {
    * Called by VirtualInvModal's onProductAdded — sets isPendingUpdate immediately
    * so the skeleton loading UI appears right when the modal closes (no silent gap).
    */
-  const handleVirtualInvProductAdded = async () => {
+  const handleVirtualInvProductAdded = async (orderFullFillmentId?: string) => {
     setIsPendingUpdate(true);
-    await handleAddProductCodeUpdate();
+    await handleAddProductCodeUpdate(orderFullFillmentId || currentOrderForAddProduct);
     setIsPendingUpdate(false);
   };
 
@@ -689,11 +744,43 @@ const ImportList: React.FC = () => {
   };
   const onProductCodeReplace = async (productCode?: string) => {
     setIsPendingUpdate(true);
-    await dispatch(fetchOrder(customerInfo?.data?.account_key));
-    resetOrderPostData();
+
+    // Look up the order_po for this specific order so we can do a targeted
+    // shipping-cache invalidation instead of wiping the whole cache.
+    const targetOrderPo: string | null =
+      orders?.data?.find((o: any) => o.orderFullFillmentId === skuOrderFullilment)
+        ?.order_po ?? null;
+
+    // Fetch fresh data for ONLY this one order
+    const result = await dispatch(
+      fetchSingleOrderDetails({
+        accountId: customerInfo?.data?.account_id,
+        orderFullFillmentId: skuOrderFullilment,
+        account_key: customerInfo?.data?.account_key,
+      })
+    );
+
+    // Determine the order_po from the API response (or from Redux fallback)
+    let orderPo = targetOrderPo;
+    if (!orderPo && fetchSingleOrderDetails.fulfilled.match(result)) {
+      const freshOrders: any[] = (result.payload as any)?.data || [];
+      if (freshOrders.length > 0) orderPo = freshOrders[0]?.order_po ?? null;
+    }
+
     if (productCode) {
       dispatch(updateValidSKU([...validSKUs, productCode]));
     }
+
+    // Invalidate ONLY this order's shipping cache so the shipping useEffect
+    // re-fetches just the one order whose SKU changed.
+    if (orderPo) {
+      dispatch(invalidateShippingCacheEntries([orderPo]));
+    } else {
+      dispatch(clearAllShippingCache());
+      dispatch(removeCurrentOption());
+    }
+
+    resetOrderPostData();
     dispatch(resetReplaceCodeStatus());
     dispatch(resetReplaceCodeResult());
     setIsPendingUpdate(false);
@@ -703,15 +790,38 @@ const ImportList: React.FC = () => {
   useEffect(() => {
     if (replaceCodeResult !== undefined) {
       if (replaceCodeResult?.data && skuToReplace.length > 0) {
-        setTimeout(() => {
+        setTimeout(async () => {
           notificationApi.success({
             message: "Product Code Replaced",
             description: "Product code has been successfully replaced.",
           });
           dispatch(clearSelectedImage());
           dispatch(resetReplaceCodeResult());
-          dispatch(fetchOrder(customerInfo?.data?.account_key));
           dispatch(clearProductData());
+
+          // Fetch fresh data for ONLY the affected order, not the full list.
+          const result = await dispatch(
+            fetchSingleOrderDetails({
+              accountId: customerInfo?.data?.account_id,
+              orderFullFillmentId: skuOrderFullilment,
+              account_key: customerInfo?.data?.account_key,
+            })
+          );
+
+          // Invalidate ONLY this order's shipping cache entry.
+          let orderPo: string | null =
+            orders?.data?.find((o: any) => o.orderFullFillmentId === skuOrderFullilment)
+              ?.order_po ?? null;
+          if (!orderPo && fetchSingleOrderDetails.fulfilled.match(result)) {
+            const freshOrders: any[] = (result.payload as any)?.data || [];
+            if (freshOrders.length > 0) orderPo = freshOrders[0]?.order_po ?? null;
+          }
+          if (orderPo) {
+            dispatch(invalidateShippingCacheEntries([orderPo]));
+          } else {
+            dispatch(clearAllShippingCache());
+            dispatch(removeCurrentOption());
+          }
           resetOrderPostData();
         }, 2000);
       } else if (replaceCodeResult === null && skuToReplace.length > 0) {
@@ -722,6 +832,7 @@ const ImportList: React.FC = () => {
       }
     }
   }, [replaceCodeResult, skuToReplace]);
+
 
 
 
@@ -825,10 +936,19 @@ const ImportList: React.FC = () => {
     if (replaceCodeStatus === 'loading') {
       setIsPendingUpdate(true);
     } else if (replaceCodeStatus === 'succeeded') {
-      // Wipe the entire shipping cache — the SKU changed so all fingerprints are stale
-      // Also clear currentOption so stale allOptions don't persist.
-      dispatch(clearAllShippingCache());
-      dispatch(removeCurrentOption());
+      // Only invalidate the single order whose SKU changed — the new SKU makes
+      // the old fingerprint stale for that one order only. All other orders
+      // keep their cached shipping options.
+      const targetOrderPo: string | null =
+        orders?.data?.find((o: any) => o.orderFullFillmentId === skuOrderFullilment)
+          ?.order_po ?? null;
+      if (targetOrderPo) {
+        dispatch(invalidateShippingCacheEntries([targetOrderPo]));
+      } else {
+        // Fallback: can't determine which order — wipe the whole cache
+        dispatch(clearAllShippingCache());
+        dispatch(removeCurrentOption());
+      }
       resetOrderPostData();
       dispatch(resetReplaceCodeStatus());
       // Keep skeleton a moment longer so the re-fetch has time to start
@@ -1269,10 +1389,10 @@ const ImportList: React.FC = () => {
 
     const matchedOption = (orderShippingCode != null && orderShippingCode !== '')
       ? liveEntry?.options?.find((opt: any) => {
-          const num = Number(orderShippingCode);
-          if (!isNaN(num) && opt.id === num) return true;
-          return opt.shipping_code === String(orderShippingCode);
-        })
+        const num = Number(orderShippingCode);
+        if (!isNaN(num) && opt.id === num) return true;
+        return opt.shipping_code === String(orderShippingCode);
+      })
       : null;
 
     const fallbackOption = matchedOption ?? liveEntry?.preferred_option ?? liveEntry?.options?.[0];
@@ -3350,7 +3470,9 @@ const ImportList: React.FC = () => {
         onClose={() => setAddProductPopupVisible(false)}
         setProductCode={() => { }}
         orderFullFillmentId={currentOrderForAddProduct}
-        onProductCodeUpdate={handleAddProductCodeUpdate}
+        onProductCodeUpdate={(orderFullFillmentId: string) =>
+          handleAddProductCodeUpdate(orderFullFillmentId || currentOrderForAddProduct)
+        }
       />
       <VirtualInvModal
         visible={addProductVirtualInvVisible}

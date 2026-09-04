@@ -285,6 +285,7 @@ export default function FileManagementIframe({
         dispatch(fetchSingleOrderDetails({
           accountId: companyinfo?.data?.account_id,
           orderFullFillmentId: selectedProductForImageChange.orderFullFillmentId,
+          account_key: companyinfo?.data?.account_key,
         }));
       }
     } else if (updateImageStatus === "failed") {
