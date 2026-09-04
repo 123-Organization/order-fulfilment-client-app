@@ -1695,7 +1695,19 @@ const ImportList: React.FC = () => {
         style={{ background: isDark ? "#080c14" : "#f3f4f6" }}
       >
         <div className="flex justify-between items-center mb-10 px-9">
-          <h1 className="text-left text-2xl font-bold mt-2">Orders</h1>
+          <div className="flex items-center gap-3 mt-2">
+            <h1 className="text-left text-2xl font-bold">Pending Orders</h1>
+            <span
+              className="inline-flex items-center px-3 py-1 text-sm font-semibold rounded-full shadow-sm"
+              style={{
+                background: isDark ? "rgba(59, 130, 246, 0.15)" : "#eff6ff",
+                color: isDark ? "#93c5fd" : "#2563eb",
+                border: isDark ? "1px solid rgba(59, 130, 246, 0.3)" : "1px solid #bfdbfe",
+              }}
+            >
+              {orders?.totalOrders ?? orders?.pagination?.totalOrders ?? (Array.isArray(orders?.data) ? orders.data.length : Array.isArray(orders) ? orders.length : 0)} Total Orders
+            </span>
+          </div>
           <div className="flex items-center gap-3">
             {/* ── Refresh All button ── */}
             <button

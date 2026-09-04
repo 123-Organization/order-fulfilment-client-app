@@ -166,13 +166,31 @@ export default function VaultedCardPayment({
 
       const editedSubmittedOrders = submittedOrders.map((order: any) => {
         const poParts = order.order_po.split("#");
+        // IMPORTANT: look up the shipping option using the ORIGINAL order_po
+        // (before trimming the prefix), because currentOption.allOptions stores
+        // entries keyed by the original prefixed value (e.g. "etsy#4132190156").
+        // Searching with the trimmed value ("4132190156") would always miss,
+        // resulting in shipping_code being undefined → null.
+        const originalOrderPo = order.order_po;
+        const selectedShippingOption = currentOption?.allOptions?.find(
+          (option: any) => option.order_po === originalOrderPo
+        )?.selectedOption;
+        // Fall back to the shipping_code already persisted in the order (Redux)
+        // if allOptions does not have a match for this order.
+        // Priority mirrors SelectShippingOption.handleOptionChange:
+        //   1. selectedOption.id  (numeric shipping option id)
+        //   2. selectedOption.shipping_class_code  (string code like "GD")
+        //   3. order.shipping_code persisted in Redux (set by the same handleOptionChange)
+        const resolvedShippingCode =
+          selectedShippingOption?.id ??
+          selectedShippingOption?.shipping_class_code ??
+          order.shipping_code ??
+          null;
 
         return {
           ...order,
           order_po: poParts.length > 1 ? poParts[1] : order.order_po,
-          shipping_code: currentOption?.allOptions?.find(
-            (option: any) => option.order_po === order.order_po
-          )?.selectedOption?.id,
+          shipping_code: resolvedShippingCode,
           order_key: order.order_key,
           order_items: order.order_items.map((item: any) => {
             if (!item.product_sku.startsWith("AP")) {
