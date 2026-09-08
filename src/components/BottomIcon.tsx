@@ -423,7 +423,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                 });
 
                 const sendData = {
-                  accountId: customerInfo?.data?.account_id,
+                  account_key: customerInfo?.data?.account_key,
                   payment_token: customerInfo?.data?.account_key,
                   orders: transformedOrders,
                 };
@@ -534,8 +534,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                     });
 
                     const sendData = {
-                      accountId: customerInfo?.data?.account_id,
-                      payment_token: customerInfo?.data?.account_key,
+                      account_key: customerInfo?.data?.account_key,
                       orders: transformedOrders,
                     };
 
@@ -821,8 +820,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                 });
 
                 const sendData = {
-                  accountId: customerInfo?.data?.account_id,
-                  payment_token: customerInfo?.data?.account_key,
+                  account_key: customerInfo?.data?.account_key,
                   orders: transformedOrders,
                 };
 
@@ -971,7 +969,6 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                 );
 
                 const sendData = {
-                  accountId: customerInfo?.data?.account_id,
                   account_key: customerInfo?.data?.account_key,
                   orders: transformedOrders,
                 };
@@ -1187,8 +1184,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                 });
 
                 const sendData = {
-                  accountId: customerInfo?.data?.account_id,
-                  payment_token: customerInfo?.data?.account_key,
+                  account_key: customerInfo?.data?.account_key,
                   orders: transformedOrders,
                 };
 
@@ -1291,8 +1287,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                 });
 
                 const sendData = {
-                  accountId: customerInfo?.data?.account_id,
-                  payment_token: customerInfo?.data?.account_key,
+                  account_key: customerInfo?.data?.account_key,
                   orders: transformedOrders,
                 };
 
@@ -1443,12 +1438,12 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                 };
 
                 const saveResult = await dispatch(saveShopifyOrder(sendData));
-                console.log('[Etsy single] saveShopifyOrder result:', saveResult);
+                console.log('[Etsy] saveShopifyOrder result:', saveResult);
 
                 if ((saveResult as any).meta?.requestStatus === 'rejected') {
                   notification.error({
                     message: 'Upload Failed',
-                    description: 'Order(s) were fetched from Etsy but could not be uploaded to pending orders. Please try again.',
+                    description: 'Orders were fetched from Etsy but could not be uploaded to pending orders. Please try again.',
                   });
                   return;
                 }
@@ -1467,12 +1462,9 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
                   navigate('/importlist');
                 }, 2000);
               } else {
-                console.warn('[Etsy single] No orders found in payload:', payload);
-                notification.warning({
-                  message: 'No Orders Found',
-                  description:
-                    (payload as any)?.message ||
-                    `No Etsy orders found for the specified order number(s).`,
+                notification.error({
+                  message: 'Error',
+                  description: 'Failed to fetch the specified Etsy order(s). Please check the order numbers.',
                 });
               }
             } catch (error) {
@@ -1685,8 +1677,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
               });
 
               const sendData = {
-                accountId: customerInfo?.data?.account_id,
-                payment_token: customerInfo?.data?.account_key,
+                account_key: customerInfo?.data?.account_key,
                 orders: transformedOrders,
               };
 
