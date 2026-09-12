@@ -7,6 +7,19 @@ import { HashRouter } from 'react-router-dom';
 import { Provider } from "react-redux";
 import { store, persistor } from "./store"; // Import persistor
 import { PersistGate } from "redux-persist/integration/react"; // Import PersistGate
+import posthog from 'posthog-js';
+
+// Initialize PostHog for click tracking, session recording, and heatmaps
+posthog.init('phc_uA934YCooKjshsxyYmFsneBxeUJWVixD8SxcnTTk7h5r', {
+  api_host: 'https://us.i.posthog.com',
+  defaults: '2026-05-30',
+  person_profiles: 'identified_only',
+  autocapture: true,          // Automatically captures clicks, inputs, and form submissions
+  capture_pageview: true,     // Tracks every page/route change
+  session_recording: {
+    maskAllInputs: false,     // Set to true if you want to hide sensitive input values
+  },
+});
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
