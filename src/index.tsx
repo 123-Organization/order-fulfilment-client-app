@@ -17,7 +17,18 @@ posthog.init('phc_uA934YCooKjshsxyYmFsneBxeUJWVixD8SxcnTTk7h5r', {
   autocapture: true,          // Automatically captures clicks, inputs, and form submissions
   capture_pageview: true,     // Tracks every page/route change
   session_recording: {
-    maskAllInputs: false,     // Set to true if you want to hide sensitive input values
+    maskAllInputs: false,       // Set to true if you want to hide sensitive input values
+    recordBody: true,           // Capture request & response bodies
+    recordHeaders: true,        // Capture request & response headers
+    // Override PostHog's automatic payload redaction so request/response bodies
+    // are captured as-is. Remove or customise this function if you need to
+    // scrub specific fields (e.g. passwords, tokens) from the recorded payloads.
+    // Note: the built-in header deny-list (Authorization, Cookie, etc.) is
+    // always enforced by PostHog and cannot be overridden here.
+    maskCapturedNetworkRequestFn: (request) => {
+      // Return the request unchanged — disables automatic body redaction
+      return request;
+    },
   },
 });
 
