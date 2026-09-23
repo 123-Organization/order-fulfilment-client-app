@@ -34,7 +34,7 @@ const SHOPIFY_ENABLED = false;
 // Set to true when Etsy integration is fully ready
 const ETSY_ENABLED = true;
 // Set to true when Square integration is fully ready
-const SQUARE_ENABLED = false;
+const SQUARE_ENABLED = true;
 const BASE_URL = configs.SERVER_BASE_URL;
 
 
@@ -81,6 +81,10 @@ const Landing: React.FC = (): JSX.Element => {
   // ── Square ─────────────────────────────────────────────────────────────────
   const [squareConnectionStatus, setSquareConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('verifying');
   const [lastSquareConnectionData, setLastSquareConnectionData] = useState<string | null>(null);
+
+  // ── BigCommerce ────────────────────────────────────────────────────────────
+  const [bigcommerceConnectionStatus, setBigcommerceConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('verifying');
+  const [lastBigcommerceConnectionData, setLastBigcommerceConnectionData] = useState<string | null>(null);
 
   // ── Order-sync toggle state ──────────────────────────────────────────────
   const [wixOrderSync, setWixOrderSync] = useState<boolean>(false);
@@ -630,7 +634,7 @@ const Landing: React.FC = (): JSX.Element => {
   ] as const;
   const importData = (imgname: string) => {
     // Check for platforms that are not yet available (including Shopify/Etsy/Square when disabled)
-    const availablePlatforms = ["WooCommerce", "Excel", "Squarespace", "Wix"];
+    const availablePlatforms = ["WooCommerce", "Excel", "Squarespace", "Wix", "BigCommerce"];
     if (SHOPIFY_ENABLED) {
       availablePlatforms.push("Shopify");
     }
@@ -802,6 +806,27 @@ const Landing: React.FC = (): JSX.Element => {
         });
       }
     }
+
+    // BigCommerce integration
+    if (imgname === "BigCommerce") {
+      if (!customerInfo?.data?.account_key && !cookies.AccountGUID) {
+        window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`;
+        return;
+      }
+      if (bigcommerceConnectionStatus === 'connected') {
+        navigate("/importfilter?type=BigCommerce");
+      } else if (customerInfo?.data?.user_profile_complete === true) {
+        const accountKey = customerInfo?.data?.account_key;
+        // return_url tells the backend where to redirect the user after OAuth completes
+        const returnUrl = `${window.location.origin}/`;
+        window.location.href = `${BASE_URL}bigcommerce/auth?account_key=${accountKey}&return_url=${encodeURIComponent(returnUrl)}`;
+      } else {
+        notificationApi.warning({
+          message: "Please complete your profile",
+          description: "Please complete your profile to connect to BigCommerce",
+        });
+      }
+    }
   };
   // ── Squarespace: status is derived from companyInfo.connections (see useEffect below) ──
 
@@ -879,6 +904,22 @@ const Landing: React.FC = (): JSX.Element => {
         });
       }
     }
+
+    if (type === 'bigcommerce') {
+      if (connected === 'true') {
+        setBigcommerceConnectionStatus('connected');
+        notificationApi.success({
+          message: 'BigCommerce Connected',
+          description: 'Your BigCommerce store has been successfully connected!',
+        });
+      } else if (error) {
+        setBigcommerceConnectionStatus('disconnected');
+        notificationApi.error({
+          message: 'BigCommerce Connection Failed',
+          description: 'Failed to connect to your BigCommerce store. Please try again.',
+        });
+      }
+    }
   }, [location.search, notificationApi]);
 
   // Initialize verification status if idle
@@ -905,6 +946,7 @@ const Landing: React.FC = (): JSX.Element => {
       setWixConnectionStatus(prev => prev === 'verifying' ? 'disconnected' : prev);
       setEtsyConnectionStatus(prev => prev === 'verifying' ? 'disconnected' : prev);
       setSquareConnectionStatus(prev => prev === 'verifying' ? 'disconnected' : prev);
+      setBigcommerceConnectionStatus(prev => prev === 'verifying' ? 'disconnected' : prev);
       // Only resolve WooCommerce if still stuck — don't override an already-connected status
       if (connectionVerificationStatusRef.current === 'verifying') {
         dispatch(setConnectionVerificationStatus('disconnected'));
@@ -1284,6 +1326,49 @@ const Landing: React.FC = (): JSX.Element => {
       }
       console.log('=== END SQUARE CONNECTION CHECK ===');
 
+      // ── Handle BigCommerce connection ───────────────────────────────────────
+      const bigcommerceConnection = companyInfo.connections.find((conn: any) => conn.name === 'BigCommerce');
+      console.log('=== BIGCOMMERCE CONNECTION CHECK ===');
+      console.log('BigCommerce connection found?:', !!bigcommerceConnection);
+
+      if (bigcommerceConnection) {
+        const bcIdentifier = `${bigcommerceConnection.id || 'noid'}_${bigcommerceConnection.data || 'nodata'}`;
+
+        if (bcIdentifier !== lastBigcommerceConnectionData || bigcommerceConnectionStatus === 'verifying') {
+          console.log('BigCommerce connection changed or first load, processing...');
+          setLastBigcommerceConnectionData(bcIdentifier);
+
+          if (bigcommerceConnection.id) {
+            // Has an access token — check data for explicit disconnect flag
+            let isConnected = true;
+            if (bigcommerceConnection.data && bigcommerceConnection.data.trim() !== '') {
+              try {
+                const parsed = JSON.parse(bigcommerceConnection.data);
+                console.log('BigCommerce parsed data:', parsed);
+                if (parsed.isConnected === false || parsed.isConnected === 'false') {
+                  isConnected = false;
+                }
+              } catch (e) {
+                console.error('Error parsing BigCommerce data:', e);
+              }
+            }
+            console.log('BigCommerce isConnected:', isConnected);
+            setBigcommerceConnectionStatus(isConnected ? 'connected' : 'disconnected');
+          } else {
+            console.log('BigCommerce entry found but no id — disconnected');
+            setBigcommerceConnectionStatus('disconnected');
+          }
+        } else {
+          console.log('BigCommerce connection unchanged, skipping processing');
+        }
+      } else {
+        // No BigCommerce connection — resolve immediately
+        console.log('No BigCommerce connection in connections array — disconnected');
+        setLastBigcommerceConnectionData(null);
+        setBigcommerceConnectionStatus('disconnected');
+      }
+      console.log('=== END BIGCOMMERCE CONNECTION CHECK ===');
+
     } else if (companyInfo !== null && companyInfo !== undefined) {
       // companyInfo has loaded but contains no connections — genuinely disconnected
       console.log("No connections available");
@@ -1293,9 +1378,10 @@ const Landing: React.FC = (): JSX.Element => {
       setWixConnectionStatus('disconnected');
       setEtsyConnectionStatus('disconnected');
       setSquareConnectionStatus('disconnected');
+      setBigcommerceConnectionStatus('disconnected');
     }
     // If companyInfo is null/undefined the fetch hasn't completed yet — keep 'verifying'
-  }, [companyInfo, lastConnectionData, lastShopifyConnectionData, lastSquarespaceConnectionData, lastWixConnectionData, lastEtsyConnectionData, lastSquareConnectionData, dispatch]);
+  }, [companyInfo, lastConnectionData, lastShopifyConnectionData, lastSquarespaceConnectionData, lastWixConnectionData, lastEtsyConnectionData, lastSquareConnectionData, lastBigcommerceConnectionData, dispatch]);
 
   // ── Per-platform connection status helpers ──────────────────────────────────
   const getStatus = (name: string) => {
@@ -1305,10 +1391,11 @@ const Landing: React.FC = (): JSX.Element => {
     if (name === "Wix") return wixConnectionStatus;
     if (name === "Etsy") return etsyConnectionStatus;
     if (name === "Square") return squareConnectionStatus;
+    if (name === "BigCommerce") return bigcommerceConnectionStatus;
     return "idle";
   };
 
-  const ENABLED = ["WooCommerce", "Excel", "Squarespace", "Wix", "Etsy", "Square", "Shopify"];
+  const ENABLED = ["WooCommerce", "Excel", "Squarespace", "Wix", "Etsy", "Square", "Shopify", "BigCommerce"];
 
   // ── Order-sync toggle API call ───────────────────────────────────────────
   const ORDER_SYNC_PLATFORMS: Record<string, boolean> = { Wix: true, Squarespace: true, Shopify: true };
@@ -1401,6 +1488,7 @@ const Landing: React.FC = (): JSX.Element => {
     if (platformName === "WooCommerce") dispatch(setConnectionVerificationStatus("disconnected"));
     if (platformName === "Etsy") setEtsyConnectionStatus("disconnected");
     if (platformName === "Square") setSquareConnectionStatus("disconnected");
+    if (platformName === "BigCommerce") setBigcommerceConnectionStatus("disconnected");
   };
 
   return (
@@ -1559,6 +1647,19 @@ const Landing: React.FC = (): JSX.Element => {
                   fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 999, letterSpacing: .3,
                 }}>
                   SOON
+                </span>
+              )}
+
+              {/* Demo chip — amber badge for platforms in testing */}
+              {!isComingSoon && enabled && (image.name === "Wix" || image.name === "Square") && (
+                <span title="This integration is currently in demo/testing mode" style={{
+                  position: "absolute", top: 12, right: 12,
+                  background: isDark ? "rgba(245,158,11,.18)" : "rgba(245,158,11,.12)",
+                  color: isDark ? "#fbbf24" : "#b45309",
+                  fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 999, letterSpacing: .4,
+                  border: `1px solid ${isDark ? "rgba(251,191,36,.25)" : "rgba(180,83,9,.2)"}`,
+                }}>
+                  DEMO
                 </span>
               )}
 
