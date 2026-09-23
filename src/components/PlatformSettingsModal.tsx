@@ -132,7 +132,7 @@ const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
       } else if (platform === "Square") {
         // Square has its own dedicated disconnect endpoint
         const res = await fetch(
-          `${BASE_API_URL}/api/square/disconnect`,
+          `${BASE_API_URL}square/disconnect`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
