@@ -1653,11 +1653,12 @@ const Landing: React.FC = (): JSX.Element => {
               {/* Demo chip — amber badge for platforms in testing */}
               {!isComingSoon && enabled && (image.name === "Wix" || image.name === "Square") && (
                 <span title="This integration is currently in demo/testing mode" style={{
-                  position: "absolute", top: 12, right: 12,
+                  position: "absolute", bottom: 10, right: 12,
                   background: isDark ? "rgba(245,158,11,.18)" : "rgba(245,158,11,.12)",
                   color: isDark ? "#fbbf24" : "#b45309",
                   fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 999, letterSpacing: .4,
                   border: `1px solid ${isDark ? "rgba(251,191,36,.25)" : "rgba(180,83,9,.2)"}`,
+                  whiteSpace: "nowrap",
                 }}>
                   DEMO
                 </span>
