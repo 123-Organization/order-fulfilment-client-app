@@ -1650,9 +1650,9 @@ const Landing: React.FC = (): JSX.Element => {
                 </span>
               )}
 
-              {/* Demo chip — amber badge for platforms in testing */}
+              {/* Beta chip — amber badge for platforms in beta */}
               {!isComingSoon && enabled && (image.name === "Wix" || image.name === "Square") && (
-                <span title="This integration is currently in demo/testing mode" style={{
+                <span title="This integration is currently in beta" style={{
                   position: "absolute", bottom: 10, right: 12,
                   background: isDark ? "rgba(245,158,11,.18)" : "rgba(245,158,11,.12)",
                   color: isDark ? "#fbbf24" : "#b45309",
@@ -1660,7 +1660,7 @@ const Landing: React.FC = (): JSX.Element => {
                   border: `1px solid ${isDark ? "rgba(251,191,36,.25)" : "rgba(180,83,9,.2)"}`,
                   whiteSpace: "nowrap",
                 }}>
-                  DEMO
+                  BETA
                 </span>
               )}
 
