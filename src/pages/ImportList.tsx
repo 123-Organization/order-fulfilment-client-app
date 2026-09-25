@@ -158,6 +158,12 @@ const ImportList: React.FC = () => {
   } | null>(null);
   /** Set of order_po values for orders currently being refreshed. */
   const [refreshingOrders, setRefreshingOrders] = useState<Set<string>>(new Set());
+  /**
+   * When true, orders that contain ANY item with an unrecognized SKU
+   * (not AP-prefixed and not in validSKUs) are hidden from the list.
+   * This lets users quickly focus on orders that are ready to fulfill.
+   */
+  const [hideUnfulfillableOrders, setHideUnfulfillableOrders] = useState(false);
 
   const toggleLabels = (productSku: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1558,6 +1564,23 @@ const ImportList: React.FC = () => {
     });
   };
 
+  /**
+   * Returns true when EVERY item in an order has a SKU the app can fulfill:
+   *   • SKU starts with "AP" (FinerWorks catalog product), OR
+   *   • SKU is present in validSKUs (already mapped to a FinerWorks product)
+   *
+   * Used by the "Hide non-fulfillable orders" filter so users can quickly focus
+   * on orders that are ready to submit without wading through calendar / unknown-SKU orders.
+   */
+  const orderHasOnlyFulfillableSkus = (orderItems: any[]): boolean => {
+    if (!orderItems || orderItems.length === 0) return false;
+    return orderItems.every((item: any) => {
+      const sku: string = (item?.product_sku ?? "").toString();
+      if (sku.toUpperCase().startsWith("AP")) return true;
+      return validSKUs.some((v: any) => String(v).toLowerCase() === sku.toLowerCase());
+    });
+  };
+
   // Centralized robust lookup for product data that handles dash mismatches in GUIDs
   // and case mismatches in SKUs.
   const getProductDetail = useCallback((item?: { product_guid?: string; product_sku?: string } | any) => {
@@ -1657,15 +1680,25 @@ const ImportList: React.FC = () => {
     setModalVisible(true);
   };
 
-  // Filter orders based on search term
+  // Filter orders based on search term and the "hide non-fulfillable" toggle
   const filteredOrders = useMemo(() => {
-    if (!orders?.data || !searchTerm.trim()) {
-      return orders?.data || [];
+    let data: any[] = orders?.data || [];
+
+    // 1. Apply fulfillable-SKU filter when the toggle is active.
+    //    An order is hidden if ANY of its items has an unrecognised SKU
+    //    (not AP-prefix and not in validSKUs).
+    if (hideUnfulfillableOrders) {
+      data = data.filter((order: any) => orderHasOnlyFulfillableSkus(order?.order_items));
+    }
+
+    // 2. Apply search term filter
+    if (!searchTerm.trim()) {
+      return data;
     }
 
     const searchLower = searchTerm.toLowerCase().trim();
 
-    return orders.data.filter((order: any) => {
+    return data.filter((order: any) => {
       // Search by order number (order_po)
       const orderNumber = order?.order_po?.toLowerCase() || "";
       if (orderNumber.includes(searchLower)) {
@@ -1692,7 +1725,7 @@ const ImportList: React.FC = () => {
 
       return false;
     });
-  }, [orders?.data, searchTerm, productData]);
+  }, [orders?.data, searchTerm, productData, hideUnfulfillableOrders, validSKUs]);
 
   const { isDark } = useTheme();
 
@@ -1829,6 +1862,62 @@ const ImportList: React.FC = () => {
             </span>
           </div>
           <div className="flex items-center gap-3">
+            {/* ── Hide non-fulfillable orders toggle ── */}
+            <button
+              id="hide-unfulfillable-orders-btn"
+              onClick={() => setHideUnfulfillableOrders(prev => !prev)}
+              title={hideUnfulfillableOrders
+                ? "Show all orders (including those with unrecognized SKUs)"
+                : "Hide orders that contain unrecognized or non-AP SKUs (e.g. calendars)"}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all duration-300"
+              style={{
+                background: hideUnfulfillableOrders
+                  ? (isDark ? 'rgba(16,185,129,0.15)' : '#ecfdf5')
+                  : (isDark ? '#0f1724' : '#f9fafb'),
+                borderColor: hideUnfulfillableOrders
+                  ? (isDark ? 'rgba(16,185,129,0.45)' : '#6ee7b7')
+                  : (isDark ? '#1e3048' : '#d1d5db'),
+                color: hideUnfulfillableOrders
+                  ? (isDark ? '#34d399' : '#059669')
+                  : (isDark ? '#93c5fd' : '#374151'),
+              }}
+            >
+              {/* Funnel / filter icon */}
+              <svg
+                className="w-4 h-4 flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z"
+                />
+              </svg>
+              <span>
+                {hideUnfulfillableOrders ? 'Showing fulfillable only' : 'Show fulfillable only'}
+              </span>
+              {/* Live badge showing how many orders are hidden */}
+              {hideUnfulfillableOrders && orders?.data && (() => {
+                const hiddenCount = (orders.data as any[]).filter(
+                  (o: any) => !orderHasOnlyFulfillableSkus(o?.order_items)
+                ).length;
+                return hiddenCount > 0 ? (
+                  <span
+                    className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold"
+                    style={{
+                      background: isDark ? 'rgba(16,185,129,0.25)' : '#d1fae5',
+                      color: isDark ? '#34d399' : '#065f46',
+                    }}
+                  >
+                    {hiddenCount}
+                  </span>
+                ) : null;
+              })()}
+            </button>
+
             {/* ── Refresh All button ── */}
             <button
               id="refresh-orders-btn"
