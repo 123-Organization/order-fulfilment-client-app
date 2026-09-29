@@ -268,7 +268,7 @@ export default function Confirmation() {
                     }}
                     placement="bottom"
                   >
-                    <Badge count={submitedOrders.length - MAX_ORDERS_TO_DISPLAY} className="ml-2 cursor-pointer">
+                    <Badge count={submitedOrders.length} className="ml-2 cursor-pointer">
                       <InfoCircleOutlined className="text-blue-500 hover:text-blue-600 cursor-pointer text-lg ml-2" />
                     </Badge>
                   </Tooltip>
