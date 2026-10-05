@@ -113,6 +113,102 @@ const isValidPhone = (phone: string | number | undefined): boolean => {
   return digitsOnly.length >= 10 && digitsOnly.length <= 15;
 };
 
+// ─── "Ignore non-Finerworks Orders" filter ───────────────────────────────────
+const IGNORE_NON_FINERWORKS_KEY = 'fw_ignore_non_finerworks';
+
+/**
+ * Given a list of raw Squarespace orders (before transformation), filters out
+ * orders whose every line item is a non-Finerworks product.
+ *
+ * Rules (when the toggle is enabled):
+ *  1. A line item whose `sku` starts with "AP" (case-insensitive) is valid.
+ *  2. Otherwise the `sku` is sent to the get-product-details API.
+ *     If isActiveSKU === true the item is valid.
+ *  3. An order that has AT LEAST ONE valid item is kept (all its items are kept).
+ *  4. An order with ZERO valid items is dropped.
+ *
+ * If the toggle is disabled the function returns all orders unchanged.
+ */
+const filterNonFinerworksOrders = async (
+  rawOrders: any[],
+  accountKey: string
+): Promise<any[]> => {
+  if (localStorage.getItem(IGNORE_NON_FINERWORKS_KEY) !== 'true') {
+    return rawOrders;
+  }
+
+  // Collect unique non-AP SKUs so we can batch-verify them
+  const nonApSkus = new Set<string>();
+  for (const order of rawOrders) {
+    const lineItems: any[] = order.lineItems || order.order_items || [];
+    for (const item of lineItems) {
+      const sku: string = item.sku || '';
+      if (sku && !sku.toUpperCase().startsWith('AP')) {
+        nonApSkus.add(sku);
+      }
+    }
+  }
+
+  // Verify non-AP SKUs via the product-details API
+  const validSkuSet = new Set<string>();
+  if (nonApSkus.size > 0) {
+    try {
+      const products = Array.from(nonApSkus).map(sku => ({ product_code: sku }));
+      const response = await fetch('https://fa-ls.finerworks.com/api/get-product-details', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ products, account_key: accountKey || 'default-key' }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const productList: any[] = data?.data?.product_list || [];
+        productList.forEach((p: any) => {
+          if (p?.isActiveSKU !== false) {
+            // Mark both sku and product_code as valid
+            if (p?.sku) validSkuSet.add(p.sku);
+            if (p?.product_code) validSkuSet.add(p.product_code);
+          }
+        });
+      }
+    } catch (err) {
+      console.error('[filterNonFinerworksOrders] API error, keeping all orders:', err);
+      return rawOrders; // Fail-safe: don't filter if the API fails
+    }
+  }
+
+  /**
+   * Returns true if a line item is considered a valid Finerworks product.
+   */
+  const isValidItem = (item: any): boolean => {
+    const sku: string = item.sku || '';
+    if (!sku) return false;
+    if (sku.toUpperCase().startsWith('AP')) return true;
+    return validSkuSet.has(sku);
+  };
+
+  const kept: any[] = [];
+  let skipped = 0;
+  for (const order of rawOrders) {
+    const lineItems: any[] = order.lineItems || order.order_items || [];
+    const hasValidItem = lineItems.some(isValidItem);
+    if (hasValidItem) {
+      kept.push(order);
+    } else {
+      skipped++;
+      console.info(
+        `[filterNonFinerworksOrders] Skipping order #${order.orderNumber || order.id} — no valid Finerworks items`
+      );
+    }
+  }
+
+  if (skipped > 0) {
+    console.info(`[filterNonFinerworksOrders] Filtered out ${skipped} non-Finerworks order(s). Kept ${kept.length}.`);
+  }
+
+  return kept;
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
 const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
   const orders = useAppSelector((state) => state.order.orders);
   const ordersStatus = useAppSelector((state) => state.order.status);
@@ -665,8 +761,23 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
               }
 
               if (allOrders.length > 0) {
+                // Apply "Ignore non-Finerworks Orders" filter when the toggle is on
+                const filteredOrders = await filterNonFinerworksOrders(
+                  allOrders,
+                  customerInfo?.data?.account_key || ''
+                );
+
+                if (filteredOrders.length === 0) {
+                  notification.info({
+                    message: 'No Finerworks Orders',
+                    description: 'All fetched orders were filtered out because none contained valid Finerworks products.',
+                  });
+                  setNextSpinning(false);
+                  return;
+                }
+
                 // Transform Squarespace orders to Finerworks format
-                const transformedOrders = allOrders.map((sqOrder: any, orderIndex: number) => {
+                const transformedOrders = filteredOrders.map((sqOrder: any, orderIndex: number) => {
                   const addr = sqOrder.shippingAddress || sqOrder.billingAddress || {};
                   const lineItems: any[] = sqOrder.lineItems || sqOrder.order_items || [];
 
@@ -797,8 +908,23 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
               const payload = result.payload as any;
 
               if (payload?.orders && payload.orders.length > 0) {
+                // Apply "Ignore non-Finerworks Orders" filter when the toggle is on
+                const filteredOrders = await filterNonFinerworksOrders(
+                  payload.orders,
+                  customerInfo?.data?.account_key || ''
+                );
+
+                if (filteredOrders.length === 0) {
+                  notification.info({
+                    message: 'No Finerworks Orders',
+                    description: 'All fetched orders were filtered out because none contained valid Finerworks products.',
+                  });
+                  setNextSpinning(false);
+                  return;
+                }
+
                 // Transform Squarespace orders to Finerworks format
-                const transformedOrders = payload.orders.map(
+                const transformedOrders = filteredOrders.map(
                   (sqOrder: any, orderIndex: number) => {
                     const addr = sqOrder.shippingAddress || sqOrder.billingAddress || {};
                     const lineItems: any[] = sqOrder.lineItems || sqOrder.order_items || [];
