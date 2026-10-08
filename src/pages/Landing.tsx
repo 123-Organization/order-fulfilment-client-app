@@ -97,6 +97,17 @@ const Landing: React.FC = (): JSX.Element => {
   const [squarespaceOrderSyncDisconnecting, setSquarespaceOrderSyncDisconnecting] = useState<boolean>(false);
   const [shopifyOrderSyncDisconnecting, setShopifyOrderSyncDisconnecting] = useState<boolean>(false);
 
+  // ── Wix install-first flow (unlisted app → shareable install link) ─────────
+  const WIX_APP_INSTALL_URL = "https://wix.to/gCveMPg";
+  const [showWixInstallModal, setShowWixInstallModal] = useState<boolean>(false);
+  const [wixInstallClicked, setWixInstallClicked] = useState<boolean>(false);
+
+  const startWixOAuth = () => {
+    const accountKey = customerInfo?.data?.account_key;
+    const returnUrl = `${window.location.origin}/`;
+    window.location.href = `${BASE_URL}wix/oauth/start?account_key=${accountKey}&return_url=${encodeURIComponent(returnUrl)}`;
+  };
+
   // ── Etsy / Shippo ──────────────────────────────────────────────────────────
   const [etsyConnectionStatus, setEtsyConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('verifying');
   const [lastEtsyConnectionData, setLastEtsyConnectionData] = useState<string | null>(null);
@@ -756,9 +767,10 @@ const Landing: React.FC = (): JSX.Element => {
       if (wixConnectionStatus === 'connected') {
         navigate("/importfilter?type=Wix");
       } else if (customerInfo?.data?.user_profile_complete === true) {
-        const accountKey = customerInfo?.data?.account_key;
-        const returnUrl = `${window.location.origin}/`;
-        window.location.href = `${BASE_URL}wix/oauth/start?account_key=${accountKey}&return_url=${encodeURIComponent(returnUrl)}`;
+        // Not connected yet → first ask the user to install the (unlisted) Wix app,
+        // then continue with the normal OAuth flow from the modal.
+        setWixInstallClicked(false);
+        setShowWixInstallModal(true);
       } else {
         notificationApi.warning({
           message: "Please complete your profile",
@@ -1741,6 +1753,100 @@ const Landing: React.FC = (): JSX.Element => {
       >
         <p>You need to link your Shopify account to FinerWorks to import orders.</p>
         <p>Would you like to authorize this app by opening the Shopify Admin connection panel?</p>
+      </Modal>
+      {/* ── Wix install-first modal ── */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <img src={wix} alt="Wix" style={{ width: 28, height: 28, objectFit: 'contain' }} />
+            <span style={{ fontWeight: 700, fontSize: 16 }}>Connect your Wix store</span>
+          </div>
+        }
+        open={showWixInstallModal}
+        onCancel={() => setShowWixInstallModal(false)}
+        footer={null}
+        width={480}
+        centered
+      >
+        <div style={{ padding: '8px 0 4px' }}>
+          <p style={{ fontSize: 13, color: isDark ? '#8892a4' : '#6b7280', marginBottom: 20, lineHeight: 1.6 }}>
+            To import Wix orders, first install the <strong>FinerWorks</strong> app on your Wix site,
+            then come back here to authorize the connection.
+          </p>
+
+          {[
+            {
+              n: 1,
+              title: 'Install the FinerWorks app on Wix',
+              desc: wixInstallClicked
+                ? 'Install page opened in a new tab — click "Install" and pick your site.'
+                : 'Opens the Wix install page in a new tab.',
+              done: wixInstallClicked,
+              active: !wixInstallClicked,
+            },
+            {
+              n: 2,
+              title: 'Authorize FinerWorks',
+              desc: 'After installing, continue to link your Wix store to your FinerWorks account.',
+              done: false,
+              active: wixInstallClicked,
+            },
+          ].map((s) => (
+            <div
+              key={s.n}
+              style={{
+                display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 14px', marginBottom: 10,
+                borderRadius: 10,
+                border: `1px solid ${s.active ? '#00B5B5' : isDark ? '#1e3a5f' : '#e2e8f0'}`,
+                background: s.active ? (isDark ? '#0b2a2e' : '#f0fafa') : (isDark ? '#0f1a2e' : '#f8fafc'),
+                transition: 'all .2s',
+              }}
+            >
+              <div style={{
+                width: 28, height: 28, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 13, fontWeight: 700,
+                background: s.done ? '#dcfce7' : s.active ? '#00B5B5' : (isDark ? '#1e2a3f' : '#e2e8f0'),
+                color: s.done ? '#16a34a' : s.active ? '#fff' : (isDark ? '#64748b' : '#64748b'),
+              }}>
+                {s.done ? '✓' : s.n}
+              </div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: isDark ? '#e2e8f0' : '#1e293b' }}>{s.title}</div>
+                <div style={{ fontSize: 12, color: isDark ? '#8892a4' : '#64748b', marginTop: 2 }}>{s.desc}</div>
+              </div>
+            </div>
+          ))}
+
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'center', marginTop: 18 }}>
+            <Button type="link" style={{ padding: 0, fontSize: 12 }} onClick={() => { setShowWixInstallModal(false); startWixOAuth(); }}>
+              Already installed? Skip
+            </Button>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <Button onClick={() => setShowWixInstallModal(false)}>Cancel</Button>
+              {!wixInstallClicked ? (
+                <Button
+                  id="wix-install-app-btn"
+                  type="primary"
+                  style={{ background: '#00B5B5', borderColor: '#00B5B5' }}
+                  onClick={() => {
+                    window.open(WIX_APP_INSTALL_URL, '_blank', 'noopener,noreferrer');
+                    setWixInstallClicked(true);
+                  }}
+                >
+                  Install Wix App
+                </Button>
+              ) : (
+                <Button
+                  id="wix-continue-auth-btn"
+                  type="primary"
+                  onClick={() => { setShowWixInstallModal(false); startWixOAuth(); }}
+                >
+                  I've installed it — Continue
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
       </Modal>
       {/* ── Shippo / Etsy connect modal ── */}
       <Modal
