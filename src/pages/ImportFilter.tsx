@@ -53,6 +53,142 @@ const currentDate = dayjs();
 const formattedDate = currentDate.format('YYYY-MM-DD');
 console.log(formattedDate,formattedDate);
 
+// ─── Ignore non-Finerworks Orders toggle ──────────────────────────────────
+export const IGNORE_NON_FINERWORKS_KEY = 'fw_ignore_non_finerworks';
+
+/** Standalone toggle component rendered inside ImportFilter's filter form. */
+const IgnoreNonFinerworksToggle: React.FC = () => {
+  const [enabled, setEnabled] = React.useState<boolean>(
+    () => localStorage.getItem(IGNORE_NON_FINERWORKS_KEY) === 'true'
+  );
+  const [showTooltip, setShowTooltip] = React.useState(false);
+
+  const toggle = () => {
+    const next = !enabled;
+    setEnabled(next);
+    localStorage.setItem(IGNORE_NON_FINERWORKS_KEY, String(next));
+  };
+
+  const TOOLTIP_TEXT =
+    'When enabled, orders are filtered before uploading. ' +
+    'Items whose SKU starts with "AP" are kept automatically. ' +
+    'For other SKUs the product code is verified against the Finerworks catalog. ' +
+    'If an order has at least one valid Finerworks item the order is kept; ' +
+    'orders with zero valid items are skipped entirely.';
+
+  return (
+    <div className="w-full sm:ml-[100px] mt-4 flex items-center gap-3" style={{ flexWrap: 'nowrap' }}>
+      {/* Toggle pill */}
+      <button
+        id="ignore-non-finerworks-toggle"
+        type="button"
+        onClick={toggle}
+        className="relative inline-flex flex-shrink-0 cursor-pointer rounded-full border-2 transition-colors duration-200 ease-in-out focus:outline-none"
+        style={{
+          width: 44,
+          height: 24,
+          backgroundColor: enabled ? '#10b981' : '#d1d5db',
+          borderColor: enabled ? '#059669' : '#9ca3af',
+        }}
+        aria-pressed={enabled}
+        aria-label="Ignore non-Finerworks Orders"
+      >
+        <span
+          className="pointer-events-none inline-block rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+          style={{
+            width: 18,
+            height: 18,
+            marginTop: 1,
+            transform: enabled ? 'translateX(20px)' : 'translateX(1px)',
+          }}
+        />
+      </button>
+
+      {/* Label */}
+      <span
+        style={{
+          fontSize: 13,
+          fontWeight: 500,
+          color: enabled ? '#059669' : '#6b7280',
+          transition: 'color 0.2s',
+          userSelect: 'none',
+          cursor: 'pointer',
+          whiteSpace: 'nowrap',
+        }}
+        onClick={toggle}
+      >
+        Ignore non-Finerworks Orders
+      </span>
+
+      {/* Exclamation info icon with tooltip */}
+      <div
+        className="relative flex items-center"
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+        style={{ flexShrink: 0 }}
+      >
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 18,
+            height: 18,
+            borderRadius: '50%',
+            background: enabled ? '#d1fae5' : '#f3f4f6',
+            border: `1.5px solid ${enabled ? '#6ee7b7' : '#d1d5db'}`,
+            color: enabled ? '#059669' : '#9ca3af',
+            fontSize: 11,
+            fontWeight: 700,
+            cursor: 'help',
+            transition: 'all 0.2s',
+            flexShrink: 0,
+          }}
+        >
+          !
+        </span>
+
+        {/* Tooltip bubble */}
+        {showTooltip && (
+          <div
+            style={{
+              position: 'absolute',
+              left: '50%',
+              bottom: 'calc(100% + 8px)',
+              transform: 'translateX(-50%)',
+              background: '#1f2937',
+              color: '#f9fafb',
+              padding: '8px 12px',
+              borderRadius: 8,
+              fontSize: 12,
+              lineHeight: 1.6,
+              width: 270,
+              boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+              zIndex: 2000,
+              pointerEvents: 'none',
+            }}
+          >
+            {TOOLTIP_TEXT}
+            {/* Arrow */}
+            <span
+              style={{
+                position: 'absolute',
+                left: '50%',
+                top: '100%',
+                transform: 'translateX(-50%)',
+                border: '5px solid transparent',
+                borderTopColor: '#1f2937',
+                display: 'block',
+              }}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+// ───────────────────────────────────────────────────────────────────────────
+
 const ImportFilter: React.FC = () => {
   const [countryCode, setCountryCode] = useState("");
   const [dateRange, setDateRange] = useState<string[]>([]);
@@ -247,9 +383,13 @@ const ImportFilter: React.FC = () => {
         />
         
       {/* </Form.Item> */}
+
+      {/* ── "Ignore non-Finerworks Orders" toggle — Squarespace only ── */}
+      {typeValue === 'Squarespace' && <IgnoreNonFinerworksToggle />}
          
     </Form>
   );
+
   
   const displayTurtles2 = (
     <Form
