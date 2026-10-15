@@ -31,6 +31,8 @@ import SpreadSheet from "../components/SpreadSheet";
 import PlatformSettingsModal from "../components/PlatformSettingsModal";
 // Set to true when Shopify integration is fully ready
 const SHOPIFY_ENABLED = false;
+// Set to true when BigCommerce integration is fully ready
+const BIGCOMMERCE_ENABLED = false;
 // Set to true when Etsy integration is fully ready
 const ETSY_ENABLED = true;
 // Set to true when Square integration is fully ready
@@ -645,7 +647,10 @@ const Landing: React.FC = (): JSX.Element => {
   ] as const;
   const importData = (imgname: string) => {
     // Check for platforms that are not yet available (including Shopify/Etsy/Square when disabled)
-    const availablePlatforms = ["WooCommerce", "Excel", "Squarespace", "Wix", "BigCommerce"];
+    const availablePlatforms = ["WooCommerce", "Excel", "Squarespace", "Wix"];
+    if (BIGCOMMERCE_ENABLED) {
+      availablePlatforms.push("BigCommerce");
+    }
     if (SHOPIFY_ENABLED) {
       availablePlatforms.push("Shopify");
     }
@@ -821,6 +826,15 @@ const Landing: React.FC = (): JSX.Element => {
 
     // BigCommerce integration
     if (imgname === "BigCommerce") {
+      // Check if BigCommerce is enabled
+      if (!BIGCOMMERCE_ENABLED) {
+        notificationApi.warning({
+          message: "Coming Soon",
+          description: "This platform is under development",
+        });
+        return;
+      }
+
       if (!customerInfo?.data?.account_key && !cookies.AccountGUID) {
         window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`;
         return;
