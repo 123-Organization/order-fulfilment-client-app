@@ -45,15 +45,17 @@ const TIKTOK_BASE_URL = configs.TIKTOK_API_BASE_URL;
 
 
 const images = [
+  // ── Live integrations ──────────────────────────────────────────────────────
   { name: "Squarespace", img: squarespace },
-  { name: "Shopify", img: shopify },
   { name: "Wix", img: wix },
-  { name: "BigCommerce", img: bigcommerce },
-  { name: "Square", img: square },
   { name: "WooCommerce", img: woocommerce },
   { name: "Etsy", img: etsy },
-  { name: "TikTok Shop", img: tiktok },
+  { name: "Square", img: square },
   { name: "Excel", img: excel },
+  // ── Coming Soon ────────────────────────────────────────────────────────────
+  { name: "Shopify", img: shopify },
+  { name: "BigCommerce", img: bigcommerce },
+  { name: "TikTok Shop", img: tiktok },
 ];
 
 export enum StepType {
