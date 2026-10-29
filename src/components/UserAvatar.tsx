@@ -4,7 +4,6 @@ import type { MenuProps } from "antd";
 import { useCookies } from "react-cookie";
 import { useAppSelector, useAppDispatch } from "../store";
 import { clearCustomerInfo, getCustomerInfo } from "../store/features/customerSlice";
-import credit from "../../src/assets/images/credit-card-svgrepo-com.svg";
 import email from "../../src/assets/images/email-svgrepo-com.svg";
 import user_icon from "../../src/assets/images/user-svgrepo-com.svg";
 import log_out from "../../src/assets/images/logout-svgrepo-com.svg";
@@ -49,10 +48,15 @@ export default function UserAvatar() {
     {
       key: "1",
       label: (
-        <p className="text-sm  text-gray-500 flex gap-1">
+        <a
+          href="https://account.finerworks.com/dashboard"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm text-gray-500 flex gap-1"
+        >
           <img src={user_icon} alt="user" width={17} />
           {customer_info?.data?.account_username}
-        </p>
+        </a>
       ),
     },
     {
@@ -61,7 +65,7 @@ export default function UserAvatar() {
         <a
           target="_blank"
           rel="noopener noreferrer"
-          href=""
+          href="https://account.finerworks.com/profile"
           className="flex gap-1"
         >
           <img src={email} alt="user" width={17} />
@@ -73,32 +77,12 @@ export default function UserAvatar() {
       key: "3",
       label: (
         <a
-          target="_blank"
-          rel="noopener noreferrer"
-          href="https://finerworks.com/MyAccount/MyCredits.aspx"
-          className="flex gap-1 text-sm "
-        >
-          <img className="text-black" src={credit} width={18} alt="credit" />
-          Account Credit:{" "}
-          <p className="text-red-700 text-sm">
-            ${customer_info?.data?.user_account_credits}
-          </p>
-        </a>
-      ),
-    },
-
-    {
-      key: "4",
-      label: (
-        <a
-
           rel="noopener noreferrer"
           href="https://finerworks.com/login.aspx?mode=logout"
           className="flex gap-1 text-sm "
           onClick={onLogout}
-
         >
-          <img className="text-black" src={log_out} width={18} alt="credit" />
+          <img className="text-black" src={log_out} width={18} alt="logout" />
           Log out
         </a>
       ),

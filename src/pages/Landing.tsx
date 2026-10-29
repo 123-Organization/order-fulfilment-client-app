@@ -39,7 +39,7 @@ const ETSY_ENABLED = true;
 // Set to true when Square integration is fully ready
 const SQUARE_ENABLED = true;
 // Set to true when TikTok Shop integration is fully ready
-const TIKTOK_ENABLED = true;
+const TIKTOK_ENABLED = false;
 const BASE_URL = configs.SERVER_BASE_URL;
 const TIKTOK_BASE_URL = configs.TIKTOK_API_BASE_URL;
 
@@ -1711,7 +1711,7 @@ const Landing: React.FC = (): JSX.Element => {
           const status = getStatus(image.name);
           const enabled = ENABLED.includes(image.name);
           // "Coming Soon" applies to Shopify and Square while their integrations are being finalized
-          const isComingSoon = (image.name === "Square" && !SQUARE_ENABLED) || (image.name === "Shopify" && !SHOPIFY_ENABLED) || (image.name === "BigCommerce" && !BIGCOMMERCE_ENABLED);
+          const isComingSoon = (image.name === "Square" && !SQUARE_ENABLED) || (image.name === "Shopify" && !SHOPIFY_ENABLED) || (image.name === "BigCommerce" && !BIGCOMMERCE_ENABLED) || (image.name === "TikTok Shop" && !TIKTOK_ENABLED);
           const isConnected = status === "connected";
           const hasOrderSync = ORDER_SYNC_PLATFORMS[image.name] === true;
           const orderSyncOn = image.name === "Wix" ? wixOrderSync : image.name === "Shopify" ? shopifyOrderSync : squarespaceOrderSync;
