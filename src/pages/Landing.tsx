@@ -11,6 +11,7 @@ import square from "../assets/images/store-square.svg";
 import squarespace from "../assets/images/store-squarespace.svg";
 import wix from "../assets/images/store-wix.svg";
 import woocommerce from "../assets/images/store-woocommerce.svg";
+import tiktok from "../tiktok-svgrepo-com.svg";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ecommerceConnector } from "../store/features/ecommerceSlice";
 import configs from "../config/configs";
@@ -37,7 +38,10 @@ const BIGCOMMERCE_ENABLED = false;
 const ETSY_ENABLED = true;
 // Set to true when Square integration is fully ready
 const SQUARE_ENABLED = true;
+// Set to true when TikTok Shop integration is fully ready
+const TIKTOK_ENABLED = true;
 const BASE_URL = configs.SERVER_BASE_URL;
+const TIKTOK_BASE_URL = configs.TIKTOK_API_BASE_URL;
 
 
 const images = [
@@ -48,6 +52,7 @@ const images = [
   { name: "Square", img: square },
   { name: "WooCommerce", img: woocommerce },
   { name: "Etsy", img: etsy },
+  { name: "TikTok Shop", img: tiktok },
   { name: "Excel", img: excel },
 ];
 
@@ -87,6 +92,12 @@ const Landing: React.FC = (): JSX.Element => {
   // ── BigCommerce ────────────────────────────────────────────────────────────
   const [bigcommerceConnectionStatus, setBigcommerceConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('verifying');
   const [lastBigcommerceConnectionData, setLastBigcommerceConnectionData] = useState<string | null>(null);
+
+  // ── TikTok Shop ───────────────────────────────────────────────────────────
+  const [tiktokConnectionStatus, setTiktokConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('verifying');
+  const [lastTiktokConnectionData, setLastTiktokConnectionData] = useState<string | null>(null);
+  const [showTiktokConnectModal, setShowTiktokConnectModal] = useState<boolean>(false);
+  const [tiktokDisconnecting, setTiktokDisconnecting] = useState<boolean>(false);
 
   // ── Order-sync toggle state ──────────────────────────────────────────────
   const [wixOrderSync, setWixOrderSync] = useState<boolean>(false);
@@ -660,6 +671,9 @@ const Landing: React.FC = (): JSX.Element => {
     if (SQUARE_ENABLED) {
       availablePlatforms.push("Square");
     }
+    if (TIKTOK_ENABLED) {
+      availablePlatforms.push("TikTok Shop");
+    }
 
     if (imgname && !availablePlatforms.includes(imgname)) {
       notificationApi.warning({
@@ -853,6 +867,34 @@ const Landing: React.FC = (): JSX.Element => {
         });
       }
     }
+
+    // TikTok Shop integration
+    if (imgname === "TikTok Shop") {
+      if (!TIKTOK_ENABLED) {
+        notificationApi.warning({
+          message: "Coming Soon",
+          description: "This platform is under development",
+        });
+        return;
+      }
+
+      if (!customerInfo?.data?.account_key && !cookies.AccountGUID) {
+        window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`;
+        return;
+      }
+
+      if (tiktokConnectionStatus === 'connected') {
+        navigate("/importfilter?type=TikTokShop");
+      } else if (customerInfo?.data?.user_profile_complete === true) {
+        // Show the TikTok connect modal which explains the OAuth flow
+        setShowTiktokConnectModal(true);
+      } else {
+        notificationApi.warning({
+          message: "Please complete your profile",
+          description: "Please complete your profile to connect to TikTok Shop",
+        });
+      }
+    }
   };
   // ── Squarespace: status is derived from companyInfo.connections (see useEffect below) ──
 
@@ -946,6 +988,22 @@ const Landing: React.FC = (): JSX.Element => {
         });
       }
     }
+
+    if (type === 'tiktok') {
+      if (connected === 'true') {
+        setTiktokConnectionStatus('connected');
+        notificationApi.success({
+          message: 'TikTok Shop Connected',
+          description: 'Your TikTok Shop seller account has been successfully connected!',
+        });
+      } else if (error) {
+        setTiktokConnectionStatus('disconnected');
+        notificationApi.error({
+          message: 'TikTok Shop Connection Failed',
+          description: 'Failed to connect to your TikTok Shop account. Please try again.',
+        });
+      }
+    }
   }, [location.search, notificationApi]);
 
   // Initialize verification status if idle
@@ -973,6 +1031,7 @@ const Landing: React.FC = (): JSX.Element => {
       setEtsyConnectionStatus(prev => prev === 'verifying' ? 'disconnected' : prev);
       setSquareConnectionStatus(prev => prev === 'verifying' ? 'disconnected' : prev);
       setBigcommerceConnectionStatus(prev => prev === 'verifying' ? 'disconnected' : prev);
+      setTiktokConnectionStatus(prev => prev === 'verifying' ? 'disconnected' : prev);
       // Only resolve WooCommerce if still stuck — don't override an already-connected status
       if (connectionVerificationStatusRef.current === 'verifying') {
         dispatch(setConnectionVerificationStatus('disconnected'));
@@ -1395,6 +1454,47 @@ const Landing: React.FC = (): JSX.Element => {
       }
       console.log('=== END BIGCOMMERCE CONNECTION CHECK ===');
 
+      // ── Handle TikTok Shop connection ──────────────────────────────────────
+      const tiktokConnection = companyInfo.connections.find((conn: any) => conn.name === 'TikTokShop' || conn.name === 'TikTok Shop');
+      console.log('=== TIKTOK SHOP CONNECTION CHECK ===');
+      console.log('TikTok Shop connection found?:', !!tiktokConnection);
+
+      if (tiktokConnection) {
+        const ttIdentifier = `${tiktokConnection.id || 'noid'}_${tiktokConnection.data || 'nodata'}`;
+
+        if (ttIdentifier !== lastTiktokConnectionData || tiktokConnectionStatus === 'verifying') {
+          console.log('TikTok Shop connection changed or first load, processing...');
+          setLastTiktokConnectionData(ttIdentifier);
+
+          if (tiktokConnection.id) {
+            let isConnected = true;
+            if (tiktokConnection.data && tiktokConnection.data.trim() !== '') {
+              try {
+                const parsed = JSON.parse(tiktokConnection.data);
+                console.log('TikTok Shop parsed data:', parsed);
+                if (parsed.isConnected === false || parsed.isConnected === 'false') {
+                  isConnected = false;
+                }
+              } catch (e) {
+                console.error('Error parsing TikTok Shop data:', e);
+              }
+            }
+            console.log('TikTok Shop isConnected:', isConnected);
+            setTiktokConnectionStatus(isConnected ? 'connected' : 'disconnected');
+          } else {
+            console.log('TikTok Shop entry found but no id — disconnected');
+            setTiktokConnectionStatus('disconnected');
+          }
+        } else {
+          console.log('TikTok Shop connection unchanged, skipping processing');
+        }
+      } else {
+        console.log('No TikTok Shop connection in connections array — disconnected');
+        setLastTiktokConnectionData(null);
+        setTiktokConnectionStatus('disconnected');
+      }
+      console.log('=== END TIKTOK SHOP CONNECTION CHECK ===');
+
     } else if (companyInfo !== null && companyInfo !== undefined) {
       // companyInfo has loaded but contains no connections — genuinely disconnected
       console.log("No connections available");
@@ -1405,9 +1505,10 @@ const Landing: React.FC = (): JSX.Element => {
       setEtsyConnectionStatus('disconnected');
       setSquareConnectionStatus('disconnected');
       setBigcommerceConnectionStatus('disconnected');
+      setTiktokConnectionStatus('disconnected');
     }
     // If companyInfo is null/undefined the fetch hasn't completed yet — keep 'verifying'
-  }, [companyInfo, lastConnectionData, lastShopifyConnectionData, lastSquarespaceConnectionData, lastWixConnectionData, lastEtsyConnectionData, lastSquareConnectionData, lastBigcommerceConnectionData, dispatch]);
+  }, [companyInfo, lastConnectionData, lastShopifyConnectionData, lastSquarespaceConnectionData, lastWixConnectionData, lastEtsyConnectionData, lastSquareConnectionData, lastBigcommerceConnectionData, lastTiktokConnectionData, dispatch]);
 
   // ── Per-platform connection status helpers ──────────────────────────────────
   const getStatus = (name: string) => {
@@ -1418,10 +1519,11 @@ const Landing: React.FC = (): JSX.Element => {
     if (name === "Etsy") return etsyConnectionStatus;
     if (name === "Square") return squareConnectionStatus;
     if (name === "BigCommerce") return bigcommerceConnectionStatus;
+    if (name === "TikTok Shop") return tiktokConnectionStatus;
     return "idle";
   };
 
-  const ENABLED = ["WooCommerce", "Excel", "Squarespace", "Wix", "Etsy", "Square", "Shopify", "BigCommerce"];
+  const ENABLED = ["WooCommerce", "Excel", "Squarespace", "Wix", "Etsy", "Square", "Shopify", "BigCommerce", "TikTok Shop"];
 
   // ── Order-sync toggle API call ───────────────────────────────────────────
   const ORDER_SYNC_PLATFORMS: Record<string, boolean> = { Wix: true, Squarespace: true, Shopify: true };
@@ -1515,6 +1617,35 @@ const Landing: React.FC = (): JSX.Element => {
     if (platformName === "Etsy") setEtsyConnectionStatus("disconnected");
     if (platformName === "Square") setSquareConnectionStatus("disconnected");
     if (platformName === "BigCommerce") setBigcommerceConnectionStatus("disconnected");
+    if (platformName === "TikTok Shop") setTiktokConnectionStatus("disconnected");
+  };
+
+  // ── TikTok Shop: disconnect API call ────────────────────────────────────────
+  const handleTiktokDisconnect = async () => {
+    const accountKey = customerInfo?.data?.account_key;
+    if (!accountKey) return;
+    setTiktokDisconnecting(true);
+    try {
+      const res = await fetch(`${TIKTOK_BASE_URL}tiktok/disconnect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account_key: accountKey }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setTiktokConnectionStatus('disconnected');
+      setShowTiktokConnectModal(false);
+      notificationApi.success({
+        message: 'TikTok Shop Disconnected',
+        description: 'Your TikTok Shop seller account has been disconnected.',
+      });
+    } catch (err) {
+      notificationApi.error({
+        message: 'Disconnect Failed',
+        description: 'Could not disconnect TikTok Shop. Please try again.',
+      });
+    } finally {
+      setTiktokDisconnecting(false);
+    }
   };
 
   return (
@@ -1677,7 +1808,7 @@ const Landing: React.FC = (): JSX.Element => {
               )}
 
               {/* Beta chip — amber badge for platforms in beta */}
-              {!isComingSoon && enabled && (image.name === "Wix" || image.name === "Square") && (
+              {!isComingSoon && enabled && (image.name === "Wix" || image.name === "Square" || image.name === "TikTok Shop") && (
                 <span title="This integration is currently in beta" style={{
                   position: "absolute", bottom: 10, right: 12,
                   background: isDark ? "rgba(245,158,11,.18)" : "rgba(245,158,11,.12)",
@@ -2065,6 +2196,98 @@ const Landing: React.FC = (): JSX.Element => {
               {shippoConnectStep === 'invalid' || shippoConnectStep === 'error' ? 'Retry' : 'Connect'}
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      {/* ── TikTok Shop connect modal ── */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <img src={tiktok} alt="TikTok Shop" style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: 6 }} />
+            <span style={{ fontWeight: 700, fontSize: 16 }}>Connect TikTok Shop</span>
+          </div>
+        }
+        open={showTiktokConnectModal}
+        onCancel={() => !tiktokDisconnecting && setShowTiktokConnectModal(false)}
+        footer={null}
+        width={500}
+        centered
+      >
+        <div style={{ padding: '8px 0 4px' }}>
+          {tiktokConnectionStatus !== 'connected' ? (
+            <>
+              <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16, lineHeight: 1.7 }}>
+                Connect your <strong>TikTok Shop</strong> seller account to FinerWorks to automatically import and fulfill orders.
+              </p>
+
+              {/* OAuth flow diagram */}
+              <div style={{
+                background: isDark ? '#0f1a2e' : '#f8fafc',
+                border: `1px solid ${isDark ? '#1e3a5f' : '#e2e8f0'}`,
+                borderRadius: 10, padding: '14px 16px', marginBottom: 20,
+              }}>
+                {[
+                  { n: 1, title: 'Authorize on TikTok', desc: "You'll be redirected to TikTok to grant order access." },
+                  { n: 2, title: 'Return to FinerWorks', desc: 'After authorizing, you\'ll be redirected back automatically.' },
+                  { n: 3, title: 'Start importing orders', desc: 'Your TikTok Shop orders will be ready to import.' },
+                ].map((s, idx) => (
+                  <div key={s.n}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                      <div style={{
+                        width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 13, fontWeight: 700,
+                        background: isDark ? '#0b2a2e' : '#e0f2fe',
+                        color: isDark ? '#67e8f9' : '#0369a1',
+                      }}>
+                        {s.n}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: isDark ? '#e2e8f0' : '#1e293b' }}>{s.title}</div>
+                        <div style={{ fontSize: 12, color: isDark ? '#8892a4' : '#64748b', marginTop: 2 }}>{s.desc}</div>
+                      </div>
+                    </div>
+                    {idx < 2 && <div style={{ width: 2, height: 10, background: isDark ? '#1e3a5f' : '#e2e8f0', marginLeft: 13, marginTop: 4, marginBottom: 4 }} />}
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <Button onClick={() => setShowTiktokConnectModal(false)}>Cancel</Button>
+                <Button
+                  id="tiktok-connect-btn"
+                  type="primary"
+                  style={{ background: '#010101', borderColor: '#010101' }}
+                  onClick={() => {
+                    const accountKey = customerInfo?.data?.account_key;
+                    if (!accountKey) return;
+                    const returnUrl = `${window.location.origin}/`;
+                    window.location.href = `${TIKTOK_BASE_URL}tiktok/auth?account_key=${accountKey}&return_url=${encodeURIComponent(returnUrl)}`;
+                  }}
+                >
+                  Authorize with TikTok
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p style={{ fontSize: 13, color: isDark ? '#8892a4' : '#6b7280', marginBottom: 20, lineHeight: 1.6 }}>
+                Your TikTok Shop seller account is currently <strong style={{ color: '#22c55e' }}>connected</strong>.
+                You can disconnect it below if you'd like to unlink your store.
+              </p>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <Button onClick={() => setShowTiktokConnectModal(false)}>Close</Button>
+                <Button
+                  id="tiktok-disconnect-btn"
+                  danger
+                  loading={tiktokDisconnecting}
+                  onClick={handleTiktokDisconnect}
+                >
+                  Disconnect TikTok Shop
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </Modal>
     </div>

@@ -1433,7 +1433,7 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
           <>
             {filteredInventoryData.map((image: any, i: number) => {
               const isRecentlyEdited = recentlyEditedSku === image.sku;
-              const isSelected = image?.isSelected || (inventorySelection?.length && find(inventorySelection, { sku: image?.sku }));
+              const isSelected = image?.isSelected || (inventorySelection?.length > 0 && find(inventorySelection, { sku: image?.sku }));
 
               return (
                 <div
@@ -1526,7 +1526,7 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
                             </div>
                           )}
                           {/* Image GUID indicator */}
-                          {image.image_guid && getVariantCount(image.image_guid) > 1 && (
+                          {!!(image.image_guid && getVariantCount(image.image_guid) > 1) && (
                             <div className="flex items-center gap-1.5 text-xs text-indigo-600 font-medium mt-1 bg-indigo-50 px-2 py-1 rounded-md">
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -1595,7 +1595,7 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
                           {/* Action Buttons Row */}
                           <div className="flex gap-2">
                             {/* Show Variants Button */}
-                            {image.image_guid && getVariantCount(image.image_guid) > 1 && !imageGuidFilter && (
+                            {!!(image.image_guid && getVariantCount(image.image_guid) > 1 && !imageGuidFilter) && (
                               <button
                                 onClick={(e) => handleShowVariants(image, e)}
                                 className="p-2 bg-gradient-to-r from-indigo-500 to-purple-500 border border-indigo-600 rounded-lg hover:from-indigo-600 hover:to-purple-600 transition-all duration-200 group shadow-sm hover:shadow-md relative"
@@ -1743,7 +1743,7 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
                             </div>
                           )}
 
-                          {image?.third_party_integrations?.woocommerce_product_id && (
+                          {!!(image?.third_party_integrations?.woocommerce_product_id) && (
                             <div className="bg-white border border-gray-200 rounded-full p-2 shadow-sm">
                               <img
                                 src={wordpress}
@@ -1753,8 +1753,8 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
                               />
                             </div>
                           )}
-                          {image?.third_party_integrations?.shopify_graphql_product_id &&
-                            image?.third_party_integrations?.shopify_graphql_product_id !== 0 && (
+                          {!!(image?.third_party_integrations?.shopify_graphql_product_id &&
+                            image?.third_party_integrations?.shopify_graphql_product_id !== 0) && (
                               <div className="bg-white border border-gray-200 rounded-full p-2 shadow-sm">
                                 <img
                                   src={shopifyIcon}
@@ -1764,7 +1764,7 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
                                 />
                               </div>
                             )}
-                          {image?.third_party_integrations?.wix_inventory_id && (
+                          {!!(image?.third_party_integrations?.wix_inventory_id) && (
                             <div className="bg-white border border-gray-200 rounded-full p-2 shadow-sm">
                               <img
                                 src={wixIcon}
@@ -1774,7 +1774,7 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
                               />
                             </div>
                           )}
-                          {image?.third_party_integrations?.squarespace_product_id && (
+                          {!!(image?.third_party_integrations?.squarespace_product_id) && (
                             <div className="bg-white border border-gray-200 rounded-full p-2 shadow-sm">
                               <img
                                 src={squarespaceIcon}
@@ -1784,12 +1784,12 @@ const VirtualInventory: React.FC<VirtualInventoryProps> = ({ onClose, onProductA
                               />
                             </div>
                           )}
-                          {image?.parent_sku && (
+                          {!!(image?.parent_sku) && (
                             <div className="bg-purple-100 text-purple-700 rounded-full px-3 py-1 shadow-sm text-xs font-semibold" title={`Child of ${image.parent_sku}`}>
                               Child
                             </div>
                           )}
-                          {image?.has_children && (
+                          {!!(image?.has_children) && (
                             <div className="bg-green-100 text-green-700 rounded-full px-3 py-1 shadow-sm text-xs font-semibold" title="Has child images">
                               Parent
                             </div>

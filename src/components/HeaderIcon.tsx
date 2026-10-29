@@ -167,9 +167,16 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                               ""}
             </h1>
             {location.pathname === "/importlist" && (
-              <span className="px-3 py-1 bg-blue-50 text-blue-600 text-sm font-medium rounded-full whitespace-nowrap">
-                Pending Orders
-              </span>
+              <div className="relative inline-flex items-center ml-2">
+                <span className="px-3.5 py-1 bg-blue-50 text-blue-600 text-sm font-semibold rounded-full whitespace-nowrap border border-blue-200 shadow-sm">
+                  Pending Orders
+                </span>
+                {Boolean(orders?.totalOrders ?? orders?.pagination?.totalOrders ?? (Array.isArray(orders?.data) ? orders.data.length : Array.isArray(orders) ? orders.length : 0)) && (
+                  <span className="absolute -top-2 -right-3.5 inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 text-xs font-bold text-white bg-blue-600 rounded-full border-2 border-white shadow-md transform translate-x-0.5 -translate-y-0.5">
+                    {orders?.totalOrders ?? orders?.pagination?.totalOrders ?? (Array.isArray(orders?.data) ? orders.data.length : Array.isArray(orders) ? orders.length : 0)}
+                  </span>
+                )}
+              </div>
             )}
           </div>
 
