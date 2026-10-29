@@ -856,17 +856,18 @@ const Landing: React.FC = (): JSX.Element => {
         return;
       }
 
-      if (!customerInfo?.data?.account_key && !cookies.AccountGUID) {
+      const accountKeyToUse = customerInfo?.data?.account_key || cookies.AccountGUID;
+      if (!accountKeyToUse) {
         window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`;
         return;
       }
       if (bigcommerceConnectionStatus === 'connected') {
         navigate("/importfilter?type=BigCommerce");
-      } else if (customerInfo?.data?.user_profile_complete === true) {
-        const accountKey = customerInfo?.data?.account_key;
-        // return_url tells the backend where to redirect the user after OAuth completes
+      } else if (accountKeyToUse) {
         const returnUrl = `${window.location.origin}/`;
-        window.location.href = `${BASE_URL}bigcommerce/auth?account_key=${accountKey}&return_url=${encodeURIComponent(returnUrl)}`;
+        const redirectUrl = `${BASE_URL}bigcommerce/auth?account_key=${accountKeyToUse}&return_url=${encodeURIComponent(returnUrl)}`;
+        console.log("Redirecting to BigCommerce OAuth:", redirectUrl);
+        window.location.href = redirectUrl;
       } else {
         notificationApi.warning({
           message: "Please complete your profile",
