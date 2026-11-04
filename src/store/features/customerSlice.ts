@@ -1,5 +1,6 @@
 import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import config from "../../config/configs";
+import posthog from "posthog-js";
 
 const BASE_URL = config.SERVER_BASE_URL;
 interface CustomerState {
@@ -70,6 +71,21 @@ export const CustomerSlice = createSlice({
         extraReducers: (builder) => {
                 builder.addCase(getCustomerInfo.fulfilled, (state, action) => {
                         state.customer_info = action.payload;
+
+                        // Identify the user in PostHog using their account_key so events
+                        // are searchable and filterable by account instead of anonymous ID.
+                        const data = action.payload?.data;
+                        if (data?.account_key) {
+                                posthog.identify(
+                                        data.account_key,
+                                        {
+                                                account_key:  data.account_key,
+                                                account_id:   data.account_id   ?? null,
+                                                company_name: data.company_name  ?? null,
+                                                email:        data.email         ?? null,
+                                        }
+                                );
+                        }
                 });
         },
 });
