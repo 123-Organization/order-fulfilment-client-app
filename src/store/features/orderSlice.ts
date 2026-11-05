@@ -526,6 +526,7 @@ export const fetchSquarespaceOrders = createAsyncThunk(
       startDate: string;
       endDate: string;
       fulfillmentStatus?: string;
+      account_key?: string;
     },
     thunkAPI
   ) => {
