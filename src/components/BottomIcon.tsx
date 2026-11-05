@@ -121,11 +121,14 @@ const IGNORE_NON_FINERWORKS_KEY = 'fw_ignore_non_finerworks';
  * orders whose every line item is a non-Finerworks product.
  *
  * Rules (when the toggle is enabled):
- *  1. A line item whose `sku` starts with "AP" (case-insensitive) is valid.
+ *  1. A line item whose `sku` starts with "AP" (case-insensitive) is always kept.
  *  2. Otherwise the `sku` is sent to the get-product-details API.
- *     If isActiveSKU === true the item is valid.
- *  3. An order that has AT LEAST ONE valid item is kept (all its items are kept).
- *  4. An order with ZERO valid items is dropped.
+ *     - If the API returns a record with isActiveSKU === false → item is invalid.
+ *     - If the API returns a record with isActiveSKU !== false → item is valid.
+ *     - If the API returns NO record for the SKU (unknown product) → item is kept
+ *       (fail-open: we only filter what we can positively identify as inactive).
+ *  3. An order that has AT LEAST ONE valid/unknown item is kept.
+ *  4. An order whose every item is explicitly marked inactive is dropped.
  *
  * If the toggle is disabled the function returns all orders unchanged.
  */
@@ -149,11 +152,20 @@ const filterNonFinerworksOrders = async (
     }
   }
 
-  // Verify non-AP SKUs via the product-details API
-  const validSkuSet = new Set<string>();
+  // Verify non-AP SKUs via the product-details API.
+  // invalidSkuSet: SKUs the API explicitly marked as inactive (isActiveSKU === false).
+  // unknownSkuSet: SKUs the API returned no record for — treated as unknown → keep.
+  const invalidSkuSet = new Set<string>();
+  const verifiedSkuSet = new Set<string>(); // SKUs the API returned any record for
   if (nonApSkus.size > 0) {
     try {
-      const products = Array.from(nonApSkus).map(sku => ({ product_code: sku }));
+      // The API expects `product_sku` as the lookup key (not `product_code` —
+      // that is an output field containing the internal print code like "5M144M8S8X10").
+      const products = Array.from(nonApSkus).map(sku => ({
+        product_sku: sku,
+        product_qty: 1,
+        product_image: { product_url_file: '', product_url_thumbnail: '' },
+      }));
       const response = await fetch('https://fa-ls.finerworks.com/api/get-product-details', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -163,10 +175,13 @@ const filterNonFinerworksOrders = async (
         const data = await response.json();
         const productList: any[] = data?.data?.product_list || [];
         productList.forEach((p: any) => {
-          if (p?.isActiveSKU !== false) {
-            // Mark both sku and product_code as valid
-            if (p?.sku) validSkuSet.add(p.sku);
-            if (p?.product_code) validSkuSet.add(p.product_code);
+          // Track every SKU the API returned a record for
+          if (p?.sku) verifiedSkuSet.add(p.sku);
+          if (p?.product_code) verifiedSkuSet.add(p.product_code);
+          // Only mark explicitly inactive SKUs as invalid
+          if (p?.isActiveSKU === false) {
+            if (p?.sku) invalidSkuSet.add(p.sku);
+            if (p?.product_code) invalidSkuSet.add(p.product_code);
           }
         });
       }
@@ -177,13 +192,20 @@ const filterNonFinerworksOrders = async (
   }
 
   /**
-   * Returns true if a line item is considered a valid Finerworks product.
+   * Returns true if a line item should be kept.
+   * - SKU starts with "AP"              → always keep (Finerworks art print)
+   * - API returned record + isActiveSKU !== false  → keep
+   * - API returned NO record for SKU    → unknown product, keep (fail-open)
+   * - API returned record + isActiveSKU === false  → drop (explicitly inactive)
    */
   const isValidItem = (item: any): boolean => {
     const sku: string = item.sku || '';
     if (!sku) return false;
     if (sku.toUpperCase().startsWith('AP')) return true;
-    return validSkuSet.has(sku);
+    // If the API explicitly flagged this SKU as inactive, drop it
+    if (invalidSkuSet.has(sku)) return false;
+    // If the API returned no record for this SKU, it's unknown — keep it
+    return true;
   };
 
   const kept: any[] = [];
