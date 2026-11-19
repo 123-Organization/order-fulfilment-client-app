@@ -317,7 +317,9 @@
 }
 
 @media (max-width: 1024px) {
-
+  .ant-layout-content {
+    padding: 0px !important;
+  }
 }
 
 @media (max-width: 1280px) {

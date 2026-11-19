@@ -483,11 +483,11 @@ const SelectShippingOption: React.FC<{
         </Form>
 
         <div className="w-full pt-3"></div>
-        <div className="w-full text-[12px] text-gray-700 leading-tight flex justify-between"><span className="text-blue-600 font-medium">Sub Total</span><span>${subTotal.toFixed(2)}</span></div>
-        <div className="w-full text-[12px] text-gray-700 leading-tight flex justify-between"><span className="text-blue-600 font-medium">Discount</span><span>(${discount.toFixed(2)})</span></div>
-        <div className="w-full text-[12px] text-gray-700 leading-tight flex justify-between"><span className="text-blue-600 font-medium">Shipping</span><span>${shipping.toFixed(2)}</span></div>
-        <div className="w-full text-[12px] text-gray-700 leading-tight flex justify-between"><span className="text-blue-600 font-medium">Sales Tax</span><span>${salesTax.toFixed(2)}</span></div>
-        <div className="w-full text-[12px] text-gray-700 leading-tight flex justify-between"><span className="text-blue-600 font-medium">Grand Total</span><span>${grandTotal}</span></div>
+        <div className="w-full text-[12px] text-gray-700 leading-tight flex justify-between items-center gap-2"><span className="text-blue-600 font-medium">Sub Total</span><span className="whitespace-nowrap flex-shrink-0 font-medium">${subTotal.toFixed(2)}</span></div>
+        <div className="w-full text-[12px] text-gray-700 leading-tight flex justify-between items-center gap-2"><span className="text-blue-600 font-medium">Discount</span><span className="whitespace-nowrap flex-shrink-0 font-medium">(${discount.toFixed(2)})</span></div>
+        <div className="w-full text-[12px] text-gray-700 leading-tight flex justify-between items-center gap-2"><span className="text-blue-600 font-medium">Shipping</span><span className="whitespace-nowrap flex-shrink-0 font-medium">${shipping.toFixed(2)}</span></div>
+        <div className="w-full text-[12px] text-gray-700 leading-tight flex justify-between items-center gap-2"><span className="text-blue-600 font-medium">Sales Tax</span><span className="whitespace-nowrap flex-shrink-0 font-medium">${salesTax.toFixed(2)}</span></div>
+        <div className="w-full text-[12px] text-gray-700 leading-tight flex justify-between items-center gap-2"><span className="text-blue-600 font-medium">Grand Total</span><span className="whitespace-nowrap flex-shrink-0 font-medium">${grandTotal}</span></div>
         {/* <div className="w-full text-[12px] text-gray-700 leading-tight"><span className="text-amber-500 font-medium">Account Credit:</span> ${accountCredit}</div> */}
       </>
     );

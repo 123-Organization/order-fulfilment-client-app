@@ -11,6 +11,7 @@ import square from "../assets/images/store-square.svg";
 import squarespace from "../assets/images/store-squarespace.svg";
 import wix from "../assets/images/store-wix.svg";
 import woocommerce from "../assets/images/store-woocommerce.svg";
+import tiktok from "../tiktok-svgrepo-com.svg";
 import { exportOrders, exportToShopify, exportToWix, exportToSquarespace } from "../store/features/InventorySlice";
 import { useNotificationContext } from "../context/NotificationContext";
 import { inventorySelectionClean } from "../store/features/InventorySlice";
@@ -37,6 +38,7 @@ const images = [
   { name: "Square", img: square },
   { name: "WooCommerce", img: woocommerce },
   { name: "Etsy", img: etsy },
+  { name: "TikTok Shop", img: tiktok },
   { name: "Excel", img: excel },
 ];
 
@@ -60,6 +62,8 @@ const ExportModal: React.FC<ExportModalProps> = ({
   const [wixConnectionData, setWixConnectionData] = useState<{ access_token: string } | null>(null);
   const [squarespaceConnected, setSquarespaceConnected] = useState<string>("Disconnected");
   const [squarespaceConnectionData, setSquarespaceConnectionData] = useState<{ access_token: string } | null>(null);
+  const [tiktokConnected, setTiktokConnected] = useState<string>("Disconnected");
+  const [tiktokConnectionData, setTiktokConnectionData] = useState<{ access_token: string } | null>(null);
   const [variantModalVisible, setVariantModalVisible] = useState(false);
   const [variantGroups, setVariantGroups] = useState<any[]>([]);
   const [pendingExportPlatform, setPendingExportPlatform] = useState<string | null>(null);
@@ -504,6 +508,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
       wix?: { access_token: string };
       squarespace?: { access_token: string; sessionId: string; accountKey: string; variant?: boolean };
       woocommerce?: { domainName: string };
+      tiktok?: { access_token: string; account_key: string };
     }
   ): Promise<{ mergedResponse: any; totalUploaded: number; totalFailed: number }> => {
     const BASE = config.SERVER_BASE_URL;
@@ -555,6 +560,18 @@ const ExportModal: React.FC<ExportModalProps> = ({
           variant: sqDetail.variant ?? false,
         };
         response = await fetch(`${BASE}squarespace/sync-products-v2`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "*/*" },
+          body: JSON.stringify(payload),
+        });
+      } else if (platform === "TikTok Shop" && connectionDetails.tiktok) {
+        const payload = {
+          access_token: connectionDetails.tiktok.access_token,
+          account_key: connectionDetails.tiktok.account_key,
+          productsList,
+        };
+        const tiktokBase = config.TIKTOK_API_BASE_URL || BASE;
+        response = await fetch(`${tiktokBase}tiktok/sync-products`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Accept: "*/*" },
           body: JSON.stringify(payload),
@@ -667,6 +684,13 @@ const ExportModal: React.FC<ExportModalProps> = ({
           variant: true,
         },
       });
+    } else if (pendingExportPlatform === "TikTok Shop" && tiktokConnectionData) {
+      await dispatchConcurrentExport("TikTok Shop", formattedGroups, formattedStandalones, {
+        tiktok: {
+          access_token: tiktokConnectionData.access_token,
+          account_key: accountKey,
+        },
+      });
     }
 
     setPendingExportPlatform(null);
@@ -701,6 +725,13 @@ const ExportModal: React.FC<ExportModalProps> = ({
           sessionId: cookies.Session || "",
           accountKey: accountKey || localStorage.getItem('squarespace_account_key') || "",
           variant: false,
+        },
+      });
+    } else if (pendingExportPlatform === "TikTok Shop" && tiktokConnectionData) {
+      await dispatchConcurrentExport("TikTok Shop", [], standalones, {
+        tiktok: {
+          access_token: tiktokConnectionData.access_token,
+          account_key: accountKey,
         },
       });
     }
@@ -884,7 +915,39 @@ const ExportModal: React.FC<ExportModalProps> = ({
         description: `Please connect to Squarespace to export products`,
       });
     }
-    else if (imgname !== "WooCommerce" && imgname !== "Shopify" && imgname !== "Wix" && imgname !== "Squarespace") {
+    // Handle TikTok Shop Export
+    else if (imgname === "TikTok Shop" && tiktokConnected === "Connected") {
+      if (!tiktokConnectionData?.access_token) {
+        notificationApi.error({
+          message: "TikTok Shop Connection Error",
+          description: "Could not retrieve TikTok Shop connection details.",
+        });
+        return;
+      }
+
+      const { hasVariants: hasTtVariants, variantGroups: detectedTtVariants, standaloneProducts: detectedTtStandalones } = detectProductsWithVariants(inventorySelection);
+      if (hasTtVariants) {
+        setVariantGroups(detectedTtVariants);
+        setStandaloneProducts(detectedTtStandalones);
+        setPendingExportPlatform("TikTok Shop");
+        setVariantModalVisible(true);
+        return;
+      }
+
+      await dispatchConcurrentExport("TikTok Shop", [], inventorySelection.map((p: any) => ({ ...p, primaryItem: true })), {
+        tiktok: {
+          access_token: tiktokConnectionData.access_token,
+          account_key: accountKey,
+        },
+      });
+    }
+    else if (imgname === "TikTok Shop" && tiktokConnected === "Disconnected") {
+      notificationApi.error({
+        message: "TikTok Shop Not Connected",
+        description: `Please connect to TikTok Shop to export products`,
+      });
+    }
+    else if (imgname !== "WooCommerce" && imgname !== "Shopify" && imgname !== "Wix" && imgname !== "Squarespace" && imgname !== "TikTok Shop") {
       notificationApi.warning({
         message: "Platform is not supported",
         description: `This platform is not supported yet`,
@@ -1023,6 +1086,37 @@ const ExportModal: React.FC<ExportModalProps> = ({
         setSquarespaceConnected("Disconnected");
         setSquarespaceConnectionData(null);
       }
+
+      // Check TikTok Shop connection
+      let tiktokObj = find(companyInfo.data.connections, (conn: any) => conn.name === "TikTokShop" || conn.name === "TikTok Shop");
+      let localTiktokToken = localStorage.getItem('tiktok_access_token') || localStorage.getItem('tiktok_token');
+      if (tiktokObj?.name || localTiktokToken) {
+        let accessToken = localTiktokToken || tiktokObj?.id || "";
+        let isConn = true;
+        if (tiktokObj?.data) {
+          try {
+            const ttData = JSON.parse(tiktokObj.data || "{}");
+            if (ttData.isConnected === false || ttData.isConnected === 'false') {
+              isConn = false;
+            }
+            if (!accessToken) {
+              accessToken = ttData.access_token || ttData.token || "";
+            }
+          } catch {
+            // Keep defaults
+          }
+        }
+        if (isConn && accessToken) {
+          setTiktokConnected("Connected");
+          setTiktokConnectionData({ access_token: accessToken });
+        } else {
+          setTiktokConnected("Disconnected");
+          setTiktokConnectionData(null);
+        }
+      } else {
+        setTiktokConnected("Disconnected");
+        setTiktokConnectionData(null);
+      }
     }
   }, [companyInfo]);
 
@@ -1075,12 +1169,14 @@ const ExportModal: React.FC<ExportModalProps> = ({
                   const isShopify = image.name === "Shopify";
                   const isWix = image.name === "Wix";
                   const isSquarespace = image.name === "Squarespace";
-                  const isSupportedPlatform = isWooCommerce || isShopify || isWix || isSquarespace;
+                  const isTikTok = image.name === "TikTok Shop";
+                  const isSupportedPlatform = isWooCommerce || isShopify || isWix || isSquarespace || isTikTok;
                   const isConnected = isWooCommerce ? wooConnected === "Connected"
                     : isShopify ? shopifyConnected === "Connected"
                       : isWix ? wixConnected === "Connected"
                         : isSquarespace ? squarespaceConnected === "Connected"
-                          : false;
+                          : isTikTok ? tiktokConnected === "Connected"
+                            : false;
                   const isDisconnected = isSupportedPlatform && !isConnected;
 
                   return (

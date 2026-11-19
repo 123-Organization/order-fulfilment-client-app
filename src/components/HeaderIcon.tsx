@@ -151,10 +151,27 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
   return (
     <>
       {/* Modern Top Navigation Bar */}
-      <div className="fixed top-0 left-20 right-0 h-16 bg-white border-b border-gray-200 z-40 shadow-sm">
-        <div className="h-full px-6 flex items-center justify-between gap-4">
-          {/* Left Section - Page Title & Breadcrumb */}
+      <div className="fixed top-0 left-0 md:left-20 right-0 h-16 bg-white border-b border-gray-200 z-40 shadow-sm">
+        <div className="h-full px-4 sm:px-6 flex items-center justify-between gap-4">
+          {/* Left Section - Burger Menu (mobile) & Page Title & Breadcrumb */}
           <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
+            {/* Mobile Hamburger Button */}
+            <button
+              onClick={() => setDash(!openDash)}
+              type="button"
+              className="md:hidden inline-flex items-center justify-center p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="Toggle navigation menu"
+            >
+              {openDash ? (
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth="1.8" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                </svg>
+              ) : (
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth="1.8" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              )}
+            </button>
             <h1 className="text-xl font-semibold text-gray-800 whitespace-nowrap">
               {location.pathname === "/" || location.pathname === "/importlist" ? "Orders" :
                 location.pathname === "/mycompany" ? "My Company" :
@@ -278,9 +295,9 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
       </div>
 
       <div className={`flex ${!openDash ? addtional : ""}`}>
-        {/* Collapsible Sidebar */}
+        {/* Collapsible Sidebar (desktop only) */}
         <div
-          className="fixed left-0 top-0 z-50 h-full w-20 bg-white border-r border-gray-200 dark:bg-gray-700 dark:border-gray-600 flex flex-col"
+          className="fixed left-0 top-0 z-50 h-full w-20 bg-white border-r border-gray-200 dark:bg-gray-700 dark:border-gray-600 hidden md:flex flex-col"
         >
           {/* Logo Section */}
           <div className="flex items-center justify-center p-4 border-b border-gray-200 dark:border-gray-600">
@@ -402,59 +419,6 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
                 </div>
               </button>
             </div>
-            <div className="relative flex h-16 items-center justify-between md:hidden"></div>
-            <div className="relative flex h-16 items-center justify-self-center justify-between md:hidden">
-              <div className="absolute inset-y-0 left-0 flex items-center ">
-                <div className="relative flex h-16 items-center justify-between md:hidden">
-                  <div className="absolute inset-y-0 left-0 flex items-center ">
-                    <button
-                      onClick={() => setDash(!openDash)}
-                      type="button"
-                      className="relative inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:bg-gray-100 focus:text-gray-600"
-                      aria-controls="mobile-menu11"
-                      aria-expanded={false}
-                    >
-                      <span className="absolute -inset-0.5"></span>
-                      <span className="sr-only">Open main menu</span>
-
-                      {openDash && (
-                        <svg
-                          className="block h-6 w-6"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke-width="1.5"
-                          stroke="currentColor"
-                          aria-hidden="true"
-                        >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
-                          />
-                        </svg>
-                      )}
-
-                      {!openDash && (
-                        <svg
-                          className=" h-6 w-6"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke-width="1.5"
-                          stroke="currentColor"
-                          aria-hidden="true"
-                        >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
 
             {/* Virtual Inventory */}
             <button
@@ -513,13 +477,124 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
           </div>
         </div>
 
-        {/* Mobile Menu - Hidden for now since we have sidebar */}
+        {/* Mobile Navigation Drawer */}
         {!openDash && (
-          <div className="md:hidden fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 z-40">
-            <div className="bg-white w-64 h-full shadow-lg">
-              <div className="p-4">
-                <h3 className="text-lg font-semibold mb-4">Navigation</h3>
-                {/* Mobile navigation items can go here */}
+          <div
+            className="md:hidden fixed inset-0 bg-black/50 z-50 transition-opacity backdrop-blur-sm"
+            onClick={() => setDash(true)}
+          >
+            <div
+              className="bg-white dark:bg-gray-800 w-72 h-full shadow-2xl flex flex-col transition-all duration-300"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Drawer Header */}
+              <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-3">
+                  <img
+                    src={finerWorks}
+                    onClick={() => {
+                      window.location.href = "https://finerworks.com/";
+                    }}
+                    className="cursor-pointer w-8 h-10"
+                    alt="logo"
+                  />
+                  <span className="font-bold text-gray-800 dark:text-gray-100 text-base">FinerWorks</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDash(true)}
+                  className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  aria-label="Close menu"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Drawer Navigation Links */}
+              <div className="flex-1 py-4 px-3 space-y-1.5 overflow-y-auto">
+                <button
+                  type="button"
+                  className={`flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium w-full transition-colors ${
+                    isActive("/") ? "bg-blue-50 text-blue-600 font-semibold" : "text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                  }`}
+                  onClick={() => {
+                    navigate("/");
+                    setDash(true);
+                  }}
+                >
+                  <img
+                    src={store}
+                    width="20"
+                    height="20"
+                    style={{ filter: isActive("/") ? "invert(38%) sepia(98%) saturate(400%) hue-rotate(143deg) brightness(90%)" : undefined }}
+                  />
+                  <span>Import Orders</span>
+                </button>
+
+                <button
+                  type="button"
+                  className={`flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium w-full transition-colors ${
+                    isActive("/importlist") ? "bg-blue-50 text-blue-600 font-semibold" : "text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                  }`}
+                  onClick={() => {
+                    navigate("/importlist");
+                    setDash(true);
+                  }}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke={isActive("/importlist") ? ACTIVE_CLR : "#6B7280"}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>Pending Orders</span>
+                </button>
+
+                <button
+                  type="button"
+                  className={`flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium w-full transition-colors ${
+                    isActive("/virtualinventory") ? "bg-blue-50 text-blue-600 font-semibold" : "text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                  }`}
+                  onClick={() => {
+                    navigate("/virtualinventory");
+                    setDash(true);
+                  }}
+                >
+                  <ProfileOutlined style={{ fontSize: 20, color: isActive("/virtualinventory") ? ACTIVE_CLR : "#6B7280" }} />
+                  <span>Sync Products</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium w-full text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  onClick={() => {
+                    setDisconnectModalVisible(true);
+                    setDash(true);
+                  }}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  </svg>
+                  <span>Disconnect Platform</span>
+                </button>
+              </div>
+
+              {/* Profile at Drawer Bottom */}
+              <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+                <a
+                  href="https://account.finerworks.com/dashboard"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <UserAvatar />
+                  <span>Profile Dashboard</span>
+                </a>
               </div>
             </div>
           </div>

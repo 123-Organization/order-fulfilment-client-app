@@ -26,7 +26,7 @@ import { resetRecipientStatus } from "../store/features/orderSlice";
 import { clearOrderErrors, clearAllShippingCache } from "../store/features/shippingSlice";
 import { clearProductDetails } from "../store/features/productSlice";
 import style from "./Components.module.css";
-import { fetchWporder, fetchShopifyOrders, fetchShopifyOrderByName, fetchSquarespaceOrders, fetchSquarespaceOrderByNumber, resetSquarespaceImportStatus, updateWporder, fetchWixOrders, fetchWixOrderByNumber, resetWixImportStatus, fetchShippoOrders, fetchShippoOrderById, resetShippoImportStatus, fetchSquareOrders, resetSquareImportStatus } from "../store/features/orderSlice";
+import { fetchWporder, fetchShopifyOrders, fetchShopifyOrderByName, fetchSquarespaceOrders, fetchSquarespaceOrderByNumber, resetSquarespaceImportStatus, updateWporder, fetchWixOrders, fetchWixOrderByNumber, resetWixImportStatus, fetchShippoOrders, fetchShippoOrderById, resetShippoImportStatus, fetchSquareOrders, resetSquareImportStatus, fetchTikTokOrders, resetTikTokImportStatus } from "../store/features/orderSlice";
 type NotificationType = "success" | "info" | "warning" | "error";
 interface NotificationAlertProps {
   type: NotificationType;
@@ -1756,6 +1756,160 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
             setNextSpinning(false);
           }
         }
+
+        // ── Handle TikTok Shop orders ─────────────────────────────────────────
+        else if (platformType === 'TikTokShop' || platformType === 'TikTok Shop') {
+          let tiktokAccessToken = '';
+          const tiktokAccountKey = customerInfo?.data?.account_key || '';
+
+          if (companyInfo?.data?.connections) {
+            const tiktokConnection = companyInfo.data.connections.find(
+              (conn: any) => conn.name === 'TikTokShop' || conn.name === 'TikTok Shop'
+            );
+            if (tiktokConnection?.data) {
+              try {
+                const parsed = JSON.parse(tiktokConnection.data);
+                tiktokAccessToken = parsed.access_token || parsed.token || '';
+              } catch {
+                tiktokAccessToken = tiktokConnection.id || '';
+              }
+            } else if (tiktokConnection?.id) {
+              tiktokAccessToken = tiktokConnection.id;
+            }
+          }
+
+          if (!tiktokAccountKey) {
+            notification.error({
+              message: 'Not Connected',
+              description: 'No account key found. Please check your account profile or reconnect TikTok Shop.',
+            });
+            setTimeout(() => navigate('/'), 1500);
+            return;
+          }
+
+          if (!myImport?.start_date || !myImport?.end_date) {
+            notification.warning({
+              message: 'Missing Information',
+              description: 'Please select a start and end date to import TikTok Shop orders.',
+            });
+            return;
+          }
+
+          setNextSpinning(true);
+
+          try {
+            const result = await dispatch(
+              fetchTikTokOrders({
+                account_key: tiktokAccountKey,
+                access_token: tiktokAccessToken,
+                startDate: myImport.start_date,
+                endDate: myImport.end_date,
+              })
+            );
+
+            const payload = result.payload as any;
+
+            const rawOrders: any[] =
+              Array.isArray(payload?.orders) ? payload.orders
+                : Array.isArray(payload?.order_list) ? payload.order_list
+                  : Array.isArray(payload?.data?.orders) ? payload.data.orders
+                    : Array.isArray(payload?.data?.order_list) ? payload.data.order_list
+                      : Array.isArray(payload?.data) ? payload.data
+                        : Array.isArray(payload) ? payload
+                          : [];
+
+            if (rawOrders.length > 0) {
+              const transformedOrders = rawOrders.map((ttOrder: any, orderIndex: number) => {
+                const recipientAddr = ttOrder.recipient_address || ttOrder.shipping_address || ttOrder.recipient || {};
+                const name = recipientAddr.name || recipientAddr.full_name || '';
+                const nameParts = name.trim().split(/\s+/);
+                const firstName = recipientAddr.first_name || nameParts[0] || '';
+                const lastName = recipientAddr.last_name || nameParts.slice(1).join(' ') || '';
+                const lineItems: any[] = ttOrder.item_list || ttOrder.line_items || ttOrder.order_items || ttOrder.items || [];
+
+                return {
+                  order_po: `TIKTOK_${ttOrder.id || ttOrder.order_id || orderIndex}`,
+                  order_key: String(ttOrder.id || ttOrder.order_id || ''),
+                  source: 'tiktok',
+                  recipient: {
+                    first_name: firstName,
+                    last_name: lastName,
+                    company_name: recipientAddr.company || recipientAddr.company_name || '',
+                    address_1: recipientAddr.address_line1 || recipientAddr.address1 || recipientAddr.street1 || recipientAddr.address_detail || '',
+                    address_2: recipientAddr.address_line2 || recipientAddr.address2 || recipientAddr.street2 || '',
+                    address_3: '',
+                    city: recipientAddr.city || recipientAddr.town || recipientAddr.district || '',
+                    state_code: recipientAddr.state_code || recipientAddr.state || recipientAddr.region || recipientAddr.province || '',
+                    province: recipientAddr.province || recipientAddr.state || '',
+                    zip_postal_code: recipientAddr.zip_postal_code || recipientAddr.postal_code || recipientAddr.zip_code || recipientAddr.zip || '',
+                    country_code: (recipientAddr.country_code || recipientAddr.country || 'US').toUpperCase(),
+                    phone: recipientAddr.phone_number || recipientAddr.phone || '',
+                    email: ttOrder.buyer_email || recipientAddr.email || '',
+                    address_order_po: '',
+                  },
+                  order_items: lineItems.map((item: any, itemIndex: number) => ({
+                    product_order_po: `TIKTOK_P_${orderIndex}_${itemIndex}`,
+                    product_qty: item.quantity || item.qty || 1,
+                    product_sku: item.seller_sku || item.sku || item.product_sku || item.sku_id || '',
+                    product_title: item.product_name || item.title || item.name || '',
+                    product_guid: item.id || item.item_id || item.sku_id || crypto.randomUUID(),
+                  })),
+                  order_status: 'Processing',
+                  shipping_code: 'GD',
+                  test_mode: false,
+                };
+              });
+
+              const sendData = {
+                accountId: customerInfo?.data?.account_id,
+                payment_token: customerInfo?.data?.account_key,
+                orders: transformedOrders,
+              };
+
+              const saveResult = await dispatch(saveShopifyOrder(sendData));
+              console.log('[TikTok Shop] saveShopifyOrder result:', saveResult);
+
+              if ((saveResult as any).meta?.requestStatus === 'rejected') {
+                notification.error({
+                  message: 'Upload Failed',
+                  description: 'Orders were fetched from TikTok Shop but could not be uploaded to pending orders. Please try again.',
+                });
+                return;
+              }
+
+              notification.success({
+                message: 'Success',
+                description: getUploadDescription(saveResult, 'TikTok Shop', transformedOrders.length),
+              });
+
+              setTimeout(() => {
+                dispatch(resetSaveOrderInfo());
+                dispatch(resetImport());
+                dispatch(updateWporder('' as any));
+                dispatch(clearAllShippingCache());
+                dispatch(clearProductDetails());
+                navigate('/importlist');
+              }, 2000);
+            } else {
+              console.warn('[TikTok Shop] No orders extracted from TikTok payload:', payload);
+              notification.warning({
+                message: 'No Orders Found',
+                description:
+                  payload?.message ||
+                  'No TikTok Shop orders matched the selected criteria.',
+              });
+            }
+          } catch (error) {
+            console.error('Error fetching TikTok Shop orders:', error);
+            notification.error({
+              message: 'Error',
+              description: 'An error occurred while fetching TikTok Shop orders.',
+            });
+          } finally {
+            dispatch(resetTikTokImportStatus());
+            setNextSpinning(false);
+          }
+        }
       }
 
       if (location.pathname === "/billingaddress") {
@@ -2173,7 +2327,7 @@ const BottomIcon: React.FC<bottomIconProps> = ({ collapsed, setCollapsed }) => {
       <div>{contextHolder}</div>
 
       {/* Glassmorphism Bottom Navigation */}
-      <div className="fixed bottom-6 left-28 right-6 z-40 flex items-center justify-between gap-4">
+      <div className="fixed bottom-6 left-4 md:left-28 right-6 z-40 flex items-center justify-between gap-4">
         {backVisiable && (
           <div className="backdrop-blur-xl bg-white/70 border border-white/40 rounded-2xl shadow-2xl hover:shadow-blue-200/50 transition-all duration-300 hover:-translate-y-1">
             <Button

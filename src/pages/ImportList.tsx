@@ -1812,7 +1812,7 @@ const ImportList: React.FC = () => {
 
   return (
     <div
-      className={`flex justify-end items-center  h-full p-8 ${style.overAll_box}`}
+      className={`flex justify-end items-center h-full p-2 sm:p-4 md:py-6 md:pl-2 md:pr-1 lg:pl-4 lg:pr-3 xl:p-8 ${style.overAll_box}`}
     >
       <style>{`
         @keyframes pulse-border {
@@ -1847,7 +1847,7 @@ const ImportList: React.FC = () => {
         className={`h-auto pt-4 mt-10 w-full ${style.overAll_box}`}
         style={{ background: isDark ? "#080c14" : "#f3f4f6" }}
       >
-        <div className="flex justify-between items-center mb-10 px-9">
+        <div className="flex justify-between items-center mb-10 px-3 sm:px-4 md:px-4 lg:px-6 xl:px-9">
           <div className="flex items-center gap-3 mt-2">
             <h1 className="text-left text-2xl font-bold">Pending Orders</h1>
             <span
@@ -1987,7 +1987,7 @@ const ImportList: React.FC = () => {
           </div>
         </div>
         <div
-          className={`mx-auto max-w-7xl justify-center px-6 md:flex md:space-x-6 xl:px-0 ${style.orderes_box}`}
+          className={`mx-auto max-w-7xl justify-center px-1 sm:px-2 md:px-1 lg:px-4 xl:px-0 w-full md:flex md:space-x-6 ${style.orderes_box}`}
         >
           <div className="rounded-lg md:w-full">
             {filteredOrders && filteredOrders.length > 0 ? (
@@ -2009,7 +2009,7 @@ const ImportList: React.FC = () => {
                 return (
                   <div
                     key={index}
-                    className="justify-between mb-6 rounded-lg p-6 shadow-md sm:flex-row sm:justify-start space-y-2 relative overflow-hidden"
+                    className="flex flex-col mb-6 rounded-lg p-4 shadow-md space-y-3 relative overflow-hidden"
                     style={{
                       background: isDark
                         ? "#0f1724"
@@ -2069,7 +2069,7 @@ const ImportList: React.FC = () => {
                         </span>
                       </div>
                     )}
-                    <ul className="grid w-100  md:grid-cols-2 md:grid-rows-1 items-start ">
+                    <ul className="grid w-full md:grid-cols-2 md:grid-rows-1 items-start min-w-0 overflow-hidden">
                       <li className="flex-1">
                         {(() => {
                           const apisNotReady =
@@ -2359,7 +2359,7 @@ const ImportList: React.FC = () => {
                     </ul>
 
                     <ul
-                      className="grid w-full gap-4 md:grid-cols-[minmax(180px,1fr)_minmax(300px,2fr)_minmax(200px,1fr)]"
+                      className="grid w-full gap-3 lg:gap-4 grid-cols-1 md:grid-cols-[minmax(150px,1fr)_minmax(260px,2fr)_minmax(195px,1fr)]"
                       key={index}
                     >
                       <li>
@@ -2899,7 +2899,7 @@ const ImportList: React.FC = () => {
                                         }}
                                       />
                                     </div>
-                                    <div className={`flex gap-3 ${style.description_box}`}>
+                                    <div className={`flex gap-3 min-w-0 overflow-hidden ${style.description_box}`}>
                                       {/* Image */}
                                       <div className={`flex-shrink-0 ${style.importlist_pic}`}>
                                         {(() => {
@@ -3021,7 +3021,7 @@ const ImportList: React.FC = () => {
                                                   < >
                                                     {/* Type label as header */}
                                                     {typeLabel && (
-                                                      <div className="text-[13px] font-semibold text-gray-800 mb-1.5 pb-1 border-b border-gray-100">
+                                                      <div className="text-[13px] font-semibold text-gray-800 mb-1.5 pb-1 border-b border-gray-100 pr-[130px]">
                                                         <span className="text-blue-600 font-medium">type:</span> {typeLabel.value}
                                                       </div>
                                                     )}
@@ -3029,7 +3029,7 @@ const ImportList: React.FC = () => {
                                                     <div className={`space-y-1 transition-all duration-300 ${isExpanded ? 'max-h-[500px]' : 'max-h-[300px] overflow-hidden'
                                                       }`}>
                                                       {otherLabels.map((label: any, idx: number) => (
-                                                        <div key={idx} className="text-[12px] text-gray-700 leading-tight">
+                                                        <div key={idx} className={`text-[12px] text-gray-700 leading-tight ${!typeLabel && idx === 0 ? 'pr-[130px]' : ''}`}>
                                                           <span className="text-blue-600 font-medium">{label.key}:</span> {label.value}
                                                         </div>
                                                       ))}
@@ -3049,7 +3049,7 @@ const ImportList: React.FC = () => {
                                                 );
                                               })()
                                             ) : (
-                                              <div className={`w-full text-xs text-gray-600 ${style.order_description}`}>
+                                              <div className={`w-full text-xs text-gray-600 pr-[130px] ${style.order_description}`}>
                                                 {(() => {
                                                   const desc = getProductDetail(orderItem)?.description_long || "";
                                                   // Hide API error messages returned as description (e.g. "Invalid product_sku...")
@@ -3230,7 +3230,7 @@ const ImportList: React.FC = () => {
                       </li>
                       <li>
                         <label
-                          className={`h-[220px] inline-flex justify-between w-full p-5 rounded-lg cursor-pointer border-2 ${hasInvalidSKUs(order?.order_items) ? 'opacity-50 pointer-events-none' : ''}`}
+                          className={`h-[220px] inline-flex justify-between w-full p-3.5 sm:p-4 lg:p-5 rounded-lg cursor-pointer border-2 ${hasInvalidSKUs(order?.order_items) ? 'opacity-50 pointer-events-none' : ''}`}
                           style={{
                             background: isDark ? "#0c1520" : "#ffffff",
                             borderColor: isDark ? "#1e2d42" : "#e5e7eb",

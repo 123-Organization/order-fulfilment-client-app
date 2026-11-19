@@ -42,6 +42,16 @@ const SQUARE_STATUSES = [
   { value: 'DRAFT',     label: 'Draft'     },
 ];
 
+// TikTok Shop order status options
+const TIKTOK_STATUSES = [
+  { value: 'AWAITING_SHIPMENT',   label: 'Awaiting Shipment' },
+  { value: 'AWAITING_COLLECTION', label: 'Awaiting Collection' },
+  { value: 'IN_TRANSIT',          label: 'In Transit' },
+  { value: 'DELIVERED',           label: 'Delivered' },
+  { value: 'COMPLETED',           label: 'Completed' },
+  { value: 'CANCELLED',           label: 'Cancelled' },
+];
+
 const countryList = require("../json/order_status_same_label.json");
 const { RangePicker } = DatePicker; 
 const { Option } = Select;
@@ -362,7 +372,7 @@ const ImportFilter: React.FC = () => {
             }}
             onSearch={onSearch}
             filterOption={filterOption}
-            options={typeValue === 'Squarespace' ? SQUARESPACE_STATUSES : typeValue === 'Wix' ? WIX_STATUSES : typeValue === 'Etsy' ? SHIPPO_STATUSES : typeValue === 'Square' ? SQUARE_STATUSES : countryList}
+            options={typeValue === 'Squarespace' ? SQUARESPACE_STATUSES : typeValue === 'Wix' ? WIX_STATUSES : typeValue === 'Etsy' ? SHIPPO_STATUSES : typeValue === 'Square' ? SQUARE_STATUSES : typeValue === 'TikTokShop' || typeValue === 'TikTok Shop' ? TIKTOK_STATUSES : countryList}
             // value={
             //   convertUsStateAbbrAndName(countryCode.toUpperCase())
             // }

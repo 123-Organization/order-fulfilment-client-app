@@ -62,7 +62,7 @@ function AppShell() {
             </Header>
             <Content
               style={{
-                padding: "50px",
+                padding: "0px",
                 background: isDark ? "#080c14" : undefined,
               }}
             >
