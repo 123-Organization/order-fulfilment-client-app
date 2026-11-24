@@ -128,6 +128,8 @@
   width: 100%;
   display: flex;
   align-items: flex-start;
+  overflow: hidden;
+  min-width: 0;
 }
 
 
@@ -144,10 +146,19 @@
   width: 100%;
 }
 
-@media (max-width: 832px) {
+@media (max-width: 1024px) {
   .overAll_box {
     width: 100%;
-    padding: 0px;
+    padding: 0px !important;
+    padding-left: 0px !important;
+    padding-right: 0px !important;
+  }
+
+  .orderes_box {
+    width: 100%;
+    padding: 0px !important;
+    padding-left: 0px !important;
+    padding-right: 0px !important;
   }
 }
 
@@ -157,17 +168,13 @@
     padding: 10px 0px;
   }
 
-  .orderes_box {
-    width: 100%;
-    padding: 0px;
-  }
-
   .orderes_lable {
     width: 100%;
   }
 
   .importlist_pic {
-    width: 90%;
+    width: auto;
+    flex-shrink: 0;
   }
 }
 
@@ -184,9 +191,9 @@
   .order_description {
     font-size: 11px;
     line-height: 1.2;
-    height: 300px;
+    max-height: 120px;
     -webkit-line-clamp: 3;
-    overflow: visible;
+    overflow: hidden;
   }
 }
 
@@ -204,9 +211,9 @@
   .order_description {
     font-size: 11px;
     line-height: 1.5;
-    height: 400px;
+    max-height: 160px;
     -webkit-line-clamp: 5;
-    overflow: visible;
+    overflow: hidden;
   }
 }
 

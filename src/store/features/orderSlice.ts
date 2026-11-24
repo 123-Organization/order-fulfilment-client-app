@@ -37,6 +37,8 @@ interface OrderState {
   shippoImportStatus: "idle" | "loading" | "succeeded" | "failed";
   squareOrdersResponse: any;
   squareImportStatus: "idle" | "loading" | "succeeded" | "failed";
+  tiktokOrdersResponse: any;
+  tiktokImportStatus: "idle" | "loading" | "succeeded" | "failed";
   Wporder: any;
   appLunched: boolean;
   iframeOpened: boolean;
@@ -89,6 +91,8 @@ const initialState: OrderState = {
   shippoImportStatus: "idle",
   squareOrdersResponse: null,
   squareImportStatus: "idle",
+  tiktokOrdersResponse: null,
+  tiktokImportStatus: "idle",
   validSKU: [],
   validatedOrders: {},
   error: null,
@@ -526,6 +530,7 @@ export const fetchSquarespaceOrders = createAsyncThunk(
       startDate: string;
       endDate: string;
       fulfillmentStatus?: string;
+      account_key?: string;
     },
     thunkAPI
   ) => {
@@ -793,6 +798,81 @@ export const fetchSquareOrders = createAsyncThunk(
     } catch (error) {
       console.error('API call failed in fetchSquareOrders:', error);
       return thunkAPI.rejectWithValue('Failed to fetch Square orders');
+    }
+  }
+);
+
+
+// ── TikTok Shop orders ────────────────────────────────────────────────────────
+export const fetchTikTokOrders = createAsyncThunk(
+  "order/fetch/tiktok",
+  async (
+    postData: {
+      account_key: string;
+      access_token?: string;
+      startDate?: string;
+      endDate?: string;
+    },
+    thunkAPI
+  ) => {
+    console.log('Fetching TikTok Shop orders with:', { ...postData, access_token: '***' });
+    try {
+      const response = await fetch(
+        config.TIKTOK_API_BASE_URL + `tiktok/orders`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(postData),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error('API error in fetchTikTokOrders:', data);
+        return thunkAPI.rejectWithValue(data);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('API call failed in fetchTikTokOrders:', error);
+      return thunkAPI.rejectWithValue('Failed to fetch TikTok Shop orders');
+    }
+  }
+);
+
+
+// ── TikTok Shop fulfillment ───────────────────────────────────────────────────
+export const fulfillTikTokOrder = createAsyncThunk(
+  "order/fulfill/tiktok",
+  async (
+    postData: {
+      account_key: string;
+      order_id: string;
+      trackingNumber: string;
+      shipping_provider_id: string;
+    },
+    thunkAPI
+  ) => {
+    console.log('[TikTok] Fulfilling order:', postData.order_id);
+    try {
+      const response = await fetch(
+        config.TIKTOK_API_BASE_URL + `tiktok/fulfill-order`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(postData),
+        }
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        console.error('[TikTok] Fulfill API error:', data);
+        return thunkAPI.rejectWithValue(data);
+      }
+      return data;
+    } catch (error) {
+      console.error('[TikTok] Fulfill API call failed:', error);
+      return thunkAPI.rejectWithValue('Failed to fulfill TikTok Shop order');
     }
   }
 );
@@ -1246,6 +1326,12 @@ export const OrderSlice = createSlice({
     resetSquareImportStatus: (state) => {
       state.squareImportStatus = 'idle';
     },
+    resetTikTokOrdersResponse: (state) => {
+      state.tiktokOrdersResponse = null;
+    },
+    resetTikTokImportStatus: (state) => {
+      state.tiktokImportStatus = 'idle';
+    },
     resetSaveOrderInfo: (state) => {
       state.saveOrderInfo = {}
     },
@@ -1587,6 +1673,18 @@ export const OrderSlice = createSlice({
       state.squareImportStatus = 'failed';
       state.error = (action.payload as any)?.message || (action.payload as string);
     });
+    // ── TikTok Shop orders ───────────────────────────────────────────────────
+    builder.addCase(fetchTikTokOrders.pending, (state) => {
+      state.tiktokImportStatus = 'loading';
+    });
+    builder.addCase(fetchTikTokOrders.fulfilled, (state, action) => {
+      state.tiktokOrdersResponse = action.payload;
+      state.tiktokImportStatus = 'succeeded';
+    });
+    builder.addCase(fetchTikTokOrders.rejected, (state, action) => {
+      state.tiktokImportStatus = 'failed';
+      state.error = (action.payload as any)?.message || (action.payload as string);
+    });
 
     builder.addCase(sendOrderInformation.fulfilled, (state, action) => {
       state.sendOrderInfoStatus = 'succeeded';
@@ -1634,4 +1732,4 @@ export const OrderSlice = createSlice({
 });
 
 export default OrderSlice.reducer;
-export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setShippingLoading, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, removeSubmittedOrders, updateIframe, updateApp, updateOpenSheet, updateExcludedOrders, resetExcludedOrders, updateValidSKU, resetValidSKU, updateReplacingCode, resetReplacingCode, resetReplaceCodeResult, resetReplaceCodeStatus, resetSubmitStatus, resetSendOrderInfoStatus, resetSubmitOrdersResponse, resetShopifyOrdersResponse, resetSaveOrderInfo, resetUpdateImageStatus, resetSquarespaceOrdersResponse, resetSquarespaceImportStatus, resetWixOrdersResponse, resetWixImportStatus, resetShippoOrdersResponse, resetShippoImportStatus, resetSquareOrdersResponse, resetSquareImportStatus, patchOrderItemQuantity, patchSingleOrderInList, resetRefreshOrderStatus } = OrderSlice.actions;
+export const { addOrder, updateImport, updateCheckedOrders, updateOrderStatus, setUpdatedValues, resetOrderStatus, setShippingLoading, setCurrentOrderFullFillmentId, resetProductDataStatus, resetRecipientStatus, updateWporder, resetDeleteOrderStatus, updateSubmitedOrders, resetSubmitedOrders, resetImport, removeSubmittedOrders, updateIframe, updateApp, updateOpenSheet, updateExcludedOrders, resetExcludedOrders, updateValidSKU, resetValidSKU, updateReplacingCode, resetReplacingCode, resetReplaceCodeResult, resetReplaceCodeStatus, resetSubmitStatus, resetSendOrderInfoStatus, resetSubmitOrdersResponse, resetShopifyOrdersResponse, resetSaveOrderInfo, resetUpdateImageStatus, resetSquarespaceOrdersResponse, resetSquarespaceImportStatus, resetWixOrdersResponse, resetWixImportStatus, resetShippoOrdersResponse, resetShippoImportStatus, resetSquareOrdersResponse, resetSquareImportStatus, resetTikTokOrdersResponse, resetTikTokImportStatus, patchOrderItemQuantity, patchSingleOrderInList, resetRefreshOrderStatus } = OrderSlice.actions;

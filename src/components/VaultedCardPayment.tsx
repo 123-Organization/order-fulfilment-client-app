@@ -16,6 +16,7 @@ import LoadingOverlay from "./LoadingOverlay";
 import { updateSubmitedOrders } from "../store/features/orderSlice";
 import config from "../config/configs";
 const BASE_URL = config.SERVER_BASE_URL;
+const TIKTOK_BASE_URL = config.TIKTOK_API_BASE_URL;
 
 export default function VaultedCardPayment({
   Amount,
@@ -269,6 +270,20 @@ export default function VaultedCardPayment({
         if (isWix && wixAccessToken && accountKey) {
           const webhookUrl = `${BASE_URL}api/wix/fulfill-order?access_token=${encodeURIComponent(wixAccessToken)}&orderNumber=${encodeURIComponent(order.order_po)}&account_key=${encodeURIComponent(accountKey)}&orderId=${encodeURIComponent(order.order_key)}`;
           console.log("Injecting Wix webhook_url for order:", order.order_po);
+          return { ...order, webhook_url: webhookUrl };
+        }
+
+        // ── TikTok Shop fulfillment ──
+        const isTikTok =
+          order.source === "tiktok" ||
+          order.source?.toLowerCase() === "tiktok" ||
+          order.order_po?.startsWith("TIKTOK_");
+
+        if (isTikTok && accountKey && order.order_key) {
+          // The webhook URL will be called by FinerWorks after printing with
+          // tracking info appended as query params: trackingNumber & shipping_provider_id
+          const webhookUrl = `${TIKTOK_BASE_URL}tiktok/fulfill-order?account_key=${encodeURIComponent(accountKey)}&order_id=${encodeURIComponent(order.order_key)}`;
+          console.log("Injecting TikTok Shop webhook_url for order:", order.order_po, "order_id:", order.order_key);
           return { ...order, webhook_url: webhookUrl };
         }
 

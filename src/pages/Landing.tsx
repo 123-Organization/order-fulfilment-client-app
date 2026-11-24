@@ -43,15 +43,17 @@ const TIKTOK_ENABLED = true;
 
 
 const images = [
+  // ── Live integrations ──────────────────────────────────────────────────────
   { name: "Squarespace", img: squarespace },
-  { name: "Shopify", img: shopify },
   { name: "Wix", img: wix },
-  { name: "BigCommerce", img: bigcommerce },
-  { name: "Square", img: square },
   { name: "WooCommerce", img: woocommerce },
   { name: "Etsy", img: etsy },
-  { name: "TikTok Shop", img: tiktok },
+  { name: "Square", img: square },
   { name: "Excel", img: excel },
+  // ── Coming Soon ────────────────────────────────────────────────────────────
+  { name: "Shopify", img: shopify },
+  { name: "BigCommerce", img: bigcommerce },
+  { name: "TikTok Shop", img: tiktok },
 ];
 
 export enum StepType {
@@ -1719,7 +1721,7 @@ const Landing: React.FC = (): JSX.Element => {
           const status = getStatus(image.name);
           const enabled = ENABLED.includes(image.name);
           // "Coming Soon" applies to Shopify and Square while their integrations are being finalized
-          const isComingSoon = (image.name === "Square" && !SQUARE_ENABLED) || (image.name === "Shopify" && !SHOPIFY_ENABLED) || (image.name === "BigCommerce" && !BIGCOMMERCE_ENABLED);
+          const isComingSoon = (image.name === "Square" && !SQUARE_ENABLED) || (image.name === "Shopify" && !SHOPIFY_ENABLED) || (image.name === "BigCommerce" && !BIGCOMMERCE_ENABLED) || (image.name === "TikTok Shop" && !TIKTOK_ENABLED);
           const isConnected = status === "connected";
           const hasOrderSync = ORDER_SYNC_PLATFORMS[image.name] === true;
           const orderSyncOn = image.name === "Wix" ? wixOrderSync : image.name === "Shopify" ? shopifyOrderSync : squarespaceOrderSync;
