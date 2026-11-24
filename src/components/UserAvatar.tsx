@@ -49,7 +49,7 @@ export default function UserAvatar() {
       key: "1",
       label: (
         <a
-          href="https://account.finerworks.com/dashboard"
+          href=""
           target="_blank"
           rel="noopener noreferrer"
           className="text-sm text-gray-500 flex gap-1"
@@ -78,7 +78,7 @@ export default function UserAvatar() {
       label: (
         <a
           rel="noopener noreferrer"
-          href="https://finerworks.com/login.aspx?mode=logout"
+          href="https://account.finerworks.com/logout"
           className="flex gap-1 text-sm "
           onClick={onLogout}
         >
@@ -94,7 +94,7 @@ export default function UserAvatar() {
       key: "1",
       label: (
         <a
-          href={`https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`}
+          href="https://account.finerworks.com/login?ReturnUrl=https://fa.finerworks.com"
           rel="noopener noreferrer"
           className="text-sm  text-gray-500 flex gap-1"
         >

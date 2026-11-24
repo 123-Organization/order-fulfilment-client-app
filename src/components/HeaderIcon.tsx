@@ -466,7 +466,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
 
             {/* User Profile */}
             <a
-              href="https://account.finerworks.com/dashboard"
+              // href="https://account.finerworks.com/dashboard"
               className="flex flex-col items-center justify-center py-1 px-1 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200 text-xs group w-full rounded-lg hover:shadow-sm cursor-pointer"
             >
               <div className="p-1.5 rounded-lg group-hover:bg-gray-200 transition-all duration-200">
@@ -516,9 +516,8 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
               <div className="flex-1 py-4 px-3 space-y-1.5 overflow-y-auto">
                 <button
                   type="button"
-                  className={`flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium w-full transition-colors ${
-                    isActive("/") ? "bg-blue-50 text-blue-600 font-semibold" : "text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
-                  }`}
+                  className={`flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium w-full transition-colors ${isActive("/") ? "bg-blue-50 text-blue-600 font-semibold" : "text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                    }`}
                   onClick={() => {
                     navigate("/");
                     setDash(true);
@@ -535,9 +534,8 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
 
                 <button
                   type="button"
-                  className={`flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium w-full transition-colors ${
-                    isActive("/importlist") ? "bg-blue-50 text-blue-600 font-semibold" : "text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
-                  }`}
+                  className={`flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium w-full transition-colors ${isActive("/importlist") ? "bg-blue-50 text-blue-600 font-semibold" : "text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                    }`}
                   onClick={() => {
                     navigate("/importlist");
                     setDash(true);
@@ -558,9 +556,8 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
 
                 <button
                   type="button"
-                  className={`flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium w-full transition-colors ${
-                    isActive("/virtualinventory") ? "bg-blue-50 text-blue-600 font-semibold" : "text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
-                  }`}
+                  className={`flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium w-full transition-colors ${isActive("/virtualinventory") ? "bg-blue-50 text-blue-600 font-semibold" : "text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                    }`}
                   onClick={() => {
                     navigate("/virtualinventory");
                     setDash(true);
@@ -589,7 +586,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
               {/* Profile at Drawer Bottom */}
               <div className="p-4 border-t border-gray-200 dark:border-gray-700">
                 <a
-                  href="https://account.finerworks.com/dashboard"
+                  // href="https://account.finerworks.com/dashboard"
                   className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700 transition-colors"
                 >
                   <UserAvatar />
