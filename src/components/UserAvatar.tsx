@@ -89,12 +89,16 @@ export default function UserAvatar() {
     },
   ];
 
+  const pendingShopifyUrl = typeof window !== 'undefined' ? (sessionStorage.getItem('pending_shopify_auth_url') || localStorage.getItem('pending_shopify_auth_url')) : null;
+  const returnTarget = pendingShopifyUrl || (typeof window !== 'undefined' && window.location.href ? window.location.href : "https://fa.finerworks.com");
+  const loginUrl = `https://account.finerworks.com/login?ReturnUrl=${encodeURIComponent(returnTarget)}`;
+
   const logIn: MenuProps["items"] = [
     {
       key: "1",
       label: (
         <a
-          href="https://account.finerworks.com/login?ReturnUrl=https://fa.finerworks.com"
+          href={loginUrl}
           rel="noopener noreferrer"
           className="text-sm  text-gray-500 flex gap-1"
         >

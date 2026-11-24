@@ -67,7 +67,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   if (!cookies.AccountGUID ) {
     // Redirect to landing page if cookies don't exist
     // dispatch(clearCustomerInfo());
-    window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`
+    window.location.href = `https://account.finerworks.com/login?ReturnUrl=${encodeURIComponent(window.location.href)}`
     return 
   }
   // if(customerInfo?.data?.user_profile_complete === false){
@@ -114,15 +114,13 @@ console.log("islu", appLunched)
   if (!cookies.AccountGUID || !cookies.Session) {
     // Redirect to landing page if cookies don't exist
     // dispatch(clearCustomerInfo());
-    window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`
+    window.location.href = `https://account.finerworks.com/login?ReturnUrl=${encodeURIComponent(window.location.href)}`
     return
   }
   
   if (!company_info?.data?.billing_info?.first_name && appLunched === false && location.pathname === routes.landingPage) {
-    window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`
+    window.location.href = `https://account.finerworks.com/login?ReturnUrl=${encodeURIComponent(window.location.href)}`
     return
-  
-
   }
   return <Component />;
 };
@@ -212,6 +210,19 @@ const Router: React.FC = (): JSX.Element => {
       });
     }
   }, [location.pathname, checkedOrders]);
+
+  // Check if user just logged in with a pending Shopify auth flow
+  useEffect(() => {
+    if (cookies.AccountGUID && (location.pathname === "/" || location.pathname === routes.landingPage)) {
+      const pendingUrl = sessionStorage.getItem("pending_shopify_auth_url") || localStorage.getItem("pending_shopify_auth_url");
+      if (pendingUrl) {
+        console.log("🔄 Found pending Shopify auth URL after login, redirecting to complete auth:", pendingUrl);
+        sessionStorage.removeItem("pending_shopify_auth_url");
+        localStorage.removeItem("pending_shopify_auth_url");
+        window.location.href = pendingUrl;
+      }
+    }
+  }, [cookies.AccountGUID, location.pathname]);
 
   console.log("checked", checkedOrders.length);
   console.log("🔍 Current path:", location.pathname);

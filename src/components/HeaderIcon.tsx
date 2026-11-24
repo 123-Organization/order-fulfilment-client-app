@@ -137,7 +137,7 @@ const HeaderIcon: React.FC<HeaderIconProps> = ({ collapsed, setCollapsed }) => {
     if (cookies.AccountGUID) {
       setIframeVisible(!iframeVisible);
     } else {
-      window.location.href = `https://finerworks.com/login.aspx?mode=login&returnurl=${window.location.href}`
+      window.location.href = `https://account.finerworks.com/login?ReturnUrl=${encodeURIComponent(window.location.href)}`
     }
   }
 
