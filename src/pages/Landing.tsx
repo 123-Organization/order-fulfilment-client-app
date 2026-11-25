@@ -12,6 +12,7 @@ import squarespace from "../assets/images/store-squarespace.svg";
 import wix from "../assets/images/store-wix.svg";
 import woocommerce from "../assets/images/store-woocommerce.svg";
 import tiktok from "../tiktok-svgrepo-com.svg";
+import ebay from "../assets/images/store-ebay.svg";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ecommerceConnector } from "../store/features/ecommerceSlice";
 import configs from "../config/configs";
@@ -40,6 +41,7 @@ const BASE_URL = configs.SERVER_BASE_URL;
 const TIKTOK_BASE_URL = configs.TIKTOK_API_BASE_URL;
 
 const TIKTOK_ENABLED = true;
+const EBAY_ENABLED = true;
 
 
 const images = [
@@ -54,6 +56,7 @@ const images = [
   { name: "Shopify", img: shopify },
   { name: "BigCommerce", img: bigcommerce },
   { name: "TikTok Shop", img: tiktok },
+  { name: "eBay", img: ebay },
 ];
 
 export enum StepType {
@@ -98,6 +101,10 @@ const Landing: React.FC = (): JSX.Element => {
   // ── TikTok Shop ───────────────────────────────────────────────────────────
   const [tiktokConnectionStatus, setTiktokConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('verifying');
   const [lastTiktokConnectionData, setLastTiktokConnectionData] = useState<string | null>(null);
+
+  // ── eBay ───────────────────────────────────────────────────────────────────
+  const [ebayConnectionStatus, setEbayConnectionStatus] = useState<'idle' | 'verifying' | 'connected' | 'disconnected'>('verifying');
+  const [lastEbayConnectionData, setLastEbayConnectionData] = useState<string | null>(null);
   const [showTiktokConnectModal, setShowTiktokConnectModal] = useState<boolean>(false);
   const [tiktokDisconnecting, setTiktokDisconnecting] = useState<boolean>(false);
 
@@ -905,6 +912,36 @@ const Landing: React.FC = (): JSX.Element => {
         });
       }
     }
+
+    // eBay integration
+    if (imgname === "eBay") {
+      if (!EBAY_ENABLED) {
+        notificationApi.warning({
+          message: "Coming Soon",
+          description: "This platform is under development",
+        });
+        return;
+      }
+
+      const accountKeyToUse = customerInfo?.data?.account_key || cookies.AccountGUID;
+      if (!accountKeyToUse) {
+        window.location.href = `https://account.finerworks.com/login?ReturnUrl=${encodeURIComponent(window.location.href)}`;
+        return;
+      }
+      if (ebayConnectionStatus === 'connected') {
+        navigate("/importfilter?type=eBay");
+      } else if (accountKeyToUse) {
+        const returnUrl = `${window.location.origin}/`;
+        const redirectUrl = `${BASE_URL}ebay/auth?account_key=${accountKeyToUse}&return_url=${encodeURIComponent(returnUrl)}`;
+        console.log("Redirecting to eBay OAuth:", redirectUrl);
+        window.location.href = redirectUrl;
+      } else {
+        notificationApi.warning({
+          message: "Please complete your profile",
+          description: "Please complete your profile to connect to eBay",
+        });
+      }
+    }
   };
   // ── Squarespace: status is derived from companyInfo.connections (see useEffect below) ──
 
@@ -1014,6 +1051,22 @@ const Landing: React.FC = (): JSX.Element => {
         });
       }
     }
+
+    if (type === 'ebay') {
+      if (connected === 'true') {
+        setEbayConnectionStatus('connected');
+        notificationApi.success({
+          message: 'eBay Connected',
+          description: 'Your eBay store has been successfully connected!',
+        });
+      } else if (error) {
+        setEbayConnectionStatus('disconnected');
+        notificationApi.error({
+          message: 'eBay Connection Failed',
+          description: 'Failed to connect to your eBay store. Please try again.',
+        });
+      }
+    }
   }, [location.search, notificationApi]);
 
   // Initialize verification status if idle
@@ -1042,6 +1095,7 @@ const Landing: React.FC = (): JSX.Element => {
       setSquareConnectionStatus(prev => prev === 'verifying' ? 'disconnected' : prev);
       setBigcommerceConnectionStatus(prev => prev === 'verifying' ? 'disconnected' : prev);
       setTiktokConnectionStatus(prev => prev === 'verifying' ? 'disconnected' : prev);
+      setEbayConnectionStatus(prev => prev === 'verifying' ? 'disconnected' : prev);
       // Only resolve WooCommerce if still stuck — don't override an already-connected status
       if (connectionVerificationStatusRef.current === 'verifying') {
         dispatch(setConnectionVerificationStatus('disconnected'));
@@ -1505,6 +1559,49 @@ const Landing: React.FC = (): JSX.Element => {
       }
       console.log('=== END TIKTOK SHOP CONNECTION CHECK ===');
 
+      // ── Handle eBay connection ──────────────────────────────────────────────
+      const ebayConnection = companyInfo.connections.find((conn: any) =>
+        conn.name === 'eBay' || conn.name === 'Ebay' || conn.name === 'ebay'
+      );
+      console.log('=== EBAY CONNECTION CHECK ===');
+      console.log('eBay connection found?:', !!ebayConnection);
+
+      if (ebayConnection) {
+        const ebayIdentifier = `${ebayConnection.id || 'noid'}_${ebayConnection.data || 'nodata'}`;
+
+        if (ebayIdentifier !== lastEbayConnectionData || ebayConnectionStatus === 'verifying') {
+          console.log('eBay connection changed or first load, processing...');
+          setLastEbayConnectionData(ebayIdentifier);
+
+          if (ebayConnection.id) {
+            let isConnected = true;
+            if (ebayConnection.data && ebayConnection.data.trim() !== '') {
+              try {
+                const parsed = JSON.parse(ebayConnection.data);
+                console.log('eBay parsed data:', parsed);
+                if (parsed.isConnected === false || parsed.isConnected === 'false') {
+                  isConnected = false;
+                }
+              } catch (e) {
+                console.error('Error parsing eBay data:', e);
+              }
+            }
+            console.log('eBay isConnected:', isConnected);
+            setEbayConnectionStatus(isConnected ? 'connected' : 'disconnected');
+          } else {
+            console.log('eBay entry found but no id — disconnected');
+            setEbayConnectionStatus('disconnected');
+          }
+        } else {
+          console.log('eBay connection unchanged, skipping processing');
+        }
+      } else {
+        console.log('No eBay connection in connections array — disconnected');
+        setLastEbayConnectionData(null);
+        setEbayConnectionStatus('disconnected');
+      }
+      console.log('=== END EBAY CONNECTION CHECK ===');
+
     } else if (companyInfo !== null && companyInfo !== undefined) {
       // companyInfo has loaded but contains no connections — genuinely disconnected
       console.log("No connections available");
@@ -1516,9 +1613,10 @@ const Landing: React.FC = (): JSX.Element => {
       setSquareConnectionStatus('disconnected');
       setBigcommerceConnectionStatus('disconnected');
       setTiktokConnectionStatus('disconnected');
+      setEbayConnectionStatus('disconnected');
     }
     // If companyInfo is null/undefined the fetch hasn't completed yet — keep 'verifying'
-  }, [companyInfo, lastConnectionData, lastShopifyConnectionData, lastSquarespaceConnectionData, lastWixConnectionData, lastEtsyConnectionData, lastSquareConnectionData, lastBigcommerceConnectionData, lastTiktokConnectionData, dispatch]);
+  }, [companyInfo, lastConnectionData, lastShopifyConnectionData, lastSquarespaceConnectionData, lastWixConnectionData, lastEtsyConnectionData, lastSquareConnectionData, lastBigcommerceConnectionData, lastTiktokConnectionData, lastEbayConnectionData, dispatch]);
 
   // ── Per-platform connection status helpers ──────────────────────────────────
   const getStatus = (name: string) => {
@@ -1530,10 +1628,11 @@ const Landing: React.FC = (): JSX.Element => {
     if (name === "Square") return squareConnectionStatus;
     if (name === "BigCommerce") return bigcommerceConnectionStatus;
     if (name === "TikTok Shop") return tiktokConnectionStatus;
+    if (name === "eBay") return ebayConnectionStatus;
     return "idle";
   };
 
-  const ENABLED = ["WooCommerce", "Excel", "Squarespace", "Wix", "Etsy", "Square", "Shopify", "BigCommerce", "TikTok Shop"];
+  const ENABLED = ["WooCommerce", "Excel", "Squarespace", "Wix", "Etsy", "Square", "Shopify", "BigCommerce", "TikTok Shop", "eBay"];
 
   // ── Order-sync toggle API call ───────────────────────────────────────────
   const ORDER_SYNC_PLATFORMS: Record<string, boolean> = { Wix: true, Squarespace: true, Shopify: true };
@@ -1628,6 +1727,7 @@ const Landing: React.FC = (): JSX.Element => {
     if (platformName === "Square") setSquareConnectionStatus("disconnected");
     if (platformName === "BigCommerce") setBigcommerceConnectionStatus("disconnected");
     if (platformName === "TikTok Shop") setTiktokConnectionStatus("disconnected");
+    if (platformName === "eBay") setEbayConnectionStatus("disconnected");
   };
 
   // ── TikTok Shop: disconnect API call ────────────────────────────────────────
@@ -1721,7 +1821,7 @@ const Landing: React.FC = (): JSX.Element => {
           const status = getStatus(image.name);
           const enabled = ENABLED.includes(image.name);
           // "Coming Soon" applies to Shopify and Square while their integrations are being finalized
-          const isComingSoon = (image.name === "Square" && !SQUARE_ENABLED) || (image.name === "Shopify" && !SHOPIFY_ENABLED) || (image.name === "BigCommerce" && !BIGCOMMERCE_ENABLED) || (image.name === "TikTok Shop" && !TIKTOK_ENABLED);
+          const isComingSoon = (image.name === "Square" && !SQUARE_ENABLED) || (image.name === "Shopify" && !SHOPIFY_ENABLED) || (image.name === "BigCommerce" && !BIGCOMMERCE_ENABLED) || (image.name === "TikTok Shop" && !TIKTOK_ENABLED) || (image.name === "eBay" && !EBAY_ENABLED);
           const isConnected = status === "connected";
           const hasOrderSync = ORDER_SYNC_PLATFORMS[image.name] === true;
           const orderSyncOn = image.name === "Wix" ? wixOrderSync : image.name === "Shopify" ? shopifyOrderSync : squarespaceOrderSync;
