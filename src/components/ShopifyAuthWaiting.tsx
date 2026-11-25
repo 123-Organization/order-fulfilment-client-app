@@ -1,26 +1,44 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useCookies } from 'react-cookie';
 import shopifyLogo from '../assets/images/store-shopify.svg';
-import { useAppSelector } from '../store';
+import { useAppDispatch, useAppSelector } from '../store';
+import { getCustomerInfo } from '../store/features/customerSlice';
+import config from '../config/configs';
 
 interface ShopifyAuthWaitingProps {
   onAuthComplete?: () => void;
   authCode?: string;
   accessToken?: string;
   shop?: string;
+  callbackUrl?: string;
 }
+const base_url = config.SERVER_BASE_URL;
+
+// Read a cookie value directly from document.cookie (not via useCookies, which may lag after redirect)
+const getCookieDirect = (name: string): string | null => {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
+  return null;
+};
 
 const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
   onAuthComplete,
   authCode,
   accessToken,
-  shop
+  shop,
+  callbackUrl
 }) => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const [cookies] = useCookies(["Session", "AccountGUID"]);
   const customerInfo = useAppSelector((state) => state.Customer.customer_info);
-  const [status, setStatus] = useState<'authenticating' | 'success' | 'error'>('authenticating');
+  const [status, setStatus] = useState<'authenticating' | 'success' | 'error' | 'needs_login'>('authenticating');
   const [message, setMessage] = useState('Connecting to Shopify...');
   const [progress, setProgress] = useState(0);
+  // Guard to prevent repeated getCustomerInfo dispatches while waiting
+  const fetchingRef = useRef(false);
 
   useEffect(() => {
     // Simulate progress bar
@@ -38,21 +56,57 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
   }, []);
 
   useEffect(() => {
+    let redirectTimer: NodeJS.Timeout;
+
     const authenticateWithShopify = async () => {
       try {
         setMessage('Verifying your credentials...');
 
+        // Read cookie directly (useCookies may not reflect cookies set by an external login redirect)
+        const sessionGuid = getCookieDirect('AccountGUID') || cookies?.AccountGUID;
 
+        // Case 1: Not logged in at all — save state and redirect to login
+        if (!sessionGuid) {
+          console.warn('⚠️ No session found. Preserving Shopify auth state and redirecting to login...');
+          setStatus('needs_login');
+          setMessage('Please log in to your FinerWorks account to connect your Shopify store. Redirecting to login...');
 
-        // Get account_key from Redux store
-        const accountKey = customerInfo?.data?.account_key;
+          // Save current auth details so we don't lose the Shopify flow after login
+          const currentUrl = window.location.href;
+          sessionStorage.setItem('pending_shopify_auth_url', currentUrl);
+          localStorage.setItem('pending_shopify_auth_url', currentUrl);
+          if (shop && (authCode || accessToken)) {
+            const authData = JSON.stringify({ shop, authCode, accessToken, callbackUrl });
+            sessionStorage.setItem('pending_shopify_auth', authData);
+            localStorage.setItem('pending_shopify_auth', authData);
+          }
 
-
-
-        if (!accountKey) {
-          console.error('❌ No account key found in Redux store');
-          throw new Error('Account key not found. Please log in again.');
+          const loginUrl = `https://account.finerworks.com/login?ReturnUrl=${encodeURIComponent(currentUrl)}`;
+          redirectTimer = setTimeout(() => {
+            window.location.href = loginUrl;
+          }, 1500);
+          return;
         }
+
+        // Case 2: Logged in (cookie exists) but customerInfo not loaded yet
+        // Dispatch getCustomerInfo once and wait — the useEffect re-runs when customerInfo updates
+        if (!customerInfo?.data?.account_key) {
+          if (!fetchingRef.current) {
+            console.log('⏳ Session found but account_key not loaded yet. Fetching customer info...');
+            setMessage('Loading your account information...');
+            fetchingRef.current = true;
+            dispatch(getCustomerInfo()).finally(() => {
+              // Reset after a delay so if it fails we can retry once more
+              setTimeout(() => { fetchingRef.current = false; }, 3000);
+            });
+          }
+          return; // wait for re-run when customerInfo updates
+        }
+
+        // Case 3: account_key is available — proceed
+        // Reset fetch guard so future navigations work
+        fetchingRef.current = false;
+        const accountKey = customerInfo.data.account_key;
 
         // Use access_token if available, otherwise use code
         const tokenToSend = accessToken || authCode;
@@ -61,10 +115,8 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
           throw new Error('No authentication token found.');
         }
 
-
-
         // Make API call to backend
-        const response = await fetch('https://dwe8rzhebf.execute-api.us-east-1.amazonaws.com/Prod/api/shopify/callback', {
+        const response = await fetch(base_url + 'shopify/callback', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -78,9 +130,13 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
 
         const data = await response.json();
 
-
-
         if (response.ok && (data.success || data.message === 'Shop connected successfully')) {
+          // Clear pending auth from storage
+          sessionStorage.removeItem('pending_shopify_auth');
+          sessionStorage.removeItem('pending_shopify_auth_url');
+          localStorage.removeItem('pending_shopify_auth');
+          localStorage.removeItem('pending_shopify_auth_url');
+
           setProgress(100);
           setStatus('success');
           setMessage('Successfully connected to Shopify! Redirecting to your store...');
@@ -92,15 +148,13 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
             }
 
             // Redirect back to Shopify store admin with account_key in URL
-            const shopifyRedirectUrl = `https://shpf.finerworks.com/auth/finerworks-callback?shop=${shop}&account_key=${accountKey}`;
+            // Use the callback_url from Shopify if available, otherwise fall back to default
+            const baseCallbackUrl = callbackUrl || `https://shpf.finerworks.com/auth/finerworks-callback?shop=${shop}`;
+            const shopifyRedirectUrl = `${baseCallbackUrl}${baseCallbackUrl.includes('?') ? '&' : '?'}account_key=${accountKey}`;
 
-
-
-
-            console.log(' Redirecting to Shopify store:', shopifyRedirectUrl);
+            console.log('Redirecting to Shopify store:', shopifyRedirectUrl);
 
             // Redirect to Shopify store
-            window.location.href = ""
             window.location.href = shopifyRedirectUrl;
           }, 2000);
         } else {
@@ -123,7 +177,11 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
     if ((authCode || accessToken) && shop) {
       authenticateWithShopify();
     }
-  }, [authCode, accessToken, shop, customerInfo, navigate, onAuthComplete]);
+
+    return () => {
+      if (redirectTimer) clearTimeout(redirectTimer);
+    };
+  }, [authCode, accessToken, shop, callbackUrl, customerInfo, cookies?.AccountGUID, dispatch, navigate, onAuthComplete]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-green-50 via-white to-blue-50">
@@ -163,6 +221,16 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
               </div>
             )}
 
+            {status === 'needs_login' && (
+              <div className="animate-scale-in">
+                <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">
+                  <svg className="h-10 w-10 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                  </svg>
+                </div>
+              </div>
+            )}
+
             {status === 'success' && (
               <div className="animate-scale-in">
                 <svg className="h-16 w-16 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -183,16 +251,29 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
           {/* Status Message */}
           <h2 className={`text-2xl font-bold text-center mb-4 transition-colors duration-300 ${status === 'authenticating' ? 'text-gray-800' :
             status === 'success' ? 'text-green-600' :
-              'text-red-600'
+              status === 'needs_login' ? 'text-blue-600' :
+                'text-red-600'
             }`}>
             {status === 'authenticating' && 'Authenticating...'}
+            {status === 'needs_login' && 'Login Required'}
             {status === 'success' && 'Connected!'}
             {status === 'error' && 'Connection Failed'}
           </h2>
 
-          <p className="text-gray-600 text-center mb-8 text-sm">
+          <p className="text-gray-600 text-center mb-6 text-sm">
             {message}
           </p>
+
+          {status === 'needs_login' && (
+            <div className="text-center mb-6">
+              <a
+                href={`https://account.finerworks.com/login?ReturnUrl=${encodeURIComponent(window.location.href)}`}
+                className="inline-block px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded-lg shadow-md transition-colors"
+              >
+                Log In to FinerWorks
+              </a>
+            </div>
+          )}
 
           {/* Progress Bar */}
           <div className="w-full bg-gray-200 rounded-full h-3 mb-6 overflow-hidden">
@@ -274,4 +355,3 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
 };
 
 export default ShopifyAuthWaiting;
-
