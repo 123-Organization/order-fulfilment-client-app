@@ -14,6 +14,7 @@ const ShopifyAuth: React.FC = () => {
   let code = queryParams.get('code');
   let accessToken = queryParams.get('access_token');
   let shop = queryParams.get('shop');
+  let callbackUrl = queryParams.get('callback_url');
   const hmac = queryParams.get('hmac');
   const timestamp = queryParams.get('timestamp');
 
@@ -27,7 +28,8 @@ const ShopifyAuth: React.FC = () => {
           code = code || parsed.authCode || parsed.code;
           accessToken = accessToken || parsed.accessToken;
           shop = shop || parsed.shop;
-          console.log('🔄 Restored Shopify auth parameters from storage:', { shop, code, accessToken });
+          callbackUrl = callbackUrl || parsed.callbackUrl || null;
+          console.log('🔄 Restored Shopify auth parameters from storage:', { shop, code, accessToken, callbackUrl });
         }
       }
     } catch (e) {
@@ -36,16 +38,16 @@ const ShopifyAuth: React.FC = () => {
   }
 
   useEffect(() => {
-    // If valid parameters exist, save them in storage
+    // If valid parameters exist, save them in storage (including callbackUrl)
     if (shop && (code || accessToken)) {
       const currentUrl = window.location.href;
       sessionStorage.setItem('pending_shopify_auth_url', currentUrl);
       localStorage.setItem('pending_shopify_auth_url', currentUrl);
-      const authData = JSON.stringify({ shop, authCode: code, accessToken });
+      const authData = JSON.stringify({ shop, authCode: code, accessToken, callbackUrl });
       sessionStorage.setItem('pending_shopify_auth', authData);
       localStorage.setItem('pending_shopify_auth', authData);
     }
-  }, [shop, code, accessToken]);
+  }, [shop, code, accessToken, callbackUrl]);
 
   useEffect(() => {
     console.log('🔍 ShopifyAuth - URL Parameters:', {
@@ -81,6 +83,7 @@ const ShopifyAuth: React.FC = () => {
       authCode={code || undefined}
       accessToken={accessToken || undefined}
       shop={shop || undefined}
+      callbackUrl={callbackUrl || undefined}
       onAuthComplete={handleAuthComplete}
     />
   );
