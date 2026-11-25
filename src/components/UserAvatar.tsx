@@ -6,7 +6,6 @@ import { useAppSelector, useAppDispatch } from "../store";
 import { clearCustomerInfo, getCustomerInfo } from "../store/features/customerSlice";
 import email from "../../src/assets/images/email-svgrepo-com.svg";
 import user_icon from "../../src/assets/images/user-svgrepo-com.svg";
-import log_out from "../../src/assets/images/logout-svgrepo-com.svg";
 import { UserOutlined, ExclamationCircleFilled } from "@ant-design/icons";
 import { persistor } from "../store";
 import { clearPaymentMethods } from "../store/features/paymentSlice";
@@ -30,18 +29,6 @@ export default function UserAvatar() {
   const notificationApi = useNotificationContext();
   const companyInfo = useAppSelector((state) => state.company.company_info);
   const wordpressConnectionId = useAppSelector((state) => state.company.wordpress_connection_id);
-
-
-  const onLogout = () => {
-
-    localStorage.removeItem('hasVisitedCompanyPage');
-    dispatch(clearPaymentMethods());
-    dispatch(resetValidSKU());
-    dispatch(clearCustomerInfo())
-    dispatch(removeCurrentOption())
-    persistor.purge();
-  }
-
 
 
   const items: MenuProps["items"] = [
@@ -70,20 +57,6 @@ export default function UserAvatar() {
         >
           <img src={email} alt="user" width={17} />
           {customer_info?.data?.account_email}
-        </a>
-      ),
-    },
-    {
-      key: "3",
-      label: (
-        <a
-          rel="noopener noreferrer"
-          href="https://account.finerworks.com/logout"
-          className="flex gap-1 text-sm "
-          onClick={onLogout}
-        >
-          <img className="text-black" src={log_out} width={18} alt="logout" />
-          Log out
         </a>
       ),
     },
