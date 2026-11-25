@@ -11,6 +11,7 @@ interface ShopifyAuthWaitingProps {
   authCode?: string;
   accessToken?: string;
   shop?: string;
+  callbackUrl?: string;
 }
 const base_url = config.SERVER_BASE_URL;
 
@@ -18,7 +19,8 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
   onAuthComplete,
   authCode,
   accessToken,
-  shop
+  shop,
+  callbackUrl
 }) => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -50,11 +52,9 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
       try {
         setMessage('Verifying your credentials...');
 
-        // Get account_key from Redux store or cookies
-        const accountKey = customerInfo?.data?.account_key || cookies?.AccountGUID;
-
-        if (!accountKey) {
-          console.warn('⚠️ No account key or session found. Preserving Shopify auth state and redirecting to login...');
+        // Case 1: Not logged in at all — save state and redirect to login
+        if (!cookies?.AccountGUID) {
+          console.warn('⚠️ No session found. Preserving Shopify auth state and redirecting to login...');
           setStatus('needs_login');
           setMessage('Please log in to your FinerWorks account to connect your Shopify store. Redirecting to login...');
 
@@ -63,7 +63,7 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
           sessionStorage.setItem('pending_shopify_auth_url', currentUrl);
           localStorage.setItem('pending_shopify_auth_url', currentUrl);
           if (shop && (authCode || accessToken)) {
-            const authData = JSON.stringify({ shop, authCode, accessToken });
+            const authData = JSON.stringify({ shop, authCode, accessToken, callbackUrl });
             sessionStorage.setItem('pending_shopify_auth', authData);
             localStorage.setItem('pending_shopify_auth', authData);
           }
@@ -75,10 +75,17 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
           return;
         }
 
-        // If cookies.AccountGUID exists but customerInfo isn't fetched yet, fetch it in background
-        if (cookies?.AccountGUID && !customerInfo?.data?.account_key) {
+        // Case 2: Logged in (cookie exists) but customerInfo not loaded yet — trigger fetch and wait
+        // The useEffect will re-run once customerInfo updates with the real account_key
+        if (!customerInfo?.data?.account_key) {
+          console.log('⏳ Session found but account_key not loaded yet. Fetching customer info...');
+          setMessage('Loading your account information...');
           dispatch(getCustomerInfo());
+          return; // wait for re-run when customerInfo updates
         }
+
+        // Case 3: account_key is available — proceed
+        const accountKey = customerInfo.data.account_key;
 
         // Use access_token if available, otherwise use code
         const tokenToSend = accessToken || authCode;
@@ -120,7 +127,9 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
             }
 
             // Redirect back to Shopify store admin with account_key in URL
-            const shopifyRedirectUrl = `https://shpf.finerworks.com/auth/finerworks-callback?shop=${shop}&account_key=${accountKey}`;
+            // Use the callback_url from Shopify if available, otherwise fall back to default
+            const baseCallbackUrl = callbackUrl || `https://shpf.finerworks.com/auth/finerworks-callback?shop=${shop}`;
+            const shopifyRedirectUrl = `${baseCallbackUrl}${baseCallbackUrl.includes('?') ? '&' : '?'}account_key=${accountKey}`;
 
             console.log('Redirecting to Shopify store:', shopifyRedirectUrl);
 
@@ -151,7 +160,7 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
     return () => {
       if (redirectTimer) clearTimeout(redirectTimer);
     };
-  }, [authCode, accessToken, shop, customerInfo, cookies?.AccountGUID, dispatch, navigate, onAuthComplete]);
+  }, [authCode, accessToken, shop, callbackUrl, customerInfo, cookies?.AccountGUID, dispatch, navigate, onAuthComplete]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-green-50 via-white to-blue-50">
