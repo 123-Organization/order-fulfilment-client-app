@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCookies } from 'react-cookie';
 import shopifyLogo from '../assets/images/store-shopify.svg';
@@ -15,6 +15,14 @@ interface ShopifyAuthWaitingProps {
 }
 const base_url = config.SERVER_BASE_URL;
 
+// Read a cookie value directly from document.cookie (not via useCookies, which may lag after redirect)
+const getCookieDirect = (name: string): string | null => {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
+  return null;
+};
+
 const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
   onAuthComplete,
   authCode,
@@ -29,6 +37,8 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
   const [status, setStatus] = useState<'authenticating' | 'success' | 'error' | 'needs_login'>('authenticating');
   const [message, setMessage] = useState('Connecting to Shopify...');
   const [progress, setProgress] = useState(0);
+  // Guard to prevent repeated getCustomerInfo dispatches while waiting
+  const fetchingRef = useRef(false);
 
   useEffect(() => {
     // Simulate progress bar
@@ -52,8 +62,11 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
       try {
         setMessage('Verifying your credentials...');
 
+        // Read cookie directly (useCookies may not reflect cookies set by an external login redirect)
+        const sessionGuid = getCookieDirect('AccountGUID') || cookies?.AccountGUID;
+
         // Case 1: Not logged in at all — save state and redirect to login
-        if (!cookies?.AccountGUID) {
+        if (!sessionGuid) {
           console.warn('⚠️ No session found. Preserving Shopify auth state and redirecting to login...');
           setStatus('needs_login');
           setMessage('Please log in to your FinerWorks account to connect your Shopify store. Redirecting to login...');
@@ -75,16 +88,24 @@ const ShopifyAuthWaiting: React.FC<ShopifyAuthWaitingProps> = ({
           return;
         }
 
-        // Case 2: Logged in (cookie exists) but customerInfo not loaded yet — trigger fetch and wait
-        // The useEffect will re-run once customerInfo updates with the real account_key
+        // Case 2: Logged in (cookie exists) but customerInfo not loaded yet
+        // Dispatch getCustomerInfo once and wait — the useEffect re-runs when customerInfo updates
         if (!customerInfo?.data?.account_key) {
-          console.log('⏳ Session found but account_key not loaded yet. Fetching customer info...');
-          setMessage('Loading your account information...');
-          dispatch(getCustomerInfo());
+          if (!fetchingRef.current) {
+            console.log('⏳ Session found but account_key not loaded yet. Fetching customer info...');
+            setMessage('Loading your account information...');
+            fetchingRef.current = true;
+            dispatch(getCustomerInfo()).finally(() => {
+              // Reset after a delay so if it fails we can retry once more
+              setTimeout(() => { fetchingRef.current = false; }, 3000);
+            });
+          }
           return; // wait for re-run when customerInfo updates
         }
 
         // Case 3: account_key is available — proceed
+        // Reset fetch guard so future navigations work
+        fetchingRef.current = false;
         const accountKey = customerInfo.data.account_key;
 
         // Use access_token if available, otherwise use code
