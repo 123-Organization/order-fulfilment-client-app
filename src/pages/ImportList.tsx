@@ -1000,10 +1000,13 @@ const ImportList: React.FC = () => {
     // For an intentional full reset the user can click the explicit Refresh button,
     // which calls handleRefreshOrders() and clears both caches properly.
 
-    setTimeout(() => {
-      dispatch(fetchOrder(customerInfo?.data?.account_key));
+    if (!customerInfo?.data?.account_key) return;
+
+    const timer = setTimeout(() => {
+      dispatch(fetchOrder(customerInfo.data.account_key));
     }, 50);  // minimal delay to let React finish the navigation transition
-  }, []);
+    return () => clearTimeout(timer);
+  }, [customerInfo?.data?.account_key]);
   // console.log("oo", customerInfo?.data?.account_id);
 
   /** Explicit full refresh — clears shipping cache + product detail cache, then reloads orders. */
@@ -1122,7 +1125,9 @@ const ImportList: React.FC = () => {
       return;
     }
 
-    const orderFullFillmentIds = orders.data.map((order: any) => order.orderFullFillmentId);
+    const orderFullFillmentIds = orders.data
+      .map((order: any) => order.orderFullFillmentId ?? order.fulfillment_id)
+      .filter((id: any) => id !== null && id !== undefined && id !== "");
 
     const result = await dispatch(
       deleteOrder({
@@ -3347,9 +3352,9 @@ const ImportList: React.FC = () => {
                   </div>
                 );
               })
-            ) : !orders?.data || isRefreshing || isPendingUpdate || ordersStatus === 'loading' || ordersStatus === 'idle' ? (
+            ) : isRefreshing || isPendingUpdate || ordersStatus === 'loading' || ordersStatus === 'idle' ? (
               <SkeletonOrderCard count={3} />
-            ) : orders?.data && orders.data.length === 0 && !isRefreshing && !isPendingUpdate && ordersStatus === 'succeeded' ? (
+            ) : (!orders?.data || orders.data.length === 0) ? (
               <div className="flex flex-col items-center justify-center h-64 rounded-lg shadow-md p-6 mb-20" style={{ background: isDark ? "#0f1724" : "#ffffff" }}>
                 <img
                   src={shoppingCart}

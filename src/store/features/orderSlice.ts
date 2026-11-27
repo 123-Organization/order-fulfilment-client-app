@@ -1381,7 +1381,21 @@ export const OrderSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder.addCase(fetchOrder.fulfilled, (state, action) => {
-      state.orders = action.payload;
+      const payload = action.payload;
+      if (payload && Array.isArray(payload.data)) {
+        state.orders = {
+          ...payload,
+          data: payload.data.map((order: any) => ({
+            ...order,
+            orderFullFillmentId: order?.orderFullFillmentId ?? order?.fulfillment_id,
+          })),
+        };
+      } else {
+        state.orders = {
+          ...(payload || {}),
+          data: [],
+        };
+      }
       state.status = 'succeeded';
     });
     builder.addCase(fetchOrder.pending, (state, action) => {
@@ -1496,7 +1510,7 @@ export const OrderSlice = createSlice({
           ? action.meta.arg.orderFullFillmentId
           : [action.meta.arg.orderFullFillmentId];
         state.orders.data = state.orders.data.filter(
-          (order: any) => !deletedIds.includes(order.orderFullFillmentId)
+          (order: any) => !deletedIds.includes(order.orderFullFillmentId ?? order.fulfillment_id)
         );
       }
     }
